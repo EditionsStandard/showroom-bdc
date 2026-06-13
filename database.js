@@ -8,6 +8,7 @@ const pool = new Pool({
 async function init() {
   await pool.query(`
     ALTER TABLE products ADD COLUMN IF NOT EXISTS collection_name TEXT DEFAULT '';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS composition TEXT DEFAULT '';
   `).catch(() => {});
 
   await pool.query(`
@@ -33,6 +34,7 @@ async function init() {
       price NUMERIC DEFAULT 0,
       image_url TEXT DEFAULT '',
       collection_name TEXT DEFAULT '',
+      composition TEXT DEFAULT '',
       active INTEGER DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );

@@ -205,7 +205,7 @@
     <h3 id="modal-products-title">Collection</h3>
     <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="margin-bottom:16px">+ Ajouter référence</button>
     <table id="products-table">
-      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Tailles</th><th>Prix HT</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Prix HT</th><th></th></tr></thead>
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
@@ -230,6 +230,7 @@
         <div class="form-group"><label>Désignation</label><input id="p-desc" type="text" placeholder="Veste en cuir..."></div>
         <div class="form-group"><label>Couleur</label><input id="p-color" type="text" placeholder="Noir, Blanc..."></div>
       </div>
+      <div class="form-group"><label>Composition</label><input id="p-composition" type="text" placeholder="100% coton, 80% laine 20% soie..."></div>
       <div class="form-group"><label>Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" placeholder="XS, S, M, L, XL ou 36, 38, 40..."></div>
       <div class="form-group"><label>URL image (optionnel)</label><input id="p-img" type="url"></div>
       <div style="display:flex;gap:10px">
@@ -407,6 +408,7 @@ async function refreshProducts() {
       <td><strong>${p.reference}</strong></td>
       <td>${p.description||'—'}</td>
       <td>${p.color||'—'}</td>
+      <td>${p.composition||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td>${Number(p.price).toFixed(2)} €</td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">✕</button></td>
@@ -419,6 +421,7 @@ function openAddProduct() {
   document.getElementById('p-ref').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-color').value = '';
+  document.getElementById('p-composition').value = '';
   document.getElementById('p-sizes').value = '';
   document.getElementById('p-price').value = '';
   document.getElementById('p-img').value = '';
@@ -433,6 +436,7 @@ async function saveProduct() {
     reference,
     description: document.getElementById('p-desc').value,
     color: document.getElementById('p-color').value,
+    composition: document.getElementById('p-composition').value,
     sizes: document.getElementById('p-sizes').value,
     price: document.getElementById('p-price').value,
     image_url: document.getElementById('p-img').value
@@ -444,7 +448,7 @@ async function saveProduct() {
 
 function downloadCSVTemplate(e) {
   e.preventDefault();
-  const csv = 'collection_name,reference,description,color,sizes,price,image_url\nPrintemps-Été 2026,REF-001,Veste en cuir,Noir,"XS,S,M,L,XL",250.00,https://example.com/image.jpg\nPrintemps-Été 2026,REF-002,Robe midi,Blanc,"36,38,40",180.00,';
+  const csv = 'collection_name,reference,description,color,composition,sizes,price,image_url\nPrintemps-Été 2026,REF-001,Veste en cuir,Noir,100% cuir,"XS,S,M,L,XL",250.00,https://example.com/image.jpg\nPrintemps-Été 2026,REF-002,Robe midi,Blanc,80% soie 20% lin,"36,38,40",180.00,';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -473,6 +477,7 @@ async function importCSV(input) {
     reference: header.indexOf('reference'),
     description: header.indexOf('description'),
     color: header.indexOf('color'),
+    composition: header.indexOf('composition'),
     sizes: header.indexOf('sizes'),
     price: header.indexOf('price'),
     image_url: header.indexOf('image_url')
@@ -490,6 +495,7 @@ async function importCSV(input) {
     const body = {
       collection_name: idx.collection_name >= 0 ? cols[idx.collection_name]?.trim() || '' : '',
       reference: cols[idx.reference]?.trim() || '',
+      composition: idx.composition >= 0 ? cols[idx.composition]?.trim() || '' : '',
       description: idx.description >= 0 ? cols[idx.description]?.trim() || '' : '',
       color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',
       sizes: idx.sizes >= 0 ? cols[idx.sizes]?.trim() || '' : '',
