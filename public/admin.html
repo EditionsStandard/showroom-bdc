@@ -210,7 +210,7 @@
     <h3 id="modal-products-title">Collection</h3>
     <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="margin-bottom:16px">+ Ajouter référence</button>
     <table id="products-table">
-      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Prix HT</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Prix HT</th><th>Image</th><th></th></tr></thead>
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
@@ -225,7 +225,8 @@
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
 
     <div id="add-product-form" style="display:none">
-      <h3>Nouvelle référence</h3>
+      <h3 id="product-form-title">Nouvelle référence</h3>
+      <input type="hidden" id="p-id">
       <div class="form-row">
         <div class="form-group"><label>Nom de collection</label><input id="p-collection" type="text" placeholder="Printemps-Été 2026"></div>
         <div class="form-group"><label>Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
@@ -237,10 +238,23 @@
       </div>
       <div class="form-group"><label>Composition</label><input id="p-composition" type="text" placeholder="100% coton, 80% laine 20% soie..."></div>
       <div class="form-group"><label>Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" placeholder="XS, S, M, L, XL ou 36, 38, 40..."></div>
-      <div class="form-group"><label>URL image (optionnel)</label><input id="p-img" type="url"></div>
+      <div class="form-group">
+        <label>Image</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+            📷 Choisir un fichier
+            <input type="file" id="p-img-file" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+          </label>
+          <input id="p-img" type="url" placeholder="ou coller une URL..." style="flex:1;min-width:180px" oninput="previewImageUrl(this.value)">
+        </div>
+        <div id="p-img-preview" style="margin-top:8px;display:none">
+          <img id="p-img-thumb" src="" style="max-height:80px;border-radius:6px;border:1px solid #333">
+          <button class="btn btn-danger btn-sm" style="margin-left:8px;vertical-align:top" onclick="clearImage()">✕</button>
+        </div>
+      </div>
       <div style="display:flex;gap:10px">
-        <button class="btn btn-secondary" onclick="document.getElementById('add-product-form').style.display='none'">Annuler</button>
-        <button class="btn btn-primary" onclick="saveProduct()">Ajouter</button>
+        <button class="btn btn-secondary" onclick="cancelProductForm()">Annuler</button>
+        <button class="btn btn-primary" id="product-form-btn" onclick="saveProduct()">Ajouter</button>
       </div>
     </div>
     <div class="modal-footer">
@@ -407,8 +421,10 @@ async function loadProducts(brandId, brandName) {
 async function refreshProducts() {
   const products = await fetch(`/api/brands/${currentBrandId}/products`).then(r => r.json());
   const tbody = document.getElementById('products-body');
-  tbody.innerHTML = products.map(p => `
-    <tr>
+  tbody.innerHTML = products.map(p => {
+    const imgThumb = p.image_url ? `<img src="${p.image_url}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
+    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,image_url:p.image_url||''}).replace(/'/g,"&#39;");
+    return `<tr>
       <td>${p.collection_name ? `<span class="tag" style="background:#2a2a4a;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
       <td>${p.description||'—'}</td>
@@ -416,12 +432,17 @@ async function refreshProducts() {
       <td>${p.composition||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td>${Number(p.price).toFixed(2)} €</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">✕</button></td>
-    </tr>
-  `).join('') || '<tr><td colspan="6" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
+      <td>${imgThumb}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})'>✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
 }
 
 function openAddProduct() {
+  document.getElementById('p-id').value = '';
   document.getElementById('p-collection').value = '';
   document.getElementById('p-ref').value = '';
   document.getElementById('p-desc').value = '';
@@ -430,10 +451,71 @@ function openAddProduct() {
   document.getElementById('p-sizes').value = '';
   document.getElementById('p-price').value = '';
   document.getElementById('p-img').value = '';
+  document.getElementById('p-img-file').value = '';
+  document.getElementById('p-img-preview').style.display = 'none';
+  document.getElementById('product-form-title').textContent = 'Nouvelle référence';
+  document.getElementById('product-form-btn').textContent = 'Ajouter';
   document.getElementById('add-product-form').style.display = 'block';
 }
 
+function editProduct(p) {
+  document.getElementById('p-id').value = p.id;
+  document.getElementById('p-collection').value = p.collection_name || '';
+  document.getElementById('p-ref').value = p.reference || '';
+  document.getElementById('p-desc').value = p.description || '';
+  document.getElementById('p-color').value = p.color || '';
+  document.getElementById('p-composition').value = p.composition || '';
+  document.getElementById('p-sizes').value = p.sizes || '';
+  document.getElementById('p-price').value = p.price || '';
+  document.getElementById('p-img').value = p.image_url || '';
+  document.getElementById('p-img-file').value = '';
+  const preview = document.getElementById('p-img-preview');
+  if (p.image_url) {
+    document.getElementById('p-img-thumb').src = p.image_url;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+  document.getElementById('product-form-title').textContent = 'Modifier la référence';
+  document.getElementById('product-form-btn').textContent = 'Enregistrer';
+  document.getElementById('add-product-form').style.display = 'block';
+  document.getElementById('add-product-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function handleImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('p-img').value = e.target.result;
+    document.getElementById('p-img-thumb').src = e.target.result;
+    document.getElementById('p-img-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function previewImageUrl(url) {
+  if (url && url.startsWith('http')) {
+    document.getElementById('p-img-thumb').src = url;
+    document.getElementById('p-img-preview').style.display = 'block';
+  } else if (!url) {
+    document.getElementById('p-img-preview').style.display = 'none';
+  }
+}
+
+function clearImage() {
+  document.getElementById('p-img').value = '';
+  document.getElementById('p-img-file').value = '';
+  document.getElementById('p-img-thumb').src = '';
+  document.getElementById('p-img-preview').style.display = 'none';
+}
+
+function cancelProductForm() {
+  document.getElementById('add-product-form').style.display = 'none';
+}
+
 async function saveProduct() {
+  const id = document.getElementById('p-id').value;
   const reference = document.getElementById('p-ref').value.trim();
   if (!reference) return toast('Référence requise', true);
   const body = {
@@ -446,8 +528,13 @@ async function saveProduct() {
     price: document.getElementById('p-price').value,
     image_url: document.getElementById('p-img').value
   };
-  const r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  if (r.ok) { document.getElementById('add-product-form').style.display='none'; refreshProducts(); toast('Référence ajoutée'); }
+  let r;
+  if (id) {
+    r = await fetch(`/api/products/${id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  } else {
+    r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  }
+  if (r.ok) { cancelProductForm(); refreshProducts(); toast(id ? 'Référence modifiée' : 'Référence ajoutée'); }
   else toast('Erreur', true);
 }
 
