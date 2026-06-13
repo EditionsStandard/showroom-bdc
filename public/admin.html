@@ -209,6 +209,16 @@
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
+    <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+        📥 Importer CSV
+        <input type="file" id="csv-import-input" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
+      </label>
+      <a id="csv-template-link" href="#" onclick="downloadCSVTemplate(event)" class="btn btn-secondary btn-sm">📄 Télécharger modèle CSV</a>
+      <span style="font-size:11px;color:#666">Colonnes : reference, description, color, sizes, price, image_url</span>
+    </div>
+    <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
+
     <div id="add-product-form" style="display:none">
       <h3>Nouvelle référence</h3>
       <div class="form-row">
@@ -426,6 +436,92 @@ async function saveProduct() {
   const r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (r.ok) { document.getElementById('add-product-form').style.display='none'; refreshProducts(); toast('Référence ajoutée'); }
   else toast('Erreur', true);
+}
+
+function downloadCSVTemplate(e) {
+  e.preventDefault();
+  const csv = 'reference,description,color,sizes,price,image_url\nREF-001,Veste en cuir,Noir,"XS,S,M,L,XL",250.00,https://example.com/image.jpg\nREF-002,Robe midi,Blanc,"36,38,40",180.00,';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'modele-collection.csv';
+  a.click();
+}
+
+async function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const resultDiv = document.getElementById('csv-import-result');
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = '<div style="color:#aaa;font-size:13px">Importation en cours…</div>';
+
+  const text = await file.text();
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) {
+    resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px">Fichier vide ou invalide.</div>';
+    return;
+  }
+
+  // Parse header
+  const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+  const idx = {
+    reference: header.indexOf('reference'),
+    description: header.indexOf('description'),
+    color: header.indexOf('color'),
+    sizes: header.indexOf('sizes'),
+    price: header.indexOf('price'),
+    image_url: header.indexOf('image_url')
+  };
+
+  if (idx.reference === -1) {
+    resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px">Colonne "reference" introuvable dans le CSV.</div>';
+    return;
+  }
+
+  let success = 0, errors = 0;
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const cols = parseCSVLine(lines[i]);
+    const body = {
+      reference: cols[idx.reference]?.trim() || '',
+      description: idx.description >= 0 ? cols[idx.description]?.trim() || '' : '',
+      color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',
+      sizes: idx.sizes >= 0 ? cols[idx.sizes]?.trim() || '' : '',
+      price: idx.price >= 0 ? parseFloat(cols[idx.price]) || 0 : 0,
+      image_url: idx.image_url >= 0 ? cols[idx.image_url]?.trim() || '' : ''
+    };
+    if (!body.reference) continue;
+    const r = await fetch(`/api/brands/${currentBrandId}/products`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (r.ok) success++; else errors++;
+  }
+
+  input.value = '';
+  refreshProducts();
+  const color = errors > 0 ? '#f39c12' : '#2ecc71';
+  resultDiv.innerHTML = `<div style="color:${color};font-size:13px;background:${color}22;padding:10px 14px;border-radius:8px">
+    ✅ ${success} référence(s) importée(s)${errors > 0 ? ` — ⚠️ ${errors} erreur(s)` : ''}
+  </div>`;
+  setTimeout(() => { resultDiv.style.display = 'none'; }, 4000);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
 }
 
 async function deleteProduct(id) {
