@@ -62,7 +62,7 @@ async function init() {
   `);
 
   const defaults = {
-    showroom_name: 'Showroom Durand',
+    showroom_name: 'Editions Standard',
     showroom_email: '',
     smtp_host: '',
     smtp_port: '587',

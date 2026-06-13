@@ -15,7 +15,7 @@
   .sidebar-logo p { font-size: 11px; color: #666; margin-top: 2px; }
   nav { flex: 1; padding: 12px 0; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #888; font-size: 13px; text-decoration: none; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
-  nav a:hover, nav a.active { color: #fff; background: #252540; border-left-color: #6c63ff; }
+  nav a:hover, nav a.active { color: #fff; background: #252540; border-left-color: #CCEB3C; }
   nav a span.icon { font-size: 16px; }
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid #2a2a4a; }
   .sidebar-footer a { color: #666; font-size: 12px; text-decoration: none; }
@@ -36,13 +36,13 @@
   /* Stats */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
   .stat { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; padding: 20px; }
-  .stat .num { font-size: 28px; font-weight: 700; color: #6c63ff; }
+  .stat .num { font-size: 28px; font-weight: 700; color: #CCEB3C; }
   .stat .label { font-size: 12px; color: #888; margin-top: 4px; }
 
   /* Buttons */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
-  .btn-primary { background: #6c63ff; color: #fff; }
-  .btn-primary:hover { background: #5a52d5; }
+  .btn-primary { background: #CCEB3C; color: #fff; }
+  .btn-primary:hover { background: #b8d435; }
   .btn-secondary { background: #252540; color: #aaa; border: 1px solid #333; }
   .btn-secondary:hover { color: #fff; border-color: #555; }
   .btn-danger { background: transparent; color: #e74c3c; border: 1px solid #e74c3c33; }
@@ -56,7 +56,7 @@
   .form-group { margin-bottom: 14px; }
   label { display: block; font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
   input, textarea, select { width: 100%; background: #0f0f1a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e0e0e0; font-size: 13px; outline: none; transition: border-color .2s; font-family: inherit; }
-  input:focus, textarea:focus, select:focus { border-color: #6c63ff; }
+  input:focus, textarea:focus, select:focus { border-color: #CCEB3C; }
   textarea { resize: vertical; min-height: 70px; }
 
   /* Table */
@@ -104,8 +104,13 @@
 
 <div class="sidebar">
   <div class="sidebar-logo">
-    <h2>Showroom Durand</h2>
-    <p>Administration</p>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="/logo.svg" style="width:40px;height:40px;border-radius:6px;flex-shrink:0">
+      <div>
+        <h2 style="font-size:13px">Editions Standard</h2>
+        <p>Showroom Admin</p>
+      </div>
+    </div>
   </div>
   <nav>
     <a class="active" data-section="dashboard"><span class="icon">📊</span> Tableau de bord</a>
