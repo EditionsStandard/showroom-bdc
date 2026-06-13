@@ -215,7 +215,7 @@
         <input type="file" id="csv-import-input" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
       </label>
       <a id="csv-template-link" href="#" onclick="downloadCSVTemplate(event)" class="btn btn-secondary btn-sm">📄 Télécharger modèle CSV</a>
-      <span style="font-size:11px;color:#666">Colonnes : reference, description, color, sizes, price, image_url</span>
+      <span style="font-size:11px;color:#666">Colonnes acceptées : reference (ou ref/référence), description (ou désignation), color (ou couleur), composition, sizes (ou tailles), price (ou prix), image_url</span>
     </div>
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
 
@@ -473,8 +473,8 @@ async function importCSV(input) {
       return;
     }
 
-    // Auto-detect separator (, or ;)
-    const sep = lines[0].includes(';') ? ';' : ',';
+    // Auto-detect separator (tab, ; or ,)
+    const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
 
     const header = parseCSVLine(lines[0], sep).map(h => h.trim().toLowerCase().replace(/\s+/g,'_'));
     const idx = {
