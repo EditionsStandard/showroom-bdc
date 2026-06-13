@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Bon de Commande</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
+
+  /* Header */
+  .header { background: #1a1a2e; color: #fff; padding: 16px 20px; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+  .header h1 { font-size: 17px; font-weight: 700; }
+  .header p { font-size: 12px; color: #aaa; margin-top: 2px; }
+  .header-meta { display: flex; justify-content: space-between; align-items: center; }
+
+  /* Steps */
+  .steps { display: flex; background: #252540; }
+  .step { flex: 1; text-align: center; padding: 10px 4px; font-size: 11px; color: #666; font-weight: 600; position: relative; cursor: pointer; transition: all .2s; }
+  .step.active { color: #6c63ff; border-bottom: 2px solid #6c63ff; }
+  .step.done { color: #2ecc71; }
+  .step-num { display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: #333; font-size: 10px; line-height: 20px; margin-right: 4px; }
+  .step.active .step-num { background: #6c63ff; color: #fff; }
+  .step.done .step-num { background: #2ecc71; color: #fff; }
+
+  /* Pages */
+  .page { display: none; padding: 16px; }
+  .page.active { display: block; }
+
+  /* Product cards */
+  .product-card { background: #fff; border-radius: 12px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .product-header { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; }
+  .product-ref { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+  .product-desc { font-size: 12px; color: #888; margin-top: 2px; }
+  .product-meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .product-color { font-size: 11px; color: #666; background: #f4f5f7; padding: 3px 8px; border-radius: 10px; }
+  .product-price { font-size: 12px; font-weight: 700; color: #6c63ff; }
+  .product-image { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; float: right; margin-left: 10px; }
+
+  /* Size rows */
+  .size-rows { padding: 0 16px 12px; }
+  .size-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f9f9f9; }
+  .size-row:last-child { border-bottom: none; }
+  .size-label { font-size: 13px; font-weight: 600; color: #333; min-width: 50px; }
+  .qty-ctrl { display: flex; align-items: center; gap: 0; }
+  .qty-btn { width: 36px; height: 36px; border: none; background: #f0f0f5; border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #6c63ff; font-weight: 700; transition: background .15s; }
+  .qty-btn:active { background: #e0e0ef; }
+  .qty-val { width: 44px; text-align: center; font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .qty-input { width: 48px; text-align: center; font-size: 15px; font-weight: 700; border: 1.5px solid #ddd; border-radius: 8px; padding: 6px 4px; outline: none; background: #fff; }
+  .qty-input:focus { border-color: #6c63ff; }
+
+  /* No sizes mode */
+  .no-size-row { padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+
+  /* Cart summary */
+  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -2px 12px rgba(0,0,0,.3); z-index: 40; }
+  .cart-bar .cart-info { color: #fff; }
+  .cart-bar .cart-info strong { font-size: 16px; }
+  .cart-bar .cart-info span { font-size: 11px; color: #aaa; display: block; }
+  .btn-next { background: #6c63ff; color: #fff; border: none; border-radius: 10px; padding: 13px 24px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .15s; }
+  .btn-next:active { background: #5a52d5; }
+  .btn-next:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+  /* Form */
+  .form-section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .form-section h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+  .field input, .field textarea { width: 100%; border: 1.5px solid #e8e8ec; border-radius: 10px; padding: 12px 14px; font-size: 15px; outline: none; font-family: inherit; color: #1a1a2e; transition: border-color .2s; }
+  .field input:focus, .field textarea:focus { border-color: #6c63ff; }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .required { color: #e74c3c; }
+
+  /* Récap */
+  .recap-card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .recap-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #1a1a2e; }
+  .recap-line { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f4f5f7; font-size: 13px; }
+  .recap-line:last-child { border-bottom: none; }
+  .recap-line .ref { color: #333; }
+  .recap-line .qty { color: #888; font-size: 12px; margin-top: 1px; }
+  .recap-line .price { font-weight: 700; color: #1a1a2e; }
+  .total-bar { background: #1a1a2e; color: #fff; border-radius: 12px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 80px; }
+  .total-bar .label { font-size: 13px; color: #aaa; }
+  .total-bar .amount { font-size: 22px; font-weight: 700; color: #6c63ff; }
+
+  /* Success */
+  .success-page { text-align: center; padding: 60px 24px; }
+  .success-icon { font-size: 64px; margin-bottom: 20px; }
+  .success-page h2 { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; }
+  .success-page p { font-size: 14px; color: #666; line-height: 1.6; }
+  .success-page .email-sent { background: #e8f8f0; border-radius: 10px; padding: 14px 16px; margin: 20px 0; font-size: 13px; color: #27ae60; }
+
+  /* Back button */
+  .btn-back { background: none; border: none; color: #6c63ff; font-size: 13px; cursor: pointer; padding: 0; margin-bottom: 16px; font-weight: 600; }
+
+  /* Loader */
+  .loader { text-align: center; padding: 60px 20px; color: #888; font-size: 14px; }
+
+  .pb80 { padding-bottom: 90px; }
+
+  /* Search / filter */
+  .search-bar { background: #fff; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .search-bar input { border: none; outline: none; flex: 1; font-size: 14px; color: #1a1a2e; background: transparent; }
+  .search-bar span { color: #bbb; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-meta">
+    <div>
+      <h1 id="brand-name">Chargement…</h1>
+      <p id="showroom-subtitle">Showroom Durand — Fashion Week</p>
+    </div>
+    <div id="brand-logo-wrap"></div>
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step active" id="step1"><span class="step-num">1</span>Sélection</div>
+  <div class="step" id="step2"><span class="step-num">2</span>Infos client</div>
+  <div class="step" id="step3"><span class="step-num">3</span>Récapitulatif</div>
+</div>
+
+<!-- PAGE 1: Collection -->
+<div id="page1" class="page active pb80">
+  <div style="height:10px"></div>
+  <div class="search-bar">
+    <span>🔍</span>
+    <input id="search-input" type="text" placeholder="Rechercher une référence…" oninput="filterProducts()">
+  </div>
+  <div id="products-container"><div class="loader">Chargement de la collection…</div></div>
+</div>
+
+<!-- PAGE 2: Client info -->
+<div id="page2" class="page">
+  <div style="height:10px"></div>
+  <button class="btn-back" onclick="goToPage(1)">← Retour à la sélection</button>
+  <div class="form-section">
+    <h3>Informations client</h3>
+    <div class="field"><label>Nom complet <span class="required">*</span></label><input id="c-name" type="text" placeholder="Jean Dupont" autocomplete="name"></div>
+    <div class="field"><label>Email <span class="required">*</span></label><input id="c-email" type="email" placeholder="jean@boutique.fr" autocomplete="email"></div>
+    <div class="field"><label>Société / Boutique</label><input id="c-company" type="text" placeholder="Ma Boutique SAS" autocomplete="organization"></div>
+    <div class="field"><label>Téléphone</label><input id="c-phone" type="tel" placeholder="+33 6 …" autocomplete="tel"></div>
+    <div class="field"><label>Notes / Remarques</label><textarea id="c-notes" placeholder="Livraison souhaitée, conditions particulières…"></textarea></div>
+  </div>
+</div>
+
+<!-- PAGE 3: Recap + submit -->
+<div id="page3" class="page pb80">
+  <div style="height:10px"></div>
+  <button class="btn-back" onclick="goToPage(2)">← Retour aux infos client</button>
+  <div class="recap-card">
+    <h4>Votre commande</h4>
+    <div id="recap-lines"></div>
+  </div>
+  <div class="recap-card" id="client-recap"></div>
+  <div class="total-bar">
+    <div class="label">Total HT</div>
+    <div class="amount" id="recap-total">0,00 €</div>
+  </div>
+</div>
+
+<!-- PAGE SUCCESS -->
+<div id="page-success" class="page">
+  <div class="success-page">
+    <div class="success-icon">✅</div>
+    <h2>Commande confirmée !</h2>
+    <p>Votre bon de commande a été enregistré avec succès.</p>
+    <div class="email-sent" id="success-email-msg">Un PDF vous sera envoyé par email.</div>
+    <p style="margin-top:16px;font-size:13px;color:#aaa">Merci pour votre visite au showroom.</p>
+  </div>
+</div>
+
+<!-- Cart bar -->
+<div class="cart-bar" id="cart-bar">
+  <div class="cart-info">
+    <strong id="cart-total">0,00 €</strong>
+    <span id="cart-count">0 article(s)</span>
+  </div>
+  <button class="btn-next" id="btn-next" onclick="nextStep()" disabled>Suivant →</button>
+</div>
+
+<script>
+const brandId = location.pathname.split('/').pop();
+let brandData = null;
+let productsData = [];
+// cart: { productId_size: { product, size, qty } }
+const cart = {};
+let currentPage = 1;
+
+async function init() {
+  try {
+    const data = await fetch(`/api/public/brands/${brandId}`).then(r => r.json());
+    if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">Marque introuvable.</div>'; return; }
+    brandData = data.brand;
+    productsData = data.products;
+    document.getElementById('brand-name').textContent = data.brand.name;
+    if (data.brand.logo_url) {
+      document.getElementById('brand-logo-wrap').innerHTML = `<img src="${data.brand.logo_url}" style="height:36px;border-radius:6px;object-fit:contain">`;
+    }
+    renderProducts(productsData);
+  } catch(e) {
+    document.getElementById('products-container').innerHTML = '<div class="loader">Erreur de chargement.</div>';
+  }
+}
+
+function filterProducts() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const filtered = q ? productsData.filter(p =>
+    p.reference.toLowerCase().includes(q) ||
+    (p.description||'').toLowerCase().includes(q) ||
+    (p.color||'').toLowerCase().includes(q)
+  ) : productsData;
+  renderProducts(filtered);
+}
+
+function renderProducts(products) {
+  const container = document.getElementById('products-container');
+  if (!products.length) { container.innerHTML = '<div class="loader">Aucune référence trouvée.</div>'; return; }
+
+  container.innerHTML = products.map(p => {
+    const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const hasSizes = sizes.length > 0;
+    const imgHtml = p.image_url ? `<img src="${p.image_url}" class="product-image" onerror="this.style.display='none'">` : '';
+
+    let sizeRows = '';
+    if (hasSizes) {
+      sizeRows = sizes.map(sz => {
+        const key = `${p.id}_${sz}`;
+        const qty = cart[key]?.qty || 0;
+        return `<div class="size-row">
+          <span class="size-label">${sz}</span>
+          <div class="qty-ctrl">
+            <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',-1,'${p.id}_${sz}')">−</button>
+            <input class="qty-input" type="number" min="0" value="${qty}" id="qty_${p.id}_${sz.replace(/\s/g,'_')}"
+              onchange="setQty('${p.id}','${sz}',this.value)" oninput="setQty('${p.id}','${sz}',this.value)">
+            <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',1,'${p.id}_${sz}')">+</button>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      const key = `${p.id}_`;
+      const qty = cart[key]?.qty || 0;
+      sizeRows = `<div class="no-size-row">
+        <span style="font-size:13px;color:#888">Quantité</span>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="changeQty('${p.id}','',-1,'${p.id}_')">−</button>
+          <input class="qty-input" type="number" min="0" value="${qty}" id="qty_${p.id}_"
+            onchange="setQty('${p.id}','',this.value)" oninput="setQty('${p.id}','',this.value)">
+          <button class="qty-btn" onclick="changeQty('${p.id}','',1,'${p.id}_')">+</button>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="product-card" id="card_${p.id}">
+      <div class="product-header">
+        ${imgHtml}
+        <div class="product-ref">${p.reference}</div>
+        ${p.description ? `<div class="product-desc">${p.description}</div>` : ''}
+        <div class="product-meta">
+          ${p.color ? `<span class="product-color">🎨 ${p.color}</span>` : ''}
+          ${p.price > 0 ? `<span class="product-price">${Number(p.price).toFixed(2)} €</span>` : ''}
+        </div>
+      </div>
+      <div class="size-rows">${sizeRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function changeQty(productId, size, delta, key) {
+  const inputId = `qty_${productId}_${size.replace(/\s/g,'_')}`;
+  const input = document.getElementById(inputId);
+  const current = parseInt(input.value) || 0;
+  const newVal = Math.max(0, current + delta);
+  input.value = newVal;
+  setQty(productId, size, newVal);
+}
+
+function setQty(productId, size, val) {
+  const qty = Math.max(0, parseInt(val) || 0);
+  const key = `${productId}_${size}`;
+  const product = productsData.find(p => p.id === productId);
+  if (qty > 0) {
+    cart[key] = { product, size, qty };
+  } else {
+    delete cart[key];
+  }
+  updateCartBar();
+}
+
+function updateCartBar() {
+  let totalQty = 0, totalPrice = 0;
+  for (const item of Object.values(cart)) {
+    totalQty += item.qty;
+    totalPrice += item.qty * (item.product.price || 0);
+  }
+  document.getElementById('cart-count').textContent = `${totalQty} article(s)`;
+  document.getElementById('cart-total').textContent = totalPrice.toFixed(2).replace('.', ',') + ' €';
+  document.getElementById('btn-next').disabled = totalQty === 0;
+}
+
+function goToPage(n) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.step').forEach(s => { s.classList.remove('active', 'done'); });
+
+  // Update steps
+  for (let i = 1; i <= 3; i++) {
+    if (i < n) document.getElementById(`step${i}`).classList.add('done');
+    if (i === n) document.getElementById(`step${i}`).classList.add('active');
+  }
+
+  if (n === 1) { document.getElementById('page1').classList.add('active'); document.getElementById('cart-bar').style.display = 'flex'; }
+  else if (n === 2) { document.getElementById('page2').classList.add('active'); document.getElementById('cart-bar').style.display = 'flex'; }
+  else if (n === 3) { renderRecap(); document.getElementById('page3').classList.add('active'); document.getElementById('cart-bar').style.display = 'flex'; document.getElementById('btn-next').textContent = 'Confirmer la commande'; }
+
+  currentPage = n;
+  window.scrollTo(0, 0);
+}
+
+function nextStep() {
+  if (currentPage === 1) {
+    if (Object.keys(cart).length === 0) return;
+    goToPage(2);
+    document.getElementById('btn-next').textContent = 'Voir le récapitulatif →';
+  } else if (currentPage === 2) {
+    const name = document.getElementById('c-name').value.trim();
+    const email = document.getElementById('c-email').value.trim();
+    if (!name || !email) { alert('Nom et email requis.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Email invalide.'); return; }
+    goToPage(3);
+  } else if (currentPage === 3) {
+    submitOrder();
+  }
+}
+
+function renderRecap() {
+  const lines = Object.values(cart);
+  const totalPrice = lines.reduce((s, l) => s + l.qty * (l.product.price || 0), 0);
+
+  document.getElementById('recap-lines').innerHTML = lines.map(l => `
+    <div class="recap-line">
+      <div>
+        <div class="ref">${l.product.reference}${l.size ? ' — ' + l.size : ''}</div>
+        <div class="qty">${l.qty} × ${Number(l.product.price||0).toFixed(2)} €</div>
+      </div>
+      <div class="price">${(l.qty * (l.product.price||0)).toFixed(2)} €</div>
+    </div>
+  `).join('');
+
+  document.getElementById('recap-total').textContent = totalPrice.toFixed(2).replace('.', ',') + ' €';
+
+  const name = document.getElementById('c-name').value;
+  const email = document.getElementById('c-email').value;
+  const company = document.getElementById('c-company').value;
+  const phone = document.getElementById('c-phone').value;
+  document.getElementById('client-recap').innerHTML = `
+    <h4>Client</h4>
+    <div class="recap-line"><span>Nom</span><strong>${name}</strong></div>
+    <div class="recap-line"><span>Email</span><strong>${email}</strong></div>
+    ${company ? `<div class="recap-line"><span>Société</span><strong>${company}</strong></div>` : ''}
+    ${phone ? `<div class="recap-line"><span>Téléphone</span><strong>${phone}</strong></div>` : ''}
+  `;
+}
+
+async function submitOrder() {
+  document.getElementById('btn-next').disabled = true;
+  document.getElementById('btn-next').textContent = 'Envoi en cours…';
+
+  const lines = Object.values(cart).map(l => ({
+    product_id: l.product.id,
+    size: l.size,
+    quantity: l.qty
+  }));
+
+  const body = {
+    brand_id: brandId,
+    client_name: document.getElementById('c-name').value.trim(),
+    client_email: document.getElementById('c-email').value.trim(),
+    client_company: document.getElementById('c-company').value.trim(),
+    client_phone: document.getElementById('c-phone').value.trim(),
+    notes: document.getElementById('c-notes').value.trim(),
+    lines
+  };
+
+  try {
+    const r = await fetch('/api/public/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (data.ok) {
+      document.getElementById('cart-bar').style.display = 'none';
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
+      document.getElementById('page-success').classList.add('active');
+      document.getElementById('success-email-msg').textContent = `Un PDF de confirmation a été envoyé à ${body.client_email}`;
+    } else {
+      alert(data.error || 'Erreur lors de la commande');
+      document.getElementById('btn-next').disabled = false;
+      document.getElementById('btn-next').textContent = 'Confirmer la commande';
+    }
+  } catch(e) {
+    alert('Erreur réseau. Vérifiez votre connexion.');
+    document.getElementById('btn-next').disabled = false;
+    document.getElementById('btn-next').textContent = 'Confirmer la commande';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
