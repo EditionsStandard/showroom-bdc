@@ -238,8 +238,9 @@
       </div>
       <div class="form-group"><label>Composition</label><input id="p-composition" type="text" placeholder="100% coton, 80% laine 20% soie..."></div>
       <div class="form-group"><label>Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" placeholder="XS, S, M, L, XL ou 36, 38, 40..."></div>
-      <div class="form-group">
-        <label>Photos du produit</label>
+      <!-- Photos sans variante -->
+      <div class="form-group" id="p-images-section">
+        <label>Photos du produit <span style="color:#555;font-weight:400;font-size:11px">(si pas de variante couleur)</span></label>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
             📷 Ajouter photo(s)
@@ -249,6 +250,15 @@
         </div>
         <div id="p-images-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
         <input type="hidden" id="p-img">
+      </div>
+
+      <!-- Variantes couleur -->
+      <div class="form-group">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          <span>Variantes de couleur</span>
+          <button class="btn btn-secondary btn-sm" onclick="addVariant()" type="button">+ Ajouter une couleur</button>
+        </label>
+        <div id="p-variants-list" style="margin-top:8px;display:flex;flex-direction:column;gap:12px"></div>
       </div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-secondary" onclick="cancelProductForm()">Annuler</button>
@@ -421,7 +431,7 @@ async function refreshProducts() {
   const tbody = document.getElementById('products-body');
   tbody.innerHTML = products.map(p => {
     const imgThumb = p.image_url ? `<img src="${p.image_url}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
-    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,image_url:p.image_url||''}).replace(/'/g,"&#39;");
+    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
     return `<tr>
       <td>${p.collection_name ? `<span class="tag" style="background:#2a2a4a;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
@@ -440,9 +450,11 @@ async function refreshProducts() {
 }
 
 let currentImages = [];
+let currentVariants = []; // [{color, images:[]}]
 
-function openAddProduct() {
+function resetProductForm() {
   currentImages = [];
+  currentVariants = [];
   document.getElementById('p-id').value = '';
   document.getElementById('p-collection').value = '';
   document.getElementById('p-ref').value = '';
@@ -454,17 +466,26 @@ function openAddProduct() {
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
   renderImagesGrid();
+  renderVariantsList();
+}
+
+function openAddProduct() {
+  resetProductForm();
   document.getElementById('product-form-title').textContent = 'Nouvelle référence';
   document.getElementById('product-form-btn').textContent = 'Ajouter';
   document.getElementById('add-product-form').style.display = 'block';
 }
 
 function editProduct(p) {
-  // images: prefer new images array, fallback to legacy image_url
+  resetProductForm();
   let imgs = [];
   try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
   if (!imgs.length && p.image_url) imgs = [p.image_url];
   currentImages = imgs;
+
+  let variants = [];
+  try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
+  currentVariants = variants;
 
   document.getElementById('p-id').value = p.id;
   document.getElementById('p-collection').value = p.collection_name || '';
@@ -477,10 +498,76 @@ function editProduct(p) {
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
   renderImagesGrid();
+  renderVariantsList();
   document.getElementById('product-form-title').textContent = 'Modifier la référence';
   document.getElementById('product-form-btn').textContent = 'Enregistrer';
   document.getElementById('add-product-form').style.display = 'block';
   document.getElementById('add-product-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Variants ──────────────────────────────────────────
+function addVariant() {
+  currentVariants.push({ color: '', images: [] });
+  renderVariantsList();
+  // focus last color input
+  const inputs = document.querySelectorAll('.variant-color-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function removeVariant(i) {
+  currentVariants.splice(i, 1);
+  renderVariantsList();
+}
+
+function renderVariantsList() {
+  const list = document.getElementById('p-variants-list');
+  if (!currentVariants.length) {
+    list.innerHTML = '<span style="color:#555;font-size:12px">Aucune variante — les photos ci-dessus s\'affichent pour toutes les couleurs.</span>';
+    return;
+  }
+  list.innerHTML = currentVariants.map((v, i) => `
+    <div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:12px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input class="variant-color-input" type="text" placeholder="Nom de la couleur (ex: Noir, Écru…)"
+          value="${esc(v.color)}" oninput="currentVariants[${i}].color=this.value"
+          style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;color:#fff;font-size:14px">
+        <button onclick="removeVariant(${i})" style="background:#c0392b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          📷 Photos
+          <input type="file" accept="image/*" multiple style="display:none" onchange="handleVariantImageUpload(this,${i})">
+        </label>
+        <span style="font-size:11px;color:#555">${v.images.length} photo(s)</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${v.images.map((src, j) => `
+          <div style="position:relative">
+            <img src="${src}" style="height:60px;width:60px;object-fit:cover;border-radius:5px;border:1px solid #333">
+            <button onclick="removeVariantImage(${i},${j})" style="position:absolute;top:-5px;right:-5px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0">✕</button>
+          </div>`).join('')}
+        ${!v.images.length ? '<span style="color:#444;font-size:11px">Aucune photo</span>' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function removeVariantImage(vi, ji) {
+  currentVariants[vi].images.splice(ji, 1);
+  renderVariantsList();
+}
+
+async function handleVariantImageUpload(input, vi) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  toast(`Compression de ${files.length} photo(s)…`);
+  for (const file of files) {
+    const compressed = await compressAndAdd(file);
+    currentVariants[vi].images.push(compressed);
+  }
+  input.value = '';
+  renderVariantsList();
+  toast('Photos ajoutées');
 }
 
 function renderImagesGrid() {
@@ -549,6 +636,8 @@ async function saveProduct() {
   const id = document.getElementById('p-id').value;
   const reference = document.getElementById('p-ref').value.trim();
   if (!reference) return toast('Référence requise', true);
+  // first image: prefer first variant image if variants exist, else main images
+  const firstImg = currentVariants.length ? (currentVariants[0].images[0] || '') : (currentImages[0] || '');
   const body = {
     collection_name: document.getElementById('p-collection').value,
     reference,
@@ -557,8 +646,9 @@ async function saveProduct() {
     composition: document.getElementById('p-composition').value,
     sizes: document.getElementById('p-sizes').value,
     price: document.getElementById('p-price').value,
-    image_url: currentImages[0] || '',
-    images: currentImages
+    image_url: firstImg,
+    images: currentImages,
+    variants: currentVariants
   };
   let r;
   if (id) {

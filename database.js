@@ -10,6 +10,7 @@ async function init() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS collection_name TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS composition TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS variants TEXT DEFAULT '[]';
   `).catch(() => {});
 
   await pool.query(`

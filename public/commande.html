@@ -105,6 +105,8 @@
   .img-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.3); border: none; cursor: pointer; padding: 0; transition: background .2s; touch-action: manipulation; }
   .img-dot.active { background: #fff; }
   .img-counter { color: rgba(255,255,255,.5); font-size: 12px; padding-bottom: 8px; }
+  .color-btn { background: #1a1a1a; border: 1.5px solid #333; color: #ccc; border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; }
+  .color-btn.active { border-color: #6c63ff; color: #6c63ff; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -231,16 +233,38 @@ function renderProducts(products) {
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = p.id + '|';
 
+    let variants = [];
+    try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
+    // filter out empty variants
+    variants = variants.filter(v => v.color || v.images.length);
+
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];
-    const imagesJson = esc(JSON.stringify(imgs));
-    const imgHtml = imgs.length
-      ? '<div class="product-img-wrap" style="position:relative">'
-        + '<img class="product-img" src="' + esc(imgs[0]) + '" data-images="' + imagesJson + '" onerror="this.parentElement.style.display=\'none\'">'
-        + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
+
+    // Build image block
+    let imgHtml = '';
+    if (variants.length) {
+      // Show first variant's images, color buttons below
+      const firstImgs = variants[0].images.length ? variants[0].images : imgs;
+      const firstSrc = firstImgs[0] || '';
+      const variantsJson = esc(JSON.stringify(variants));
+      imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
+        + (firstSrc ? '<img class="product-img" id="pimg_' + p.id + '" src="' + esc(firstSrc) + '" data-images="' + esc(JSON.stringify(firstImgs)) + '" onerror="this.style.display=\'none\'">'
+                    : '<div class="product-img-placeholder"></div>')
+        + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
         + '</div>'
-      : '<div class="product-img-placeholder"></div>';
+        + '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
+        + variants.map((v, vi) => '<button class="color-btn' + (vi===0?' active':'') + '" data-vi="' + vi + '" data-pid="' + p.id + '" style="' + (vi===0?'border-color:#6c63ff;color:#6c63ff':'') + '">' + esc(v.color||('Coloris '+(vi+1))) + '</button>').join('')
+        + '</div>';
+    } else if (imgs.length) {
+      imgHtml = '<div class="product-img-wrap" style="position:relative">'
+        + '<img class="product-img" src="' + esc(imgs[0]) + '" data-images="' + esc(JSON.stringify(imgs)) + '" onerror="this.parentElement.style.display=\'none\'">'
+        + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
+        + '</div>';
+    } else {
+      imgHtml = '<div class="product-img-placeholder"></div>';
+    }
 
     const sizeRowsHtml = sizes.length > 0
       ? sizes.map(sz => {
@@ -283,6 +307,40 @@ document.getElementById('products-container').addEventListener('click', function
   // Image carousel
   const img = e.target.closest('.product-img');
   if (img && img.dataset.images) { openCarousel(JSON.parse(img.dataset.images), 0); return; }
+
+  // Color variant switch
+  const cbtn = e.target.closest('.color-btn');
+  if (cbtn) {
+    const pid = cbtn.dataset.pid;
+    const vi = parseInt(cbtn.dataset.vi);
+    const wrap = document.getElementById('vcolors_' + pid);
+    const variants = JSON.parse(wrap.dataset.variants);
+    const v = variants[vi];
+    const vImgs = v.images && v.images.length ? v.images : [];
+    // update active button
+    wrap.querySelectorAll('.color-btn').forEach((b, i) => {
+      b.classList.toggle('active', i === vi);
+      b.style.borderColor = i === vi ? '#6c63ff' : '';
+      b.style.color = i === vi ? '#6c63ff' : '';
+    });
+    // update image
+    const pimg = document.getElementById('pimg_' + pid);
+    const badge = document.getElementById('pimgbadge_' + pid);
+    if (pimg) {
+      if (vImgs.length) {
+        pimg.src = vImgs[0];
+        pimg.dataset.images = JSON.stringify(vImgs);
+        pimg.style.display = '';
+      } else {
+        pimg.style.display = 'none';
+      }
+    }
+    if (badge) {
+      if (vImgs.length > 1) { badge.textContent = vImgs.length + ' 📷'; badge.style.display = ''; }
+      else { badge.style.display = 'none'; }
+    }
+    return;
+  }
 
   // Qty buttons
   const btn = e.target.closest('.qty-btn');

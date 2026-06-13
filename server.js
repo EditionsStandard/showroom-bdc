@@ -113,21 +113,21 @@ app.get('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
-  const { reference, description, color, sizes, price, image_url, collection_name, composition, images } = req.body;
+  const { reference, description, color, sizes, price, image_url, collection_name, composition, images, variants } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,image_url,collection_name,composition,images) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[])]
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,image_url,collection_name,composition,images,variants) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[])]
   );
   res.json({ id });
 });
 
 app.put('/api/products/:id', requireAdmin, async (req, res) => {
-  const { reference, description, color, sizes, price, image_url, active, collection_name, composition, images } = req.body;
+  const { reference, description, color, sizes, price, image_url, active, collection_name, composition, images, variants } = req.body;
   await pool.query(
-    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,image_url=$6,active=$7,collection_name=$8,composition=$9,images=$10 WHERE id=$11',
-    [reference, description||'', color||'', sizes||'', price||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), req.params.id]
+    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,image_url=$6,active=$7,collection_name=$8,composition=$9,images=$10,variants=$11 WHERE id=$12',
+    [reference, description||'', color||'', sizes||'', price||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), req.params.id]
   );
   res.json({ ok: true });
 });
