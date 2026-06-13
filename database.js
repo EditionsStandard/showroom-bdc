@@ -7,6 +7,10 @@ const pool = new Pool({
 
 async function init() {
   await pool.query(`
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS collection_name TEXT DEFAULT '';
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
@@ -28,6 +32,7 @@ async function init() {
       sizes TEXT DEFAULT '',
       price NUMERIC DEFAULT 0,
       image_url TEXT DEFAULT '',
+      collection_name TEXT DEFAULT '',
       active INTEGER DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );

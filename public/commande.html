@@ -256,6 +256,7 @@ function renderProducts(products) {
     return `<div class="product-card" id="card_${p.id}">
       <div class="product-header">
         ${imgHtml}
+        ${p.collection_name ? `<div style="font-size:10px;font-weight:700;color:#6c63ff;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${p.collection_name}</div>` : ''}
         <div class="product-ref">${p.reference}</div>
         ${p.description ? `<div class="product-desc">${p.description}</div>` : ''}
         <div class="product-meta">

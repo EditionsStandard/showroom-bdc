@@ -205,7 +205,7 @@
     <h3 id="modal-products-title">Collection</h3>
     <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="margin-bottom:16px">+ Ajouter référence</button>
     <table id="products-table">
-      <thead><tr><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Tailles</th><th>Prix HT</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Tailles</th><th>Prix HT</th><th></th></tr></thead>
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
@@ -222,6 +222,7 @@
     <div id="add-product-form" style="display:none">
       <h3>Nouvelle référence</h3>
       <div class="form-row">
+        <div class="form-group"><label>Nom de collection</label><input id="p-collection" type="text" placeholder="Printemps-Été 2026"></div>
         <div class="form-group"><label>Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
         <div class="form-group"><label>Prix HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
       </div>
@@ -402,6 +403,7 @@ async function refreshProducts() {
   const tbody = document.getElementById('products-body');
   tbody.innerHTML = products.map(p => `
     <tr>
+      <td>${p.collection_name ? `<span class="tag" style="background:#2a2a4a;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
       <td>${p.description||'—'}</td>
       <td>${p.color||'—'}</td>
@@ -413,6 +415,7 @@ async function refreshProducts() {
 }
 
 function openAddProduct() {
+  document.getElementById('p-collection').value = '';
   document.getElementById('p-ref').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-color').value = '';
@@ -426,6 +429,7 @@ async function saveProduct() {
   const reference = document.getElementById('p-ref').value.trim();
   if (!reference) return toast('Référence requise', true);
   const body = {
+    collection_name: document.getElementById('p-collection').value,
     reference,
     description: document.getElementById('p-desc').value,
     color: document.getElementById('p-color').value,
@@ -440,7 +444,7 @@ async function saveProduct() {
 
 function downloadCSVTemplate(e) {
   e.preventDefault();
-  const csv = 'reference,description,color,sizes,price,image_url\nREF-001,Veste en cuir,Noir,"XS,S,M,L,XL",250.00,https://example.com/image.jpg\nREF-002,Robe midi,Blanc,"36,38,40",180.00,';
+  const csv = 'collection_name,reference,description,color,sizes,price,image_url\nPrintemps-Été 2026,REF-001,Veste en cuir,Noir,"XS,S,M,L,XL",250.00,https://example.com/image.jpg\nPrintemps-Été 2026,REF-002,Robe midi,Blanc,"36,38,40",180.00,';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -465,6 +469,7 @@ async function importCSV(input) {
   // Parse header
   const header = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
   const idx = {
+    collection_name: header.indexOf('collection_name'),
     reference: header.indexOf('reference'),
     description: header.indexOf('description'),
     color: header.indexOf('color'),
@@ -483,6 +488,7 @@ async function importCSV(input) {
     if (!lines[i].trim()) continue;
     const cols = parseCSVLine(lines[i]);
     const body = {
+      collection_name: idx.collection_name >= 0 ? cols[idx.collection_name]?.trim() || '' : '',
       reference: cols[idx.reference]?.trim() || '',
       description: idx.description >= 0 ? cols[idx.description]?.trim() || '' : '',
       color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',

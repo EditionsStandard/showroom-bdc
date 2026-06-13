@@ -113,21 +113,21 @@ app.get('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
-  const { reference, description, color, sizes, price, image_url } = req.body;
+  const { reference, description, color, sizes, price, image_url, collection_name } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,image_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, image_url||'']
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,image_url,collection_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, image_url||'', collection_name||'']
   );
   res.json({ id });
 });
 
 app.put('/api/products/:id', requireAdmin, async (req, res) => {
-  const { reference, description, color, sizes, price, image_url, active } = req.body;
+  const { reference, description, color, sizes, price, image_url, active, collection_name } = req.body;
   await pool.query(
-    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,image_url=$6,active=$7 WHERE id=$8',
-    [reference, description||'', color||'', sizes||'', price||0, image_url||'', active!==undefined?active:1, req.params.id]
+    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,image_url=$6,active=$7,collection_name=$8 WHERE id=$9',
+    [reference, description||'', color||'', sizes||'', price||0, image_url||'', active!==undefined?active:1, collection_name||'', req.params.id]
   );
   res.json({ ok: true });
 });
