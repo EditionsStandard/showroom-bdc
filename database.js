@@ -11,6 +11,8 @@ async function init() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS composition TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS variants TEXT DEFAULT '[]';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0;
+    ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0;
   `).catch(() => {});
 
   await pool.query(`
@@ -59,7 +61,8 @@ async function init() {
       product_id TEXT NOT NULL REFERENCES products(id),
       size TEXT DEFAULT '',
       quantity INTEGER NOT NULL,
-      unit_price NUMERIC NOT NULL
+      unit_price NUMERIC NOT NULL,
+      price_retail NUMERIC DEFAULT 0
     );
   `);
 

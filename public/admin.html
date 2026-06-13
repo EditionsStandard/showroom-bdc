@@ -210,7 +210,7 @@
     <h3 id="modal-products-title">Collection</h3>
     <button class="btn btn-primary btn-sm" onclick="openAddProduct()" style="margin-bottom:16px">+ Ajouter référence</button>
     <table id="products-table">
-      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Prix HT</th><th>Image</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Wholesale HT</th><th>Retail</th><th>Image</th><th></th></tr></thead>
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
@@ -230,7 +230,8 @@
       <div class="form-row">
         <div class="form-group"><label>Nom de collection</label><input id="p-collection" type="text" placeholder="Printemps-Été 2026"></div>
         <div class="form-group"><label>Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
-        <div class="form-group"><label>Prix HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label>Prix wholesale HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label>Prix retail conseillé (€)</label><input id="p-price-retail" type="number" step="0.01" placeholder="0.00"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Désignation</label><input id="p-desc" type="text" placeholder="Veste en cuir..."></div>
@@ -431,7 +432,7 @@ async function refreshProducts() {
   const tbody = document.getElementById('products-body');
   tbody.innerHTML = products.map(p => {
     const imgThumb = p.image_url ? `<img src="${p.image_url}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
-    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
+    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
     return `<tr>
       <td>${p.collection_name ? `<span class="tag" style="background:#2a2a4a;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
@@ -440,6 +441,7 @@ async function refreshProducts() {
       <td>${p.composition||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td>${Number(p.price).toFixed(2)} €</td>
+      <td>${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '—'}</td>
       <td>${imgThumb}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})'>✏️</button>
@@ -463,6 +465,7 @@ function resetProductForm() {
   document.getElementById('p-composition').value = '';
   document.getElementById('p-sizes').value = '';
   document.getElementById('p-price').value = '';
+  document.getElementById('p-price-retail').value = '';
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
   renderImagesGrid();
@@ -495,6 +498,7 @@ function editProduct(p) {
   document.getElementById('p-composition').value = p.composition || '';
   document.getElementById('p-sizes').value = p.sizes || '';
   document.getElementById('p-price').value = p.price || '';
+  document.getElementById('p-price-retail').value = p.price_retail || '';
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
   renderImagesGrid();
@@ -646,6 +650,7 @@ async function saveProduct() {
     composition: document.getElementById('p-composition').value,
     sizes: document.getElementById('p-sizes').value,
     price: document.getElementById('p-price').value,
+    price_retail: document.getElementById('p-price-retail').value,
     image_url: firstImg,
     images: currentImages,
     variants: currentVariants

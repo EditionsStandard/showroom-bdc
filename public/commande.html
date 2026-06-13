@@ -295,7 +295,8 @@ function renderProducts(products) {
       + '<div class="product-tags">'
       + (p.color ? '<span class="tag">🎨 ' + esc(p.color) + '</span>' : '')
       + (p.composition ? '<span class="tag">🧵 ' + esc(p.composition) + '</span>' : '')
-      + (p.price > 0 ? '<span class="tag tag-price">' + Number(p.price).toFixed(2) + ' €</span>' : '')
+      + (p.price > 0 ? '<span class="tag tag-price">Wholesale ' + Number(p.price).toFixed(2) + ' €</span>' : '')
+      + (p.price_retail > 0 ? '<span class="tag" style="background:#2a2a3a;color:#aaa">Retail ' + Number(p.price_retail).toFixed(2) + ' €</span>' : '')
       + '</div></div>'
       + '<div class="size-rows">' + sizeRowsHtml + '</div>'
       + '</div>';

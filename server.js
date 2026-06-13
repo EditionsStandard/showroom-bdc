@@ -113,21 +113,21 @@ app.get('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
-  const { reference, description, color, sizes, price, image_url, collection_name, composition, images, variants } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, composition, images, variants } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,image_url,collection_name,composition,images,variants) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[])]
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,composition,images,variants) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[])]
   );
   res.json({ id });
 });
 
 app.put('/api/products/:id', requireAdmin, async (req, res) => {
-  const { reference, description, color, sizes, price, image_url, active, collection_name, composition, images, variants } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, composition, images, variants } = req.body;
   await pool.query(
-    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,image_url=$6,active=$7,collection_name=$8,composition=$9,images=$10,variants=$11 WHERE id=$12',
-    [reference, description||'', color||'', sizes||'', price||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), req.params.id]
+    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,composition=$10,images=$11,variants=$12 WHERE id=$13',
+    [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), req.params.id]
   );
   res.json({ ok: true });
 });
@@ -199,8 +199,8 @@ app.post('/api/public/orders', async (req, res) => {
     const p = await pool.query('SELECT * FROM products WHERE id=$1', [line.product_id]);
     if (!p.rows[0]) continue;
     await pool.query(
-      'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price) VALUES ($1,$2,$3,$4,$5,$6)',
-      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, p.rows[0].price]
+      'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, p.rows[0].price, p.rows[0].price_retail||0]
     );
   }
 
@@ -261,11 +261,11 @@ async function generateOrderPDF(orderId) {
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
     doc.moveDown(0.8);
 
-    const col = { ref:50, desc:160, color:290, size:360, qty:410, price:455, total:495 };
+    const col = { ref:50, desc:145, color:265, size:325, qty:370, pw:405, pr:450, total:500 };
     doc.fontSize(8).fillColor('#888');
     doc.text('RÉFÉRENCE', col.ref, doc.y);
-    ['DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','TOTAL HT'].forEach((h, i) => {
-      const keys = ['desc','color','size','qty','price','total'];
+    ['DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'].forEach((h, i) => {
+      const keys = ['desc','color','size','qty','pw','pr','total'];
       doc.text(h, col[keys[i]], doc.y - doc.currentLineHeight());
     });
     doc.moveDown(0.3);
@@ -277,13 +277,14 @@ async function generateOrderPDF(orderId) {
       const bg = i % 2 === 0 ? '#f9f9f9' : '#ffffff';
       doc.rect(50, rowY-2, 495, 20).fillColor(bg).fill();
       doc.fontSize(9).fillColor('#1a1a2e');
-      doc.text(line.reference||'', col.ref, rowY, {width:105});
-      doc.text(line.description||'', col.desc, rowY, {width:125});
-      doc.text(line.color||'', col.color, rowY, {width:65});
-      doc.text(line.size||'', col.size, rowY, {width:45});
-      doc.text(String(line.quantity), col.qty, rowY, {width:40});
-      doc.text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.price, rowY, {width:40});
-      doc.text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, {width:50});
+      doc.text(line.reference||'', col.ref, rowY, {width:90});
+      doc.text(line.description||'', col.desc, rowY, {width:115});
+      doc.text(line.color||'', col.color, rowY, {width:55});
+      doc.text(line.size||'', col.size, rowY, {width:40});
+      doc.text(String(line.quantity), col.qty, rowY, {width:30});
+      doc.text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.pw, rowY, {width:40});
+      doc.text(line.price_retail > 0 ? `${parseFloat(line.price_retail).toFixed(2)} €` : '—', col.pr, rowY, {width:45});
+      doc.text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, {width:45});
       rowY += 20;
     });
 
