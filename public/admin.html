@@ -98,6 +98,62 @@
   .tag { display: inline-block; background: #252540; color: #aaa; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin: 1px; }
 
   .sep { height: 1px; background: #2a2a4a; margin: 24px 0; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    /* Sidebar → bottom tab bar */
+    .sidebar {
+      position: fixed; left: 0; right: 0; top: auto; bottom: 0;
+      width: 100%; height: 60px; flex-direction: row;
+      border-right: none; border-top: 1px solid #2a2a4a;
+      z-index: 100;
+    }
+    .sidebar-logo { display: none; }
+    .sidebar-footer { display: none; }
+    nav { display: flex; flex-direction: row; padding: 0; flex: 1; }
+    nav a {
+      flex: 1; flex-direction: column; gap: 2px; padding: 6px 4px;
+      font-size: 9px; text-align: center; border-left: none;
+      border-top: 3px solid transparent; justify-content: center;
+    }
+    nav a:hover, nav a.active { border-left-color: transparent; border-top-color: #6c63ff; background: #252540; }
+    nav a span.icon { font-size: 20px; }
+
+    /* Main content */
+    .main { margin-left: 0; padding: 16px 16px 80px; }
+    h1 { font-size: 18px; margin-bottom: 16px; }
+
+    /* Stats: 2 columns */
+    .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat .num { font-size: 22px; }
+
+    /* Form rows: single column */
+    .form-row { grid-template-columns: 1fr; gap: 0; }
+
+    /* Brand grid: single column */
+    .brands-grid { grid-template-columns: 1fr; }
+
+    /* Tables: horizontal scroll */
+    .card { padding: 16px 12px; overflow-x: auto; }
+    table { min-width: 600px; }
+    #products-table { min-width: 800px; }
+
+    /* Modal: full screen on mobile */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal {
+      border-radius: 16px 16px 0 0; max-width: 100%; width: 100%;
+      max-height: 92vh; padding: 24px 16px 32px;
+    }
+
+    /* Toast */
+    #toast { bottom: 72px; right: 12px; left: 12px; text-align: center; }
+  }
+
+  @media (min-width: 1200px) {
+    .main { padding: 40px 48px; }
+    .stats { grid-template-columns: repeat(4, 1fr); }
+    .brands-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  }
 </style>
 </head>
 <body>
