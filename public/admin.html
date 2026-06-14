@@ -195,8 +195,40 @@
   <div class="modal">
     <h3 id="modal-brand-title">Nouvelle marque</h3>
     <input type="hidden" id="brand-id">
-    <div class="form-group"><label>Nom de la marque</label><input id="brand-name" type="text" placeholder="Ex: Maison Kitsune"></div>
-    <div class="form-group"><label>URL logo (optionnel)</label><input id="brand-logo" type="url" placeholder="https://..."></div>
+    <div class="form-group"><label>Nom de la marque *</label><input id="brand-name" type="text" placeholder="Ex: Maison Kitsune"></div>
+
+    <!-- Logo -->
+    <div class="form-group">
+      <label>Logo de la marque</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          📷 Choisir logo
+          <input type="file" id="brand-logo-file" accept="image/*" style="display:none" onchange="handleBrandImg(this,'brand-logo','brand-logo-preview')">
+        </label>
+        <button class="btn btn-danger btn-sm" id="brand-logo-clear" onclick="clearBrandImg('brand-logo','brand-logo-preview','brand-logo-clear')" style="display:none">✕ Supprimer</button>
+      </div>
+      <div id="brand-logo-preview" style="display:none;margin-top:6px">
+        <img id="brand-logo-thumb" src="" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px;border:1px solid #333;background:#1a1a1a;padding:4px">
+      </div>
+      <input type="hidden" id="brand-logo">
+    </div>
+
+    <!-- Image d'accueil -->
+    <div class="form-group">
+      <label>Image d'accueil <span style="color:#555;font-weight:400;font-size:11px">(bannière affichée sur la page de commande)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          🖼️ Choisir image
+          <input type="file" id="brand-cover-file" accept="image/*" style="display:none" onchange="handleBrandImg(this,'brand-cover','brand-cover-preview')">
+        </label>
+        <button class="btn btn-danger btn-sm" id="brand-cover-clear" onclick="clearBrandImg('brand-cover','brand-cover-preview','brand-cover-clear')" style="display:none">✕ Supprimer</button>
+      </div>
+      <div id="brand-cover-preview" style="display:none;margin-top:6px">
+        <img id="brand-cover-thumb" src="" style="max-height:120px;width:100%;object-fit:cover;border-radius:8px;border:1px solid #333">
+      </div>
+      <input type="hidden" id="brand-cover">
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-brand')">Annuler</button>
       <button class="btn btn-primary" onclick="saveBrand()">Enregistrer</button>
@@ -347,32 +379,106 @@ async function loadDashboard() {
 async function loadBrands() {
   const brands = await fetch('/api/brands').then(r => r.json());
   const grid = document.getElementById('brands-grid');
-  grid.innerHTML = brands.map(b => `
-    <div class="brand-card">
+  grid.innerHTML = brands.map(b => {
+    const logoSrc = b.logo || b.logo_url || '';
+    const logoHtml = logoSrc
+      ? `<img src="${logoSrc}" style="height:48px;max-width:120px;object-fit:contain;margin-bottom:10px;border-radius:4px">`
+      : `<div style="width:48px;height:48px;background:#2a2a2a;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🏷️</div>`;
+    const coverHtml = b.cover_image
+      ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius:8px 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
+      : '';
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||''}).replace(/'/g,"&#39;");
+    return `<div class="brand-card" style="padding-top:${b.cover_image?'0':'16px'}">
+      ${coverHtml}
+      ${logoHtml}
       <h4>${b.name}</h4>
       <div class="brand-meta">ID: ${b.id.slice(0,8)}</div>
       <div class="actions">
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
-        <button class="btn btn-secondary btn-sm" onclick="editBrand('${b.id}','${b.name}','${b.logo_url||''}')">✏️ Modifier</button>
+        <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ Modifier</button>
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>
       </div>
-    </div>
-  `).join('') || '<p style="color:#666">Aucune marque. Créez-en une.</p>';
+    </div>`;
+  }).join('') || '<p style="color:#666">Aucune marque. Créez-en une.</p>';
 }
 
-function openBrandModal() {
+async function handleBrandImg(input, hiddenId, previewId) {
+  const file = input.files[0];
+  if (!file) return;
+  const MAX = 1200;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const data = canvas.toDataURL('image/jpeg', 0.82);
+      document.getElementById(hiddenId).value = data;
+      const thumb = document.getElementById(hiddenId + '-thumb');
+      if (thumb) { thumb.src = data; }
+      document.getElementById(previewId).style.display = 'block';
+      const clearBtn = document.getElementById(hiddenId + '-clear');
+      if (clearBtn) clearBtn.style.display = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function clearBrandImg(hiddenId, previewId, clearBtnId) {
+  document.getElementById(hiddenId).value = '';
+  const thumb = document.getElementById(hiddenId + '-thumb');
+  if (thumb) thumb.src = '';
+  document.getElementById(previewId).style.display = 'none';
+  document.getElementById(clearBtnId).style.display = 'none';
+}
+
+function resetBrandModal() {
   document.getElementById('brand-id').value = '';
   document.getElementById('brand-name').value = '';
   document.getElementById('brand-logo').value = '';
+  document.getElementById('brand-cover').value = '';
+  ['brand-logo', 'brand-cover'].forEach(id => {
+    const thumb = document.getElementById(id + '-thumb');
+    if (thumb) thumb.src = '';
+    document.getElementById(id + '-preview').style.display = 'none';
+    document.getElementById(id + '-clear').style.display = 'none';
+  });
+  document.getElementById('brand-logo-file').value = '';
+  document.getElementById('brand-cover-file').value = '';
+}
+
+function openBrandModal() {
+  resetBrandModal();
   document.getElementById('modal-brand-title').textContent = 'Nouvelle marque';
   openModal('modal-brand');
 }
 
-function editBrand(id, name, logo) {
-  document.getElementById('brand-id').value = id;
-  document.getElementById('brand-name').value = name;
-  document.getElementById('brand-logo').value = logo;
+function editBrand(b) {
+  resetBrandModal();
+  document.getElementById('brand-id').value = b.id;
+  document.getElementById('brand-name').value = b.name;
+  // logo
+  const logoSrc = b.logo || b.logo_url || '';
+  if (logoSrc) {
+    document.getElementById('brand-logo').value = logoSrc;
+    document.getElementById('brand-logo-thumb').src = logoSrc;
+    document.getElementById('brand-logo-preview').style.display = 'block';
+    document.getElementById('brand-logo-clear').style.display = '';
+  }
+  // cover
+  if (b.cover_image) {
+    document.getElementById('brand-cover').value = b.cover_image;
+    document.getElementById('brand-cover-thumb').src = b.cover_image;
+    document.getElementById('brand-cover-preview').style.display = 'block';
+    document.getElementById('brand-cover-clear').style.display = '';
+  }
   document.getElementById('modal-brand-title').textContent = 'Modifier la marque';
   openModal('modal-brand');
 }
@@ -380,11 +486,16 @@ function editBrand(id, name, logo) {
 async function saveBrand() {
   const id = document.getElementById('brand-id').value;
   const name = document.getElementById('brand-name').value.trim();
-  const logo_url = document.getElementById('brand-logo').value.trim();
   if (!name) return toast('Nom requis', true);
+  const body = {
+    name,
+    logo_url: '',
+    logo: document.getElementById('brand-logo').value,
+    cover_image: document.getElementById('brand-cover').value
+  };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';
-  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, logo_url}) });
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (r.ok) { closeModal('modal-brand'); loadBrands(); toast('Marque enregistrée'); }
   else toast('Erreur', true);
 }

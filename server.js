@@ -80,16 +80,16 @@ app.get('/api/brands', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/brands', requireAdmin, async (req, res) => {
-  const { name, logo_url } = req.body;
+  const { name, logo_url, logo, cover_image } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
-  await pool.query('INSERT INTO brands (id,name,logo_url) VALUES ($1,$2,$3)', [id, name, logo_url||'']);
-  res.json({ id, name, logo_url });
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image) VALUES ($1,$2,$3,$4,$5)', [id, name, logo_url||'', logo||'', cover_image||'']);
+  res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireAdmin, async (req, res) => {
-  const { name, logo_url } = req.body;
-  await pool.query('UPDATE brands SET name=$1, logo_url=$2 WHERE id=$3', [name, logo_url||'', req.params.id]);
+  const { name, logo_url, logo, cover_image } = req.body;
+  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4 WHERE id=$5', [name, logo_url||'', logo||'', cover_image||'', req.params.id]);
   res.json({ ok: true });
 });
 
@@ -174,7 +174,7 @@ app.get('/api/orders/:id/pdf', requireAdmin, async (req, res) => {
 app.get('/commande/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'commande.html')));
 
 app.get('/api/public/brands/:brandId', async (req, res) => {
-  const b = await pool.query('SELECT id,name,logo_url FROM brands WHERE id=$1', [req.params.brandId]);
+  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   res.json({ brand: b.rows[0], products: p.rows });
