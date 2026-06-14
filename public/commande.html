@@ -100,6 +100,17 @@
   /* ── Recap ── */
   .recap-card { background: var(--dark); border: 1px solid var(--border); padding: 20px; margin-bottom: 2px; }
   .recap-card h4 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--white); letter-spacing: .04em; }
+  .recap-table { width: 100%; border-collapse: collapse; }
+  .recap-table thead th { font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; padding: 0 8px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }
+  .recap-table thead th:last-child { text-align: right; padding-right: 0; }
+  .recap-table tbody td { font-size: 12px; color: var(--soft); padding: 10px 8px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.4; }
+  .recap-table tbody tr:last-child td { border-bottom: none; }
+  .recap-table tbody td:last-child { text-align: right; padding-right: 0; font-weight: 600; color: var(--white); white-space: nowrap; }
+  .recap-table tbody td.td-ref { color: var(--white); font-weight: 600; font-size: 13px; }
+  .recap-table tbody td.td-size { color: var(--soft); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .recap-table tbody td.td-qty { color: var(--accent); font-weight: 700; font-size: 14px; text-align: center; }
+  .recap-table thead th.th-qty { text-align: center; }
+  .recap-table tbody td.td-pu { color: var(--soft); font-size: 11px; }
   .recap-line { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--soft); }
   .recap-line:last-child { border-bottom: none; }
   .recap-sub { font-size: 10px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .06em; }
@@ -566,13 +577,27 @@ function renderRecap() {
   const lines = Object.values(cart);
   const total = lines.reduce((s, l) => s + l.qty * parseFloat(l.product.price || 0), 0);
 
-  document.getElementById('recap-lines').innerHTML = lines.length
-    ? lines.map(l => '<div class="recap-line">'
-        + '<div><div>' + esc(l.product.reference) + (l.size ? ' — ' + esc(l.size) : '') + '</div>'
-        + '<div class="recap-sub">' + l.qty + ' × ' + Number(l.product.price||0).toFixed(2) + ' €</div></div>'
-        + '<div class="recap-price">' + (l.qty * parseFloat(l.product.price||0)).toFixed(2) + ' €</div>'
-        + '</div>').join('')
-    : '<div style="color:#aaa;font-size:13px">Aucun article.</div>';
+  if (lines.length) {
+    document.getElementById('recap-lines').innerHTML =
+      '<table class="recap-table">'
+      + '<thead><tr>'
+      + '<th>Référence</th><th>Taille</th><th class="th-qty">Qté</th><th>P.U. HT</th><th>Total HT</th>'
+      + '</tr></thead><tbody>'
+      + lines.map(l => {
+          const pu = parseFloat(l.product.price || 0);
+          const lineTotal = (l.qty * pu).toFixed(2);
+          return '<tr>'
+            + '<td class="td-ref">' + esc(l.product.reference) + '</td>'
+            + '<td class="td-size">' + (l.size ? esc(l.size) : '—') + '</td>'
+            + '<td class="td-qty">' + l.qty + '</td>'
+            + '<td class="td-pu">' + pu.toFixed(2) + ' €</td>'
+            + '<td>' + lineTotal + ' €</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table>';
+  } else {
+    document.getElementById('recap-lines').innerHTML = '<div style="color:#aaa;font-size:13px">Aucun article.</div>';
+  }
 
   document.getElementById('recap-total').textContent = total.toFixed(2).replace('.', ',') + ' €';
 

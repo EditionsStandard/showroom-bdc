@@ -209,6 +209,10 @@ app.post('/api/public/orders', async (req, res) => {
     await sendOrderEmails(orderId, pdf);
   } catch(e) { console.error('PDF/email error:', e.message); }
 
+  const totRes = await pool.query('SELECT SUM(quantity * unit_price) as total FROM order_lines WHERE order_id=$1', [orderId]);
+  const orderTotal = parseFloat(totRes.rows[0]?.total || 0);
+  syncAirtable(client_email, client_company, client_name, orderTotal).catch(e => console.error('Airtable sync error:', e.message));
+
   res.json({ ok: true, order_id: orderId });
 });
 
@@ -343,6 +347,60 @@ async function sendOrderEmails(orderId, pdfBuffer) {
       html: `<p>Nouvelle commande.<br><strong>Client :</strong> ${order.client_name} (${order.client_email})<br><strong>Marque :</strong> ${order.brand_name}</p>`,
       attachments: [attachment]
     });
+  }
+}
+
+// ==================== AIRTABLE SYNC ====================
+
+async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) {
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  if (!apiKey) return;
+
+  const base = 'appquOEohNkpH6sbB';
+  const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+  const today = new Date().toISOString().split('T')[0];
+
+  // Search STORES by email
+  let storeRecordId = null;
+  try {
+    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${clientEmail.toLowerCase()}"&maxRecords=1`;
+    const sr = await fetch(searchUrl, { headers });
+    const sd = await sr.json();
+    if (sd.records && sd.records.length > 0) storeRecordId = sd.records[0].id;
+  } catch(e) { console.error('Airtable STORES search error:', e.message); }
+
+  // Create ORDERS record
+  let newOrderRecordId = null;
+  try {
+    const orderFields = {
+      'fldyOjsWxkqgEOYAb': today,
+      'fld5ZC4qLlyTTLAPJ': orderTotal,
+      'fld9UkkpaB2KOE2sO': 'Confirmed',
+      'fld936ErcEnR26Sl4': ['recOdXdfVsZ89W7pF']
+    };
+    if (storeRecordId) orderFields['flduQAMJ1BhBKvMOr'] = [storeRecordId];
+    const cr = await fetch(`https://api.airtable.com/v0/${base}/tblkch3T3ckbhyRiN`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ fields: orderFields })
+    });
+    const cd = await cr.json();
+    if (cd.id) newOrderRecordId = cd.id;
+  } catch(e) { console.error('Airtable ORDERS create error:', e.message); }
+
+  // Update STORES record: Statuts=Client + Last Contact=today
+  if (storeRecordId) {
+    try {
+      const patchFields = {
+        'fldNdh83yBoZONLhP': 'Client',
+        'fldoXxM2cxB8pRWSj': today
+      };
+      await fetch(`https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm/${storeRecordId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ fields: patchFields })
+      });
+    } catch(e) { console.error('Airtable STORES patch error:', e.message); }
   }
 }
 
