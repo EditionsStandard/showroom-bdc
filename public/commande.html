@@ -134,6 +134,10 @@
   .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-family: 'Space Mono', monospace; margin-top: 2px; transition: background .2s; }
   .btn-confirm:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
 
+  /* ── Collection filters ── */
+  .col-filter { display: inline-block; padding: 5px 14px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; margin-right: 6px; background: transparent; font-family: 'Space Mono', monospace; transition: border-color .15s, color .15s; white-space: nowrap; }
+  .col-filter.active { border-color: var(--accent); color: var(--accent); }
+
   /* ── CGV + Signature ── */
   .cgv-check-label { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 12px; color: var(--soft); line-height: 1.5; }
   .cgv-check-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; accent-color: var(--accent); cursor: pointer; }
@@ -151,6 +155,8 @@
   /* ── Offline banner ── */
   .offline-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: #1a1a1a; border-bottom: 1px solid #333; padding: 10px 20px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); justify-content: space-between; align-items: center; }
   .offline-banner.visible { display: flex; }
+  body.has-banner .header { top: 41px; }
+  body.has-banner .search-bar { top: 138px; }
   .offline-dot { width: 7px; height: 7px; border-radius: 50%; background: #e74c3c; display: inline-block; margin-right: 8px; animation: pulse-red 1.5s infinite; }
   .online-dot { background: var(--accent); animation: none; }
   @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.3} }
@@ -204,7 +210,7 @@
 
     /* Pages padding */
     .page { padding-bottom: 120px; }
-    #page2, #page3 { padding: 0 40px 120px; }
+    #page2, #page3, #page4 { padding: 0 40px 120px; }
     .btn-back { padding: 20px 0; }
 
     /* Form: 2 columns */
@@ -236,7 +242,7 @@
     .cart-bar { padding: 14px 16px; }
     .cart-info strong { font-size: 16px; }
     .btn-next { padding: 12px 18px; font-size: 11px; }
-    #page2, #page3 { padding: 0 0 110px; }
+    #page2, #page3, #page4 { padding: 0 0 110px; }
     .form-section { border-left: none; border-right: none; }
     .recap-card { border-left: none; border-right: none; }
     .total-bar { border-left: none; border-right: none; }
@@ -264,7 +270,7 @@
       <div id="brand-logo-wrap" style="flex-shrink:0"></div>
       <div>
         <h1 id="brand-name">Chargement…</h1>
-        <p>Editions Standard — Fashion Week</p>
+        <p id="header-season">Editions Standard — Showroom</p>
       </div>
     </div>
     <img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85">
@@ -284,6 +290,7 @@
     <span class="search-icon">—</span>
     <input id="search-input" type="text" placeholder="Rechercher une référence…">
   </div>
+  <div id="collection-filters" style="display:none;overflow-x:auto;white-space:nowrap;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--dark);-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
   <div id="products-container"><div class="loader">Chargement…</div></div>
 </div>
 
@@ -295,7 +302,7 @@
     <div class="form-fields-grid">
       <div class="field"><label>Nom complet <span class="req">*</span></label><input id="c-name" type="text" autocomplete="name"></div>
       <div class="field"><label>Email <span class="req">*</span></label><input id="c-email" type="email" autocomplete="email"></div>
-      <div class="field"><label>Société / Boutique</label><input id="c-company" type="text" autocomplete="organization"></div>
+      <div class="field"><label>Société / Boutique <span style="color:var(--accent);font-size:9px">Recommandé</span></label><input id="c-company" type="text" autocomplete="organization"></div>
       <div class="field"><label>Téléphone</label><input id="c-phone" type="tel" autocomplete="tel"></div>
       <div class="field field-full"><label>Notes</label><textarea id="c-notes" placeholder="Livraison, conditions particulières…"></textarea></div>
     </div>
@@ -314,7 +321,6 @@
     <span class="lbl">Total HT</span>
     <span class="amt" id="recap-total">0,00 €</span>
   </div>
-  <button class="btn-confirm" id="btn-confirm-final" style="display:none">Confirmer la commande</button>
 </div>
 
 <!-- PAGE 4 — CGV + Signature -->
@@ -357,10 +363,14 @@
 <div id="page-success" class="page">
   <div class="success-page">
     <span class="success-icon">✦</span>
-    <h2>Commande confirmée</h2>
-    <p>Votre bon de commande a bien été enregistré.</p>
+    <h2>Commande enregistrée</h2>
+    <p>Votre proposition de commande a bien été transmise.</p>
     <div class="email-sent" id="success-email-msg">Un PDF vous sera envoyé par email.</div>
-    <p style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Merci pour votre visite</p>
+    <div id="success-ref" style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border);padding:12px 20px;display:inline-block"></div>
+    <p style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.8">
+      ⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.
+    </p>
+    <p style="margin-top:20px;font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
   </div>
 </div>
 
@@ -388,7 +398,8 @@
 <script>
 const brandId = location.pathname.split('/').pop();
 let productsData = [];
-const cart = {}; // key: "productId|size" → {product, size, qty}
+const cart = {}; // key: "productId|color|size" → {product, size, color, qty}
+const selectedVariant = {}; // pid → colorLabel currently shown
 let currentPage = 1;
 
 // ── Init ──────────────────────────────────────────────
@@ -397,7 +408,9 @@ async function init() {
     const data = await fetch('/api/public/brands/' + brandId).then(r => r.json());
     if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">Marque introuvable.</div>'; return; }
     productsData = data.products;
-    document.getElementById('brand-name').textContent = data.brand.name;
+    const brandName = data.brand.name;
+    document.getElementById('brand-name').textContent = brandName;
+    document.title = brandName + ' — Bon de Commande';
     // Logo (uploaded base64 preferred, fallback to logo_url)
     const logoSrc = data.brand.logo || data.brand.logo_url || '';
     if (logoSrc) {
@@ -409,6 +422,7 @@ async function init() {
       document.getElementById('brand-cover-wrap').style.display = 'block';
     }
     renderProducts(productsData);
+    buildCollectionFilters(productsData);
   } catch(e) {
     document.getElementById('products-container').innerHTML = '<div class="loader">Erreur de chargement. Réessayez.</div>';
   }
@@ -449,7 +463,7 @@ function renderProducts(products) {
         + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
         + '</div>'
         + '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
-        + variants.map((v, vi) => '<button class="color-btn' + (vi===0?' active':'') + '" data-vi="' + vi + '" data-pid="' + p.id + '" style="' + (vi===0?'border-color:#6c63ff;color:#6c63ff':'') + '">' + esc(v.color||('Coloris '+(vi+1))) + '</button>').join('')
+        + variants.map((v, vi) => '<button class="color-btn' + (vi===0?' active':'') + '" data-vi="' + vi + '" data-pid="' + p.id + '">' + esc(v.color||('Coloris '+(vi+1))) + '</button>').join('')
         + '</div>';
     } else if (imgs.length) {
       imgHtml = '<div class="product-img-wrap" style="position:relative">'
@@ -460,9 +474,15 @@ function renderProducts(products) {
       imgHtml = '<div class="product-img-placeholder"></div>';
     }
 
+    // Init selected variant for this product (first variant or empty)
+    if (variants.length && !selectedVariant[p.id]) {
+      selectedVariant[p.id] = variants[0].color || ('Coloris 1');
+    }
+
     const sizeRowsHtml = sizes.length > 0
       ? sizes.map(sz => {
-          const k = p.id + '|' + sz;
+          const color = selectedVariant[p.id] || '';
+          const k = p.id + '|' + color + '|' + sz;
           const q = cart[k] ? cart[k].qty : 0;
           return '<div class="size-row">'
             + '<span class="size-label">' + esc(sz) + '</span>'
@@ -512,12 +532,25 @@ document.getElementById('products-container').addEventListener('click', function
     const variants = JSON.parse(wrap.dataset.variants);
     const v = variants[vi];
     const vImgs = v.images && v.images.length ? v.images : [];
+    // Track selected variant color
+    selectedVariant[pid] = v.color || ('Coloris ' + (vi + 1));
     // update active button
     wrap.querySelectorAll('.color-btn').forEach((b, i) => {
       b.classList.toggle('active', i === vi);
-      b.style.borderColor = i === vi ? '#6c63ff' : '';
-      b.style.color = i === vi ? '#6c63ff' : '';
+      b.style.borderColor = '';
+      b.style.color = '';
     });
+    // Refresh qty displays to reflect cart quantities for this color
+    const product = productsData.find(p => p.id === pid);
+    if (product) {
+      const sizes = (product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+      sizes.forEach(sz => {
+        const k = pid + '|' + selectedVariant[pid] + '|' + sz;
+        const q = cart[k] ? cart[k].qty : 0;
+        const el = document.getElementById('qd_' + pid + '_' + sz.replace(/[^a-zA-Z0-9]/g, '_'));
+        if (el) { el.textContent = q; el.classList.toggle('active', q > 0); }
+      });
+    }
     // update image
     const pimg = document.getElementById('pimg_' + pid);
     const badge = document.getElementById('pimgbadge_' + pid);
@@ -547,14 +580,15 @@ document.getElementById('products-container').addEventListener('click', function
 });
 
 function changeQty(pid, size, delta) {
-  const k = pid + '|' + size;
+  const color = selectedVariant[pid] || '';
+  const k = pid + '|' + color + '|' + size;
   const current = cart[k] ? cart[k].qty : 0;
   const newQty = Math.max(0, current + delta);
   const product = productsData.find(p => p.id === pid);
   if (!product) return;
 
   if (newQty > 0) {
-    cart[k] = { product, size, qty: newQty };
+    cart[k] = { product, size, color, qty: newQty };
   } else {
     delete cart[k];
   }
@@ -579,17 +613,45 @@ function updateCartBar() {
   document.getElementById('btn-next').disabled = totalQty === 0;
 }
 
-// ── Search ────────────────────────────────────────────
-document.getElementById('search-input').addEventListener('input', function() {
-  const q = this.value.toLowerCase();
-  const filtered = q ? productsData.filter(p =>
-    (p.reference||'').toLowerCase().includes(q) ||
-    (p.description||'').toLowerCase().includes(q) ||
-    (p.color||'').toLowerCase().includes(q) ||
-    (p.collection_name||'').toLowerCase().includes(q)
-  ) : productsData;
+// ── Collection filters ───────────────────────────────
+let activeCollection = 'Tout';
+
+function buildCollectionFilters(products) {
+  const collections = ['Tout', ...new Set(products.map(p => p.collection_name).filter(Boolean))];
+  const bar = document.getElementById('collection-filters');
+  if (collections.length <= 2) { bar.style.display = 'none'; return; } // only show if >1 collection
+  bar.style.display = 'block';
+  bar.innerHTML = collections.map(c =>
+    '<button class="col-filter' + (c === activeCollection ? ' active' : '') + '" data-col="' + esc(c) + '">' + esc(c) + '</button>'
+  ).join('');
+  bar.addEventListener('click', function(e) {
+    const btn = e.target.closest('.col-filter');
+    if (!btn) return;
+    activeCollection = btn.dataset.col;
+    bar.querySelectorAll('.col-filter').forEach(b => b.classList.toggle('active', b.dataset.col === activeCollection));
+    applyFilters();
+  });
+}
+
+function applyFilters() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let filtered = productsData;
+  if (activeCollection && activeCollection !== 'Tout') {
+    filtered = filtered.filter(p => p.collection_name === activeCollection);
+  }
+  if (q) {
+    filtered = filtered.filter(p =>
+      (p.reference||'').toLowerCase().includes(q) ||
+      (p.description||'').toLowerCase().includes(q) ||
+      (p.color||'').toLowerCase().includes(q) ||
+      (p.collection_name||'').toLowerCase().includes(q)
+    );
+  }
   renderProducts(filtered);
-});
+}
+
+// ── Search ────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', applyFilters);
 
 // ── Navigation ────────────────────────────────────────
 function goToPage(n) {
@@ -647,16 +709,17 @@ function renderRecap() {
     document.getElementById('recap-lines').innerHTML =
       '<table class="recap-table">'
       + '<thead><tr>'
-      + '<th>Référence</th><th>Taille</th><th class="th-qty">Qté</th><th>P.U. HT</th><th>Total HT</th>'
+      + '<th>Référence</th><th>Couleur</th><th>Taille</th><th class="th-qty">Qté</th><th>Total HT</th>'
       + '</tr></thead><tbody>'
       + lines.map(l => {
           const pu = parseFloat(l.product.price || 0);
           const lineTotal = (l.qty * pu).toFixed(2);
+          const colorLabel = l.color || l.product.color || '—';
           return '<tr>'
             + '<td class="td-ref">' + esc(l.product.reference) + '</td>'
+            + '<td class="td-size">' + esc(colorLabel) + '</td>'
             + '<td class="td-size">' + (l.size ? esc(l.size) : '—') + '</td>'
             + '<td class="td-qty">' + l.qty + '</td>'
-            + '<td class="td-pu">' + pu.toFixed(2) + ' €</td>'
             + '<td>' + lineTotal + ' €</td>'
             + '</tr>';
         }).join('')
@@ -785,7 +848,7 @@ async function submitOrder() {
     });
     const data = await r.json();
     if (data.ok) {
-      showSuccess(body.client_email);
+      showSuccess(body.client_email, false, data.order_id);
     } else {
       alert(data.error || 'Erreur lors de la commande');
       btn.disabled = false;
@@ -794,11 +857,11 @@ async function submitOrder() {
   } catch(e) {
     // Offline or network error → queue locally
     queueOrder(body);
-    showSuccess(body.client_email, true);
+    showSuccess(body.client_email, true, null);
   }
 }
 
-function showSuccess(email, offline) {
+function showSuccess(email, offline, orderId) {
   document.getElementById('cart-bar').style.display = 'none';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
@@ -807,6 +870,13 @@ function showSuccess(email, offline) {
     document.getElementById('success-email-msg').textContent = '📵 Commande enregistrée localement. Elle sera envoyée automatiquement dès reconnexion.';
   } else {
     document.getElementById('success-email-msg').textContent = 'Un PDF vous a été envoyé à ' + email;
+  }
+  const refEl = document.getElementById('success-ref');
+  if (orderId) {
+    refEl.textContent = 'Référence : ' + orderId.slice(0, 8).toUpperCase();
+  } else {
+    const localRef = 'LOCAL-' + Date.now().toString(36).toUpperCase();
+    refEl.textContent = 'Référence : ' + localRef;
   }
 }
 
@@ -894,14 +964,17 @@ function updateOfflineBanner() {
 
   if (!isOnline) {
     banner.classList.add('visible');
+    document.body.classList.add('has-banner');
     dot.classList.remove('online-dot');
     label.textContent = 'Hors ligne — les commandes seront envoyées dès reconnexion';
   } else if (pending.length > 0) {
     banner.classList.add('visible');
+    document.body.classList.add('has-banner');
     dot.classList.add('online-dot');
     label.textContent = 'En ligne — synchronisation en cours…';
   } else {
     banner.classList.remove('visible');
+    document.body.classList.remove('has-banner');
   }
 
   if (pending.length > 0) {
