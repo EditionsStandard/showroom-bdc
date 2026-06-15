@@ -272,7 +272,7 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.name as product_name, p.color
+    SELECT ol.*, p.reference, p.description as product_name, p.color
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
@@ -356,7 +356,8 @@ async function generateOrderPDF(orderId) {
 
     lines.forEach((line, i) => {
       // Measure name height
-      const nameText = line.product_name || line.reference || '';
+      const rawName = line.product_name || '';
+      const nameText = rawName.length > 60 ? rawName.slice(0, 57) + '…' : rawName;
       const nameH = doc.heightOfString(nameText, { width: colW.name });
       const rowH  = Math.max(nameH, 14) + 8;
 
