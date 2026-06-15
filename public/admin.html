@@ -849,6 +849,9 @@ function printProductQR() {
 }
 
 async function printAllProductQR() {
+  const w = window.open('', '_blank');
+  w.document.write('<html><body style="font-family:sans-serif;padding:40px;text-align:center"><p>Génération des QR codes…</p></body></html>');
+  w.document.close();
   const data = await fetch(`/api/brands/${currentBrandId}/qrcodes-all`).then(r => r.json());
   const fmt = n => n > 0 ? Number(n).toFixed(2) + ' €' : '';
   const cardsHtml = data.items.map(item => `
@@ -860,7 +863,7 @@ async function printAllProductQR() {
       ${fmt(item.price) ? `<div class="price">WS ${fmt(item.price)}</div>` : ''}
       ${fmt(item.price_retail) ? `<div class="price retail">RRP ${fmt(item.price_retail)}</div>` : ''}
     </div>`).join('');
-  const w = window.open('', '_blank');
+  w.document.open();
   w.document.write(`<html><head><style>
     body{font-family:sans-serif;margin:0;padding:20px}
     h2{margin:0 0 16px;font-size:16px}
