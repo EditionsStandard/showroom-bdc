@@ -173,6 +173,22 @@ app.get('/api/orders/:id/pdf', requireAdmin, async (req, res) => {
 
 app.get('/commande/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'commande.html')));
 
+// PDF public — accessible 24h après la commande (pour share sheet mobile)
+app.get('/api/public/orders/:id/pdf', async (req, res) => {
+  try {
+    const r = await pool.query(
+      "SELECT id FROM orders WHERE id=$1 AND created_at > NOW() - INTERVAL '24 hours'",
+      [req.params.id]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Non disponible' });
+    const pdf = await generateOrderPDF(req.params.id);
+    const filename = `PropositionCommande-${req.params.id.slice(0,8).toUpperCase()}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/public/cgv', async (req, res) => {
   const cgv_text = await getSetting('cgv_text');
   res.json({ cgv_text });

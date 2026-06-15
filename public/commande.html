@@ -459,9 +459,10 @@
     <p data-i18n="success_sub">Votre proposition de commande a bien été transmise.</p>
     <div class="email-sent" id="success-email-msg" data-i18n="success_pdf">Un PDF vous sera envoyé par email.</div>
     <div id="success-ref" style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border);padding:12px 20px;display:inline-block"></div>
-    <div style="margin-top:20px">
-      <a id="btn-open-mail" href="#" data-i18n="btn_open_mail" style="display:inline-block;background:var(--accent);color:var(--black);padding:14px 28px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border-radius:2px">✉️ Ouvrir dans Spark / Airmail</a>
-      <p style="margin-top:10px;font-size:10px;color:var(--muted);letter-spacing:.04em">Le mail s'ouvre pré-rempli — cliquez Envoyer depuis votre appli mail</p>
+    <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:10px">
+      <button id="btn-open-mail" onclick="shareOrderMail()" style="background:var(--accent);color:var(--black);border:none;padding:15px 32px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:2px;font-family:inherit;width:100%;max-width:340px">✉️ Envoyer par mail avec PDF</button>
+      <a id="btn-dl-pdf" href="#" style="display:none;font-size:11px;color:var(--soft);letter-spacing:.06em;text-decoration:underline;text-underline-offset:3px" download>📄 Télécharger le PDF séparément</a>
+      <p id="mail-share-hint" style="font-size:10px;color:var(--muted);letter-spacing:.04em;text-align:center;max-width:300px">Sur iPhone : choisissez Spark ou Airmail dans la liste<br>Sur Mac : le PDF se télécharge + le mail s'ouvre</p>
     </div>
     <p id="success-warning-p" data-i18n-html="success_warn" style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.8">
       ⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.
@@ -1099,6 +1100,63 @@ async function submitOrder() {
   }
 }
 
+let _successOrderId = null;
+let _successEmail = null;
+let _successClientName = null;
+
+async function shareOrderMail() {
+  const btn = document.getElementById('btn-open-mail');
+  btn.disabled = true;
+  btn.textContent = '⏳ Préparation…';
+
+  const mailto = buildMailtoLink(_successEmail, _successClientName, _successOrderId);
+  const pdfUrl = _successOrderId ? '/api/public/orders/' + _successOrderId + '/pdf' : null;
+  const filename = 'PropositionCommande-' + (_successOrderId || 'LOCAL').slice(0,8).toUpperCase() + '.pdf';
+
+  // Update download link
+  const dlBtn = document.getElementById('btn-dl-pdf');
+  if (pdfUrl && dlBtn) { dlBtn.href = pdfUrl; dlBtn.download = filename; dlBtn.style.display = ''; }
+
+  try {
+    if (pdfUrl && navigator.share && navigator.canShare) {
+      // Fetch PDF as blob
+      const resp = await fetch(pdfUrl);
+      if (!resp.ok) throw new Error('pdf_unavailable');
+      const blob = await resp.blob();
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      if (navigator.canShare({ files: [file] })) {
+        const subject = buildMailtoLink(_successEmail, _successClientName, _successOrderId)
+          .split('subject=')[1]?.split('&')[0];
+        const body = buildMailtoLink(_successEmail, _successClientName, _successOrderId)
+          .split('body=')[1];
+        await navigator.share({
+          files: [file],
+          title: subject ? decodeURIComponent(subject) : filename,
+          text: body ? decodeURIComponent(body) : ''
+        });
+        btn.disabled = false;
+        btn.textContent = '✉️ Envoyer par mail avec PDF';
+        return;
+      }
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      // User cancelled share sheet — that's fine
+      btn.disabled = false;
+      btn.textContent = '✉️ Envoyer par mail avec PDF';
+      return;
+    }
+    // PDF fetch failed or share not supported — fallback below
+  }
+
+  // Fallback: download PDF + open mailto
+  if (pdfUrl) window.open(pdfUrl, '_blank');
+  window.location.href = mailto;
+  btn.disabled = false;
+  btn.textContent = '✉️ Envoyer par mail avec PDF';
+}
+
 function buildMailtoLink(email, clientName, orderId) {
   const orderRef = orderId ? orderId.slice(0,8).toUpperCase() : 'LOCAL';
   const lines = Object.values(cart);
@@ -1146,13 +1204,10 @@ function showSuccess(email, offline, orderId) {
     refEl.textContent = T('ref_label') + ' ' + localRef;
   }
 
-  // Mailto button
-  const clientName = document.getElementById('c-name').value.trim();
-  const mailtoBtn = document.getElementById('btn-open-mail');
-  if (mailtoBtn) {
-    mailtoBtn.href = buildMailtoLink(email, clientName, orderId);
-    mailtoBtn.textContent = T('btn_open_mail');
-  }
+  // Store for shareOrderMail()
+  _successOrderId = orderId;
+  _successEmail = email;
+  _successClientName = document.getElementById('c-name').value.trim();
 }
 
 // ── Carousel lightbox ─────────────────────────────────
