@@ -80,16 +80,16 @@ app.get('/api/brands', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/brands', requireAdmin, async (req, res) => {
-  const { name, logo_url, logo, cover_image } = req.body;
+  const { name, logo_url, logo, cover_image, cgv_text } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image) VALUES ($1,$2,$3,$4,$5)', [id, name, logo_url||'', logo||'', cover_image||'']);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text) VALUES ($1,$2,$3,$4,$5,$6)', [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'']);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireAdmin, async (req, res) => {
-  const { name, logo_url, logo, cover_image } = req.body;
-  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4 WHERE id=$5', [name, logo_url||'', logo||'', cover_image||'', req.params.id]);
+  const { name, logo_url, logo, cover_image, cgv_text } = req.body;
+  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5 WHERE id=$6', [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', req.params.id]);
   res.json({ ok: true });
 });
 
@@ -179,7 +179,7 @@ app.get('/api/public/cgv', async (req, res) => {
 });
 
 app.get('/api/public/brands/:brandId', async (req, res) => {
-  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image FROM brands WHERE id=$1', [req.params.brandId]);
+  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   res.json({ brand: b.rows[0], products: p.rows });
@@ -225,7 +225,7 @@ app.post('/api/public/orders', async (req, res) => {
 
 async function generateOrderPDF(orderId) {
   const oRes = await pool.query(`
-    SELECT o.*, b.name as brand_name FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
+    SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
   `, [orderId]);
   const order = oRes.rows[0];
   if (!order) throw new Error('Commande introuvable');
@@ -240,7 +240,8 @@ async function generateOrderPDF(orderId) {
   const showroomName = await getSetting('showroom_name');
   const agentName = await getSetting('agent_name');
   const agentTitle = await getSetting('agent_title');
-  const cgvText = await getSetting('cgv_text');
+  const globalCgv = await getSetting('cgv_text');
+  const cgvText = order.brand_cgv || globalCgv;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -374,18 +375,21 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   if (!host || !user || !pass) { console.log('SMTP non configuré'); return; }
 
   const oRes = await pool.query(`
-    SELECT o.*, b.name as brand_name,
+    SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv,
       SUM(ol.quantity * ol.unit_price) as order_total
     FROM orders o
     JOIN brands b ON o.brand_id=b.id
     LEFT JOIN order_lines ol ON ol.order_id=o.id
     WHERE o.id=$1
-    GROUP BY o.id, b.name
+    GROUP BY o.id, b.name, b.cgv_text
   `, [orderId]);
   const order = oRes.rows[0];
   const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${orderId.slice(0,8).toUpperCase()}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
   const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+  const globalCgv = await getSetting('cgv_text');
+  const cgvText = order.brand_cgv || globalCgv;
 
   const transporter = nodemailer.createTransport({
     host, port: parseInt(port)||587,
@@ -422,6 +426,11 @@ async function sendOrderEmails(orderId, pdfBuffer) {
           <p style="font-size:14px;color:#555">Nous reviendrons vers vous dès confirmation de la marque. En cas de question, n'hésitez pas à nous contacter.</p>
           <p>Cordialement,<br><strong>${agentName || showroomName}</strong><br><span style="color:#999;font-size:13px">${showroomName}</span></p>
         </div>
+        ${cgvText ? `
+        <div style="background:#f9f9f9;border-top:1px solid #eee;padding:24px 32px">
+          <p style="margin:0 0 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#aaa">Conditions générales — ${order.brand_name}</p>
+          <p style="margin:0;font-size:11px;color:#999;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+        </div>` : ''}
         <div style="background:#f5f5f5;padding:16px 32px;text-align:center;font-size:11px;color:#aaa">
           ${showroomName} — Document généré automatiquement
         </div>

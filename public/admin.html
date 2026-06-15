@@ -390,6 +390,13 @@
       <input type="hidden" id="brand-cover">
     </div>
 
+    <!-- CGV par marque -->
+    <div class="form-group" style="margin-top:8px">
+      <label>Conditions générales de vente <span style="color:#555;font-weight:400;font-size:11px">(spécifiques à cette marque — optionnel)</span></label>
+      <textarea id="brand-cgv" rows="6" placeholder="Saisissez ici les CGV spécifiques à cette marque. Elles seront affichées à l'acheteur lors de la signature et incluses dans le mail de confirmation et le PDF."></textarea>
+      <p style="font-size:11px;color:#555;margin-top:6px">Si vide, les conditions générales globales (Paramètres) seront utilisées.</p>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-brand')">Annuler</button>
       <button class="btn btn-primary" onclick="saveBrand()">Enregistrer</button>
@@ -609,6 +616,7 @@ function resetBrandModal() {
   document.getElementById('brand-name').value = '';
   document.getElementById('brand-logo').value = '';
   document.getElementById('brand-cover').value = '';
+  document.getElementById('brand-cgv').value = '';
   ['brand-logo', 'brand-cover'].forEach(id => {
     const thumb = document.getElementById(id + '-thumb');
     if (thumb) thumb.src = '';
@@ -644,6 +652,7 @@ function editBrand(b) {
     document.getElementById('brand-cover-preview').style.display = 'block';
     document.getElementById('brand-cover-clear').style.display = '';
   }
+  document.getElementById('brand-cgv').value = b.cgv_text || '';
   document.getElementById('modal-brand-title').textContent = 'Modifier la marque';
   openModal('modal-brand');
 }
@@ -656,7 +665,8 @@ async function saveBrand() {
     name,
     logo_url: '',
     logo: document.getElementById('brand-logo').value,
-    cover_image: document.getElementById('brand-cover').value
+    cover_image: document.getElementById('brand-cover').value,
+    cgv_text: document.getElementById('brand-cgv').value.trim()
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';

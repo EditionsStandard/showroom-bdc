@@ -616,6 +616,7 @@ document.addEventListener('DOMContentLoaded', () => setLang(lang));
 
 const brandId = location.pathname.split('/').pop();
 let productsData = [];
+let brandCgvText = '';
 const cart = {}; // key: "productId|color|size" → {product, size, color, qty}
 const selectedVariant = {}; // pid → colorLabel currently shown
 let currentPage = 1;
@@ -626,6 +627,7 @@ async function init() {
     const data = await fetch('/api/public/brands/' + brandId).then(r => r.json());
     if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">' + T('no_brand') + '</div>'; return; }
     productsData = data.products;
+    brandCgvText = data.brand.cgv_text || '';
     const brandName = data.brand.name;
     document.getElementById('brand-name').textContent = brandName;
     document.title = brandName + ' — Bon de Commande';
@@ -963,14 +965,9 @@ function renderRecap() {
 let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true;
 
 function renderSignaturePage() {
-  // Load CGV text from API
-  fetch('/api/public/brands/' + brandId).then(r => r.json()).then(data => {
-    // CGV text is in settings — fetch separately
-  });
-  fetch('/api/public/cgv').then(r => r.json()).then(d => {
-    const el = document.getElementById('cgv-text-display');
-    if (el) el.textContent = d.cgv_text || '';
-  }).catch(() => {});
+  // Display brand-specific CGV (loaded at init)
+  const cgvEl = document.getElementById('cgv-text-display');
+  if (cgvEl) cgvEl.textContent = brandCgvText;
 
   // Fill in name + date
   const name = document.getElementById('c-name').value.trim();
