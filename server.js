@@ -609,7 +609,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
 
   const { Resend } = require('resend');
   const resend = new Resend(resendKey);
-  const fromField = fromAddress || `noreply@editionsstandard.fr`;
+  const fromField = fromAddress || `showroom@editionsstandard.com`;
   const fromFormatted = `${showroomName} <${fromField}>`;
 
   const attachment = { filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' };
