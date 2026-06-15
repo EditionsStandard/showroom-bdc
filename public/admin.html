@@ -372,6 +372,7 @@
       <div class="form-row">
         <div class="form-group"><label>Nom de l'agent</label><input id="s-agent-name" type="text" placeholder="Prénom Nom"></div>
         <div class="form-group"><label>Titre / Fonction</label><input id="s-agent-title" type="text" placeholder="Agent Commercial"></div>
+        <div class="form-group"><label>Téléphone (affiché sur la page d'accueil acheteur)</label><input id="s-agent-phone" type="tel" placeholder="+33 6 00 00 00 00"></div>
       </div>
       <div class="sep"></div>
       <h3>Conditions Générales de Vente</h3>
@@ -422,6 +423,18 @@
         <img id="brand-cover-thumb" src="" style="max-height:120px;width:100%;object-fit:cover;border-radius:8px;border:1px solid #333">
       </div>
       <input type="hidden" id="brand-cover">
+    </div>
+
+    <!-- MOQ -->
+    <div style="display:flex;gap:16px;margin-top:8px">
+      <div class="form-group" style="flex:1">
+        <label>MOQ — Minimum pièces <span style="color:#555;font-weight:400;font-size:11px">(0 = pas de minimum)</span></label>
+        <input id="brand-moq-qty" type="number" min="0" placeholder="0">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>MOQ — Montant min HT € <span style="color:#555;font-weight:400;font-size:11px">(0 = pas de minimum)</span></label>
+        <input id="brand-moq-amount" type="number" min="0" step="0.01" placeholder="0">
+      </div>
     </div>
 
     <!-- CGV par marque -->
@@ -695,6 +708,8 @@ function resetBrandModal() {
   document.getElementById('brand-logo').value = '';
   document.getElementById('brand-cover').value = '';
   document.getElementById('brand-cgv').value = '';
+  document.getElementById('brand-moq-qty').value = '';
+  document.getElementById('brand-moq-amount').value = '';
   ['brand-logo', 'brand-cover'].forEach(id => {
     const thumb = document.getElementById(id + '-thumb');
     if (thumb) thumb.src = '';
@@ -731,6 +746,8 @@ function editBrand(b) {
     document.getElementById('brand-cover-clear').style.display = '';
   }
   document.getElementById('brand-cgv').value = b.cgv_text || '';
+  document.getElementById('brand-moq-qty').value = b.moq_qty || '';
+  document.getElementById('brand-moq-amount').value = b.moq_amount || '';
   document.getElementById('modal-brand-title').textContent = 'Modifier la marque';
   openModal('modal-brand');
 }
@@ -744,7 +761,9 @@ async function saveBrand() {
     logo_url: '',
     logo: document.getElementById('brand-logo').value,
     cover_image: document.getElementById('brand-cover').value,
-    cgv_text: document.getElementById('brand-cgv').value.trim()
+    cgv_text: document.getElementById('brand-cgv').value.trim(),
+    moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
+    moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';
@@ -1337,6 +1356,7 @@ async function loadSettings() {
   document.getElementById('s-smtp-from').value = s.smtp_from || '';
   document.getElementById('s-agent-name').value = s.agent_name || '';
   document.getElementById('s-agent-title').value = s.agent_title || '';
+  document.getElementById('s-agent-phone').value = s.agent_phone || '';
   document.getElementById('s-cgv-text').value = s.cgv_text || '';
 }
 
@@ -1351,6 +1371,7 @@ async function saveSettings() {
     smtp_from: document.getElementById('s-smtp-from').value,
     agent_name: document.getElementById('s-agent-name').value,
     agent_title: document.getElementById('s-agent-title').value,
+    agent_phone: document.getElementById('s-agent-phone').value,
     cgv_text: document.getElementById('s-cgv-text').value,
   };
   const pass = document.getElementById('s-admin-pass').value;
