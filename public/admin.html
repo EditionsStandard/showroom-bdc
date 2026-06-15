@@ -745,13 +745,22 @@ async function handleVariantImageUpload(input, vi) {
   const files = Array.from(input.files);
   if (!files.length) return;
   toast(`Compression de ${files.length} photo(s)…`);
+  let added = 0, errors = 0;
   for (const file of files) {
-    const compressed = await compressAndAdd(file);
-    currentVariants[vi].images.push(compressed);
+    try {
+      const compressed = await compressAndAdd(file);
+      currentVariants[vi].images.push(compressed);
+      added++;
+    } catch(err) {
+      console.error('Variant image error:', file.name, err.message);
+      errors++;
+    }
   }
   input.value = '';
   renderVariantsList();
-  toast('Photos ajoutées');
+  if (errors > 0 && added === 0) toast(`Erreur : impossible de lire ${errors} fichier(s). Essayez JPG ou PNG.`, true);
+  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s)`, true);
+  else toast(`${added} photo(s) ajoutée(s)`);
 }
 
 function renderImagesGrid() {
@@ -778,19 +787,27 @@ function addImageUrl(url) {
 }
 
 function compressAndAdd(file) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
+    // Timeout safety: if loading hangs (HEIC, corrupt file…), reject after 15s
+    const timeout = setTimeout(() => reject(new Error('Timeout chargement image')), 15000);
+
     const reader = new FileReader();
+    reader.onerror = () => { clearTimeout(timeout); reject(new Error('Lecture fichier impossible')); };
     reader.onload = e => {
       const img = new Image();
+      img.onerror = () => { clearTimeout(timeout); reject(new Error('Format image non supporté')); };
       img.onload = () => {
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        clearTimeout(timeout);
+        try {
+          const MAX = 800;
+          let w = img.width, h = img.height;
+          if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+          if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        } catch(err) { reject(err); }
       };
       img.src = e.target.result;
     };
@@ -802,14 +819,23 @@ async function handleImageUpload(input) {
   const files = Array.from(input.files);
   if (!files.length) return;
   toast(`Compression de ${files.length} photo(s)…`);
+  let added = 0, errors = 0;
   for (const file of files) {
-    const compressed = await compressAndAdd(file);
-    const kb = Math.round(compressed.length * 0.75 / 1024);
-    currentImages.push(compressed);
-    toast(`Photo ajoutée — ${kb} Ko`);
+    try {
+      const compressed = await compressAndAdd(file);
+      const kb = Math.round(compressed.length * 0.75 / 1024);
+      currentImages.push(compressed);
+      added++;
+    } catch(err) {
+      console.error('Image upload error:', file.name, err.message);
+      errors++;
+    }
   }
   input.value = '';
   renderImagesGrid();
+  if (errors > 0 && added === 0) toast(`Erreur : impossible de lire ${errors} fichier(s). Essayez JPG ou PNG.`, true);
+  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s) (format non supporté)`, true);
+  else toast(`${added} photo(s) ajoutée(s)`);
 }
 
 function cancelProductForm() {
