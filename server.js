@@ -152,6 +152,30 @@ app.get('/api/orders', requireAdmin, async (req, res) => {
   res.json(r.rows);
 });
 
+app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
+  const { status } = req.body;
+  if (!['confirmed','validated','cancelled'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
+  await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
+  res.json({ ok: true });
+});
+
+app.delete('/api/orders/:id', requireAdmin, async (req, res) => {
+  await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
+  await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+app.get('/api/orders/:id', requireAdmin, async (req, res) => {
+  const oRes = await pool.query(`
+    SELECT o.*, b.name as brand_name FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
+  `, [req.params.id]);
+  if (!oRes.rows[0]) return res.status(404).json({ error: 'Introuvable' });
+  const lRes = await pool.query(`
+    SELECT ol.*, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1
+  `, [req.params.id]);
+  res.json({ order: oRes.rows[0], lines: lRes.rows });
+});
+
 app.post('/api/orders/:id/resend', requireAdmin, async (req, res) => {
   try {
     const pdf = await generateOrderPDF(req.params.id);

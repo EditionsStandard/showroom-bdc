@@ -87,7 +87,9 @@
 
   /* Status badge */
   .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .badge-confirmed { background: #1a3a2a; color: #2ecc71; }
+  .badge-confirmed  { background: #2a2a10; color: #e0c000; }
+  .badge-validated  { background: #1a3a2a; color: #2ecc71; }
+  .badge-cancelled  { background: #3a1a1a; color: #e74c3c; }
   .badge-draft { background: #2a2a1a; color: #f39c12; }
 
   /* Toast */
@@ -304,10 +306,42 @@
 
   <!-- ORDERS -->
   <div id="orders" class="section">
-    <h1>Commandes</h1>
-    <div class="card">
-      <table id="orders-table">
-        <thead><tr><th>Date</th><th>Client</th><th>Marque</th><th>Articles</th><th>Total HT</th><th>Statut</th><th>Actions</th></tr></thead>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+      <h1 style="margin:0">Commandes</h1>
+      <span id="orders-count" style="font-size:13px;color:#888"></span>
+    </div>
+
+    <!-- Filters -->
+    <div class="card" style="padding:16px 20px;margin-bottom:16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input id="orders-search" type="text" placeholder="🔍 Client, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterOrders()">
+        <select id="orders-filter-brand" onchange="filterOrders()" style="padding:8px 12px;font-size:13px;min-width:140px">
+          <option value="">Toutes les marques</option>
+        </select>
+        <select id="orders-filter-status" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
+          <option value="">Tous les statuts</option>
+          <option value="confirmed">Reçue</option>
+          <option value="validated">Validée ✓</option>
+          <option value="cancelled">Annulée</option>
+        </select>
+        <select id="orders-sort" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
+          <option value="date_desc">Date ↓</option>
+          <option value="date_asc">Date ↑</option>
+          <option value="total_desc">Total ↓</option>
+          <option value="brand">Marque A→Z</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="resetOrderFilters()">Réinitialiser</button>
+      </div>
+    </div>
+
+    <!-- Stats rapides -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="orders-stats"></div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <table id="orders-table" style="min-width:700px">
+        <thead><tr>
+          <th>Réf.</th><th>Date</th><th>Client</th><th>Marque</th><th>Total HT</th><th>Statut</th><th>Actions</th>
+        </tr></thead>
         <tbody id="orders-body"></tbody>
       </table>
     </div>
@@ -484,6 +518,50 @@
     <div class="modal-footer" style="justify-content:center">
       <button class="btn btn-secondary" onclick="closeModal('modal-qr')">Fermer</button>
       <button class="btn btn-primary" onclick="printQR()">Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ORDER DETAIL -->
+<div class="modal-overlay" id="modal-order">
+  <div class="modal" style="max-width:620px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <h3 id="mo-ref" style="margin:0;font-size:18px"></h3>
+        <span id="mo-date" style="font-size:12px;color:#888"></span>
+      </div>
+      <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid #333;cursor:pointer">
+        <option value="confirmed">🟡 Reçue</option>
+        <option value="validated">🟢 Validée</option>
+        <option value="cancelled">🔴 Annulée</option>
+      </select>
+    </div>
+
+    <!-- Client -->
+    <div style="background:#0f0f1a;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:13px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px">Client</div>
+      <div id="mo-client"></div>
+    </div>
+
+    <!-- Lines -->
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px">Articles commandés</div>
+    <table style="margin-bottom:14px">
+      <thead><tr><th>Référence</th><th>Couleur</th><th>Taille</th><th>Qté</th><th>P.U. HT</th><th>Total HT</th></tr></thead>
+      <tbody id="mo-lines"></tbody>
+    </table>
+    <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:#0f0f1a;border-radius:6px;margin-bottom:14px"></div>
+
+    <!-- Notes -->
+    <div id="mo-notes-wrap" style="display:none;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Notes</div>
+      <div id="mo-notes" style="font-size:13px;color:#aaa;background:#0f0f1a;padding:12px;border-radius:8px;line-height:1.6"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteOrderFromModal()">🗑 Supprimer</button>
+      <a id="mo-pdf-link" href="#" target="_blank" class="btn btn-secondary">📄 PDF</a>
+      <button class="btn btn-green btn-sm" id="mo-resend-btn" onclick="resendFromModal()">📧 Renvoyer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-order')">Fermer</button>
     </div>
   </div>
 </div>
@@ -1087,23 +1165,157 @@ async function deleteProduct(id) {
 }
 
 // Orders
+let _allOrders = [];
+let _currentOrderId = null;
+
+const STATUS_LABEL = { confirmed: '🟡 Reçue', validated: '🟢 Validée', cancelled: '🔴 Annulée' };
+const STATUS_BADGE = { confirmed: 'confirmed', validated: 'validated', cancelled: 'cancelled' };
+
 async function loadOrders() {
-  const orders = await fetch('/api/orders').then(r => r.json());
+  _allOrders = await fetch('/api/orders').then(r => r.json());
+
+  // Populate brand filter
+  const brandSel = document.getElementById('orders-filter-brand');
+  const brands = [...new Set(_allOrders.map(o => o.brand_name).filter(Boolean))].sort();
+  brandSel.innerHTML = '<option value="">Toutes les marques</option>' +
+    brands.map(b => `<option value="${b}">${b}</option>`).join('');
+
+  filterOrders();
+}
+
+function filterOrders() {
+  const search = (document.getElementById('orders-search').value || '').toLowerCase();
+  const brand  = document.getElementById('orders-filter-brand').value;
+  const status = document.getElementById('orders-filter-status').value;
+  const sort   = document.getElementById('orders-sort').value || 'date_desc';
+
+  let list = _allOrders.filter(o => {
+    if (brand  && o.brand_name !== brand) return false;
+    if (status && o.status !== status)    return false;
+    if (search) {
+      const hay = ((o.client_name||'') + ' ' + (o.client_company||'') + ' ' + (o.client_email||'')).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  list.sort((a, b) => {
+    if (sort === 'date_desc') return new Date(b.created_at) - new Date(a.created_at);
+    if (sort === 'date_asc')  return new Date(a.created_at) - new Date(b.created_at);
+    if (sort === 'total_desc') return (b.total||0) - (a.total||0);
+    if (sort === 'total_asc')  return (a.total||0) - (b.total||0);
+    if (sort === 'client')    return (a.client_name||'').localeCompare(b.client_name||'');
+    return 0;
+  });
+
+  // Stats
+  const totalRev = list.reduce((s, o) => s + (parseFloat(o.total)||0), 0);
+  const pending  = list.filter(o => o.status === 'confirmed').length;
+  document.getElementById('orders-stats').innerHTML =
+    `<span><strong>${list.length}</strong> commande${list.length!==1?'s':''}</span>` +
+    `<span style="margin-left:18px">CA : <strong>${totalRev.toFixed(2)} €</strong></span>` +
+    `<span style="margin-left:18px;color:#CCEB3C">${pending} en attente</span>`;
+
+  // Table
   const tbody = document.getElementById('orders-body');
-  tbody.innerHTML = orders.map(o => `
+  tbody.innerHTML = list.length ? list.map(o => `
     <tr>
+      <td style="font-size:11px;color:#888;font-family:monospace">${o.id.slice(0,8)}</td>
       <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
-      <td><strong>${o.client_name}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
-      <td>${o.brand_name}</td>
-      <td style="text-align:center">${o.line_count}</td>
+      <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
+      <td>${o.brand_name||''}</td>
       <td><strong>${(o.total||0).toFixed(2)} €</strong></td>
-      <td><span class="badge badge-${o.status}">${o.status==='confirmed'?'Confirmée':'Brouillon'}</span></td>
-      <td style="display:flex;gap:6px;padding:8px 12px">
-        <a href="/api/orders/${o.id}/pdf" target="_blank" class="btn btn-secondary btn-sm">📄 PDF</a>
-        <button class="btn btn-green btn-sm" onclick="resend('${o.id}')">📧 Renvoyer</button>
+      <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL[o.status]||o.status}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
+        <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">👁 Voir</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">Aucune commande</td></tr>';
+  `).join('') : '<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">Aucune commande</td></tr>';
+}
+
+async function viewOrder(id) {
+  _currentOrderId = id;
+  const data = await fetch('/api/orders/' + id).then(r => r.json());
+  const o = data.order;
+  const lines = data.lines || [];
+
+  document.getElementById('mo-ref').textContent   = 'Commande #' + id.slice(0,8);
+  document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString('fr-FR');
+  document.getElementById('mo-status-select').value = o.status || 'confirmed';
+
+  document.getElementById('mo-client').innerHTML =
+    `<strong>${o.client_name||''}</strong> — ${o.client_company||''}<br>` +
+    `<a href="mailto:${o.client_email}" style="color:#CCEB3C">${o.client_email||''}</a>` +
+    (o.client_phone ? ` · ${o.client_phone}` : '') +
+    (o.client_country ? `<br>${o.client_country}` : '');
+
+  const total = lines.reduce((s, l) => s + (l.qty * parseFloat(l.unit_price||0)), 0);
+  document.getElementById('mo-lines').innerHTML = lines.map(l => `
+    <tr>
+      <td>${l.product_ref||''}</td>
+      <td>${l.color||'-'}</td>
+      <td>${l.size||'-'}</td>
+      <td style="text-align:center">${l.qty}</td>
+      <td>${parseFloat(l.unit_price||0).toFixed(2)} €</td>
+      <td><strong>${(l.qty * parseFloat(l.unit_price||0)).toFixed(2)} €</strong></td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" style="color:#666;text-align:center;padding:12px">Aucun article</td></tr>';
+
+  document.getElementById('mo-total').textContent = 'Total HT : ' + total.toFixed(2) + ' €';
+
+  const notesWrap = document.getElementById('mo-notes-wrap');
+  if (o.notes) {
+    document.getElementById('mo-notes').textContent = o.notes;
+    notesWrap.style.display = '';
+  } else {
+    notesWrap.style.display = 'none';
+  }
+
+  document.getElementById('mo-pdf-link').href = '/api/orders/' + id + '/pdf';
+
+  openModal('modal-order');
+}
+
+async function changeOrderStatus() {
+  if (!_currentOrderId) return;
+  const status = document.getElementById('mo-status-select').value;
+  await fetch('/api/orders/' + _currentOrderId + '/status', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status })
+  });
+  const o = _allOrders.find(x => x.id === _currentOrderId);
+  if (o) o.status = status;
+  filterOrders();
+  toast('Statut mis à jour ✓');
+}
+
+async function deleteOrder(id) {
+  if (!confirm('Supprimer cette commande ? Cette action est irréversible.')) return;
+  const r = await fetch('/api/orders/' + id, { method: 'DELETE' });
+  if (r.ok) {
+    _allOrders = _allOrders.filter(o => o.id !== id);
+    filterOrders();
+    toast('Commande supprimée');
+  } else {
+    toast('Erreur lors de la suppression', true);
+  }
+}
+
+async function deleteOrderFromModal() {
+  if (!_currentOrderId) return;
+  closeModal('modal-order');
+  await deleteOrder(_currentOrderId);
+  _currentOrderId = null;
+}
+
+async function resendFromModal() {
+  if (!_currentOrderId) return;
+  const r = await fetch('/api/orders/' + _currentOrderId + '/resend', { method: 'POST' });
+  const data = await r.json();
+  if (data.ok) toast('Email renvoyé ✓');
+  else toast(data.error || 'Erreur email', true);
 }
 
 async function resend(id) {
