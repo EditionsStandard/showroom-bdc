@@ -607,7 +607,7 @@ async function loadDashboard() {
   ]);
   document.getElementById('stat-brands').textContent = brands.length;
   document.getElementById('stat-orders').textContent = orders.length;
-  const total = orders.reduce((s, o) => s + (o.total || 0), 0);
+  const total = orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   document.getElementById('stat-total').textContent = total.toFixed(2) + ' €';
   const tbody = document.getElementById('recent-orders-body');
   const recent = orders.slice(0, 10);
@@ -616,7 +616,7 @@ async function loadDashboard() {
       <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
       <td><strong>${o.client_name}</strong><br><span style="font-size:11px;color:#888">${o.client_email}</span></td>
       <td>${o.brand_name}</td>
-      <td><strong>${(o.total||0).toFixed(2)} €</strong></td>
+      <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td>
         <a href="/api/orders/${o.id}/pdf" target="_blank" class="btn btn-secondary btn-sm">PDF</a>
         <button class="btn btn-green btn-sm" onclick="resend('${o.id}')">Renvoyer</button>
@@ -1209,7 +1209,7 @@ function filterOrders() {
   });
 
   // Stats
-  const totalRev = list.reduce((s, o) => s + (parseFloat(o.total)||0), 0);
+  const totalRev = list.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   const pending  = list.filter(o => o.status === 'confirmed').length;
   document.getElementById('orders-stats').innerHTML =
     `<span><strong>${list.length}</strong> commande${list.length!==1?'s':''}</span>` +
@@ -1224,7 +1224,7 @@ function filterOrders() {
       <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
       <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
       <td>${o.brand_name||''}</td>
-      <td><strong>${(o.total||0).toFixed(2)} €</strong></td>
+      <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">👁 Voir</button>
