@@ -212,7 +212,7 @@ app.post('/api/public/orders', async (req, res) => {
   try {
     const pdf = await generateOrderPDF(orderId);
     await sendOrderEmails(orderId, pdf);
-  } catch(e) { console.error('PDF/email error:', e.message); }
+  } catch(e) { console.error('PDF/email error:', e.message, '| code:', e.code, '| errno:', e.errno, '| host:', e.host || '', '| port:', e.port || ''); }
 
   const totRes = await pool.query('SELECT SUM(quantity * unit_price) as total FROM order_lines WHERE order_id=$1', [orderId]);
   const orderTotal = parseFloat(totRes.rows[0]?.total || 0);
@@ -394,7 +394,10 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const transporter = nodemailer.createTransport({
     host, port: parseInt(port)||587,
     secure: parseInt(port) === 465,
-    auth: { user, pass }
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000,
+    socketTimeout: 15000
   });
 
   const attachment = { filename, content: pdfBuffer, contentType: 'application/pdf' };
