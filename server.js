@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
@@ -271,17 +272,29 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.description, p.color
+    SELECT ol.*, p.reference, p.name as product_name, p.color
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
   const lines = lRes.rows;
 
   const showroomName = await getSetting('showroom_name');
-  const agentName = await getSetting('agent_name');
-  const agentTitle = await getSetting('agent_title');
-  const globalCgv = await getSetting('cgv_text');
-  const cgvText = order.brand_cgv || globalCgv;
+  const agentName    = await getSetting('agent_name');
+  const agentTitle   = await getSetting('agent_title');
+  const globalCgv    = await getSetting('cgv_text');
+  const cgvText      = order.brand_cgv || globalCgv;
+
+  // Convert SVG logo to PNG buffer
+  let logoBuf = null;
+  try {
+    const svg2img = require('svg2img');
+    const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
+    logoBuf = await new Promise((res, rej) =>
+      svg2img(svgSrc, { width: 120, height: 120, preserveAspectRatio: true }, (err, buf) =>
+        err ? rej(err) : res(buf)
+      )
+    );
+  } catch(e) { /* logo optional */ }
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -290,115 +303,150 @@ async function generateOrderPDF(orderId) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const total = lines.reduce((s, l) => s + l.quantity * parseFloat(l.unit_price), 0);
+    const total   = lines.reduce((s, l) => s + l.quantity * parseFloat(l.unit_price), 0);
     const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
 
-    doc.fontSize(22).fillColor('#1a1a2e').text(showroomName, { align: 'center' });
-    doc.fontSize(13).fillColor('#666').text('Bon de Commande', { align: 'center' });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor('#999').text(`N° ${orderId.slice(0,8).toUpperCase()} — ${dateStr}`, { align: 'center' });
-    doc.moveDown(1);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.8);
+    // ── Header ──
+    const headerTop = 50;
+    if (logoBuf) {
+      doc.image(logoBuf, 50, headerTop, { width: 48, height: 48 });
+    }
+    const textX = logoBuf ? 110 : 50;
+    doc.fontSize(20).fillColor('#0a0a0a').font('Helvetica-Bold')
+      .text(showroomName, textX, headerTop + 4, { lineBreak: false });
+    doc.fontSize(10).fillColor('#888').font('Helvetica')
+      .text('Bon de Commande', textX, headerTop + 30, { lineBreak: false });
+    doc.fontSize(9).fillColor('#aaa')
+      .text(`N° ${orderId.slice(0,8).toUpperCase()} — ${dateStr}`, textX, headerTop + 44, { lineBreak: false });
 
-    const startY = doc.y;
-    doc.fontSize(9).fillColor('#999').text('MARQUE', 50, startY);
-    doc.fontSize(13).fillColor('#1a1a2e').text(order.brand_name, 50, startY + 14);
-    doc.fontSize(9).fillColor('#999').text('CLIENT', 310, startY);
-    doc.fontSize(12).fillColor('#1a1a2e').text(order.client_name, 310, startY + 14);
-    if (order.client_company) doc.fontSize(10).fillColor('#444').text(order.client_company, 310);
-    doc.fontSize(10).fillColor('#444').text(order.client_email, 310);
-    if (order.client_phone) doc.text(order.client_phone, 310);
+    doc.moveTo(50, headerTop + 62).lineTo(545, headerTop + 62).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    const infoY = headerTop + 72;
 
-    doc.moveDown(2.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.8);
+    // ── Marque / Client ──
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('MARQUE', 50, infoY);
+    doc.fontSize(12).fillColor('#0a0a0a').font('Helvetica-Bold').text(order.brand_name, 50, infoY + 12);
 
-    const col = { ref:50, desc:145, color:265, size:325, qty:370, pw:405, pr:450, total:500 };
-    doc.fontSize(8).fillColor('#888');
-    doc.text('RÉFÉRENCE', col.ref, doc.y);
-    ['DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'].forEach((h, i) => {
-      const keys = ['desc','color','size','qty','pw','pr','total'];
-      doc.text(h, col[keys[i]], doc.y - doc.currentLineHeight());
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('CLIENT', 300, infoY);
+    doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(order.client_name, 300, infoY + 12);
+    doc.fontSize(9).fillColor('#555').font('Helvetica');
+    if (order.client_company) doc.text(order.client_company, 300);
+    doc.fillColor('#555').text(order.client_email, 300);
+    if (order.client_phone) doc.fillColor('#777').text(order.client_phone, 300);
+
+    const tableTop = infoY + 70;
+    doc.moveTo(50, tableTop).lineTo(545, tableTop).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+    // ── Table header ──
+    const col = { ref:50, name:145, color:280, size:330, qty:368, pw:400, pr:445, total:495 };
+    const colW = { ref:90, name:130, color:45,  size:33,  qty:27,  pw:40,  pr:45,  total:50 };
+    const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'];
+    const colKeys = ['ref','name','color','size','qty','pw','pr','total'];
+    const thY = tableTop + 8;
+
+    doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+    headers.forEach((h, i) => {
+      const align = i >= 4 ? 'right' : 'left';
+      doc.text(h, col[colKeys[i]], thY, { width: colW[colKeys[i]], align });
     });
-    doc.moveDown(0.3);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.3);
+    doc.moveTo(50, thY + 14).lineTo(545, thY + 14).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
 
-    let rowY = doc.y;
+    // ── Table rows ──
+    let rowY = thY + 20;
+    doc.font('Helvetica').fontSize(8.5);
+
     lines.forEach((line, i) => {
-      const bg = i % 2 === 0 ? '#f9f9f9' : '#ffffff';
-      doc.rect(50, rowY-2, 495, 20).fillColor(bg).fill();
-      doc.fontSize(9).fillColor('#1a1a2e');
-      doc.text(line.reference||'', col.ref, rowY, {width:90});
-      doc.text(line.description||'', col.desc, rowY, {width:115});
-      doc.text(line.color||'', col.color, rowY, {width:55});
-      doc.text(line.size||'', col.size, rowY, {width:40});
-      doc.text(String(line.quantity), col.qty, rowY, {width:30});
-      doc.text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.pw, rowY, {width:40});
-      doc.text(line.price_retail > 0 ? `${parseFloat(line.price_retail).toFixed(2)} €` : '—', col.pr, rowY, {width:45});
-      doc.text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, {width:45});
-      rowY += 20;
+      // Measure name height
+      const nameText = line.product_name || line.reference || '';
+      const nameH = doc.heightOfString(nameText, { width: colW.name });
+      const rowH  = Math.max(nameH, 14) + 8;
+
+      if (i % 2 === 0) {
+        doc.rect(50, rowY - 2, 495, rowH).fillColor('#f7f7f7').fill();
+      }
+
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
+        .text(line.reference || '', col.ref, rowY, { width: colW.ref });
+      doc.fillColor('#333').font('Helvetica')
+        .text(nameText, col.name, rowY, { width: colW.name });
+      doc.fillColor('#555')
+        .text(line.color || '—', col.color, rowY, { width: colW.color })
+        .text(line.size  || '—', col.size,  rowY, { width: colW.size });
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
+        .text(String(line.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
+      doc.fillColor('#333').font('Helvetica')
+        .text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.pw,    rowY, { width: colW.pw,    align: 'right' })
+        .text(line.price_retail > 0 ? `${parseFloat(line.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
+        .text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+
+      rowY += rowH;
     });
 
-    doc.y = rowY + 5;
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.5);
-    doc.fontSize(12).fillColor('#1a1a2e').text(`TOTAL HT : ${total.toFixed(2)} €`, { align: 'right' });
+    // ── Total ──
+    doc.moveTo(50, rowY + 2).lineTo(545, rowY + 2).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    rowY += 12;
+    doc.rect(380, rowY - 4, 165, 22).fillColor('#0a0a0a').fill();
+    doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+      .text('TOTAL HT', 390, rowY, { width: 80, align: 'left' })
+      .text(`${total.toFixed(2)} €`, 390, rowY, { width: 145, align: 'right' });
+    rowY += 26;
 
+    // ── Notes ──
     if (order.notes) {
-      doc.moveDown(1);
-      doc.fontSize(9).fillColor('#888').text('NOTES :');
-      doc.fontSize(10).fillColor('#444').text(order.notes);
+      rowY += 8;
+      doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('NOTES', 50, rowY);
+      rowY += 12;
+      doc.fontSize(9).fillColor('#444').font('Helvetica').text(order.notes, 50, rowY, { width: 495 });
+      rowY += doc.heightOfString(order.notes, { width: 495 }) + 8;
     }
 
-    // ── Conditions Générales de Vente ──
-    doc.moveDown(2);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.6);
-    doc.fontSize(8).fillColor('#888').text('CONDITIONS GÉNÉRALES — PROPOSITION DE COMMANDE', { align: 'center' });
-    doc.moveDown(0.4);
+    // ── CGV ──
     if (cgvText) {
-      doc.fontSize(7.5).fillColor('#aaa').text(cgvText, { align: 'justify', lineGap: 1.5 });
+      rowY += 10;
+      doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      rowY += 10;
+      doc.fontSize(7).fillColor('#aaa').font('Helvetica')
+        .text('CONDITIONS GÉNÉRALES — PROPOSITION DE COMMANDE', 50, rowY, { align: 'center', width: 495 });
+      rowY += 14;
+      doc.fontSize(7.5).fillColor('#999').font('Helvetica')
+        .text(cgvText, 50, rowY, { align: 'justify', lineGap: 1.5, width: 495 });
+      rowY += doc.heightOfString(cgvText, { width: 495, lineGap: 1.5 }) + 10;
     }
 
     // ── Signatures ──
-    doc.moveDown(1.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.8);
+    // If near page bottom, add a new page
+    if (rowY > 720) { doc.addPage(); rowY = 50; }
+    else rowY += 16;
 
-    const sigY = doc.y;
+    doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    rowY += 14;
 
-    // Left: buyer
-    doc.fontSize(8).fillColor('#888').text("L'ACHETEUR", 50, sigY);
-    doc.fontSize(9).fillColor('#333').text(order.client_name || '', 50, sigY + 12);
-    if (order.client_company) doc.fontSize(8).fillColor('#666').text(order.client_company, 50);
-    doc.fontSize(7).fillColor('#999').text('Lu et approuvé — ' + new Date(order.created_at).toLocaleDateString('fr-FR'), 50);
+    const sigY = rowY;
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text("L'ACHETEUR", 50, sigY);
+    doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(order.client_name || '', 50, sigY + 13);
+    if (order.client_company) doc.fontSize(8).fillColor('#555').font('Helvetica').text(order.client_company, 50, sigY + 25);
+    doc.fontSize(7.5).fillColor('#999').font('Helvetica')
+      .text('Lu et approuvé — ' + new Date(order.created_at).toLocaleDateString('fr-FR'), 50, sigY + 35);
 
-    // Draw buyer signature image if present
     if (order.buyer_signature && order.buyer_signature.startsWith('data:image')) {
       try {
         const sigData = order.buyer_signature.replace(/^data:image\/\w+;base64,/, '');
-        const sigBuf = Buffer.from(sigData, 'base64');
-        doc.image(sigBuf, 50, sigY + 40, { width: 180, height: 60 });
-      } catch(e) { /* skip if corrupt */ }
-    } else {
-      // Placeholder line
-      doc.moveDown(0.5);
-      doc.moveTo(50, sigY + 75).lineTo(230, sigY + 75).strokeColor('#ccc').stroke();
-      doc.fontSize(7).fillColor('#bbb').text('Signature', 50, sigY + 78);
+        doc.image(Buffer.from(sigData, 'base64'), 50, sigY + 48, { width: 160, height: 55 });
+      } catch(e) {}
     }
+    doc.moveTo(50, sigY + 110).lineTo(220, sigY + 110).strokeColor('#ccc').lineWidth(0.5).stroke();
+    doc.fontSize(7).fillColor('#bbb').font('Helvetica').text('Signature', 50, sigY + 113);
 
-    // Right: agent
-    doc.fontSize(8).fillColor('#888').text("L'AGENT / SHOWROOM", 310, sigY);
-    doc.fontSize(9).fillColor('#333').text(agentName || showroomName, 310, sigY + 12);
-    if (agentTitle) doc.fontSize(8).fillColor('#666').text(agentTitle, 310, sigY + 24);
-    doc.fontSize(7).fillColor('#999').text('Date : ____________________', 310, sigY + 36);
-    doc.moveTo(310, sigY + 75).lineTo(490, sigY + 75).strokeColor('#ccc').stroke();
-    doc.fontSize(7).fillColor('#bbb').text('Signature', 310, sigY + 78);
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text("L'AGENT / SHOWROOM", 310, sigY);
+    doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(agentName || showroomName, 310, sigY + 13);
+    if (agentTitle) doc.fontSize(8).fillColor('#555').font('Helvetica').text(agentTitle, 310, sigY + 25);
+    doc.fontSize(7.5).fillColor('#999').font('Helvetica').text('Date : ____________________', 310, sigY + 37);
+    doc.moveTo(310, sigY + 110).lineTo(490, sigY + 110).strokeColor('#ccc').lineWidth(0.5).stroke();
+    doc.fontSize(7).fillColor('#bbb').font('Helvetica').text('Signature', 310, sigY + 113);
 
-    doc.moveDown(6);
-    doc.fontSize(8).fillColor('#aaa').text(`Document généré automatiquement — ${showroomName}`, { align: 'center' });
+    doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
+      .text(`Document généré automatiquement — ${showroomName}`, 50, sigY + 130, { align: 'center', width: 495 });
+
     doc.end();
   });
 }
