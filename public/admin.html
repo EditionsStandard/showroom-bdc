@@ -459,6 +459,7 @@
       <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Ajouter référence</button>
       <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()">🖨️ Imprimer QR Codes</button>
       <button class="btn btn-danger btn-sm" onclick="clearAllProducts()">🗑 Vider la collection</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()">🖼️ Vider les photos</button>
     </div>
     <table id="products-table">
       <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Wholesale HT</th><th>Retail</th><th>Image</th><th></th></tr></thead>
@@ -1309,6 +1310,13 @@ async function clearAllProducts() {
   const r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'DELETE' }).then(r => r.json());
   refreshProducts();
   toast(`${r.deleted} référence(s) supprimée(s)`);
+}
+
+async function clearAllPhotos() {
+  if (!confirm('Supprimer toutes les photos de cette collection (les références sont conservées) ?')) return;
+  const r = await fetch(`/api/brands/${currentBrandId}/products-photos`, { method: 'DELETE' }).then(r => r.json());
+  refreshProducts();
+  toast(`Photos supprimées sur ${r.cleared} référence(s)`);
 }
 
 // Orders

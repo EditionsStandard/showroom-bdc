@@ -169,6 +169,11 @@ app.delete('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
   res.json({ ok: true, deleted: r.rowCount });
 });
 
+app.delete('/api/brands/:brandId/products-photos', requireAdmin, async (req, res) => {
+  const r = await pool.query("UPDATE products SET images='[]', image_url='' WHERE brand_id=$1", [req.params.brandId]);
+  res.json({ ok: true, cleared: r.rowCount });
+});
+
 app.post('/api/brands/:brandId/bulk-photos', requireAdmin, upload.array('photos', 200), async (req, res) => {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
