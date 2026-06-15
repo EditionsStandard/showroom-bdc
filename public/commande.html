@@ -125,8 +125,13 @@
   .btn-back { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 16px 20px; font-weight: 500; touch-action: manipulation; display: flex; align-items: center; gap: 6px; letter-spacing: .08em; text-transform: uppercase; font-family: 'Inter', sans-serif; }
 
   /* ── Confirm btn ── */
-  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-family: 'Inter', sans-serif; margin-top: 2px; }
-  .btn-confirm:disabled { background: var(--border); color: var(--muted); }
+  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-family: 'Space Mono', monospace; margin-top: 2px; transition: background .2s; }
+  .btn-confirm:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  /* ── CGV + Signature ── */
+  .cgv-check-label { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 12px; color: var(--soft); line-height: 1.5; }
+  .cgv-check-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; accent-color: var(--accent); cursor: pointer; }
+  .cgv-check-label span { flex: 1; }
 
   /* ── Success ── */
   .success-page { text-align: center; padding: 80px 24px 100px; }
@@ -250,6 +255,7 @@
   <div class="step active" id="step1"><span class="step-num">1</span>Sélection</div>
   <div class="step" id="step2"><span class="step-num">2</span>Infos</div>
   <div class="step" id="step3"><span class="step-num">3</span>Récap</div>
+  <div class="step" id="step4"><span class="step-num">4</span>Signature</div>
 </div>
 
 <!-- PAGE 1 -->
@@ -289,6 +295,42 @@
     <span class="amt" id="recap-total">0,00 €</span>
   </div>
   <button class="btn-confirm" id="btn-confirm-final" style="display:none">Confirmer la commande</button>
+</div>
+
+<!-- PAGE 4 — CGV + Signature -->
+<div id="page4" class="page">
+  <button class="btn-back" id="back-to-3">← Retour</button>
+  <div class="recap-card">
+    <h4>Conditions générales</h4>
+    <div id="cgv-text-display" style="font-size:11px;line-height:1.8;color:var(--soft);max-height:160px;overflow-y:auto;border:1px solid var(--border);padding:14px;margin-bottom:16px;background:var(--black)"></div>
+    <label class="cgv-check-label">
+      <input type="checkbox" id="cgv-checkbox">
+      <span>J'ai lu et j'accepte les conditions générales de vente</span>
+    </label>
+  </div>
+
+  <div class="recap-card">
+    <h4>Signature de l'acheteur</h4>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Signez dans le cadre ci-dessous avec votre doigt ou votre souris.</p>
+    <div style="position:relative;background:#fff;border:1px solid var(--border)">
+      <canvas id="sig-canvas" style="display:block;width:100%;height:140px;cursor:crosshair;touch-action:none"></canvas>
+      <span id="sig-hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:12px;pointer-events:none;letter-spacing:.06em;text-transform:uppercase">Signez ici</span>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button id="sig-clear" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;padding:6px 0">✕ Effacer</button>
+    </div>
+    <div style="margin-top:4px;font-size:11px;color:var(--muted)">
+      <span id="sig-name-display"></span> — <span id="sig-date-display"></span>
+    </div>
+  </div>
+
+  <div style="padding:0 0 2px">
+    <div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.15);padding:14px 18px;font-size:11px;color:var(--soft);line-height:1.7;letter-spacing:.02em">
+      ⚠ Cette proposition de commande ne sera <strong style="color:var(--white)">définitive qu'après acceptation de la marque</strong> et signature du bon de commande par les deux parties.
+    </div>
+  </div>
+
+  <button class="btn-confirm" id="btn-sign-confirm" disabled>Signer et envoyer la commande</button>
 </div>
 
 <!-- SUCCESS -->
@@ -532,18 +574,21 @@ document.getElementById('search-input').addEventListener('input', function() {
 // ── Navigation ────────────────────────────────────────
 function goToPage(n) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 4; i++) {
     const s = document.getElementById('step' + i);
+    if (!s) continue;
     s.classList.remove('active', 'done');
     if (i < n) s.classList.add('done');
     if (i === n) s.classList.add('active');
   }
-  const pageEl = n <= 3 ? document.getElementById('page' + n) : document.getElementById('page-success');
+  const pageEl = n <= 4 ? document.getElementById('page' + n) : document.getElementById('page-success');
   pageEl.classList.add('active');
   document.getElementById('cart-bar').style.display = (n >= 1 && n <= 3) ? 'flex' : 'none';
-  if (n === 3) {
+  if (n === 4) {
+    renderSignaturePage();
+  } else if (n === 3) {
     renderRecap();
-    document.getElementById('btn-next').textContent = 'Confirmer →';
+    document.getElementById('btn-next').textContent = 'Signature →';
   } else if (n === 2) {
     document.getElementById('btn-next').textContent = 'Récapitulatif →';
   } else if (n === 1) {
@@ -565,12 +610,13 @@ document.getElementById('btn-next').addEventListener('click', function() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Email invalide.'); return; }
     goToPage(3);
   } else if (currentPage === 3) {
-    submitOrder();
+    goToPage(4);
   }
 });
 
 document.getElementById('back-to-1').addEventListener('click', () => goToPage(1));
 document.getElementById('back-to-2').addEventListener('click', () => goToPage(2));
+document.getElementById('back-to-3').addEventListener('click', () => goToPage(3));
 
 // ── Recap ─────────────────────────────────────────────
 function renderRecap() {
@@ -612,17 +658,92 @@ function renderRecap() {
     + (phone ? '<div class="recap-line"><span>Tél.</span><strong>' + esc(phone) + '</strong></div>' : '');
 }
 
+// ── Signature page ────────────────────────────────────
+let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true;
+
+function renderSignaturePage() {
+  // Load CGV text from API
+  fetch('/api/public/brands/' + brandId).then(r => r.json()).then(data => {
+    // CGV text is in settings — fetch separately
+  });
+  fetch('/api/public/cgv').then(r => r.json()).then(d => {
+    const el = document.getElementById('cgv-text-display');
+    if (el) el.textContent = d.cgv_text || '';
+  }).catch(() => {});
+
+  // Fill in name + date
+  const name = document.getElementById('c-name').value.trim();
+  const today = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  document.getElementById('sig-name-display').textContent = name;
+  document.getElementById('sig-date-display').textContent = today;
+
+  // Init canvas
+  sigCanvas = document.getElementById('sig-canvas');
+  sigCtx = sigCanvas.getContext('2d');
+
+  // Set internal resolution to match display size
+  const rect = sigCanvas.getBoundingClientRect();
+  sigCanvas.width = rect.width || 600;
+  sigCanvas.height = 140;
+  sigCtx.strokeStyle = '#111';
+  sigCtx.lineWidth = 2;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+  sigEmpty = true;
+
+  // Checkbox → button state
+  const checkbox = document.getElementById('cgv-checkbox');
+  const btn = document.getElementById('btn-sign-confirm');
+  function updateBtn() {
+    btn.disabled = !(checkbox.checked && !sigEmpty);
+  }
+  checkbox.onchange = updateBtn;
+
+  // Canvas drawing — mouse
+  sigCanvas.onmousedown = e => { sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); hideHint(); };
+  sigCanvas.onmousemove = e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; updateBtn(); };
+  sigCanvas.onmouseup = () => { sigDrawing = false; };
+  sigCanvas.onmouseleave = () => { sigDrawing = false; };
+
+  // Canvas drawing — touch
+  sigCanvas.ontouchstart = e => { e.preventDefault(); sigDrawing = true; const p = getPos(e.touches[0]); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); hideHint(); };
+  sigCanvas.ontouchmove = e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e.touches[0]); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; updateBtn(); };
+  sigCanvas.ontouchend = () => { sigDrawing = false; };
+
+  // Clear button
+  document.getElementById('sig-clear').onclick = () => {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    sigEmpty = true;
+    document.getElementById('sig-hint').style.display = '';
+    updateBtn();
+  };
+}
+
+function getPos(e) {
+  const r = sigCanvas.getBoundingClientRect();
+  const scaleX = sigCanvas.width / r.width;
+  return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) };
+}
+
+function hideHint() {
+  document.getElementById('sig-hint').style.display = 'none';
+}
+
 // ── Submit ────────────────────────────────────────────
+document.getElementById('btn-sign-confirm').addEventListener('click', submitOrder);
+
 async function submitOrder() {
-  const btn = document.getElementById('btn-next');
+  const btn = document.getElementById('btn-sign-confirm');
   btn.disabled = true;
-  btn.textContent = 'Envoi…';
+  btn.textContent = 'Envoi en cours…';
 
   const lines = Object.values(cart).map(l => ({
     product_id: l.product.id,
     size: l.size,
     quantity: l.qty
   }));
+
+  const buyerSignature = sigCanvas ? sigCanvas.toDataURL('image/png') : '';
 
   const body = {
     brand_id: brandId,
@@ -631,7 +752,9 @@ async function submitOrder() {
     client_company: document.getElementById('c-company').value.trim(),
     client_phone: document.getElementById('c-phone').value.trim(),
     notes: document.getElementById('c-notes').value.trim(),
-    lines
+    lines,
+    buyer_signature: buyerSignature,
+    cgv_accepted: true
   };
 
   try {
@@ -646,16 +769,16 @@ async function submitOrder() {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
       document.getElementById('page-success').classList.add('active');
-      document.getElementById('success-email-msg').textContent = 'Un PDF a été envoyé à ' + body.client_email;
+      document.getElementById('success-email-msg').textContent = 'Un PDF vous a été envoyé à ' + body.client_email;
     } else {
       alert(data.error || 'Erreur lors de la commande');
       btn.disabled = false;
-      btn.textContent = 'Confirmer →';
+      btn.textContent = 'Signer et envoyer la commande';
     }
   } catch(e) {
     alert('Erreur réseau. Vérifiez votre connexion.');
     btn.disabled = false;
-    btn.textContent = 'Confirmer →';
+    btn.textContent = 'Signer et envoyer la commande';
   }
 }
 

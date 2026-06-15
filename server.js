@@ -64,7 +64,7 @@ app.get('/api/settings', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/settings', requireAdmin, async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','cgv_text'];
   for (const [key, value] of Object.entries(req.body)) {
     if (allowed.includes(key)) {
       await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
@@ -173,6 +173,11 @@ app.get('/api/orders/:id/pdf', requireAdmin, async (req, res) => {
 
 app.get('/commande/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'commande.html')));
 
+app.get('/api/public/cgv', async (req, res) => {
+  const cgv_text = await getSetting('cgv_text');
+  res.json({ cgv_text });
+});
+
 app.get('/api/public/brands/:brandId', async (req, res) => {
   const b = await pool.query('SELECT id,name,logo_url,logo,cover_image FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
@@ -181,7 +186,7 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
 });
 
 app.post('/api/public/orders', async (req, res) => {
-  const { brand_id, client_name, client_email, client_company, client_phone, notes, lines } = req.body;
+  const { brand_id, client_name, client_email, client_company, client_phone, notes, lines, buyer_signature, cgv_accepted } = req.body;
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
   }
@@ -190,9 +195,9 @@ app.post('/api/public/orders', async (req, res) => {
 
   const orderId = uuidv4();
   await pool.query(
-    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,notes,status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed')`,
-    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', notes||'']
+    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,notes,status,buyer_signature,cgv_accepted)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,$9)`,
+    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', notes||'', buyer_signature||'', cgv_accepted?1:0]
   );
 
   for (const line of validLines) {
@@ -233,6 +238,9 @@ async function generateOrderPDF(orderId) {
   const lines = lRes.rows;
 
   const showroomName = await getSetting('showroom_name');
+  const agentName = await getSetting('agent_name');
+  const agentTitle = await getSetting('agent_title');
+  const cgvText = await getSetting('cgv_text');
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -303,7 +311,52 @@ async function generateOrderPDF(orderId) {
       doc.fontSize(10).fillColor('#444').text(order.notes);
     }
 
+    // ── Conditions Générales de Vente ──
     doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
+    doc.moveDown(0.6);
+    doc.fontSize(8).fillColor('#888').text('CONDITIONS GÉNÉRALES — PROPOSITION DE COMMANDE', { align: 'center' });
+    doc.moveDown(0.4);
+    if (cgvText) {
+      doc.fontSize(7.5).fillColor('#aaa').text(cgvText, { align: 'justify', lineGap: 1.5 });
+    }
+
+    // ── Signatures ──
+    doc.moveDown(1.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#ddd').stroke();
+    doc.moveDown(0.8);
+
+    const sigY = doc.y;
+
+    // Left: buyer
+    doc.fontSize(8).fillColor('#888').text("L'ACHETEUR", 50, sigY);
+    doc.fontSize(9).fillColor('#333').text(order.client_name || '', 50, sigY + 12);
+    if (order.client_company) doc.fontSize(8).fillColor('#666').text(order.client_company, 50);
+    doc.fontSize(7).fillColor('#999').text('Lu et approuvé — ' + new Date(order.created_at).toLocaleDateString('fr-FR'), 50);
+
+    // Draw buyer signature image if present
+    if (order.buyer_signature && order.buyer_signature.startsWith('data:image')) {
+      try {
+        const sigData = order.buyer_signature.replace(/^data:image\/\w+;base64,/, '');
+        const sigBuf = Buffer.from(sigData, 'base64');
+        doc.image(sigBuf, 50, sigY + 40, { width: 180, height: 60 });
+      } catch(e) { /* skip if corrupt */ }
+    } else {
+      // Placeholder line
+      doc.moveDown(0.5);
+      doc.moveTo(50, sigY + 75).lineTo(230, sigY + 75).strokeColor('#ccc').stroke();
+      doc.fontSize(7).fillColor('#bbb').text('Signature', 50, sigY + 78);
+    }
+
+    // Right: agent
+    doc.fontSize(8).fillColor('#888').text("L'AGENT / SHOWROOM", 310, sigY);
+    doc.fontSize(9).fillColor('#333').text(agentName || showroomName, 310, sigY + 12);
+    if (agentTitle) doc.fontSize(8).fillColor('#666').text(agentTitle, 310, sigY + 24);
+    doc.fontSize(7).fillColor('#999').text('Date : ____________________', 310, sigY + 36);
+    doc.moveTo(310, sigY + 75).lineTo(490, sigY + 75).strokeColor('#ccc').stroke();
+    doc.fontSize(7).fillColor('#bbb').text('Signature', 310, sigY + 78);
+
+    doc.moveDown(6);
     doc.fontSize(8).fillColor('#aaa').text(`Document généré automatiquement — ${showroomName}`, { align: 'center' });
     doc.end();
   });
@@ -312,16 +365,27 @@ async function generateOrderPDF(orderId) {
 // ==================== EMAIL ====================
 
 async function sendOrderEmails(orderId, pdfBuffer) {
-  const [host, port, user, pass, from, showroomEmail, showroomName] = await Promise.all([
+  const [host, port, user, pass, from, showroomEmail, showroomName, agentName] = await Promise.all([
     getSetting('smtp_host'), getSetting('smtp_port'), getSetting('smtp_user'),
-    getSetting('smtp_pass'), getSetting('smtp_from'), getSetting('showroom_email'), getSetting('showroom_name')
+    getSetting('smtp_pass'), getSetting('smtp_from'), getSetting('showroom_email'),
+    getSetting('showroom_name'), getSetting('agent_name')
   ]);
 
   if (!host || !user || !pass) { console.log('SMTP non configuré'); return; }
 
-  const oRes = await pool.query('SELECT o.*, b.name as brand_name FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1', [orderId]);
+  const oRes = await pool.query(`
+    SELECT o.*, b.name as brand_name,
+      SUM(ol.quantity * ol.unit_price) as order_total
+    FROM orders o
+    JOIN brands b ON o.brand_id=b.id
+    LEFT JOIN order_lines ol ON ol.order_id=o.id
+    WHERE o.id=$1
+    GROUP BY o.id, b.name
+  `, [orderId]);
   const order = oRes.rows[0];
-  const filename = `Commande-${order.brand_name.replace(/\s/g,'-')}-${orderId.slice(0,8).toUpperCase()}.pdf`;
+  const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${orderId.slice(0,8).toUpperCase()}.pdf`;
+  const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
+  const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
 
   const transporter = nodemailer.createTransport({
     host, port: parseInt(port)||587,
@@ -331,23 +395,71 @@ async function sendOrderEmails(orderId, pdfBuffer) {
 
   const attachment = { filename, content: pdfBuffer, contentType: 'application/pdf' };
 
+  // ── Email acheteur ──
   await transporter.sendMail({
     from: `${showroomName} <${from||user}>`,
     to: order.client_email,
-    subject: `Votre bon de commande — ${order.brand_name} — ${showroomName}`,
-    html: `<p>Bonjour ${order.client_name},</p><p>Merci pour votre commande <strong>${order.brand_name}</strong>.</p><p>Votre bon de commande est en pièce jointe.</p><br><p>Cordialement,<br><strong>${showroomName}</strong></p>`,
+    subject: `Proposition de commande — ${order.brand_name} — ${showroomName}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222">
+        <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
+          <span style="color:#CCEB3C;font-size:22px;font-weight:700;letter-spacing:2px">${showroomName.toUpperCase()}</span>
+        </div>
+        <div style="padding:32px">
+          <p>Bonjour <strong>${order.client_name}</strong>,</p>
+          <p>Nous avons bien reçu votre proposition de commande pour la marque <strong>${order.brand_name}</strong> en date du ${dateStr}.</p>
+          <p>Votre proposition de commande signée (total HT : <strong>${totalStr}</strong>) est jointe à cet email.</p>
+
+          <div style="background:#fff8e1;border-left:4px solid #f0a500;padding:16px 20px;margin:24px 0;border-radius:2px">
+            <p style="margin:0 0 8px;font-weight:700;color:#b37a00">⚠️ IMPORTANT — Commande non définitive</p>
+            <p style="margin:0;font-size:14px;color:#555;line-height:1.6">
+              Cette proposition ne constitue <strong>pas un engagement ferme</strong>. Elle ne sera définitive qu'après :<br>
+              &bull; Acceptation formelle de la marque <strong>${order.brand_name}</strong><br>
+              &bull; Signature du bon de commande par les deux parties (acheteur et agent)
+            </p>
+          </div>
+
+          <p style="font-size:14px;color:#555">Nous reviendrons vers vous dès confirmation de la marque. En cas de question, n'hésitez pas à nous contacter.</p>
+          <p>Cordialement,<br><strong>${agentName || showroomName}</strong><br><span style="color:#999;font-size:13px">${showroomName}</span></p>
+        </div>
+        <div style="background:#f5f5f5;padding:16px 32px;text-align:center;font-size:11px;color:#aaa">
+          ${showroomName} — Document généré automatiquement
+        </div>
+      </div>
+    `,
     attachments: [attachment]
   });
 
-  if (showroomEmail) {
-    await transporter.sendMail({
-      from: `${showroomName} <${from||user}>`,
-      to: showroomEmail,
-      subject: `[BDC] ${order.client_name} — ${order.brand_name}`,
-      html: `<p>Nouvelle commande.<br><strong>Client :</strong> ${order.client_name} (${order.client_email})<br><strong>Marque :</strong> ${order.brand_name}</p>`,
-      attachments: [attachment]
-    });
-  }
+  // ── Copie showroom ──
+  const copyTo = showroomEmail || (from || user);
+  await transporter.sendMail({
+    from: `${showroomName} <${from||user}>`,
+    to: copyTo,
+    subject: `[BDC À VALIDER] ${order.client_name} — ${order.brand_name} — ${totalStr}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222">
+        <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
+          <span style="color:#CCEB3C;font-size:18px;font-weight:700;letter-spacing:2px">NOUVELLE PROPOSITION DE COMMANDE</span>
+        </div>
+        <div style="padding:32px">
+          <table style="width:100%;border-collapse:collapse;font-size:14px">
+            <tr><td style="padding:8px 0;color:#888;width:140px">Client</td><td style="padding:8px 0;font-weight:600">${order.client_name}</td></tr>
+            ${order.client_company ? `<tr><td style="padding:8px 0;color:#888">Société</td><td style="padding:8px 0">${order.client_company}</td></tr>` : ''}
+            <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0"><a href="mailto:${order.client_email}">${order.client_email}</a></td></tr>
+            ${order.client_phone ? `<tr><td style="padding:8px 0;color:#888">Téléphone</td><td style="padding:8px 0">${order.client_phone}</td></tr>` : ''}
+            <tr><td style="padding:8px 0;color:#888">Marque</td><td style="padding:8px 0;font-weight:600">${order.brand_name}</td></tr>
+            <tr><td style="padding:8px 0;color:#888">Total HT</td><td style="padding:8px 0;font-weight:700;font-size:18px;color:#1a7a1a">${totalStr}</td></tr>
+            <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0">${dateStr}</td></tr>
+          </table>
+          <div style="background:#fff3f3;border-left:4px solid #e74c3c;padding:14px 18px;margin:20px 0;border-radius:2px;font-size:14px">
+            ⏳ <strong>En attente de votre contre-signature</strong> pour validation définitive.
+          </div>
+          <p style="font-size:13px;color:#888">Le bon de commande signé par l'acheteur est en pièce jointe.</p>
+        </div>
+      </div>
+    `,
+    attachments: [attachment]
+  });
 }
 
 // ==================== AIRTABLE SYNC ====================

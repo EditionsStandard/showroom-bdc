@@ -238,6 +238,15 @@
       </div>
       <div class="form-group"><label>Adresse expéditeur (From)</label><input id="s-smtp-from" type="email" placeholder="commandes@votreshowroom.com"></div>
       <div class="sep"></div>
+      <h3>Agent / Showroom (signature)</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Nom de l'agent</label><input id="s-agent-name" type="text" placeholder="Prénom Nom"></div>
+        <div class="form-group"><label>Titre / Fonction</label><input id="s-agent-title" type="text" placeholder="Agent Commercial"></div>
+      </div>
+      <div class="sep"></div>
+      <h3>Conditions Générales de Vente</h3>
+      <div class="form-group"><label>Texte CGV (affiché lors de la commande et dans le PDF)</label><textarea id="s-cgv-text" rows="5" style="resize:vertical"></textarea></div>
+      <div class="sep"></div>
       <h3>Sécurité</h3>
       <div class="form-group" style="max-width:260px"><label>Nouveau mot de passe admin</label><input id="s-admin-pass" type="password" placeholder="Laisser vide pour ne pas changer"></div>
       <button class="btn btn-primary" onclick="saveSettings()">Enregistrer</button>
@@ -982,6 +991,9 @@ async function loadSettings() {
   document.getElementById('s-smtp-user').value = s.smtp_user || '';
   document.getElementById('s-smtp-pass').value = s.smtp_pass || '';
   document.getElementById('s-smtp-from').value = s.smtp_from || '';
+  document.getElementById('s-agent-name').value = s.agent_name || '';
+  document.getElementById('s-agent-title').value = s.agent_title || '';
+  document.getElementById('s-cgv-text').value = s.cgv_text || '';
 }
 
 async function saveSettings() {
@@ -993,6 +1005,9 @@ async function saveSettings() {
     smtp_user: document.getElementById('s-smtp-user').value,
     smtp_pass: document.getElementById('s-smtp-pass').value,
     smtp_from: document.getElementById('s-smtp-from').value,
+    agent_name: document.getElementById('s-agent-name').value,
+    agent_title: document.getElementById('s-agent-title').value,
+    cgv_text: document.getElementById('s-cgv-text').value,
   };
   const pass = document.getElementById('s-admin-pass').value;
   if (pass) body.admin_password = pass;
