@@ -56,7 +56,7 @@
   .product-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
   .product-collection { font-size: 9px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .16em; margin-bottom: 6px; }
   .product-ref { font-family: 'Space Mono', 'Courier New', monospace; font-size: 20px; font-weight: 600; color: var(--white); letter-spacing: .01em; line-height: 1.15; }
-  .product-desc { font-size: 12px; color: var(--soft); margin-top: 4px; line-height: 1.5; font-weight: 300; }
+  .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.7; font-weight: 400; letter-spacing: .01em; }
   .product-tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .tag { font-size: 10px; color: var(--soft); background: var(--mid); padding: 4px 10px; border-radius: 2px; letter-spacing: .06em; text-transform: uppercase; }
   .tag-price { font-size: 11px; font-weight: 600; color: var(--accent); background: rgba(204,235,60,.08); letter-spacing: .04em; }
@@ -911,6 +911,17 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Convert ALL-CAPS product descriptions to readable sentence case
+function sentenceCase(s) {
+  s = String(s||'');
+  if (!s) return s;
+  // Only convert if mostly uppercase (avoid touching already mixed-case text)
+  const letters = s.replace(/[^a-zA-Z]/g, '');
+  const upperRatio = letters.length ? (letters.replace(/[^A-Z]/g,'').length / letters.length) : 0;
+  if (upperRatio < 0.7) return s;
+  return s.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w)/g, c => c.toUpperCase());
+}
+
 // ── Render ────────────────────────────────────────────
 function renderProducts(products) {
   const container = document.getElementById('products-container');
@@ -984,7 +995,7 @@ function renderProducts(products) {
       + '<div class="product-header">'
       + (p.collection_name ? '<div class="product-collection">' + esc(p.collection_name) + '</div>' : '')
       + '<div class="product-ref">' + esc(p.reference) + '</div>'
-      + (p.description ? '<div class="product-desc">' + esc(p.description) + '</div>' : '')
+      + (p.description ? '<div class="product-desc">' + esc(sentenceCase(p.description)) + '</div>' : '')
       + '<div class="product-tags">'
       + (p.color ? '<span class="tag">🎨 ' + esc(p.color) + '</span>' : '')
       + (p.composition ? '<span class="tag">🧵 ' + esc(p.composition) + '</span>' : '')
