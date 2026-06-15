@@ -458,6 +458,7 @@
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Ajouter référence</button>
       <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()">🖨️ Imprimer QR Codes</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAllProducts()">🗑 Vider la collection</button>
     </div>
     <table id="products-table">
       <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Wholesale HT</th><th>Retail</th><th>Image</th><th></th></tr></thead>
@@ -1297,6 +1298,13 @@ async function deleteProduct(id) {
   await fetch(`/api/products/${id}`, { method: 'DELETE' });
   refreshProducts();
   toast('Référence supprimée');
+}
+
+async function clearAllProducts() {
+  if (!confirm('Vider toute la collection ? Cette action est irréversible.')) return;
+  const r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'DELETE' }).then(r => r.json());
+  refreshProducts();
+  toast(`${r.deleted} référence(s) supprimée(s)`);
 }
 
 // Orders
