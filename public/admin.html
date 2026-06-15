@@ -470,8 +470,13 @@
         <input type="file" id="csv-import-input" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
       </label>
       <a id="csv-template-link" href="#" onclick="downloadCSVTemplate(event)" class="btn btn-secondary btn-sm">📄 Télécharger modèle CSV</a>
-      <span style="font-size:11px;color:#666">Colonnes acceptées : reference (ou ref/référence), description (ou désignation), color (ou couleur), composition, sizes (ou tailles), price (ou prix), image_url</span>
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+        🖼️ Import photos en lot
+        <input type="file" id="bulk-photos-input" accept="image/*" multiple style="display:none" onchange="importBulkPhotos(this)">
+      </label>
+      <span style="font-size:11px;color:#666">Photos : nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
     </div>
+    <div id="bulk-photos-result" style="display:none;margin-bottom:12px"></div>
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
 
     <div id="add-product-form" style="display:none">
@@ -1168,6 +1173,31 @@ function downloadCSVTemplate(e) {
   a.href = URL.createObjectURL(blob);
   a.download = 'modele-collection.csv';
   a.click();
+}
+
+async function importBulkPhotos(input) {
+  const files = input.files;
+  if (!files.length) return;
+  const resultDiv = document.getElementById('bulk-photos-result');
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = `<span style="color:#aaa">Upload de ${files.length} photo(s)…</span>`;
+
+  const formData = new FormData();
+  for (const f of files) formData.append('photos', f);
+
+  try {
+    const res = await fetch(`/api/brands/${currentBrandId}/bulk-photos`, { method: 'POST', body: formData });
+    const data = await res.json();
+    const ok = data.results.filter(r => r.status === 'ok');
+    const nf = data.results.filter(r => r.status === 'not_found');
+    let html = `<strong>${ok.length} photo(s) assignée(s)</strong>`;
+    if (nf.length) html += ` — <span style="color:#e74c3c">${nf.length} référence(s) introuvable(s) : ${nf.map(r => r.ref).join(', ')}</span>`;
+    resultDiv.innerHTML = html;
+    input.value = '';
+    refreshProducts();
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:#e74c3c">Erreur : ${e.message}</span>`;
+  }
 }
 
 async function importCSV(input) {

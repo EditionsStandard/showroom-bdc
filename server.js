@@ -5,7 +5,10 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
+const multer = require('multer');
 const { pool, init } = require('./database');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -164,6 +167,35 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
 app.delete('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
   const r = await pool.query('DELETE FROM products WHERE brand_id=$1', [req.params.brandId]);
   res.json({ ok: true, deleted: r.rowCount });
+});
+
+app.post('/api/brands/:brandId/bulk-photos', requireAdmin, upload.array('photos', 200), async (req, res) => {
+  const { brandId } = req.params;
+  const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
+  const results = [];
+
+  for (const file of req.files) {
+    const name = path.basename(file.originalname, path.extname(file.originalname));
+    // Parse: REFERENCE_COLOR or REFERENCE
+    const parts = name.split('_');
+    const ref = parts[0].trim().toUpperCase();
+    const colorHint = parts.slice(1).join('_').trim().toLowerCase();
+
+    const product = prods.rows.find(p => p.reference.toUpperCase() === ref);
+    if (!product) {
+      results.push({ file: file.originalname, status: 'not_found', ref });
+      continue;
+    }
+
+    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    let images = [];
+    try { images = JSON.parse(product.images || '[]'); } catch(e) {}
+    images.push(base64);
+    await pool.query('UPDATE products SET images=$1 WHERE id=$2', [JSON.stringify(images), product.id]);
+    results.push({ file: file.originalname, status: 'ok', ref, color: colorHint || product.color });
+  }
+
+  res.json({ ok: true, results });
 });
 
 // Orders
