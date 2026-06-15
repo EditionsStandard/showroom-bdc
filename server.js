@@ -174,9 +174,17 @@ app.post('/api/brands/:brandId/bulk-photos', requireAdmin, upload.array('photos'
   const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
 
+  // View ordering: front first, back second, others after
+  const viewRank = hint => {
+    if (hint.includes('front')) return 0;
+    if (hint.includes('back')) return 1;
+    return 2;
+  };
+
+  // Group incoming files by matched product, preserving existing images
+  const pending = new Map(); // productId -> { images: [...], rank: [...] }
   for (const file of req.files) {
     const name = path.basename(file.originalname, path.extname(file.originalname));
-    // Parse: REFERENCE_COLOR or REFERENCE
     const parts = name.split('_');
     const ref = parts[0].trim().toUpperCase();
     const colorHint = parts.slice(1).join('_').trim().toLowerCase();
@@ -187,12 +195,29 @@ app.post('/api/brands/:brandId/bulk-photos', requireAdmin, upload.array('photos'
       continue;
     }
 
+    if (!pending.has(product.id)) {
+      let existing = [];
+      try { existing = JSON.parse(product.images || '[]'); } catch(e) {}
+      pending.set(product.id, { images: existing.slice(), ranks: existing.map(() => -1) });
+    }
+    const entry = pending.get(product.id);
     const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    let images = [];
-    try { images = JSON.parse(product.images || '[]'); } catch(e) {}
-    images.push(base64);
-    await pool.query('UPDATE products SET images=$1 WHERE id=$2', [JSON.stringify(images), product.id]);
+    entry.images.push(base64);
+    entry.ranks.push(viewRank(colorHint));
     results.push({ file: file.originalname, status: 'ok', ref, color: colorHint || product.color });
+  }
+
+  for (const [productId, entry] of pending) {
+    // Stable sort new images (rank >= 0) to front/back order, keep pre-existing (rank -1) order intact at their relative position
+    const indexed = entry.images.map((img, i) => ({ img, rank: entry.ranks[i], i }));
+    indexed.sort((a, b) => {
+      if (a.rank === -1 && b.rank === -1) return a.i - b.i;
+      if (a.rank === -1) return -1;
+      if (b.rank === -1) return 1;
+      return a.rank - b.rank || a.i - b.i;
+    });
+    const sortedImages = indexed.map(x => x.img);
+    await pool.query('UPDATE products SET images=$1 WHERE id=$2', [JSON.stringify(sortedImages), productId]);
   }
 
   res.json({ ok: true, results });
