@@ -459,6 +459,10 @@
     <p data-i18n="success_sub">Votre proposition de commande a bien été transmise.</p>
     <div class="email-sent" id="success-email-msg" data-i18n="success_pdf">Un PDF vous sera envoyé par email.</div>
     <div id="success-ref" style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border);padding:12px 20px;display:inline-block"></div>
+    <div style="margin-top:20px">
+      <a id="btn-open-mail" href="#" data-i18n="btn_open_mail" style="display:inline-block;background:var(--accent);color:var(--black);padding:14px 28px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border-radius:2px">✉️ Ouvrir dans Spark / Airmail</a>
+      <p style="margin-top:10px;font-size:10px;color:var(--muted);letter-spacing:.04em">Le mail s'ouvre pré-rempli — cliquez Envoyer depuis votre appli mail</p>
+    </div>
     <p id="success-warning-p" data-i18n-html="success_warn" style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.8">
       ⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.
     </p>
@@ -510,6 +514,15 @@ const TRANSLATIONS = {
     success_h:'Commande enregistrée',
     success_sub:'Votre proposition de commande a bien été transmise.',
     success_pdf:'Un PDF vous sera envoyé par email.',
+    btn_open_mail:'✉️ Ouvrir dans Spark / Airmail',
+    mailto_subject: (brand, ref) => `Proposition de commande — ${brand} — Réf. ${ref}`,
+    mailto_greeting: name => `Bonjour ${name},`,
+    mailto_intro: brand => `Veuillez trouver ci-dessous votre proposition de commande pour la marque ${brand}.`,
+    mailto_summary: 'RÉCAPITULATIF DE COMMANDE',
+    mailto_total: 'TOTAL HT',
+    mailto_warning: '⚠ IMPORTANT\nCette proposition ne sera définitive qu\'après acceptation de la marque et signature des deux parties.',
+    mailto_cgv_title: 'CONDITIONS GÉNÉRALES DE VENTE',
+    mailto_sign: 'Cordialement,\nEditions Standard Showroom',
     success_warn:"⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.",
     success_thanks:'Merci pour votre visite — Editions Standard',
     offline_label:'Hors ligne — les commandes seront envoyées dès reconnexion',
@@ -551,6 +564,15 @@ const TRANSLATIONS = {
     success_h:'Order recorded',
     success_sub:'Your order proposal has been successfully submitted.',
     success_pdf:'A PDF will be sent to you by email.',
+    btn_open_mail:'✉️ Open in Mail app',
+    mailto_subject: (brand, ref) => `Order proposal — ${brand} — Ref. ${ref}`,
+    mailto_greeting: name => `Hello ${name},`,
+    mailto_intro: brand => `Please find below your order proposal for ${brand}.`,
+    mailto_summary: 'ORDER SUMMARY',
+    mailto_total: 'TOTAL EXCL. VAT',
+    mailto_warning: '⚠ IMPORTANT\nThis proposal is not final until accepted by the brand and signed by both parties.',
+    mailto_cgv_title: 'TERMS & CONDITIONS',
+    mailto_sign: 'Kind regards,\nEditions Standard Showroom',
     success_warn:'⚠ This order will only be final after<br>brand acceptance and signature by both parties.',
     success_thanks:'Thank you for your visit — Editions Standard',
     offline_label:'Offline — orders will be sent when reconnected',
@@ -617,6 +639,7 @@ document.addEventListener('DOMContentLoaded', () => setLang(lang));
 const brandId = location.pathname.split('/').pop();
 let productsData = [];
 let brandCgvText = '';
+let brandName = '';
 const cart = {}; // key: "productId|color|size" → {product, size, color, qty}
 const selectedVariant = {}; // pid → colorLabel currently shown
 let currentPage = 1;
@@ -628,7 +651,7 @@ async function init() {
     if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">' + T('no_brand') + '</div>'; return; }
     productsData = data.products;
     brandCgvText = data.brand.cgv_text || '';
-    const brandName = data.brand.name;
+    brandName = data.brand.name;
     document.getElementById('brand-name').textContent = brandName;
     document.title = brandName + ' — Bon de Commande';
     // Logo (uploaded base64 preferred, fallback to logo_url)
@@ -1076,6 +1099,35 @@ async function submitOrder() {
   }
 }
 
+function buildMailtoLink(email, clientName, orderId) {
+  const orderRef = orderId ? orderId.slice(0,8).toUpperCase() : 'LOCAL';
+  const lines = Object.values(cart);
+  const total = lines.reduce((s,l) => s + l.qty * parseFloat(l.product.price||0), 0);
+
+  const subject = T('mailto_subject', brandName, orderRef);
+
+  let body = T('mailto_greeting', clientName) + '\n\n';
+  body += T('mailto_intro', brandName) + '\n\n';
+  body += T('mailto_summary') + '\n' + '─'.repeat(40) + '\n\n';
+  lines.forEach(l => {
+    const pu = parseFloat(l.product.price||0);
+    const lt = (l.qty * pu).toFixed(2).replace('.',',');
+    const parts = [l.product.reference];
+    if (l.color) parts.push(l.color);
+    if (l.size) parts.push(l.size);
+    body += '• ' + parts.join(' / ') + '  ×' + l.qty + '  →  ' + lt + ' €\n';
+  });
+  body += '\n' + '─'.repeat(40) + '\n';
+  body += T('mailto_total') + ' : ' + total.toFixed(2).replace('.',',') + ' €\n\n';
+  body += T('mailto_warning') + '\n\n';
+  if (brandCgvText) {
+    body += T('mailto_cgv_title') + '\n' + '─'.repeat(40) + '\n' + brandCgvText + '\n\n';
+  }
+  body += T('mailto_sign');
+
+  return 'mailto:' + email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+
 function showSuccess(email, offline, orderId) {
   document.getElementById('cart-bar').style.display = 'none';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1092,6 +1144,14 @@ function showSuccess(email, offline, orderId) {
   } else {
     const localRef = 'LOCAL-' + Date.now().toString(36).toUpperCase();
     refEl.textContent = T('ref_label') + ' ' + localRef;
+  }
+
+  // Mailto button
+  const clientName = document.getElementById('c-name').value.trim();
+  const mailtoBtn = document.getElementById('btn-open-mail');
+  if (mailtoBtn) {
+    mailtoBtn.href = buildMailtoLink(email, clientName, orderId);
+    mailtoBtn.textContent = T('btn_open_mail');
   }
 }
 
