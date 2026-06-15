@@ -161,6 +161,11 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
+  const r = await pool.query('DELETE FROM products WHERE brand_id=$1', [req.params.brandId]);
+  res.json({ ok: true, deleted: r.rowCount });
+});
+
 // Orders
 app.get('/api/orders', requireAdmin, async (req, res) => {
   const r = await pool.query(`
