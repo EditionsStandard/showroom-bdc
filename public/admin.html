@@ -475,7 +475,9 @@
         🖼️ Import photos en lot
         <input type="file" id="bulk-photos-input" accept="image/*" multiple style="display:none" onchange="importBulkPhotos(this)">
       </label>
-      <span style="font-size:11px;color:#666">Photos : nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
+    </div>
+    <div style="margin-bottom:16px">
+      <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : reference (ou ref/référence), description (ou désignation), color (ou couleur), composition, sizes (ou tailles), price (ou prix), price_retail (ou retail_price/retail), image_url<br>Photos — nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
     </div>
     <div id="bulk-photos-result" style="display:none;margin-bottom:12px"></div>
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
@@ -1230,6 +1232,7 @@ async function importCSV(input) {
       composition: header.indexOf('composition'),
       sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille'),
       price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht'),
+      price_retail: header.findIndex(h => h === 'price_retail' || h === 'retail_price' || h === 'retail' || h === 'prix_retail' || h === 'prix_public'),
       image_url: header.findIndex(h => h === 'image_url' || h === 'image' || h === 'photo')
     };
 
@@ -1253,6 +1256,7 @@ async function importCSV(input) {
         color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',
         sizes: idx.sizes >= 0 ? cols[idx.sizes]?.trim() || '' : '',
         price: idx.price >= 0 ? parseFloat((cols[idx.price]||'0').replace(',','.')) || 0 : 0,
+        price_retail: idx.price_retail >= 0 ? parseFloat((cols[idx.price_retail]||'0').replace(',','.')) || 0 : 0,
         image_url: idx.image_url >= 0 ? cols[idx.image_url]?.trim() || '' : ''
       };
       if (!body.reference) continue;
