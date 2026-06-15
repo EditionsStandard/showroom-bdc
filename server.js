@@ -5,7 +5,6 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
-const nodemailer = require('nodemailer');
 const { pool, init } = require('./database');
 
 const app = express();
@@ -583,13 +582,13 @@ async function generateOrderPDF(orderId) {
 // ==================== EMAIL ====================
 
 async function sendOrderEmails(orderId, pdfBuffer) {
-  const [host, port, user, pass, from, showroomEmail, showroomName, agentName] = await Promise.all([
-    getSetting('smtp_host'), getSetting('smtp_port'), getSetting('smtp_user'),
-    getSetting('smtp_pass'), getSetting('smtp_from'), getSetting('showroom_email'),
-    getSetting('showroom_name'), getSetting('agent_name')
+  const resendKey = process.env.RESEND_API_KEY;
+  const [showroomEmail, showroomName, agentName, fromAddress] = await Promise.all([
+    getSetting('showroom_email'), getSetting('showroom_name'),
+    getSetting('agent_name'), getSetting('smtp_from')
   ]);
 
-  if (!host || !user || !pass) { console.log('SMTP non configuré'); return; }
+  if (!resendKey) { console.log('RESEND_API_KEY non configurée'); return; }
 
   const oRes = await pool.query(`
     SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv,
@@ -608,21 +607,17 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const globalCgv = await getSetting('cgv_text');
   const cgvText = order.brand_cgv || globalCgv;
 
-  const transporter = nodemailer.createTransport({
-    host, port: parseInt(port)||587,
-    secure: parseInt(port) === 465,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000,
-    socketTimeout: 15000
-  });
+  const { Resend } = require('resend');
+  const resend = new Resend(resendKey);
+  const fromField = fromAddress || `noreply@editionsstandard.fr`;
+  const fromFormatted = `${showroomName} <${fromField}>`;
 
-  const attachment = { filename, content: pdfBuffer, contentType: 'application/pdf' };
+  const attachment = { filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' };
 
   // ── Email acheteur ──
-  await transporter.sendMail({
-    from: `${showroomName} <${from||user}>`,
-    to: order.client_email,
+  await resend.emails.send({
+    from: fromFormatted,
+    to: [order.client_email],
     subject: `Proposition de commande — ${order.brand_name} — ${showroomName}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222">
@@ -660,10 +655,10 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   });
 
   // ── Copie showroom ──
-  const copyTo = showroomEmail || (from || user);
-  await transporter.sendMail({
-    from: `${showroomName} <${from||user}>`,
-    to: copyTo,
+  const copyTo = showroomEmail || fromField;
+  await resend.emails.send({
+    from: fromFormatted,
+    to: [copyTo],
     subject: `[BDC À VALIDER] ${order.client_name} — ${order.brand_name} — ${totalStr}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222">
@@ -692,6 +687,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
 }
 
 // ==================== AIRTABLE SYNC ====================
+
 
 async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) {
   const apiKey = process.env.AIRTABLE_API_KEY;
