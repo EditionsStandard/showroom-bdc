@@ -154,7 +154,102 @@
     .stats { grid-template-columns: repeat(4, 1fr); }
     .brands-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   }
+
+  /* ── Theme toggle ── */
+  #theme-toggle {
+    background: none;
+    border: 1px solid #2a2a4a;
+    border-radius: 20px;
+    padding: 5px 12px;
+    cursor: pointer;
+    color: #888;
+    font-size: 15px;
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-top: 8px;
+    transition: border-color .2s, color .2s;
+    font-family: inherit;
+  }
+  #theme-toggle:hover { border-color: #6c63ff; color: #e0e0e0; }
+
+  /* ── Light mode ── */
+  [data-theme="light"] body { background: #f0f0f5; color: #111; }
+  [data-theme="light"] .sidebar { background: #ffffff; border-right-color: #e0e0e0; }
+  [data-theme="light"] .sidebar-logo { border-bottom-color: #e0e0e0; }
+  [data-theme="light"] .sidebar-logo h2 { color: #111; }
+  [data-theme="light"] .sidebar-logo p { color: #999; }
+  [data-theme="light"] nav a { color: #666; }
+  [data-theme="light"] nav a:hover,
+  [data-theme="light"] nav a.active { color: #111; background: #f0eeff; border-left-color: #6c63ff; }
+  [data-theme="light"] .sidebar-footer { border-top-color: #e0e0e0; }
+  [data-theme="light"] #theme-toggle { border-color: #e0e0e0; color: #888; }
+  [data-theme="light"] #theme-toggle:hover { border-color: #6c63ff; color: #111; }
+  [data-theme="light"] .main { background: #f0f0f5; }
+  [data-theme="light"] h1,
+  [data-theme="light"] h3 { color: #111; }
+  [data-theme="light"] .card { background: #ffffff; border-color: #e0e0e0; }
+  [data-theme="light"] .stat { background: #ffffff; border-color: #e0e0e0; }
+  [data-theme="light"] .stat .num { color: #6c63ff; }
+  [data-theme="light"] .stat .label { color: #888; }
+  [data-theme="light"] th { color: #888; border-bottom-color: #e0e0e0; }
+  [data-theme="light"] td { border-bottom-color: #f0f0f0; color: #111; }
+  [data-theme="light"] tr:hover td { background: #f5f3ff; }
+  [data-theme="light"] .brand-card { background: #ffffff; border-color: #e0e0e0; }
+  [data-theme="light"] .brand-card h4 { color: #111; }
+  [data-theme="light"] .brand-card .brand-meta { color: #888; }
+  [data-theme="light"] label { color: #888; }
+  [data-theme="light"] input,
+  [data-theme="light"] textarea,
+  [data-theme="light"] select { background: #f8f8fb; border-color: #ddd; color: #111; }
+  [data-theme="light"] input:focus,
+  [data-theme="light"] textarea:focus,
+  [data-theme="light"] select:focus { border-color: #6c63ff; }
+  [data-theme="light"] .modal { background: #ffffff; border-color: #e0e0e0; }
+  [data-theme="light"] .modal h3 { color: #111; }
+  [data-theme="light"] .modal-overlay { background: rgba(0,0,0,.5); }
+  [data-theme="light"] .tag { background: #eeecff; color: #6c63ff; }
+  [data-theme="light"] .sep { background: #e0e0e0; }
+  [data-theme="light"] .btn-secondary { background: #f0eeff; color: #555; border-color: #d0cef0; }
+  [data-theme="light"] .btn-secondary:hover { color: #111; border-color: #6c63ff; }
+  [data-theme="light"] #toast { background: #2ecc71; color: #fff; }
+  [data-theme="light"] #toast.error { background: #e74c3c; }
+  @media (max-width: 768px) {
+    [data-theme="light"] .sidebar { background: #ffffff; border-top-color: #e0e0e0; }
+    [data-theme="light"] nav a:hover,
+    [data-theme="light"] nav a.active { border-top-color: #6c63ff; border-left-color: transparent; }
+  }
 </style>
+<script>
+(function() {
+  function getTheme() {
+    const saved = localStorage.getItem('es-theme');
+    if (saved) return saved;
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = (t === 'light' ? '🌙 Mode sombre' : '☀️ Mode clair');
+  }
+  window.toggleTheme = function() {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = cur === 'light' ? 'dark' : 'light';
+    localStorage.setItem('es-theme', next);
+    applyTheme(next);
+  };
+  const _t = getTheme();
+  applyTheme(_t);
+  document.addEventListener('DOMContentLoaded', () => applyTheme(_t));
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
+      if (!localStorage.getItem('es-theme')) applyTheme(e.matches ? 'light' : 'dark');
+    });
+  }
+})();
+</script>
 </head>
 <body>
 
@@ -175,7 +270,8 @@
     <a data-section="settings"><span class="icon">⚙️</span> Paramètres</a>
   </nav>
   <div class="sidebar-footer">
-    <a href="/admin/logout">Déconnexion</a>
+    <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
+    <a href="/admin/logout" style="display:block;margin-top:10px">Déconnexion</a>
   </div>
 </div>
 

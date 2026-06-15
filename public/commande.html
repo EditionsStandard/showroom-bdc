@@ -247,7 +247,95 @@
     .recap-card { border-left: none; border-right: none; }
     .total-bar { border-left: none; border-right: none; }
   }
+
+  /* ── Theme toggle button ── */
+  #theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 11px;
+    cursor: pointer;
+    color: var(--soft);
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: border-color .2s, color .2s;
+  }
+  #theme-toggle:hover { border-color: var(--soft); color: var(--white); }
+
+  /* ── Light mode ── */
+  [data-theme="light"] {
+    --black: #f5f4f0;
+    --dark: #ffffff;
+    --mid: #eceae5;
+    --border: #d8d6d1;
+    --muted: #bbb;
+    --soft: #777;
+    --white: #111111;
+  }
+  /* Lime-on-white: switch to darker lime for legibility */
+  [data-theme="light"] .product-collection,
+  [data-theme="light"] .tag-price,
+  [data-theme="light"] .qty-display.active,
+  [data-theme="light"] .total-bar .amt,
+  [data-theme="light"] .step.active,
+  [data-theme="light"] .col-filter.active { color: #6b8500; }
+  [data-theme="light"] .step.active { border-bottom-color: #CCEB3C; color: #6b8500; }
+  [data-theme="light"] .tag-price { background: rgba(107,133,0,.09); }
+  [data-theme="light"] .color-btn.active { border-color: #6b8500; color: #6b8500; }
+  [data-theme="light"] .col-filter.active { border-color: #6b8500; }
+  [data-theme="light"] .step.active .step-num { background: #CCEB3C; color: #111; }
+  [data-theme="light"] .step.done .step-num { background: #d8d6d1; }
+  /* Cover gradient stays dark over image */
+  [data-theme="light"] #brand-cover-wrap > div { background: linear-gradient(to bottom, transparent 40%, rgba(245,244,240,.9)); }
+  /* Image bg in light mode */
+  [data-theme="light"] .product-img { background: #e8e6e1; }
+  /* Field borders */
+  [data-theme="light"] .field input,
+  [data-theme="light"] .field textarea { color: #111; }
+  [data-theme="light"] .field input:focus,
+  [data-theme="light"] .field textarea:focus { border-bottom-color: #6b8500; }
+  /* Email sent */
+  [data-theme="light"] .email-sent { background: rgba(107,133,0,.07); border-color: rgba(107,133,0,.25); color: #6b8500; }
+  /* CGV text box */
+  [data-theme="light"] #cgv-text-display { background: var(--mid); color: var(--soft); border-color: var(--border); }
+  /* Signature canvas */
+  [data-theme="light"] #sig-canvas { background: #fff; }
+  /* Image modal stays dark */
+  [data-theme="light"] #img-modal { background: rgba(0,0,0,.97); }
 </style>
+<script>
+// Theme: run before render to avoid flash
+(function() {
+  function getTheme() {
+    const saved = localStorage.getItem('es-theme');
+    if (saved) return saved;
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = t === 'light' ? '🌙' : '☀️';
+  }
+  window.toggleTheme = function() {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = cur === 'light' ? 'dark' : 'light';
+    localStorage.setItem('es-theme', next);
+    applyTheme(next);
+  };
+  window._applyTheme = applyTheme;
+  const _initialTheme = getTheme();
+  applyTheme(_initialTheme);
+  document.addEventListener('DOMContentLoaded', () => applyTheme(_initialTheme));
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
+      if (!localStorage.getItem('es-theme')) applyTheme(e.matches ? 'light' : 'dark');
+    });
+  }
+})();
+</script>
 </head>
 <body>
 <div class="site-wrap">
@@ -273,7 +361,10 @@
         <p id="header-season">Editions Standard — Showroom</p>
       </div>
     </div>
-    <img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button id="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button>
+      <img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85">
+    </div>
   </div>
 </div>
 
