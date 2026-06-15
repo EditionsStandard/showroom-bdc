@@ -873,6 +873,13 @@ async function init() {
     buildCollectionFilters(productsData);
     restoreCart();
     updateCartBar();
+
+    // QR deep-link: ?product=ID → auto-start and scroll to product
+    const qrProductId = new URLSearchParams(window.location.search).get('product');
+    if (qrProductId) {
+      startSession();
+      setTimeout(() => scrollToProduct(qrProductId), 300);
+    }
   } catch(e) {
     document.getElementById('products-container').innerHTML = '<div class="loader">' + T('load_error') + '</div>';
   }
@@ -884,6 +891,18 @@ function startSession() {
   document.getElementById('steps-bar').style.display = '';
   document.getElementById('cart-bar').style.display = 'flex';
   goToPage(1);
+}
+
+function scrollToProduct(productId) {
+  // Find the product card by looking for qty buttons with matching data-pid
+  const btn = document.querySelector(`.qty-btn[data-pid="${productId}"]`);
+  if (!btn) return;
+  const card = btn.closest('.product-card');
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.style.transition = 'box-shadow .3s';
+  card.style.boxShadow = '0 0 0 3px var(--accent)';
+  setTimeout(() => { card.style.boxShadow = ''; }, 2500);
 }
 
 document.getElementById('btn-start').addEventListener('click', startSession);

@@ -108,6 +108,28 @@ app.get('/api/brands/:id/qrcode', requireAdmin, async (req, res) => {
   res.json({ qr, url });
 });
 
+app.get('/api/brands/:brandId/products/:productId/qrcode', requireAdmin, async (req, res) => {
+  const { brandId, productId } = req.params;
+  const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
+  if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
+  const url = `${getBaseUrl(req)}/commande/${brandId}?product=${productId}`;
+  const qr = await QRCode.toDataURL(url, { width: 400, margin: 2 });
+  res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
+});
+
+app.get('/api/brands/:brandId/qrcodes-all', requireAdmin, async (req, res) => {
+  const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.brandId]);
+  if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+  const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
+  const base = getBaseUrl(req);
+  const items = await Promise.all(prods.rows.map(async p => {
+    const url = `${base}/commande/${req.params.brandId}?product=${p.id}`;
+    const qr = await QRCode.toDataURL(url, { width: 300, margin: 1 });
+    return { qr, url, reference: p.reference, description: p.description, collection: p.collection_name };
+  }));
+  res.json({ brand: b.rows[0].name, items });
+});
+
 // Products
 app.get('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
   const r = await pool.query('SELECT * FROM products WHERE brand_id=$1 ORDER BY reference', [req.params.brandId]);
