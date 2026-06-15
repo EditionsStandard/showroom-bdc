@@ -362,6 +362,7 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
+      <button id="lang-toggle" onclick="toggleLang()" title="Switch language" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;transition:border-color .2s,color .2s">EN</button>
       <button id="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button>
       <img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85">
     </div>
@@ -369,72 +370,72 @@
 </div>
 
 <div class="steps">
-  <div class="step active" id="step1"><span class="step-num">1</span>Sélection</div>
-  <div class="step" id="step2"><span class="step-num">2</span>Infos</div>
-  <div class="step" id="step3"><span class="step-num">3</span>Récap</div>
-  <div class="step" id="step4"><span class="step-num">4</span>Signature</div>
+  <div class="step active" id="step1"><span class="step-num">1</span><span data-i18n="step_sel">Sélection</span></div>
+  <div class="step" id="step2"><span class="step-num">2</span><span data-i18n="step_infos">Infos</span></div>
+  <div class="step" id="step3"><span class="step-num">3</span><span data-i18n="step_recap">Récap</span></div>
+  <div class="step" id="step4"><span class="step-num">4</span><span data-i18n="step_sig">Signature</span></div>
 </div>
 
 <!-- PAGE 1 -->
 <div id="page1" class="page active">
   <div class="search-bar">
     <span class="search-icon">—</span>
-    <input id="search-input" type="text" placeholder="Rechercher une référence…">
+    <input id="search-input" type="text" data-i18n-ph="search_ph" placeholder="Rechercher une référence…">
   </div>
   <div id="collection-filters" style="display:none;overflow-x:auto;white-space:nowrap;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--dark);-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
-  <div id="products-container"><div class="loader">Chargement…</div></div>
+  <div id="products-container"><div class="loader" data-i18n="loading">Chargement…</div></div>
 </div>
 
 <!-- PAGE 2 -->
 <div id="page2" class="page">
-  <button class="btn-back" id="back-to-1">← Retour</button>
+  <button class="btn-back" id="back-to-1" data-i18n="back">← Retour</button>
   <div class="form-section">
-    <h3>Informations client</h3>
+    <h3 data-i18n="client_section">Informations client</h3>
     <div class="form-fields-grid">
-      <div class="field"><label>Nom complet <span class="req">*</span></label><input id="c-name" type="text" autocomplete="name"></div>
-      <div class="field"><label>Email <span class="req">*</span></label><input id="c-email" type="email" autocomplete="email"></div>
-      <div class="field"><label>Société / Boutique <span style="color:var(--accent);font-size:9px">Recommandé</span></label><input id="c-company" type="text" autocomplete="organization"></div>
-      <div class="field"><label>Téléphone</label><input id="c-phone" type="tel" autocomplete="tel"></div>
-      <div class="field field-full"><label>Notes</label><textarea id="c-notes" placeholder="Livraison, conditions particulières…"></textarea></div>
+      <div class="field"><label><span data-i18n="lbl_name">Nom complet</span> <span class="req">*</span></label><input id="c-name" type="text" autocomplete="name"></div>
+      <div class="field"><label><span data-i18n="lbl_email">Email</span> <span class="req">*</span></label><input id="c-email" type="email" autocomplete="email"></div>
+      <div class="field"><label><span data-i18n="lbl_company">Société / Boutique</span> <span data-i18n="lbl_company_note" style="color:var(--accent);font-size:9px">Recommandé</span></label><input id="c-company" type="text" autocomplete="organization"></div>
+      <div class="field"><label data-i18n="lbl_phone">Téléphone</label><input id="c-phone" type="tel" autocomplete="tel"></div>
+      <div class="field field-full"><label data-i18n="lbl_notes">Notes</label><textarea id="c-notes" data-i18n-ph="notes_ph" placeholder="Livraison, conditions particulières…"></textarea></div>
     </div>
   </div>
 </div>
 
 <!-- PAGE 3 -->
 <div id="page3" class="page">
-  <button class="btn-back" id="back-to-2">← Retour</button>
+  <button class="btn-back" id="back-to-2" data-i18n="back">← Retour</button>
   <div class="recap-card">
-    <h4>Votre sélection</h4>
+    <h4 data-i18n="recap_sel">Votre sélection</h4>
     <div id="recap-lines"></div>
   </div>
   <div class="recap-card" id="client-recap"></div>
   <div class="total-bar">
-    <span class="lbl">Total HT</span>
+    <span class="lbl" data-i18n="total_lbl">Total HT</span>
     <span class="amt" id="recap-total">0,00 €</span>
   </div>
 </div>
 
 <!-- PAGE 4 — CGV + Signature -->
 <div id="page4" class="page">
-  <button class="btn-back" id="back-to-3">← Retour</button>
+  <button class="btn-back" id="back-to-3" data-i18n="back">← Retour</button>
   <div class="recap-card">
-    <h4>Conditions générales</h4>
+    <h4 data-i18n="cgv_title">Conditions générales</h4>
     <div id="cgv-text-display" style="font-size:11px;line-height:1.8;color:var(--soft);max-height:160px;overflow-y:auto;border:1px solid var(--border);padding:14px;margin-bottom:16px;background:var(--black)"></div>
     <label class="cgv-check-label">
       <input type="checkbox" id="cgv-checkbox">
-      <span>J'ai lu et j'accepte les conditions générales de vente</span>
+      <span data-i18n="cgv_accept">J'ai lu et j'accepte les conditions générales de vente</span>
     </label>
   </div>
 
   <div class="recap-card">
-    <h4>Signature de l'acheteur</h4>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Signez dans le cadre ci-dessous avec votre doigt ou votre souris.</p>
+    <h4 data-i18n="sig_title">Signature de l'acheteur</h4>
+    <p data-i18n="sig_instr" style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Signez dans le cadre ci-dessous avec votre doigt ou votre souris.</p>
     <div style="position:relative;background:#fff;border:1px solid var(--border)">
       <canvas id="sig-canvas" style="display:block;width:100%;height:140px;cursor:crosshair;touch-action:none"></canvas>
-      <span id="sig-hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:12px;pointer-events:none;letter-spacing:.06em;text-transform:uppercase">Signez ici</span>
+      <span id="sig-hint" data-i18n="sig_hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:12px;pointer-events:none;letter-spacing:.06em;text-transform:uppercase">Signez ici</span>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:8px">
-      <button id="sig-clear" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;padding:6px 0">✕ Effacer</button>
+      <button id="sig-clear" data-i18n="sig_clear" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;padding:6px 0">✕ Effacer</button>
     </div>
     <div style="margin-top:4px;font-size:11px;color:var(--muted)">
       <span id="sig-name-display"></span> — <span id="sig-date-display"></span>
@@ -442,26 +443,26 @@
   </div>
 
   <div style="padding:0 0 2px">
-    <div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.15);padding:14px 18px;font-size:11px;color:var(--soft);line-height:1.7;letter-spacing:.02em">
+    <div id="order-warning" data-i18n-html="order_warn" style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.15);padding:14px 18px;font-size:11px;color:var(--soft);line-height:1.7;letter-spacing:.02em">
       ⚠ Cette proposition de commande ne sera <strong style="color:var(--white)">définitive qu'après acceptation de la marque</strong> et signature du bon de commande par les deux parties.
     </div>
   </div>
 
-  <button class="btn-confirm" id="btn-sign-confirm" disabled>Signer et envoyer la commande</button>
+  <button class="btn-confirm" id="btn-sign-confirm" data-i18n="btn_sign" disabled>Signer et envoyer la commande</button>
 </div>
 
 <!-- SUCCESS -->
 <div id="page-success" class="page">
   <div class="success-page">
     <span class="success-icon">✦</span>
-    <h2>Commande enregistrée</h2>
-    <p>Votre proposition de commande a bien été transmise.</p>
-    <div class="email-sent" id="success-email-msg">Un PDF vous sera envoyé par email.</div>
+    <h2 data-i18n="success_h">Commande enregistrée</h2>
+    <p data-i18n="success_sub">Votre proposition de commande a bien été transmise.</p>
+    <div class="email-sent" id="success-email-msg" data-i18n="success_pdf">Un PDF vous sera envoyé par email.</div>
     <div id="success-ref" style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border);padding:12px 20px;display:inline-block"></div>
-    <p style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.8">
+    <p id="success-warning-p" data-i18n-html="success_warn" style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.8">
       ⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.
     </p>
-    <p style="margin-top:20px;font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
+    <p data-i18n="success_thanks" style="margin-top:20px;font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
   </div>
 </div>
 
@@ -471,7 +472,7 @@
     <strong id="cart-total">0,00 €</strong>
     <span id="cart-count">0 article</span>
   </div>
-  <button class="btn-next" id="btn-next" disabled>Suivant</button>
+  <button class="btn-next" id="btn-next" disabled data-i18n="btn_next">Suivant</button>
 </div>
 
 <!-- Carousel lightbox -->
@@ -487,6 +488,132 @@
 </div>
 
 <script>
+// ── i18n ──────────────────────────────────────────────
+const TRANSLATIONS = {
+  fr: {
+    step_sel:'Sélection', step_infos:'Infos', step_recap:'Récap', step_sig:'Signature',
+    search_ph:'Rechercher une référence…', back:'← Retour',
+    client_section:'Informations client',
+    lbl_name:'Nom complet', lbl_email:'Email', lbl_company:'Société / Boutique',
+    lbl_company_note:'Recommandé', lbl_phone:'Téléphone', lbl_notes:'Notes',
+    notes_ph:'Livraison, conditions particulières…',
+    recap_sel:'Votre sélection', total_lbl:'Total HT',
+    cgv_title:'Conditions générales',
+    cgv_accept:"J'ai lu et j'accepte les conditions générales de vente",
+    sig_title:"Signature de l'acheteur",
+    sig_instr:'Signez dans le cadre ci-dessous avec votre doigt ou votre souris.',
+    sig_hint:'Signez ici', sig_clear:'✕ Effacer',
+    order_warn:"⚠ Cette proposition de commande ne sera <strong style=\"color:var(--white)\">définitive qu'après acceptation de la marque</strong> et signature du bon de commande par les deux parties.",
+    btn_sign:'Signer et envoyer la commande',
+    btn_next:'Suivant →', btn_recap:'Récapitulatif →', btn_sig:'Signature →',
+    sending:'Envoi en cours…',
+    success_h:'Commande enregistrée',
+    success_sub:'Votre proposition de commande a bien été transmise.',
+    success_pdf:'Un PDF vous sera envoyé par email.',
+    success_warn:"⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.",
+    success_thanks:'Merci pour votre visite — Editions Standard',
+    offline_label:'Hors ligne — les commandes seront envoyées dès reconnexion',
+    online_sync:'En ligne — synchronisation en cours…',
+    pending: n => n + ' en attente',
+    synced: n => '✓ ' + n + ' commande(s) synchronisée(s)',
+    err_name_email:'Nom et email requis.',
+    err_email:'Email invalide.',
+    err_order:'Erreur lors de la commande',
+    loading:'Chargement…', no_products:'Aucune référence.',
+    load_error:'Erreur de chargement. Réessayez.', no_brand:'Marque introuvable.',
+    cart_items: n => n + ' article' + (n > 1 ? 's' : ''),
+    recap_ref:'Référence', recap_color:'Couleur', recap_size:'Taille',
+    recap_qty:'Qté', recap_total_col:'Total HT',
+    recap_client:'Client', recap_name:'Nom', recap_email:'Email',
+    recap_company:'Société', recap_phone:'Tél.',
+    no_items:'Aucun article.', all:'Tout', qty:'Quantité',
+    ref_label:'Référence :',
+    email_sent: e => 'Un PDF vous a été envoyé à ' + e,
+    queued:'📵 Commande enregistrée localement. Elle sera envoyée automatiquement dès reconnexion.',
+  },
+  en: {
+    step_sel:'Selection', step_infos:'Info', step_recap:'Summary', step_sig:'Signature',
+    search_ph:'Search by reference…', back:'← Back',
+    client_section:'Customer information',
+    lbl_name:'Full name', lbl_email:'Email', lbl_company:'Company / Store',
+    lbl_company_note:'Recommended', lbl_phone:'Phone', lbl_notes:'Notes',
+    notes_ph:'Delivery, special conditions…',
+    recap_sel:'Your selection', total_lbl:'Total excl. VAT',
+    cgv_title:'Terms & Conditions',
+    cgv_accept:'I have read and accept the terms and conditions of sale',
+    sig_title:"Buyer's signature",
+    sig_instr:'Sign in the box below with your finger or mouse.',
+    sig_hint:'Sign here', sig_clear:'✕ Clear',
+    order_warn:'⚠ This order proposal will only be <strong style="color:var(--white)">final after brand acceptance</strong> and signature of the order form by both parties.',
+    btn_sign:'Sign and submit order',
+    btn_next:'Next →', btn_recap:'Summary →', btn_sig:'Signature →',
+    sending:'Sending…',
+    success_h:'Order recorded',
+    success_sub:'Your order proposal has been successfully submitted.',
+    success_pdf:'A PDF will be sent to you by email.',
+    success_warn:'⚠ This order will only be final after<br>brand acceptance and signature by both parties.',
+    success_thanks:'Thank you for your visit — Editions Standard',
+    offline_label:'Offline — orders will be sent when reconnected',
+    online_sync:'Online — syncing…',
+    pending: n => n + ' pending',
+    synced: n => '✓ ' + n + ' order(s) synced',
+    err_name_email:'Name and email are required.',
+    err_email:'Invalid email.',
+    err_order:'Error submitting order',
+    loading:'Loading…', no_products:'No products.',
+    load_error:'Loading error. Please retry.', no_brand:'Brand not found.',
+    cart_items: n => n + ' item' + (n > 1 ? 's' : ''),
+    recap_ref:'Reference', recap_color:'Color', recap_size:'Size',
+    recap_qty:'Qty', recap_total_col:'Total excl. VAT',
+    recap_client:'Customer', recap_name:'Name', recap_email:'Email',
+    recap_company:'Company', recap_phone:'Tel.',
+    no_items:'No items.', all:'All', qty:'Quantity',
+    ref_label:'Reference:',
+    email_sent: e => 'A confirmation PDF has been sent to ' + e,
+    queued:'📵 Order saved locally. It will be sent automatically when reconnected.',
+  }
+};
+
+let lang = localStorage.getItem('es-lang') || 'fr';
+const T = (k, ...a) => {
+  const t = (TRANSLATIONS[lang] || TRANSLATIONS.fr)[k] || TRANSLATIONS.fr[k] || k;
+  return typeof t === 'function' ? t(...a) : t;
+};
+function setLang(l) {
+  lang = l;
+  localStorage.setItem('es-lang', l);
+  document.documentElement.lang = l;
+  const lb = document.getElementById('lang-toggle');
+  if (lb) lb.textContent = l === 'fr' ? 'EN' : 'FR';
+  // Apply data-i18n text
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = T(el.dataset.i18n);
+  });
+  // Apply data-i18n-html
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = T(el.dataset.i18nHtml);
+  });
+  // Apply data-i18n-ph placeholders
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = T(el.dataset.i18nPh);
+  });
+  // Update btn-next text based on current page
+  const bn = document.getElementById('btn-next');
+  if (bn) {
+    if (currentPage === 3) bn.textContent = T('btn_sig');
+    else if (currentPage === 2) bn.textContent = T('btn_recap');
+    else bn.textContent = T('btn_next');
+  }
+  // Re-translate collection "All" button
+  const allBtn = document.querySelector('.col-filter[data-col="__all__"]');
+  if (allBtn) allBtn.textContent = T('all');
+  // Refresh cart count text
+  updateCartBar();
+}
+function toggleLang() { setLang(lang === 'fr' ? 'en' : 'fr'); }
+// Init on load
+document.addEventListener('DOMContentLoaded', () => setLang(lang));
+
 const brandId = location.pathname.split('/').pop();
 let productsData = [];
 const cart = {}; // key: "productId|color|size" → {product, size, color, qty}
@@ -497,7 +624,7 @@ let currentPage = 1;
 async function init() {
   try {
     const data = await fetch('/api/public/brands/' + brandId).then(r => r.json());
-    if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">Marque introuvable.</div>'; return; }
+    if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">' + T('no_brand') + '</div>'; return; }
     productsData = data.products;
     const brandName = data.brand.name;
     document.getElementById('brand-name').textContent = brandName;
@@ -515,7 +642,7 @@ async function init() {
     renderProducts(productsData);
     buildCollectionFilters(productsData);
   } catch(e) {
-    document.getElementById('products-container').innerHTML = '<div class="loader">Erreur de chargement. Réessayez.</div>';
+    document.getElementById('products-container').innerHTML = '<div class="loader">' + T('load_error') + '</div>';
   }
 }
 
@@ -526,7 +653,7 @@ function esc(s) {
 // ── Render ────────────────────────────────────────────
 function renderProducts(products) {
   const container = document.getElementById('products-container');
-  if (!products.length) { container.innerHTML = '<div class="loader">Aucune référence.</div>'; return; }
+  if (!products.length) { container.innerHTML = '<div class="loader">' + T('no_products') + '</div>'; return; }
 
   container.innerHTML = products.map(p => {
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -584,7 +711,7 @@ function renderProducts(products) {
             + '</div></div>';
         }).join('')
       : '<div class="size-row">'
-        + '<span class="size-label">Quantité</span>'
+        + '<span class="size-label">' + T('qty') + '</span>'
         + '<div class="qty-ctrl">'
         + '<button class="qty-btn" data-pid="' + esc(p.id) + '" data-size="" data-delta="-1">−</button>'
         + '<div class="qty-display' + (cart[key0]&&cart[key0].qty>0?' active':'') + '" id="qd_' + p.id + '_">' + (cart[key0]?cart[key0].qty:0) + '</div>'
@@ -699,21 +826,21 @@ function updateCartBar() {
   const items = Object.values(cart);
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const totalPrice = items.reduce((s, i) => s + i.qty * parseFloat(i.product.price || 0), 0);
-  document.getElementById('cart-count').textContent = totalQty + ' article(s)';
+  document.getElementById('cart-count').textContent = T('cart_items', totalQty);
   document.getElementById('cart-total').textContent = totalPrice.toFixed(2).replace('.', ',') + ' €';
   document.getElementById('btn-next').disabled = totalQty === 0;
 }
 
 // ── Collection filters ───────────────────────────────
-let activeCollection = 'Tout';
+let activeCollection = '__all__';
 
 function buildCollectionFilters(products) {
-  const collections = ['Tout', ...new Set(products.map(p => p.collection_name).filter(Boolean))];
+  const collections = ['__all__', ...new Set(products.map(p => p.collection_name).filter(Boolean))];
   const bar = document.getElementById('collection-filters');
   if (collections.length <= 2) { bar.style.display = 'none'; return; } // only show if >1 collection
   bar.style.display = 'block';
   bar.innerHTML = collections.map(c =>
-    '<button class="col-filter' + (c === activeCollection ? ' active' : '') + '" data-col="' + esc(c) + '">' + esc(c) + '</button>'
+    '<button class="col-filter' + (c === activeCollection ? ' active' : '') + '" data-col="' + esc(c) + '">' + (c === '__all__' ? T('all') : esc(c)) + '</button>'
   ).join('');
   bar.addEventListener('click', function(e) {
     const btn = e.target.closest('.col-filter');
@@ -727,7 +854,7 @@ function buildCollectionFilters(products) {
 function applyFilters() {
   const q = document.getElementById('search-input').value.toLowerCase();
   let filtered = productsData;
-  if (activeCollection && activeCollection !== 'Tout') {
+  if (activeCollection && activeCollection !== '__all__') {
     filtered = filtered.filter(p => p.collection_name === activeCollection);
   }
   if (q) {
@@ -761,11 +888,11 @@ function goToPage(n) {
     renderSignaturePage();
   } else if (n === 3) {
     renderRecap();
-    document.getElementById('btn-next').textContent = 'Signature →';
+    document.getElementById('btn-next').textContent = T('btn_sig');
   } else if (n === 2) {
-    document.getElementById('btn-next').textContent = 'Récapitulatif →';
+    document.getElementById('btn-next').textContent = T('btn_recap');
   } else if (n === 1) {
-    document.getElementById('btn-next').textContent = 'Suivant →';
+    document.getElementById('btn-next').textContent = T('btn_next');
     updateCartBar();
   }
   currentPage = n;
@@ -779,8 +906,8 @@ document.getElementById('btn-next').addEventListener('click', function() {
   } else if (currentPage === 2) {
     const name = document.getElementById('c-name').value.trim();
     const email = document.getElementById('c-email').value.trim();
-    if (!name || !email) { alert('Nom et email requis.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Email invalide.'); return; }
+    if (!name || !email) { alert(T('err_name_email')); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert(T('err_email')); return; }
     goToPage(3);
   } else if (currentPage === 3) {
     goToPage(4);
@@ -800,7 +927,7 @@ function renderRecap() {
     document.getElementById('recap-lines').innerHTML =
       '<table class="recap-table">'
       + '<thead><tr>'
-      + '<th>Référence</th><th>Couleur</th><th>Taille</th><th class="th-qty">Qté</th><th>Total HT</th>'
+      + '<th>' + T('recap_ref') + '</th><th>' + T('recap_color') + '</th><th>' + T('recap_size') + '</th><th class="th-qty">' + T('recap_qty') + '</th><th>' + T('recap_total_col') + '</th>'
       + '</tr></thead><tbody>'
       + lines.map(l => {
           const pu = parseFloat(l.product.price || 0);
@@ -816,7 +943,7 @@ function renderRecap() {
         }).join('')
       + '</tbody></table>';
   } else {
-    document.getElementById('recap-lines').innerHTML = '<div style="color:#aaa;font-size:13px">Aucun article.</div>';
+    document.getElementById('recap-lines').innerHTML = '<div style="color:#aaa;font-size:13px">' + T('no_items') + '</div>';
   }
 
   document.getElementById('recap-total').textContent = total.toFixed(2).replace('.', ',') + ' €';
@@ -825,11 +952,11 @@ function renderRecap() {
   const email = document.getElementById('c-email').value;
   const company = document.getElementById('c-company').value;
   const phone = document.getElementById('c-phone').value;
-  document.getElementById('client-recap').innerHTML = '<h4>Client</h4>'
-    + '<div class="recap-line"><span>Nom</span><strong>' + esc(name) + '</strong></div>'
-    + '<div class="recap-line"><span>Email</span><strong>' + esc(email) + '</strong></div>'
-    + (company ? '<div class="recap-line"><span>Société</span><strong>' + esc(company) + '</strong></div>' : '')
-    + (phone ? '<div class="recap-line"><span>Tél.</span><strong>' + esc(phone) + '</strong></div>' : '');
+  document.getElementById('client-recap').innerHTML = '<h4>' + T('recap_client') + '</h4>'
+    + '<div class="recap-line"><span>' + T('recap_name') + '</span><strong>' + esc(name) + '</strong></div>'
+    + '<div class="recap-line"><span>' + T('recap_email') + '</span><strong>' + esc(email) + '</strong></div>'
+    + (company ? '<div class="recap-line"><span>' + T('recap_company') + '</span><strong>' + esc(company) + '</strong></div>' : '')
+    + (phone ? '<div class="recap-line"><span>' + T('recap_phone') + '</span><strong>' + esc(phone) + '</strong></div>' : '');
 }
 
 // ── Signature page ────────────────────────────────────
@@ -847,7 +974,7 @@ function renderSignaturePage() {
 
   // Fill in name + date
   const name = document.getElementById('c-name').value.trim();
-  const today = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const today = new Date().toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   document.getElementById('sig-name-display').textContent = name;
   document.getElementById('sig-date-display').textContent = today;
 
@@ -909,7 +1036,7 @@ document.getElementById('btn-sign-confirm').addEventListener('click', submitOrde
 async function submitOrder() {
   const btn = document.getElementById('btn-sign-confirm');
   btn.disabled = true;
-  btn.textContent = 'Envoi en cours…';
+  btn.textContent = T('sending');
 
   const lines = Object.values(cart).map(l => ({
     product_id: l.product.id,
@@ -941,9 +1068,9 @@ async function submitOrder() {
     if (data.ok) {
       showSuccess(body.client_email, false, data.order_id);
     } else {
-      alert(data.error || 'Erreur lors de la commande');
+      alert(data.error || T('err_order'));
       btn.disabled = false;
-      btn.textContent = 'Signer et envoyer la commande';
+      btn.textContent = T('btn_sign');
     }
   } catch(e) {
     // Offline or network error → queue locally
@@ -958,16 +1085,16 @@ function showSuccess(email, offline, orderId) {
   document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
   document.getElementById('page-success').classList.add('active');
   if (offline) {
-    document.getElementById('success-email-msg').textContent = '📵 Commande enregistrée localement. Elle sera envoyée automatiquement dès reconnexion.';
+    document.getElementById('success-email-msg').textContent = T('queued');
   } else {
-    document.getElementById('success-email-msg').textContent = 'Un PDF vous a été envoyé à ' + email;
+    document.getElementById('success-email-msg').textContent = T('email_sent', email);
   }
   const refEl = document.getElementById('success-ref');
   if (orderId) {
-    refEl.textContent = 'Référence : ' + orderId.slice(0, 8).toUpperCase();
+    refEl.textContent = T('ref_label') + ' ' + orderId.slice(0, 8).toUpperCase();
   } else {
     const localRef = 'LOCAL-' + Date.now().toString(36).toUpperCase();
-    refEl.textContent = 'Référence : ' + localRef;
+    refEl.textContent = T('ref_label') + ' ' + localRef;
   }
 }
 
@@ -1057,12 +1184,12 @@ function updateOfflineBanner() {
     banner.classList.add('visible');
     document.body.classList.add('has-banner');
     dot.classList.remove('online-dot');
-    label.textContent = 'Hors ligne — les commandes seront envoyées dès reconnexion';
+    label.textContent = T('offline_label');
   } else if (pending.length > 0) {
     banner.classList.add('visible');
     document.body.classList.add('has-banner');
     dot.classList.add('online-dot');
-    label.textContent = 'En ligne — synchronisation en cours…';
+    label.textContent = T('online_sync');
   } else {
     banner.classList.remove('visible');
     document.body.classList.remove('has-banner');
@@ -1070,7 +1197,7 @@ function updateOfflineBanner() {
 
   if (pending.length > 0) {
     badge.style.display = '';
-    badge.textContent = pending.length + ' en attente';
+    badge.textContent = T('pending', pending.length);
   } else {
     badge.style.display = 'none';
   }
@@ -1096,7 +1223,7 @@ async function syncPendingOrders() {
   updateOfflineBanner();
   if (failed.length < q.length) {
     const sent = q.length - failed.length;
-    showToast('✓ ' + sent + ' commande(s) synchronisée(s)');
+    showToast(T('synced', sent));
   }
 }
 
