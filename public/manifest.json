@@ -1,0 +1,12 @@
+{
+  "name": "Editions Standard — Showroom BDC",
+  "short_name": "ES Showroom",
+  "description": "Prise de commande showroom Editions Standard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

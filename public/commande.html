@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Bon de Commande</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ES Showroom">
+<link rel="apple-touch-icon" href="/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -142,6 +148,14 @@
 
   .loader { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
 
+  /* ── Offline banner ── */
+  .offline-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: #1a1a1a; border-bottom: 1px solid #333; padding: 10px 20px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); justify-content: space-between; align-items: center; }
+  .offline-banner.visible { display: flex; }
+  .offline-dot { width: 7px; height: 7px; border-radius: 50%; background: #e74c3c; display: inline-block; margin-right: 8px; animation: pulse-red 1.5s infinite; }
+  .online-dot { background: var(--accent); animation: none; }
+  @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .pending-badge { background: var(--accent); color: var(--black); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; letter-spacing: .04em; }
+
   /* ── Carousel lightbox ── */
   .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
@@ -231,6 +245,12 @@
 </head>
 <body>
 <div class="site-wrap">
+
+<!-- Offline banner -->
+<div class="offline-banner" id="offline-banner">
+  <span><span class="offline-dot" id="offline-dot"></span><span id="offline-label">Hors ligne — les commandes seront envoyées dès reconnexion</span></span>
+  <span class="pending-badge" id="pending-badge" style="display:none"></span>
+</div>
 
 <!-- Cover image -->
 <div id="brand-cover-wrap" style="display:none;width:100%;height:260px;overflow:hidden;position:relative">
@@ -765,20 +785,28 @@ async function submitOrder() {
     });
     const data = await r.json();
     if (data.ok) {
-      document.getElementById('cart-bar').style.display = 'none';
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
-      document.getElementById('page-success').classList.add('active');
-      document.getElementById('success-email-msg').textContent = 'Un PDF vous a été envoyé à ' + body.client_email;
+      showSuccess(body.client_email);
     } else {
       alert(data.error || 'Erreur lors de la commande');
       btn.disabled = false;
       btn.textContent = 'Signer et envoyer la commande';
     }
   } catch(e) {
-    alert('Erreur réseau. Vérifiez votre connexion.');
-    btn.disabled = false;
-    btn.textContent = 'Signer et envoyer la commande';
+    // Offline or network error → queue locally
+    queueOrder(body);
+    showSuccess(body.client_email, true);
+  }
+}
+
+function showSuccess(email, offline) {
+  document.getElementById('cart-bar').style.display = 'none';
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
+  document.getElementById('page-success').classList.add('active');
+  if (offline) {
+    document.getElementById('success-email-msg').textContent = '📵 Commande enregistrée localement. Elle sera envoyée automatiquement dès reconnexion.';
+  } else {
+    document.getElementById('success-email-msg').textContent = 'Un PDF vous a été envoyé à ' + email;
   }
 }
 
@@ -842,7 +870,95 @@ function closeCarousel() {
   document.getElementById('img-modal-src').src = '';
 }
 
-init();
+// ── Offline / PWA ─────────────────────────────────────
+const QUEUE_KEY = 'bdc_pending_orders';
+
+function queueOrder(body) {
+  const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+  q.push({ body, savedAt: new Date().toISOString() });
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+  updateOfflineBanner();
+}
+
+function getPendingOrders() {
+  return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+}
+
+function updateOfflineBanner() {
+  const banner = document.getElementById('offline-banner');
+  const dot = document.getElementById('offline-dot');
+  const label = document.getElementById('offline-label');
+  const badge = document.getElementById('pending-badge');
+  const pending = getPendingOrders();
+  const isOnline = navigator.onLine;
+
+  if (!isOnline) {
+    banner.classList.add('visible');
+    dot.classList.remove('online-dot');
+    label.textContent = 'Hors ligne — les commandes seront envoyées dès reconnexion';
+  } else if (pending.length > 0) {
+    banner.classList.add('visible');
+    dot.classList.add('online-dot');
+    label.textContent = 'En ligne — synchronisation en cours…';
+  } else {
+    banner.classList.remove('visible');
+  }
+
+  if (pending.length > 0) {
+    badge.style.display = '';
+    badge.textContent = pending.length + ' en attente';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function syncPendingOrders() {
+  const q = getPendingOrders();
+  if (!q.length) return;
+  const failed = [];
+  for (const item of q) {
+    try {
+      const r = await fetch('/api/public/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item.body)
+      });
+      if (!r.ok) failed.push(item);
+    } catch(e) {
+      failed.push(item);
+    }
+  }
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(failed));
+  updateOfflineBanner();
+  if (failed.length < q.length) {
+    const sent = q.length - failed.length;
+    showToast('✓ ' + sent + ' commande(s) synchronisée(s)');
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);padding:10px 20px;font-size:12px;font-weight:700;letter-spacing:.06em;z-index:300;border-radius:2px;white-space:nowrap';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+window.addEventListener('online', () => {
+  updateOfflineBanner();
+  syncPendingOrders();
+});
+window.addEventListener('offline', updateOfflineBanner);
+
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+init().then(() => {
+  updateOfflineBanner();
+  if (navigator.onLine) syncPendingOrders();
+});
 </script>
 </div><!-- .site-wrap -->
 </body>
