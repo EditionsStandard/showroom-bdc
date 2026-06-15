@@ -18,6 +18,10 @@ async function init() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_signature TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS cgv_accepted INTEGER DEFAULT 0;
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS cgv_text TEXT DEFAULT '';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_qty INTEGER DEFAULT 0;
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_amount NUMERIC DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_country TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed';
   `).catch(() => {});
 
   await pool.query(`
@@ -84,6 +88,7 @@ async function init() {
     admin_password: 'admin123',
     agent_name: '',
     agent_title: 'Agent Commercial',
+    agent_phone: '',
     cgv_text: "La présente proposition de commande ne constitue pas un engagement ferme. Elle ne sera définitive qu'après acceptation écrite de la marque et signature du bon de commande par les deux parties (acheteur et agent/showroom). L'acheteur s'engage à maintenir sa sélection pendant 15 jours ouvrés à compter de la date de signature. Les prix sont indiqués en euros HT. Tout désistement après accord bilatéral pourra faire l'objet de pénalités. Les conditions de paiement et de livraison seront précisées dans le bon de commande définitif signé par les deux parties."
   };
 

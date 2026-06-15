@@ -248,6 +248,59 @@
     .total-bar { border-left: none; border-right: none; }
   }
 
+  /* ── Landing page 0 ── */
+  #page0 { display:none; padding:0 0 80px; }
+  #page0.active { display:block; }
+  .landing-hero { position:relative; min-height:45vh; display:flex; align-items:flex-end; overflow:hidden; background: var(--black); }
+  .landing-hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.6; }
+  .landing-hero-overlay { position:absolute; inset:0; background:linear-gradient(to bottom, transparent 20%, rgba(10,10,10,.92)); }
+  .landing-hero-content { position:relative; z-index:2; padding:24px 20px 28px; width:100%; }
+  .landing-brand { font-family:'Space Mono',monospace; font-size:28px; font-weight:700; color:var(--white); letter-spacing:.02em; line-height:1.1; }
+  .landing-season { font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:.2em; margin-top:6px; margin-bottom:4px; }
+  .landing-showroom { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.14em; }
+  .landing-body { padding:24px 20px 0; }
+  .landing-agent-card { background:var(--dark); border:1px solid var(--border); padding:18px 20px; display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+  .landing-agent-avatar { width:44px; height:44px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:var(--black); flex-shrink:0; font-family:'Space Mono',monospace; }
+  .landing-agent-name { font-size:13px; font-weight:700; color:var(--white); }
+  .landing-agent-title { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-top:2px; }
+  .landing-agent-phone { font-size:11px; color:var(--accent); margin-top:4px; }
+  .landing-btn { display:block; width:100%; background:var(--accent); color:var(--black); border:none; padding:18px; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:.12em; text-transform:uppercase; font-family:'Space Mono',monospace; margin-top:6px; }
+  .landing-moq { background:rgba(204,235,60,.06); border:1px solid rgba(204,235,60,.15); padding:12px 16px; margin-bottom:16px; font-size:11px; color:var(--accent); letter-spacing:.04em; line-height:1.6; display:none; }
+  @media (min-width:768px) {
+    .landing-hero { min-height:50vh; }
+    .landing-hero-content { padding:32px 40px 36px; }
+    .landing-brand { font-size:42px; }
+    .landing-body { padding:32px 40px 0; }
+    .landing-agent-card { max-width:420px; }
+  }
+
+  /* ── Recap editable ── */
+  .recap-edit-btn { background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:2px 6px; line-height:1; touch-action:manipulation; }
+  .recap-edit-btn:hover { color:var(--white); }
+  .recap-edit-qty { display:flex; align-items:center; gap:4px; }
+  .recap-edit-num { width:32px; text-align:center; font-size:13px; font-weight:700; color:var(--accent); }
+
+  /* ── Country select ── */
+  .field select { width:100%; border:none; border-bottom:1px solid var(--border); background:transparent; padding:10px 0; font-size:15px; outline:none; font-family:'Inter',sans-serif; color:var(--white); transition:border-color .2s; cursor:pointer; -webkit-appearance:none; appearance:none; }
+  .field select:focus { border-color:var(--accent); }
+  [data-theme="light"] .field select { color:#111; }
+  .field select option { background:var(--dark); color:var(--white); }
+
+  /* ── Signature text fallback ── */
+  .sig-alt-toggle { font-size:11px; color:var(--muted); cursor:pointer; text-decoration:underline; text-underline-offset:3px; background:none; border:none; font-family:inherit; padding:8px 0; letter-spacing:.04em; display:block; margin-top:8px; }
+  .sig-alt-wrap { display:none; margin-top:12px; }
+  .sig-alt-wrap.visible { display:block; }
+  .sig-typed-preview { font-family:'Brush Script MT','Zapf Chancery','Comic Sans MS',cursive; font-size:32px; color:#111; background:#fff; border:1px solid var(--border); padding:16px 20px; min-height:80px; display:flex; align-items:center; letter-spacing:.02em; margin-top:8px; }
+
+  /* ── Success improved ── */
+  .success-check { width:64px; height:64px; border-radius:50%; background:rgba(204,235,60,.12); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; }
+  .success-ref-big { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--white); letter-spacing:.06em; margin:12px 0 4px; }
+  .success-brand-tag { display:inline-block; background:rgba(204,235,60,.1); border:1px solid rgba(204,235,60,.25); padding:4px 14px; font-size:10px; color:var(--accent); letter-spacing:.12em; text-transform:uppercase; margin-bottom:16px; }
+  .success-next-steps { text-align:left; background:var(--dark); border:1px solid var(--border); padding:18px 20px; margin:20px 0; }
+  .success-next-steps h4 { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.14em; margin-bottom:12px; }
+  .success-step-item { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; font-size:12px; color:var(--soft); line-height:1.5; }
+  .success-step-num { width:20px; height:20px; border-radius:50%; background:var(--border); font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--soft); margin-top:1px; }
+
   /* ── Theme toggle button ── */
   #theme-toggle {
     background: none;
@@ -346,13 +399,36 @@
   <span class="pending-badge" id="pending-badge" style="display:none"></span>
 </div>
 
-<!-- Cover image -->
-<div id="brand-cover-wrap" style="display:none;width:100%;height:260px;overflow:hidden;position:relative">
-  <img id="brand-cover-img" src="" style="width:100%;height:100%;object-fit:cover;display:block">
-  <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(10,10,10,.85))"></div>
+<!-- PAGE 0 — Landing -->
+<div id="page0" class="page active">
+  <div class="landing-hero" id="landing-hero">
+    <img id="landing-cover-img" src="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.6">
+    <div class="landing-hero-overlay"></div>
+    <div class="landing-hero-content">
+      <div id="landing-brand-logo" style="margin-bottom:10px"></div>
+      <div class="landing-season" id="landing-showroom-label">Editions Standard — Showroom</div>
+      <div class="landing-brand" id="landing-brand-name">Chargement…</div>
+    </div>
+  </div>
+  <div class="landing-body">
+    <div class="landing-moq" id="landing-moq"></div>
+    <div class="landing-agent-card" id="landing-agent-card" style="display:none">
+      <div class="landing-agent-avatar" id="landing-agent-avatar">ES</div>
+      <div>
+        <div class="landing-agent-name" id="landing-agent-name"></div>
+        <div class="landing-agent-title" id="landing-agent-title"></div>
+        <div class="landing-agent-phone" id="landing-agent-phone"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <button id="lang-toggle-0" onclick="toggleLang()" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit">EN</button>
+      <button onclick="toggleTheme()" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 11px;cursor:pointer;color:var(--soft);font-size:15px;line-height:1">🌙</button>
+    </div>
+    <button class="landing-btn" id="btn-start" data-i18n="btn_start">Commencer ma sélection →</button>
+  </div>
 </div>
 
-<div class="header">
+<div class="header" style="display:none" id="main-header">
   <div class="header-meta">
     <div style="display:flex;align-items:center;gap:14px">
       <div id="brand-logo-wrap" style="flex-shrink:0"></div>
@@ -369,15 +445,15 @@
   </div>
 </div>
 
-<div class="steps">
-  <div class="step active" id="step1"><span class="step-num">1</span><span data-i18n="step_sel">Sélection</span></div>
+<div class="steps" id="steps-bar" style="display:none">
+  <div class="step" id="step1"><span class="step-num">1</span><span data-i18n="step_sel">Sélection</span></div>
   <div class="step" id="step2"><span class="step-num">2</span><span data-i18n="step_infos">Infos</span></div>
   <div class="step" id="step3"><span class="step-num">3</span><span data-i18n="step_recap">Récap</span></div>
   <div class="step" id="step4"><span class="step-num">4</span><span data-i18n="step_sig">Signature</span></div>
 </div>
 
 <!-- PAGE 1 -->
-<div id="page1" class="page active">
+<div id="page1" class="page">
   <div class="search-bar">
     <span class="search-icon">—</span>
     <input id="search-input" type="text" data-i18n-ph="search_ph" placeholder="Rechercher une référence…">
@@ -396,6 +472,15 @@
       <div class="field"><label><span data-i18n="lbl_email">Email</span> <span class="req">*</span></label><input id="c-email" type="email" autocomplete="email"></div>
       <div class="field"><label><span data-i18n="lbl_company">Société / Boutique</span> <span data-i18n="lbl_company_note" style="color:var(--accent);font-size:9px">Recommandé</span></label><input id="c-company" type="text" autocomplete="organization"></div>
       <div class="field"><label data-i18n="lbl_phone">Téléphone</label><input id="c-phone" type="tel" autocomplete="tel"></div>
+      <div class="field"><label><span data-i18n="lbl_country">Pays</span> <span class="req">*</span></label>
+        <select id="c-country">
+          <option value="" data-i18n="country_ph">Sélectionner un pays…</option>
+          <option>France</option><option>Belgique</option><option>Suisse</option><option>Luxembourg</option>
+          <option>Allemagne</option><option>Italie</option><option>Espagne</option><option>Portugal</option>
+          <option>Pays-Bas</option><option>Royaume-Uni</option><option>États-Unis</option><option>Canada</option>
+          <option>Japon</option><option>Corée du Sud</option><option>Australie</option><option>Autre</option>
+        </select>
+      </div>
       <div class="field field-full"><label data-i18n="lbl_notes">Notes</label><textarea id="c-notes" data-i18n-ph="notes_ph" placeholder="Livraison, conditions particulières…"></textarea></div>
     </div>
   </div>
@@ -405,10 +490,14 @@
 <div id="page3" class="page">
   <button class="btn-back" id="back-to-2" data-i18n="back">← Retour</button>
   <div class="recap-card">
-    <h4 data-i18n="recap_sel">Votre sélection</h4>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h4 data-i18n="recap_sel" style="margin:0">Votre sélection</h4>
+      <button id="btn-dl-selection" onclick="downloadSelection()" style="background:none;border:1px solid var(--border);padding:6px 12px;font-size:10px;color:var(--soft);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;display:flex;align-items:center;gap:6px">📄 <span data-i18n="btn_dl_sel">Télécharger</span></button>
+    </div>
     <div id="recap-lines"></div>
   </div>
   <div class="recap-card" id="client-recap"></div>
+  <div id="moq-warning" style="display:none;padding:12px 20px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);font-size:11px;color:#e74c3c;letter-spacing:.04em;line-height:1.6;margin-bottom:2px"></div>
   <div class="total-bar">
     <span class="lbl" data-i18n="total_lbl">Total HT</span>
     <span class="amt" id="recap-total">0,00 €</span>
@@ -430,14 +519,23 @@
   <div class="recap-card">
     <h4 data-i18n="sig_title">Signature de l'acheteur</h4>
     <p data-i18n="sig_instr" style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Signez dans le cadre ci-dessous avec votre doigt ou votre souris.</p>
-    <div style="position:relative;background:#fff;border:1px solid var(--border)">
-      <canvas id="sig-canvas" style="display:block;width:100%;height:140px;cursor:crosshair;touch-action:none"></canvas>
-      <span id="sig-hint" data-i18n="sig_hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:12px;pointer-events:none;letter-spacing:.06em;text-transform:uppercase">Signez ici</span>
+    <div id="sig-draw-wrap">
+      <div style="position:relative;background:#fff;border:1px solid var(--border)">
+        <canvas id="sig-canvas" style="display:block;width:100%;height:140px;cursor:crosshair;touch-action:none"></canvas>
+        <span id="sig-hint" data-i18n="sig_hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:12px;pointer-events:none;letter-spacing:.06em;text-transform:uppercase">Signez ici</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <button class="sig-alt-toggle" id="sig-alt-toggle" onclick="toggleSigMode()" data-i18n="sig_type_instead">Ou tapez votre nom comme signature</button>
+        <button id="sig-clear" data-i18n="sig_clear" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;padding:6px 0">✕ Effacer</button>
+      </div>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">
-      <button id="sig-clear" data-i18n="sig_clear" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;padding:6px 0">✕ Effacer</button>
+    <div class="sig-alt-wrap" id="sig-alt-wrap">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em" data-i18n="sig_type_instr">Tapez votre prénom et nom — cela vaut comme signature électronique.</p>
+      <input id="sig-typed" type="text" placeholder="Prénom Nom" style="width:100%;border:none;border-bottom:2px solid var(--accent);background:transparent;padding:10px 0;font-size:15px;outline:none;color:var(--white);font-family:inherit" oninput="onSigTyped()">
+      <div class="sig-typed-preview" id="sig-typed-preview" style="display:none"></div>
+      <button class="sig-alt-toggle" onclick="toggleSigMode()" data-i18n="sig_draw_instead">Revenir à la signature manuscrite</button>
     </div>
-    <div style="margin-top:4px;font-size:11px;color:var(--muted)">
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">
       <span id="sig-name-display"></span> — <span id="sig-date-display"></span>
     </div>
   </div>
@@ -454,20 +552,42 @@
 <!-- SUCCESS -->
 <div id="page-success" class="page">
   <div class="success-page">
-    <span class="success-icon">✦</span>
+    <div class="success-check">✦</div>
     <h2 data-i18n="success_h">Commande enregistrée</h2>
-    <p data-i18n="success_sub">Votre proposition de commande a bien été transmise.</p>
-    <div class="email-sent" id="success-email-msg" data-i18n="success_pdf">Un PDF vous sera envoyé par email.</div>
-    <div id="success-ref" style="margin:16px 0;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border);padding:12px 20px;display:inline-block"></div>
-    <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div class="success-brand-tag" id="success-brand-tag"></div>
+    <div class="success-ref-big" id="success-ref"></div>
+    <div class="email-sent" id="success-email-msg"></div>
+
+    <div class="success-next-steps">
+      <h4 data-i18n="success_next_title">Prochaines étapes</h4>
+      <div class="success-step-item">
+        <div class="success-step-num">1</div>
+        <span data-i18n="success_step1">Vous recevez ce PDF par email — conservez-le comme référence.</span>
+      </div>
+      <div class="success-step-item">
+        <div class="success-step-num">2</div>
+        <span data-i18n="success_step2">La marque valide votre sélection et revient vers vous.</span>
+      </div>
+      <div class="success-step-item">
+        <div class="success-step-num">3</div>
+        <span data-i18n="success_step3">Un bon de commande définitif est signé par les deux parties.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:16px">
       <button id="btn-open-mail" onclick="shareOrderMail()" style="background:var(--accent);color:var(--black);border:none;padding:15px 32px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:2px;font-family:inherit;width:100%;max-width:340px">✉️ Envoyer par mail avec PDF</button>
       <a id="btn-dl-pdf" href="#" style="display:none;font-size:11px;color:var(--soft);letter-spacing:.06em;text-decoration:underline;text-underline-offset:3px" download>📄 Télécharger le PDF séparément</a>
       <p id="mail-share-hint" style="font-size:10px;color:var(--muted);letter-spacing:.04em;text-align:center;max-width:300px">Sur iPhone : choisissez Spark ou Airmail dans la liste<br>Sur Mac : le PDF se télécharge + le mail s'ouvre</p>
     </div>
-    <p id="success-warning-p" data-i18n-html="success_warn" style="margin-top:16px;font-size:11px;color:var(--muted);letter-spacing:.04em;line-height:1.8">
-      ⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.
-    </p>
-    <p data-i18n="success_thanks" style="margin-top:20px;font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
+
+    <div id="success-agent-contact" style="display:none;background:var(--dark);border:1px solid var(--border);padding:14px 20px;font-size:12px;color:var(--soft);margin-bottom:16px;text-align:left">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px" data-i18n="success_contact_label">Votre contact</div>
+      <div id="success-agent-name" style="font-weight:700;color:var(--white);margin-bottom:2px"></div>
+      <div id="success-agent-title" style="font-size:10px;color:var(--muted)"></div>
+      <a id="success-agent-phone" href="#" style="display:none;font-size:12px;color:var(--accent);margin-top:4px;text-decoration:none;display:block"></a>
+    </div>
+
+    <p data-i18n="success_thanks" style="font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
   </div>
 </div>
 
@@ -532,6 +652,7 @@ const TRANSLATIONS = {
     synced: n => '✓ ' + n + ' commande(s) synchronisée(s)',
     err_name_email:'Nom et email requis.',
     err_email:'Email invalide.',
+    err_country:'Veuillez sélectionner votre pays.',
     err_order:'Erreur lors de la commande',
     loading:'Chargement…', no_products:'Aucune référence.',
     load_error:'Erreur de chargement. Réessayez.', no_brand:'Marque introuvable.',
@@ -539,10 +660,22 @@ const TRANSLATIONS = {
     recap_ref:'Référence', recap_color:'Couleur', recap_size:'Taille',
     recap_qty:'Qté', recap_total_col:'Total HT',
     recap_client:'Client', recap_name:'Nom', recap_email:'Email',
-    recap_company:'Société', recap_phone:'Tél.',
+    recap_company:'Société', recap_phone:'Tél.', recap_country:'Pays',
     no_items:'Aucun article.', all:'Tout', qty:'Quantité',
-    ref_label:'Référence :',
-    email_sent: e => 'Un PDF vous a été envoyé à ' + e,
+    ref_label:'Réf.', lbl_country:'Pays', country_ph:'Sélectionner un pays…',
+    btn_start:'Commencer ma sélection →',
+    btn_dl_sel:'Télécharger',
+    moq_qty_warn: (n) => `⚠ Minimum ${n} pièces requis par la marque.`,
+    moq_amt_warn: (n) => `⚠ Montant minimum de commande : ${n.toFixed(2)} € HT.`,
+    sig_type_instead:'Ou tapez votre nom comme signature',
+    sig_type_instr:'Tapez votre prénom et nom — cela vaut comme signature électronique.',
+    sig_draw_instead:'Revenir à la signature manuscrite',
+    success_next_title:'Prochaines étapes',
+    success_step1:'Vous recevez ce PDF par email — conservez-le comme référence.',
+    success_step2:'La marque valide votre sélection et revient vers vous.',
+    success_step3:'Un bon de commande définitif est signé par les deux parties.',
+    success_contact_label:'Votre contact',
+    email_sent: e => '✓ Un PDF de confirmation a été envoyé à ' + e,
     queued:'📵 Commande enregistrée localement. Elle sera envoyée automatiquement dès reconnexion.',
   },
   en: {
@@ -582,6 +715,7 @@ const TRANSLATIONS = {
     synced: n => '✓ ' + n + ' order(s) synced',
     err_name_email:'Name and email are required.',
     err_email:'Invalid email.',
+    err_country:'Please select your country.',
     err_order:'Error submitting order',
     loading:'Loading…', no_products:'No products.',
     load_error:'Loading error. Please retry.', no_brand:'Brand not found.',
@@ -589,10 +723,22 @@ const TRANSLATIONS = {
     recap_ref:'Reference', recap_color:'Color', recap_size:'Size',
     recap_qty:'Qty', recap_total_col:'Total excl. VAT',
     recap_client:'Customer', recap_name:'Name', recap_email:'Email',
-    recap_company:'Company', recap_phone:'Tel.',
+    recap_company:'Company', recap_phone:'Tel.', recap_country:'Country',
     no_items:'No items.', all:'All', qty:'Quantity',
-    ref_label:'Reference:',
-    email_sent: e => 'A confirmation PDF has been sent to ' + e,
+    ref_label:'Ref.', lbl_country:'Country', country_ph:'Select a country…',
+    btn_start:'Start my selection →',
+    btn_dl_sel:'Download',
+    moq_qty_warn: (n) => `⚠ Minimum ${n} pieces required by the brand.`,
+    moq_amt_warn: (n) => `⚠ Minimum order amount: ${n.toFixed(2)} € excl. VAT.`,
+    sig_type_instead:'Or type your name as signature',
+    sig_type_instr:'Type your first and last name — this counts as your electronic signature.',
+    sig_draw_instead:'Switch back to handwritten signature',
+    success_next_title:'Next steps',
+    success_step1:'You will receive this PDF by email — keep it as your reference.',
+    success_step2:'The brand will review your selection and get back to you.',
+    success_step3:'A final purchase order will be signed by both parties.',
+    success_contact_label:'Your contact',
+    email_sent: e => '✓ A confirmation PDF has been sent to ' + e,
     queued:'📵 Order saved locally. It will be sent automatically when reconnected.',
   }
 };
@@ -641,9 +787,33 @@ const brandId = location.pathname.split('/').pop();
 let productsData = [];
 let brandCgvText = '';
 let brandName = '';
+let brandMoqQty = 0;
+let brandMoqAmount = 0;
+let agentData = {};
+const CART_KEY = 'bdc_cart_' + brandId;
 const cart = {}; // key: "productId|color|size" → {product, size, color, qty}
 const selectedVariant = {}; // pid → colorLabel currently shown
-let currentPage = 1;
+let currentPage = 0;
+let sigMode = 'draw'; // 'draw' or 'type'
+
+// ── Cart persistence ──────────────────────────────────
+function saveCart() {
+  const serializable = {};
+  Object.entries(cart).forEach(([k, v]) => {
+    serializable[k] = { productId: v.product.id, size: v.size, color: v.color, qty: v.qty };
+  });
+  localStorage.setItem(CART_KEY, JSON.stringify(serializable));
+}
+
+function restoreCart() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
+    Object.entries(saved).forEach(([k, v]) => {
+      const p = productsData.find(p => p.id === v.productId);
+      if (p && v.qty > 0) cart[k] = { product: p, size: v.size, color: v.color, qty: v.qty };
+    });
+  } catch(e) {}
+}
 
 // ── Init ──────────────────────────────────────────────
 async function init() {
@@ -653,24 +823,70 @@ async function init() {
     productsData = data.products;
     brandCgvText = data.brand.cgv_text || '';
     brandName = data.brand.name;
-    document.getElementById('brand-name').textContent = brandName;
+    brandMoqQty = parseInt(data.brand.moq_qty) || 0;
+    brandMoqAmount = parseFloat(data.brand.moq_amount) || 0;
+    agentData = data.agent || {};
+
     document.title = brandName + ' — Bon de Commande';
-    // Logo (uploaded base64 preferred, fallback to logo_url)
+
+    // Landing page
+    document.getElementById('landing-brand-name').textContent = brandName;
+    document.getElementById('landing-showroom-label').textContent = (agentData.showroom || 'Showroom') + ' — Showroom';
     const logoSrc = data.brand.logo || data.brand.logo_url || '';
     if (logoSrc) {
+      document.getElementById('landing-brand-logo').innerHTML = '<img src="' + esc(logoSrc) + '" style="height:40px;max-width:120px;object-fit:contain;margin-bottom:8px">';
       document.getElementById('brand-logo-wrap').innerHTML = '<img src="' + esc(logoSrc) + '" style="height:44px;max-width:100px;object-fit:contain;border-radius:4px">';
     }
-    // Cover image
     if (data.brand.cover_image) {
-      document.getElementById('brand-cover-img').src = data.brand.cover_image;
-      document.getElementById('brand-cover-wrap').style.display = 'block';
+      const ci = document.getElementById('landing-cover-img');
+      ci.src = data.brand.cover_image;
+      ci.style.display = 'block';
     }
+
+    // Agent card
+    if (agentData.name) {
+      document.getElementById('landing-agent-name').textContent = agentData.name;
+      document.getElementById('landing-agent-title').textContent = agentData.title || '';
+      const initials = agentData.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+      document.getElementById('landing-agent-avatar').textContent = initials;
+      if (agentData.phone) {
+        const ph = document.getElementById('landing-agent-phone');
+        ph.innerHTML = '<a href="tel:' + esc(agentData.phone) + '" style="color:var(--accent);text-decoration:none">📞 ' + esc(agentData.phone) + '</a>';
+      }
+      document.getElementById('landing-agent-card').style.display = 'flex';
+    }
+
+    // MOQ notice on landing
+    if (brandMoqQty > 0 || brandMoqAmount > 0) {
+      const moqEl = document.getElementById('landing-moq');
+      let msg = '';
+      if (brandMoqQty > 0) msg += T('moq_qty_warn', brandMoqQty);
+      if (brandMoqAmount > 0) msg += (msg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
+      moqEl.innerHTML = msg;
+      moqEl.style.display = 'block';
+    }
+
+    // Header (for pages 1-4)
+    document.getElementById('brand-name').textContent = brandName;
+
     renderProducts(productsData);
     buildCollectionFilters(productsData);
+    restoreCart();
+    updateCartBar();
   } catch(e) {
     document.getElementById('products-container').innerHTML = '<div class="loader">' + T('load_error') + '</div>';
   }
 }
+
+function startSession() {
+  document.getElementById('page0').classList.remove('active');
+  document.getElementById('main-header').style.display = '';
+  document.getElementById('steps-bar').style.display = '';
+  document.getElementById('cart-bar').style.display = 'flex';
+  goToPage(1);
+}
+
+document.getElementById('btn-start').addEventListener('click', startSession);
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -845,6 +1061,7 @@ function changeQty(pid, size, delta) {
     el.classList.toggle('active', newQty > 0);
   }
 
+  saveCart();
   updateCartBar();
 }
 
@@ -908,7 +1125,7 @@ function goToPage(n) {
     if (i === n) s.classList.add('active');
   }
   const pageEl = n <= 4 ? document.getElementById('page' + n) : document.getElementById('page-success');
-  pageEl.classList.add('active');
+  if (pageEl) pageEl.classList.add('active');
   document.getElementById('cart-bar').style.display = (n >= 1 && n <= 3) ? 'flex' : 'none';
   if (n === 4) {
     renderSignaturePage();
@@ -930,10 +1147,12 @@ document.getElementById('btn-next').addEventListener('click', function() {
     if (Object.keys(cart).length === 0) return;
     goToPage(2);
   } else if (currentPage === 2) {
-    const name = document.getElementById('c-name').value.trim();
-    const email = document.getElementById('c-email').value.trim();
+    const name    = document.getElementById('c-name').value.trim();
+    const email   = document.getElementById('c-email').value.trim();
+    const country = document.getElementById('c-country').value;
     if (!name || !email) { alert(T('err_name_email')); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert(T('err_email')); return; }
+    if (!country) { alert(T('err_country')); return; }
     goToPage(3);
   } else if (currentPage === 3) {
     goToPage(4);
@@ -945,48 +1164,148 @@ document.getElementById('back-to-2').addEventListener('click', () => goToPage(2)
 document.getElementById('back-to-3').addEventListener('click', () => goToPage(3));
 
 // ── Recap ─────────────────────────────────────────────
+function recapChangeQty(k, delta) {
+  const item = cart[k];
+  if (!item) return;
+  const newQty = Math.max(0, item.qty + delta);
+  if (newQty === 0) { delete cart[k]; } else { cart[k].qty = newQty; }
+  saveCart();
+  updateCartBar();
+  renderRecap();
+}
+
 function renderRecap() {
   const lines = Object.values(cart);
   const total = lines.reduce((s, l) => s + l.qty * parseFloat(l.product.price || 0), 0);
+  const totalQty = lines.reduce((s, l) => s + l.qty, 0);
 
   if (lines.length) {
     document.getElementById('recap-lines').innerHTML =
       '<table class="recap-table">'
       + '<thead><tr>'
-      + '<th>' + T('recap_ref') + '</th><th>' + T('recap_color') + '</th><th>' + T('recap_size') + '</th><th class="th-qty">' + T('recap_qty') + '</th><th>' + T('recap_total_col') + '</th>'
+      + '<th style="width:44px"></th>'
+      + '<th>' + T('recap_ref') + '</th>'
+      + '<th>' + T('recap_color') + '</th>'
+      + '<th>' + T('recap_size') + '</th>'
+      + '<th class="th-qty">' + T('recap_qty') + '</th>'
+      + '<th>' + T('recap_total_col') + '</th>'
+      + '<th></th>'
       + '</tr></thead><tbody>'
       + lines.map(l => {
+          const k = l.product.id + '|' + l.color + '|' + l.size;
           const pu = parseFloat(l.product.price || 0);
           const lineTotal = (l.qty * pu).toFixed(2);
           const colorLabel = l.color || l.product.color || '—';
+          // Thumbnail
+          let imgs = [];
+          try { imgs = JSON.parse(l.product.images || '[]'); } catch(e) {}
+          if (!imgs.length && l.product.image_url) imgs = [l.product.image_url];
+          const thumb = imgs[0] ? '<img src="' + esc(imgs[0]) + '" style="width:36px;height:36px;object-fit:cover;border-radius:2px;display:block">' : '';
           return '<tr>'
+            + '<td>' + thumb + '</td>'
             + '<td class="td-ref">' + esc(l.product.reference) + '</td>'
             + '<td class="td-size">' + esc(colorLabel) + '</td>'
             + '<td class="td-size">' + (l.size ? esc(l.size) : '—') + '</td>'
-            + '<td class="td-qty">' + l.qty + '</td>'
+            + '<td class="td-qty">'
+            + '<div class="recap-edit-qty">'
+            + '<button class="recap-edit-btn" onclick="recapChangeQty(' + JSON.stringify(k) + ',-1)">−</button>'
+            + '<span class="recap-edit-num">' + l.qty + '</span>'
+            + '<button class="recap-edit-btn" onclick="recapChangeQty(' + JSON.stringify(k) + ',1)">+</button>'
+            + '</div></td>'
             + '<td>' + lineTotal + ' €</td>'
+            + '<td><button class="recap-edit-btn" style="color:#e74c3c" onclick="recapChangeQty(' + JSON.stringify(k) + ',-999)">✕</button></td>'
             + '</tr>';
         }).join('')
       + '</tbody></table>';
   } else {
-    document.getElementById('recap-lines').innerHTML = '<div style="color:#aaa;font-size:13px">' + T('no_items') + '</div>';
+    document.getElementById('recap-lines').innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0">' + T('no_items') + '</div>';
   }
 
   document.getElementById('recap-total').textContent = total.toFixed(2).replace('.', ',') + ' €';
 
-  const name = document.getElementById('c-name').value;
-  const email = document.getElementById('c-email').value;
+  // MOQ warning
+  const moqWarn = document.getElementById('moq-warning');
+  let moqMsg = '';
+  if (brandMoqQty > 0 && totalQty < brandMoqQty) moqMsg += T('moq_qty_warn', brandMoqQty);
+  if (brandMoqAmount > 0 && total < brandMoqAmount) moqMsg += (moqMsg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
+  if (moqMsg) { moqWarn.innerHTML = moqMsg; moqWarn.style.display = 'block'; }
+  else { moqWarn.style.display = 'none'; }
+
+  const name    = document.getElementById('c-name').value;
+  const email   = document.getElementById('c-email').value;
   const company = document.getElementById('c-company').value;
-  const phone = document.getElementById('c-phone').value;
+  const phone   = document.getElementById('c-phone').value;
+  const country = document.getElementById('c-country').value;
   document.getElementById('client-recap').innerHTML = '<h4>' + T('recap_client') + '</h4>'
     + '<div class="recap-line"><span>' + T('recap_name') + '</span><strong>' + esc(name) + '</strong></div>'
     + '<div class="recap-line"><span>' + T('recap_email') + '</span><strong>' + esc(email) + '</strong></div>'
     + (company ? '<div class="recap-line"><span>' + T('recap_company') + '</span><strong>' + esc(company) + '</strong></div>' : '')
-    + (phone ? '<div class="recap-line"><span>' + T('recap_phone') + '</span><strong>' + esc(phone) + '</strong></div>' : '');
+    + (phone   ? '<div class="recap-line"><span>' + T('recap_phone') + '</span><strong>' + esc(phone) + '</strong></div>' : '')
+    + (country ? '<div class="recap-line"><span>' + T('recap_country') + '</span><strong>' + esc(country) + '</strong></div>' : '');
+}
+
+async function downloadSelection() {
+  const btn = document.getElementById('btn-dl-selection');
+  btn.disabled = true;
+  const lines = Object.values(cart).map(l => ({ product_id: l.product.id, size: l.size, color: l.color, quantity: l.qty }));
+  try {
+    const r = await fetch('/api/public/selection-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        brand_id: brandId,
+        client_name: document.getElementById('c-name').value,
+        client_email: document.getElementById('c-email').value,
+        client_company: document.getElementById('c-company').value,
+        client_country: document.getElementById('c-country').value,
+        lines
+      })
+    });
+    if (!r.ok) throw new Error('pdf');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'Selection-' + brandName.replace(/\s/g,'-') + '.pdf';
+    a.click(); URL.revokeObjectURL(url);
+  } catch(e) { alert('Erreur génération PDF'); }
+  btn.disabled = false;
 }
 
 // ── Signature page ────────────────────────────────────
 let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true;
+
+function toggleSigMode() {
+  sigMode = sigMode === 'draw' ? 'type' : 'draw';
+  const drawWrap = document.getElementById('sig-draw-wrap');
+  const altWrap  = document.getElementById('sig-alt-wrap');
+  drawWrap.style.display = sigMode === 'draw' ? '' : 'none';
+  altWrap.classList.toggle('visible', sigMode === 'type');
+  updateSignBtn();
+}
+
+function onSigTyped() {
+  const val = document.getElementById('sig-typed').value.trim();
+  const preview = document.getElementById('sig-typed-preview');
+  if (val) {
+    preview.textContent = val;
+    preview.style.display = 'flex';
+  } else {
+    preview.style.display = 'none';
+  }
+  updateSignBtn();
+}
+
+function updateSignBtn() {
+  const checkbox = document.getElementById('cgv-checkbox');
+  const btn = document.getElementById('btn-sign-confirm');
+  if (!checkbox || !btn) return;
+  if (sigMode === 'draw') {
+    btn.disabled = !(checkbox.checked && !sigEmpty);
+  } else {
+    const typed = (document.getElementById('sig-typed')?.value || '').trim();
+    btn.disabled = !(checkbox.checked && typed.length >= 2);
+  }
+}
 
 function renderSignaturePage() {
   // Display brand-specific CGV (loaded at init)
@@ -1015,21 +1334,17 @@ function renderSignaturePage() {
 
   // Checkbox → button state
   const checkbox = document.getElementById('cgv-checkbox');
-  const btn = document.getElementById('btn-sign-confirm');
-  function updateBtn() {
-    btn.disabled = !(checkbox.checked && !sigEmpty);
-  }
-  checkbox.onchange = updateBtn;
+  checkbox.onchange = updateSignBtn;
 
   // Canvas drawing — mouse
   sigCanvas.onmousedown = e => { sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); hideHint(); };
-  sigCanvas.onmousemove = e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; updateBtn(); };
+  sigCanvas.onmousemove = e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; updateSignBtn(); };
   sigCanvas.onmouseup = () => { sigDrawing = false; };
   sigCanvas.onmouseleave = () => { sigDrawing = false; };
 
   // Canvas drawing — touch
   sigCanvas.ontouchstart = e => { e.preventDefault(); sigDrawing = true; const p = getPos(e.touches[0]); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); hideHint(); };
-  sigCanvas.ontouchmove = e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e.touches[0]); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; updateBtn(); };
+  sigCanvas.ontouchmove = e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e.touches[0]); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; updateSignBtn(); };
   sigCanvas.ontouchend = () => { sigDrawing = false; };
 
   // Clear button
@@ -1037,7 +1352,7 @@ function renderSignaturePage() {
     sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
     sigEmpty = true;
     document.getElementById('sig-hint').style.display = '';
-    updateBtn();
+    updateSignBtn();
   };
 }
 
@@ -1065,7 +1380,23 @@ async function submitOrder() {
     quantity: l.qty
   }));
 
-  const buyerSignature = sigCanvas ? sigCanvas.toDataURL('image/png') : '';
+  // Build signature: drawn canvas or typed name rendered to canvas
+  let buyerSignature = '';
+  if (sigMode === 'type') {
+    const typed = (document.getElementById('sig-typed')?.value || '').trim();
+    if (typed) {
+      const tc = document.createElement('canvas');
+      tc.width = 400; tc.height = 100;
+      const tx = tc.getContext('2d');
+      tx.fillStyle = '#fff'; tx.fillRect(0,0,400,100);
+      tx.font = '48px "Brush Script MT", cursive';
+      tx.fillStyle = '#111';
+      tx.fillText(typed, 20, 68);
+      buyerSignature = tc.toDataURL('image/png');
+    }
+  } else {
+    buyerSignature = sigCanvas ? sigCanvas.toDataURL('image/png') : '';
+  }
 
   const body = {
     brand_id: brandId,
@@ -1073,6 +1404,7 @@ async function submitOrder() {
     client_email: document.getElementById('c-email').value.trim(),
     client_company: document.getElementById('c-company').value.trim(),
     client_phone: document.getElementById('c-phone').value.trim(),
+    client_country: document.getElementById('c-country').value,
     notes: document.getElementById('c-notes').value.trim(),
     lines,
     buyer_signature: buyerSignature,
@@ -1188,23 +1520,33 @@ function buildMailtoLink(email, clientName, orderId) {
 
 function showSuccess(email, offline, orderId) {
   document.getElementById('cart-bar').style.display = 'none';
+  document.getElementById('steps-bar').style.display = 'none';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
   document.getElementById('page-success').classList.add('active');
-  if (offline) {
-    document.getElementById('success-email-msg').textContent = T('queued');
-  } else {
-    document.getElementById('success-email-msg').textContent = T('email_sent', email);
-  }
-  const refEl = document.getElementById('success-ref');
-  if (orderId) {
-    refEl.textContent = T('ref_label') + ' ' + orderId.slice(0, 8).toUpperCase();
-  } else {
-    const localRef = 'LOCAL-' + Date.now().toString(36).toUpperCase();
-    refEl.textContent = T('ref_label') + ' ' + localRef;
+
+  document.getElementById('success-email-msg').textContent = offline ? T('queued') : T('email_sent', email);
+
+  const ref = orderId ? orderId.slice(0, 8).toUpperCase() : ('LOCAL-' + Date.now().toString(36).toUpperCase());
+  document.getElementById('success-ref').textContent = T('ref_label') + ' ' + ref;
+  document.getElementById('success-brand-tag').textContent = brandName;
+
+  // Agent contact block
+  if (agentData.name) {
+    document.getElementById('success-agent-name').textContent = agentData.name;
+    document.getElementById('success-agent-title').textContent = agentData.title || '';
+    if (agentData.phone) {
+      const ph = document.getElementById('success-agent-phone');
+      ph.textContent = '📞 ' + agentData.phone;
+      ph.href = 'tel:' + agentData.phone;
+      ph.style.display = 'block';
+    }
+    document.getElementById('success-agent-contact').style.display = 'block';
   }
 
-  // Store for shareOrderMail()
+  // Clear saved cart after successful order
+  localStorage.removeItem(CART_KEY);
+
   _successOrderId = orderId;
   _successEmail = email;
   _successClientName = document.getElementById('c-name').value.trim();

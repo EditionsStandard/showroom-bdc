@@ -65,7 +65,7 @@ app.get('/api/settings', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/settings', requireAdmin, async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','cgv_text'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text'];
   for (const [key, value] of Object.entries(req.body)) {
     if (allowed.includes(key)) {
       await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
@@ -81,16 +81,18 @@ app.get('/api/brands', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/brands', requireAdmin, async (req, res) => {
-  const { name, logo_url, logo, cover_image, cgv_text } = req.body;
+  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text) VALUES ($1,$2,$3,$4,$5,$6)', [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'']);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0]);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireAdmin, async (req, res) => {
-  const { name, logo_url, logo, cover_image, cgv_text } = req.body;
-  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5 WHERE id=$6', [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', req.params.id]);
+  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount } = req.body;
+  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7 WHERE id=$8',
+    [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, req.params.id]);
   res.json({ ok: true });
 });
 
@@ -220,14 +222,39 @@ app.get('/api/public/cgv', async (req, res) => {
 });
 
 app.get('/api/public/brands/:brandId', async (req, res) => {
-  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text FROM brands WHERE id=$1', [req.params.brandId]);
+  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
-  res.json({ brand: b.rows[0], products: p.rows });
+  const agentName  = await getSetting('agent_name');
+  const agentTitle = await getSetting('agent_title');
+  const agentPhone = await getSetting('agent_phone');
+  const showroomName = await getSetting('showroom_name');
+  res.json({ brand: b.rows[0], products: p.rows, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
+});
+
+app.post('/api/public/selection-pdf', async (req, res) => {
+  try {
+    const { brand_id, client_name, client_email, client_company, client_country, lines } = req.body;
+    const bRes = await pool.query('SELECT * FROM brands WHERE id=$1', [brand_id]);
+    const brand = bRes.rows[0];
+    if (!brand) return res.status(404).json({ error: 'Marque introuvable' });
+    const productIds = [...new Set((lines||[]).map(l => l.product_id))];
+    const pRes = await pool.query('SELECT * FROM products WHERE id = ANY($1)', [productIds]);
+    const productMap = {};
+    pRes.rows.forEach(p => { productMap[p.id] = p; });
+    const resolvedLines = (lines||[]).filter(l => productMap[l.product_id]).map(l => ({ ...l, product: productMap[l.product_id] }));
+    const showroomName = await getSetting('showroom_name');
+    const agentName = await getSetting('agent_name');
+    const pdf = await generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, lines: resolvedLines, showroomName, agentName });
+    const ref = (client_name||'Selection').replace(/\s/g,'-').slice(0,20);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Selection-${ref}-${brand.name.replace(/\s/g,'-')}.pdf"`);
+    res.send(pdf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/public/orders', async (req, res) => {
-  const { brand_id, client_name, client_email, client_company, client_phone, notes, lines, buyer_signature, cgv_accepted } = req.body;
+  const { brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted } = req.body;
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
   }
@@ -236,9 +263,9 @@ app.post('/api/public/orders', async (req, res) => {
 
   const orderId = uuidv4();
   await pool.query(
-    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,notes,status,buyer_signature,cgv_accepted)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,$9)`,
-    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', notes||'', buyer_signature||'', cgv_accepted?1:0]
+    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10)`,
+    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0]
   );
 
   for (const line of validLines) {
@@ -263,6 +290,107 @@ app.post('/api/public/orders', async (req, res) => {
 });
 
 // ==================== PDF ====================
+
+async function generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, lines, showroomName, agentName }) {
+  let logoBuf = null;
+  try {
+    const svg2img = require('svg2img');
+    const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
+    logoBuf = await new Promise((res, rej) =>
+      svg2img(svgSrc, { width: 120, height: 120 }, (err, buf) => err ? rej(err) : res(buf))
+    );
+  } catch(e) {}
+
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const total = lines.reduce((s, l) => s + l.quantity * parseFloat(l.product?.price || 0), 0);
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    // Header
+    const hTop = 50;
+    if (logoBuf) doc.image(logoBuf, 50, hTop, { width: 44, height: 44 });
+    const tx = logoBuf ? 106 : 50;
+    doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, tx, hTop + 2, { lineBreak: false });
+    doc.fontSize(9).fillColor('#888').font('Helvetica').text('Proposition de sélection — NON SIGNÉE', tx, hTop + 24, { lineBreak: false });
+    doc.fontSize(8).fillColor('#aaa').text(dateStr, tx, hTop + 36, { lineBreak: false });
+    doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+    // Client + brand info
+    const infoY = hTop + 64;
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('MARQUE', 50, infoY);
+    doc.fontSize(12).fillColor('#0a0a0a').font('Helvetica-Bold').text(brand.name, 50, infoY + 12);
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('CLIENT', 300, infoY);
+    doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(client_name || '', 300, infoY + 12);
+    doc.fontSize(9).fillColor('#555').font('Helvetica');
+    if (client_company) doc.text(client_company, 300);
+    doc.fillColor('#777').text(client_email || '', 300);
+    if (client_country) doc.text(client_country, 300);
+
+    const tableTop = infoY + 68;
+    doc.moveTo(50, tableTop).lineTo(545, tableTop).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+    // Table header
+    const col = { ref:50, name:145, color:280, size:330, qty:368, pw:405, pr:450, total:495 };
+    const colW = { ref:90, name:130, color:45, size:33, qty:27, pw:40, pr:45, total:50 };
+    const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'];
+    const colKeys = ['ref','name','color','size','qty','pw','pr','total'];
+    const thY = tableTop + 8;
+    doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+    headers.forEach((h, i) => {
+      doc.text(h, col[colKeys[i]], thY, { width: colW[colKeys[i]], align: i >= 4 ? 'right' : 'left' });
+    });
+    doc.moveTo(50, thY + 14).lineTo(545, thY + 14).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+    let rowY = thY + 20;
+    lines.forEach((l, i) => {
+      const p = l.product || {};
+      const rawName = p.description || '';
+      const nameText = rawName.length > 60 ? rawName.slice(0, 57) + '…' : rawName;
+      const nameH = doc.heightOfString(nameText, { width: colW.name });
+      const rowH = Math.max(nameH, 14) + 8;
+      if (i % 2 === 0) doc.rect(50, rowY - 2, 495, rowH).fillColor('#f7f7f7').fill();
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference || '', col.ref, rowY, { width: colW.ref });
+      doc.fillColor('#333').font('Helvetica').text(nameText, col.name, rowY, { width: colW.name });
+      doc.fillColor('#555')
+        .text(l.color || p.color || '—', col.color, rowY, { width: colW.color })
+        .text(l.size || '—', col.size, rowY, { width: colW.size });
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(String(l.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
+      doc.fillColor('#333').font('Helvetica')
+        .text(`${parseFloat(p.price||0).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
+        .text(p.price_retail > 0 ? `${parseFloat(p.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
+        .text(`${(l.quantity * parseFloat(p.price||0)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+      rowY += rowH;
+    });
+
+    // Total
+    doc.moveTo(50, rowY + 2).lineTo(545, rowY + 2).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    rowY += 12;
+    doc.rect(380, rowY - 4, 165, 22).fillColor('#0a0a0a').fill();
+    doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+      .text('TOTAL HT', 390, rowY, { width: 80 })
+      .text(`${total.toFixed(2)} €`, 390, rowY, { width: 145, align: 'right' });
+    rowY += 34;
+
+    // Watermark notice
+    doc.rect(50, rowY, 495, 38).fillColor('#fffde7').fill();
+    doc.fontSize(8.5).fillColor('#b8860b').font('Helvetica-Bold')
+      .text('⚠ DOCUMENT NON CONTRACTUEL — Proposition de sélection non signée', 60, rowY + 6, { width: 475, align: 'center' });
+    doc.fontSize(7.5).fillColor('#b8860b').font('Helvetica')
+      .text('Cette sélection ne constitue pas une commande ferme. Elle doit être signée par les deux parties pour être valide.', 60, rowY + 19, { width: 475, align: 'center' });
+    rowY += 50;
+
+    doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
+      .text(`Document généré automatiquement — ${showroomName}`, 50, rowY, { align: 'center', width: 495 });
+
+    doc.end();
+  });
+}
 
 async function generateOrderPDF(orderId) {
   const oRes = await pool.query(`
