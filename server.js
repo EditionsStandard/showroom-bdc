@@ -125,7 +125,7 @@ app.get('/api/brands/:brandId/qrcodes-all', requireAdmin, async (req, res) => {
   const items = await Promise.all(prods.rows.map(async p => {
     const url = `${base}/commande/${req.params.brandId}?product=${p.id}`;
     const qr = await QRCode.toDataURL(url, { width: 300, margin: 1 });
-    return { qr, url, reference: p.reference, description: p.description, collection: p.collection_name };
+    return { qr, url, reference: p.reference, collection: p.collection_name, color: p.color, price: p.price, price_retail: p.price_retail };
   }));
   res.json({ brand: b.rows[0].name, items });
 });

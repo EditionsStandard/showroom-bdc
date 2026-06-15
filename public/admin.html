@@ -850,21 +850,28 @@ function printProductQR() {
 
 async function printAllProductQR() {
   const data = await fetch(`/api/brands/${currentBrandId}/qrcodes-all`).then(r => r.json());
+  const fmt = n => n > 0 ? Number(n).toFixed(2) + ' €' : '';
   const cardsHtml = data.items.map(item => `
     <div class="card">
       <img src="${item.qr}">
+      ${item.collection ? `<div class="collection">${item.collection}</div>` : ''}
       <div class="ref">${item.reference}</div>
-      ${item.description ? `<div class="desc">${item.description}</div>` : ''}
+      ${item.color ? `<div class="meta">${item.color}</div>` : ''}
+      ${fmt(item.price) ? `<div class="price">WS ${fmt(item.price)}</div>` : ''}
+      ${fmt(item.price_retail) ? `<div class="price retail">RRP ${fmt(item.price_retail)}</div>` : ''}
     </div>`).join('');
   const w = window.open('', '_blank');
   w.document.write(`<html><head><style>
     body{font-family:sans-serif;margin:0;padding:20px}
     h2{margin:0 0 16px;font-size:16px}
-    .grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:flex-start}
-    .card{border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center;width:160px;page-break-inside:avoid}
-    .card img{width:140px;height:140px}
-    .card .ref{font-weight:bold;font-size:12px;margin-top:6px}
-    .card .desc{font-size:10px;color:#666;margin-top:2px;line-height:1.3}
+    .grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start}
+    .card{border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center;width:150px;page-break-inside:avoid}
+    .card img{width:130px;height:130px}
+    .collection{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:5px}
+    .ref{font-weight:bold;font-size:12px;margin-top:2px}
+    .meta{font-size:10px;color:#555;margin-top:2px}
+    .price{font-size:10px;margin-top:2px;color:#333}
+    .price.retail{color:#888}
     @media print{body{padding:10px}.card{border-color:#ccc}.no-print{display:none}}
   </style></head><body>
   <div class="no-print" style="margin-bottom:16px">
