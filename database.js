@@ -29,6 +29,34 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS seasons (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS season_id TEXT REFERENCES seasons(id) ON DELETE SET NULL;
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS appointments (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      client_name TEXT NOT NULL,
+      client_email TEXT NOT NULL,
+      client_phone TEXT DEFAULT '',
+      slot_date DATE NOT NULL,
+      slot_time TEXT NOT NULL,
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
@@ -116,7 +144,8 @@ async function init() {
     agent_name: '',
     agent_title: 'Agent Commercial',
     agent_phone: '',
-    cgv_text: "La présente proposition de commande ne constitue pas un engagement ferme. Elle ne sera définitive qu'après acceptation écrite de la marque et signature du bon de commande par les deux parties (acheteur et agent/showroom). L'acheteur s'engage à maintenir sa sélection pendant 15 jours ouvrés à compter de la date de signature. Les prix sont indiqués en euros HT. Tout désistement après accord bilatéral pourra faire l'objet de pénalités. Les conditions de paiement et de livraison seront précisées dans le bon de commande définitif signé par les deux parties."
+    cgv_text: "La présente proposition de commande ne constitue pas un engagement ferme. Elle ne sera définitive qu'après acceptation écrite de la marque et signature du bon de commande par les deux parties (acheteur et agent/showroom). L'acheteur s'engage à maintenir sa sélection pendant 15 jours ouvrés à compter de la date de signature. Les prix sont indiqués en euros HT. Tout désistement après accord bilatéral pourra faire l'objet de pénalités. Les conditions de paiement et de livraison seront précisées dans le bon de commande définitif signé par les deux parties.",
+    currencies_json: JSON.stringify([{ code: 'EUR', symbol: '€', rate: 1 }, { code: 'USD', symbol: '$', rate: 1.08 }, { code: 'GBP', symbol: '£', rate: 0.86 }])
   };
 
   for (const [key, value] of Object.entries(defaults)) {

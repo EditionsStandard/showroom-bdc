@@ -183,7 +183,7 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 });
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json'];
   for (const [key, value] of Object.entries(req.body)) {
     if (allowed.includes(key)) {
       await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
@@ -316,12 +316,12 @@ app.get('/api/brands/:brandId/products', requireBrandScope('owner','agent','desi
 });
 
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, composition, images, variants } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, composition, images, variants, season_id } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,composition,images,variants) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[])]
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
   );
   res.json({ id });
 });
@@ -338,10 +338,10 @@ async function checkProductBrandScope(req, res) {
 
 app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
   if (!await checkProductBrandScope(req, res)) return;
-  const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, composition, images, variants } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, composition, images, variants, season_id } = req.body;
   await pool.query(
-    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,composition=$10,images=$11,variants=$12 WHERE id=$13',
-    [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), req.params.id]
+    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,composition=$10,images=$11,variants=$12,season_id=$13 WHERE id=$14',
+    [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
   );
   res.json({ ok: true });
 });
@@ -360,6 +360,91 @@ app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','d
 app.delete('/api/brands/:brandId/products-photos', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query("UPDATE products SET images='[]', image_url='' WHERE brand_id=$1", [req.params.brandId]);
   res.json({ ok: true, cleared: r.rowCount });
+});
+
+// ==================== SEASONS ====================
+
+app.get('/api/brands/:brandId/seasons', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  const r = await pool.query('SELECT * FROM seasons WHERE brand_id=$1 ORDER BY created_at DESC', [req.params.brandId]);
+  res.json(r.rows);
+});
+
+app.post('/api/brands/:brandId/seasons', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nom requis' });
+  const id = uuidv4();
+  await pool.query('INSERT INTO seasons (id, brand_id, name) VALUES ($1,$2,$3)', [id, req.params.brandId, name]);
+  res.json({ id, name });
+});
+
+app.put('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
+  const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
+  if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
+  if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+  const { name, active } = req.body;
+  await pool.query('UPDATE seasons SET name=$1, active=$2 WHERE id=$3', [name, active!==undefined?active:1, req.params.id]);
+  res.json({ ok: true });
+});
+
+app.delete('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
+  const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
+  if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
+  if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+  await pool.query('UPDATE products SET season_id=NULL WHERE season_id=$1', [req.params.id]);
+  await pool.query('DELETE FROM seasons WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ==================== LINESHEET PDF ====================
+
+app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const pdf = await generateLinesheetPDF(req.params.brandId, req.query.season_id || null);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="linesheet.pdf"');
+    res.send(pdf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ==================== APPOINTMENTS ====================
+
+app.get('/api/brands/:brandId/appointments', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  const r = await pool.query('SELECT * FROM appointments WHERE brand_id=$1 ORDER BY slot_date, slot_time', [req.params.brandId]);
+  res.json(r.rows);
+});
+
+app.get('/api/public/brands/:brandId/slots', async (req, res) => {
+  const days = [];
+  const now = new Date();
+  for (let i = 1; i <= 14; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+  const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
+  const bookedSet = new Set(booked.rows.map(b => `${b.slot_date.toISOString().slice(0,10)}_${b.slot_time}`));
+  const slots = days.map(date => ({
+    date,
+    times: times.filter(t => !bookedSet.has(`${date}_${t}`))
+  })).filter(d => d.times.length > 0);
+  res.json({ slots });
+});
+
+app.post('/api/public/appointments', async (req, res) => {
+  const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
+  if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
+    return res.status(400).json({ error: 'Données incomplètes' });
+  }
+  const existing = await pool.query('SELECT 1 FROM appointments WHERE brand_id=$1 AND slot_date=$2 AND slot_time=$3', [brand_id, slot_date, slot_time]);
+  if (existing.rows[0]) return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
+  const id = uuidv4();
+  await pool.query(
+    'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [id, brand_id, client_name, client_email, client_phone||'', slot_date, slot_time, notes||'']
+  );
+  res.json({ ok: true, id });
 });
 
 app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), upload.array('photos', 200), async (req, res) => {
@@ -519,11 +604,14 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
     return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
   }
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
+  const seasons = await pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC', [req.params.brandId]);
   const agentName  = await getSetting('agent_name');
   const agentTitle = await getSetting('agent_title');
   const agentPhone = await getSetting('agent_phone');
   const showroomName = await getSetting('showroom_name');
-  res.json({ brand: b.rows[0], products: p.rows, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
+  let currencies = [];
+  try { currencies = JSON.parse(await getSetting('currencies_json') || '[]'); } catch(e) {}
+  res.json({ brand: b.rows[0], products: p.rows, seasons: seasons.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
 app.post('/api/public/selection-pdf', async (req, res) => {
@@ -768,6 +856,96 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
 
     doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
       .text(`Document généré automatiquement — ${showroomName}`, 50, rowY, { align: 'center', width: 495 });
+
+    doc.end();
+  });
+}
+
+async function generateLinesheetPDF(brandId, seasonId) {
+  const bRes = await pool.query('SELECT * FROM brands WHERE id=$1', [brandId]);
+  const brand = bRes.rows[0];
+  if (!brand) throw new Error('Marque introuvable');
+
+  const showroomName = await getSetting('showroom_name');
+
+  let query = 'SELECT * FROM products WHERE brand_id=$1 AND active=1';
+  const params = [brandId];
+  if (seasonId) { query += ' AND season_id=$2'; params.push(seasonId); }
+  query += ' ORDER BY collection_name, reference';
+  const prods = await pool.query(query, params);
+
+  let logoBuf = null;
+  try {
+    const svg2img = require('svg2img');
+    const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
+    logoBuf = await new Promise((res, rej) =>
+      svg2img(svgSrc, { width: 120, height: 120 }, (err, buf) => err ? rej(err) : res(buf))
+    );
+  } catch(e) {}
+
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const drawHeader = () => {
+      const hTop = 50;
+      if (logoBuf) doc.image(logoBuf, 50, hTop, { width: 40, height: 40 });
+      const tx = logoBuf ? 98 : 50;
+      doc.fontSize(16).fillColor('#0a0a0a').font('Helvetica-Bold').text(brand.name, tx, hTop, { lineBreak: false });
+      doc.fontSize(8.5).fillColor('#888').font('Helvetica').text(`Linesheet — ${showroomName}`, tx, hTop + 19, { lineBreak: false });
+      doc.fontSize(7.5).fillColor('#aaa').text(dateStr, tx, hTop + 30, { lineBreak: false });
+      doc.moveTo(50, hTop + 48).lineTo(545, hTop + 48).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      return hTop + 58;
+    };
+
+    let y = drawHeader();
+    const drawColumnHeaders = (yy) => {
+      doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+      doc.text('RÉFÉRENCE', 50, yy, { width: 75 });
+      doc.text('DÉSIGNATION', 130, yy, { width: 130 });
+      doc.text('COULEUR', 265, yy, { width: 60 });
+      doc.text('TAILLES', 330, yy, { width: 85 });
+      doc.text('WHOLESALE', 420, yy, { width: 60, align: 'right' });
+      doc.text('RETAIL', 485, yy, { width: 60, align: 'right' });
+      doc.moveTo(50, yy + 12).lineTo(545, yy + 12).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      return yy + 18;
+    };
+
+    y = drawColumnHeaders(y);
+    let currentCollection = null;
+
+    prods.rows.forEach((p, i) => {
+      if (p.collection_name && p.collection_name !== currentCollection) {
+        currentCollection = p.collection_name;
+        if (y > 700) { doc.addPage(); y = drawHeader(); y = drawColumnHeaders(y); }
+        doc.fontSize(9).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 50, y, { width: 495 });
+        y += 16;
+      }
+
+      const nameText = (p.description || '').length > 70 ? p.description.slice(0, 67) + '…' : (p.description || '');
+      const nameH = doc.heightOfString(nameText, { width: 130 });
+      const rowH = Math.max(nameH, 12) + 8;
+
+      if (y + rowH > 760) { doc.addPage(); y = drawHeader(); y = drawColumnHeaders(y); }
+
+      if (i % 2 === 0) doc.rect(50, y - 2, 495, rowH).fillColor('#f7f7f7').fill();
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold').fontSize(8).text(p.reference, 50, y, { width: 75 });
+      doc.fillColor('#333').font('Helvetica').fontSize(8).text(nameText, 130, y, { width: 130 });
+      doc.fillColor('#555').text(p.color || '—', 265, y, { width: 60 });
+      doc.fillColor('#555').text(p.sizes || '—', 330, y, { width: 85 });
+      doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, 420, y, { width: 60, align: 'right' });
+      doc.fillColor('#888').font('Helvetica').text(p.price_retail > 0 ? `${parseFloat(p.price_retail).toFixed(2)} €` : '—', 485, y, { width: 60, align: 'right' });
+
+      y += rowH;
+    });
+
+    doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
+      .text(`Document généré automatiquement — ${showroomName}`, 50, 780, { align: 'center', width: 495 });
 
     doc.end();
   });
