@@ -272,7 +272,8 @@
     <a class="active" data-section="dashboard"><span class="icon">📊</span> Tableau de bord</a>
     <a data-section="brands"><span class="icon">🏷️</span> Marques</a>
     <a data-section="orders"><span class="icon">📋</span> Commandes</a>
-    <a data-section="settings"><span class="icon">⚙️</span> Paramètres</a>
+    <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span> Paramètres</a>
+    <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span> Comptes</a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
@@ -384,6 +385,38 @@
       <h3>Sécurité</h3>
       <div class="form-group" style="max-width:260px"><label>Nouveau mot de passe admin</label><input id="s-admin-pass" type="password" placeholder="Laisser vide pour ne pas changer"></div>
       <button class="btn btn-primary" onclick="saveSettings()">Enregistrer</button>
+    </div>
+  </div>
+
+  <div id="staff" class="section">
+    <h1>Comptes</h1>
+    <div class="card">
+      <h3>Créer un compte</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Nom</label><input id="staff-name" type="text" placeholder="Prénom Nom"></div>
+        <div class="form-group"><label>Email</label><input id="staff-email" type="email" placeholder="email@exemple.com"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Mot de passe</label><input id="staff-password" type="password"></div>
+        <div class="form-group"><label>Rôle</label>
+          <select id="staff-role" onchange="toggleStaffBrandField()">
+            <option value="agent">Agent showroom — toutes les marques</option>
+            <option value="designer">Designer — une marque assignée</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="staff-brand-field" style="display:none">
+        <label>Marque assignée</label>
+        <select id="staff-brand-id"></select>
+      </div>
+      <button class="btn btn-primary" onclick="createStaff()">Créer le compte</button>
+    </div>
+    <div class="card">
+      <h3>Comptes existants</h3>
+      <table id="staff-table">
+        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Marque</th><th></th></tr></thead>
+        <tbody id="staff-body"></tbody>
+      </table>
     </div>
   </div>
 
@@ -656,8 +689,70 @@ document.querySelectorAll('nav a').forEach(a => {
     if (a.dataset.section === 'brands') loadBrands();
     if (a.dataset.section === 'orders') loadOrders();
     if (a.dataset.section === 'settings') loadSettings();
+    if (a.dataset.section === 'staff') loadStaff();
   });
 });
+
+let currentUserRole = null;
+async function initUserRole() {
+  const me = await fetch('/api/me').then(r => r.json());
+  currentUserRole = me.role;
+  if (me.role === 'owner') {
+    document.getElementById('nav-staff').style.display = '';
+  } else {
+    document.getElementById('nav-settings').style.display = 'none';
+  }
+}
+initUserRole();
+
+function toggleStaffBrandField() {
+  document.getElementById('staff-brand-field').style.display = document.getElementById('staff-role').value === 'designer' ? 'block' : 'none';
+}
+
+async function loadStaff() {
+  const brands = await fetch('/api/brands').then(r => r.json());
+  const sel = document.getElementById('staff-brand-id');
+  sel.innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+
+  const staff = await fetch('/api/staff').then(r => r.json());
+  const roleLabel = { agent: 'Agent showroom', designer: 'Designer' };
+  document.getElementById('staff-body').innerHTML = staff.map(s => `
+    <tr>
+      <td>${s.name || '—'}</td>
+      <td>${s.email}</td>
+      <td>${roleLabel[s.role] || s.role}</td>
+      <td>${s.brand_name || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Supprimer</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun compte</td></tr>';
+}
+
+async function createStaff() {
+  const name = document.getElementById('staff-name').value.trim();
+  const email = document.getElementById('staff-email').value.trim();
+  const password = document.getElementById('staff-password').value;
+  const role = document.getElementById('staff-role').value;
+  const brand_id = document.getElementById('staff-brand-id').value;
+  if (!email || !password) { alert('Email et mot de passe requis'); return; }
+
+  const r = await fetch('/api/staff', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, role, brand_id })
+  }).then(r => r.json());
+  if (r.error) { alert(r.error); return; }
+
+  document.getElementById('staff-name').value = '';
+  document.getElementById('staff-email').value = '';
+  document.getElementById('staff-password').value = '';
+  loadStaff();
+  toast('Compte créé');
+}
+
+async function deleteStaff(id) {
+  if (!confirm('Supprimer ce compte ?')) return;
+  await fetch(`/api/staff/${id}`, { method: 'DELETE' });
+  loadStaff();
+  toast('Compte supprimé');
+}
 
 function toast(msg, err) {
   const t = document.getElementById('toast');
@@ -722,8 +817,8 @@ async function loadBrands() {
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
         <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ Modifier</button>
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
-        <button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 Facturation</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>
+        ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 Facturation</button>` : ''}
+        ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>` : ''}
       </div>
     </div>`;
   }).join('') || '<p style="color:#666">Aucune marque. Créez-en une.</p>';
@@ -1463,7 +1558,7 @@ function filterOrders() {
       <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">👁 Voir</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>
+        ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>` : ''}
       </td>
     </tr>
   `).join('') : '<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">Aucune commande</td></tr>';
@@ -1478,6 +1573,11 @@ async function viewOrder(id) {
   document.getElementById('mo-ref').textContent   = 'Commande #' + id.slice(0,8);
   document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString('fr-FR');
   document.getElementById('mo-status-select').value = o.status || 'confirmed';
+
+  const readOnly = currentUserRole === 'designer';
+  document.getElementById('mo-status-select').disabled = readOnly;
+  document.querySelector('#modal-order button[onclick="deleteOrderFromModal()"]').style.display = readOnly ? 'none' : '';
+  document.getElementById('mo-resend-btn').style.display = readOnly ? 'none' : '';
 
   document.getElementById('mo-client').innerHTML =
     `<strong>${o.client_name||''}</strong> — ${o.client_company||''}<br>` +

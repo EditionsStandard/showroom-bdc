@@ -69,9 +69,39 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+function getRole(req) {
+  if (req.session?.admin) return 'owner';
+  if (req.session?.staffUser) return req.session.staffUser.role;
+  return null;
+}
+
 function requireAdmin(req, res, next) {
-  if (req.session?.admin) return next();
+  if (getRole(req)) return next();
   res.redirect('/admin/login');
+}
+
+function requireRole(...allowed) {
+  return (req, res, next) => {
+    const role = getRole(req);
+    if (!role || !allowed.includes(role)) return res.status(403).json({ error: 'Accès refusé pour ce rôle' });
+    req.userRole = role;
+    req.userBrandId = req.session.staffUser?.brand_id || null;
+    next();
+  };
+}
+
+// Like requireRole, but for designers also checks req.params.brandId (or :id, as a fallback) matches their assigned brand
+function requireBrandScope(...allowed) {
+  const roleCheck = requireRole(...allowed);
+  return (req, res, next) => {
+    roleCheck(req, res, () => {
+      if (req.userRole === 'designer') {
+        const brandParam = req.params.brandId || req.params.id;
+        if (brandParam !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+      }
+      next();
+    });
+  };
 }
 
 // ==================== ADMIN ROUTES ====================
@@ -79,8 +109,21 @@ function requireAdmin(req, res, next) {
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
 
 app.post('/admin/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (email) {
+    const bcrypt = require('bcryptjs');
+    const r = await pool.query('SELECT * FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
+    const user = r.rows[0];
+    if (user && await bcrypt.compare(password || '', user.password_hash)) {
+      req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+      return res.redirect('/admin');
+    }
+    return res.redirect('/admin/login?error=1');
+  }
+
   const adminPassword = await getSetting('admin_password');
-  if (req.body.password === adminPassword) {
+  if (password === adminPassword) {
     req.session.admin = true;
     res.redirect('/admin');
   } else {
@@ -91,16 +134,55 @@ app.post('/admin/login', async (req, res) => {
 app.get('/admin/logout', (req, res) => { req.session.destroy(); res.redirect('/admin/login'); });
 app.get('/admin', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
+app.get('/api/me', requireAdmin, (req, res) => {
+  const role = getRole(req);
+  if (role === 'owner') return res.json({ role: 'owner' });
+  res.json({ role, brand_id: req.session.staffUser.brand_id, email: req.session.staffUser.email, name: req.session.staffUser.name });
+});
+
+// ==================== STAFF ACCOUNTS (owner only) ====================
+
+app.get('/api/staff', requireRole('owner'), async (req, res) => {
+  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.created_at, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
+  res.json(r.rows);
+});
+
+app.post('/api/staff', requireRole('owner'), async (req, res) => {
+  const { email, password, role, brand_id, name } = req.body;
+  if (!email || !password || !role) return res.status(400).json({ error: 'Email, mot de passe et rôle requis' });
+  if (!['agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+  if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
+
+  const bcrypt = require('bcryptjs');
+  const hash = await bcrypt.hash(password, 10);
+  const id = uuidv4();
+  try {
+    await pool.query(
+      'INSERT INTO admin_users (id, email, password_hash, role, brand_id, name) VALUES ($1,$2,$3,$4,$5,$6)',
+      [id, email.toLowerCase().trim(), hash, role, role === 'designer' ? brand_id : null, name || '']
+    );
+    res.json({ id });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
+  await pool.query('DELETE FROM admin_users WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 // ==================== API ADMIN ====================
 
-app.get('/api/settings', requireAdmin, async (req, res) => {
+app.get('/api/settings', requireRole('owner'), async (req, res) => {
   const r = await pool.query("SELECT key, value FROM settings WHERE key != 'admin_password'");
   const s = {};
   r.rows.forEach(row => s[row.key] = row.value);
   res.json(s);
 });
 
-app.post('/api/settings', requireAdmin, async (req, res) => {
+app.post('/api/settings', requireRole('owner'), async (req, res) => {
   const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text'];
   for (const [key, value] of Object.entries(req.body)) {
     if (allowed.includes(key)) {
@@ -111,12 +193,16 @@ app.post('/api/settings', requireAdmin, async (req, res) => {
 });
 
 // Brands
-app.get('/api/brands', requireAdmin, async (req, res) => {
+app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, res) => {
+  if (req.userRole === 'designer') {
+    const r = await pool.query('SELECT * FROM brands WHERE id=$1 ORDER BY name', [req.userBrandId]);
+    return res.json(r.rows);
+  }
   const r = await pool.query('SELECT * FROM brands ORDER BY name');
   res.json(r.rows);
 });
 
-app.post('/api/brands', requireAdmin, async (req, res) => {
+app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
   const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
@@ -125,19 +211,20 @@ app.post('/api/brands', requireAdmin, async (req, res) => {
   res.json({ id, name });
 });
 
-app.put('/api/brands/:id', requireAdmin, async (req, res) => {
+app.put('/api/brands/:id', requireRole('owner', 'agent', 'designer'), async (req, res) => {
+  if (req.userRole === 'designer' && req.userBrandId !== req.params.id) return res.status(403).json({ error: 'Accès refusé' });
   const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount } = req.body;
   await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7 WHERE id=$8',
     [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, req.params.id]);
   res.json({ ok: true });
 });
 
-app.delete('/api/brands/:id', requireAdmin, async (req, res) => {
+app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   await pool.query('DELETE FROM brands WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
 
-app.get('/api/brands/:id/qrcode', requireAdmin, async (req, res) => {
+app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
@@ -145,7 +232,7 @@ app.get('/api/brands/:id/qrcode', requireAdmin, async (req, res) => {
   res.json({ qr, url });
 });
 
-app.post('/api/brands/:id/checkout-link', requireAdmin, async (req, res) => {
+app.post('/api/brands/:id/checkout-link', requireRole('owner'), async (req, res) => {
   const { id } = req.params;
   const { priceId } = req.body;
   const b = await pool.query('SELECT * FROM brands WHERE id=$1', [id]);
@@ -178,7 +265,7 @@ app.post('/api/brands/:id/checkout-link', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/brands/:id/cancel-subscription', requireAdmin, async (req, res) => {
+app.post('/api/brands/:id/cancel-subscription', requireRole('owner'), async (req, res) => {
   const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   try {
@@ -192,7 +279,7 @@ app.post('/api/brands/:id/cancel-subscription', requireAdmin, async (req, res) =
   }
 });
 
-app.post('/api/brands/:id/subscription-status', requireAdmin, async (req, res) => {
+app.post('/api/brands/:id/subscription-status', requireRole('owner'), async (req, res) => {
   // Manual override (e.g. extending a trial, or marking active without Stripe)
   const { status } = req.body;
   if (!['trial','active','inactive'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
@@ -200,7 +287,7 @@ app.post('/api/brands/:id/subscription-status', requireAdmin, async (req, res) =
   res.json({ ok: true });
 });
 
-app.get('/api/brands/:brandId/products/:productId/qrcode', requireAdmin, async (req, res) => {
+app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { brandId, productId } = req.params;
   const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
@@ -209,7 +296,7 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireAdmin, async (
   res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
 });
 
-app.get('/api/brands/:brandId/qrcodes-all', requireAdmin, async (req, res) => {
+app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
@@ -223,12 +310,12 @@ app.get('/api/brands/:brandId/qrcodes-all', requireAdmin, async (req, res) => {
 });
 
 // Products
-app.get('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
+app.get('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query('SELECT * FROM products WHERE brand_id=$1 ORDER BY reference', [req.params.brandId]);
   res.json(r.rows);
 });
 
-app.post('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
+app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { reference, description, color, sizes, price, price_retail, image_url, collection_name, composition, images, variants } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   const id = uuidv4();
@@ -239,7 +326,18 @@ app.post('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
   res.json({ id });
 });
 
-app.put('/api/products/:id', requireAdmin, async (req, res) => {
+async function checkProductBrandScope(req, res) {
+  if (req.userRole !== 'designer') return true;
+  const p = await pool.query('SELECT brand_id FROM products WHERE id=$1', [req.params.id]);
+  if (!p.rows[0] || p.rows[0].brand_id !== req.userBrandId) {
+    res.status(403).json({ error: 'Accès refusé' });
+    return false;
+  }
+  return true;
+}
+
+app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
+  if (!await checkProductBrandScope(req, res)) return;
   const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, composition, images, variants } = req.body;
   await pool.query(
     'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,composition=$10,images=$11,variants=$12 WHERE id=$13',
@@ -248,22 +346,23 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/products/:id', requireAdmin, async (req, res) => {
+app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
+  if (!await checkProductBrandScope(req, res)) return;
   await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
 
-app.delete('/api/brands/:brandId/products', requireAdmin, async (req, res) => {
+app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query('DELETE FROM products WHERE brand_id=$1', [req.params.brandId]);
   res.json({ ok: true, deleted: r.rowCount });
 });
 
-app.delete('/api/brands/:brandId/products-photos', requireAdmin, async (req, res) => {
+app.delete('/api/brands/:brandId/products-photos', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query("UPDATE products SET images='[]', image_url='' WHERE brand_id=$1", [req.params.brandId]);
   res.json({ ok: true, cleared: r.rowCount });
 });
 
-app.post('/api/brands/:brandId/bulk-photos', requireAdmin, upload.array('photos', 200), async (req, res) => {
+app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), upload.array('photos', 200), async (req, res) => {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
@@ -318,7 +417,19 @@ app.post('/api/brands/:brandId/bulk-photos', requireAdmin, upload.array('photos'
 });
 
 // Orders
-app.get('/api/orders', requireAdmin, async (req, res) => {
+async function checkOrderBrandScope(req, res) {
+  if (req.userRole !== 'designer') return true;
+  const o = await pool.query('SELECT brand_id FROM orders WHERE id=$1', [req.params.id]);
+  if (!o.rows[0] || o.rows[0].brand_id !== req.userBrandId) {
+    res.status(403).json({ error: 'Accès refusé' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res) => {
+  const brandFilter = req.userRole === 'designer' ? 'WHERE o.brand_id = $1' : '';
+  const params = req.userRole === 'designer' ? [req.userBrandId] : [];
   const r = await pool.query(`
     SELECT o.*, b.name as brand_name,
       COUNT(ol.id) as line_count,
@@ -326,26 +437,28 @@ app.get('/api/orders', requireAdmin, async (req, res) => {
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
+    ${brandFilter}
     GROUP BY o.id, b.name
     ORDER BY o.created_at DESC
-  `);
+  `, params);
   res.json(r.rows);
 });
 
-app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
+app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   const { status } = req.body;
   if (!['confirmed','validated','cancelled'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
   await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
   res.json({ ok: true });
 });
 
-app.delete('/api/orders/:id', requireAdmin, async (req, res) => {
+app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
   await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
   await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
 
-app.get('/api/orders/:id', requireAdmin, async (req, res) => {
+app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, res) => {
+  if (!await checkOrderBrandScope(req, res)) return;
   const oRes = await pool.query(`
     SELECT o.*, b.name as brand_name FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
   `, [req.params.id]);
@@ -356,7 +469,7 @@ app.get('/api/orders/:id', requireAdmin, async (req, res) => {
   res.json({ order: oRes.rows[0], lines: lRes.rows });
 });
 
-app.post('/api/orders/:id/resend', requireAdmin, async (req, res) => {
+app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res) => {
   try {
     const pdf = await generateOrderPDF(req.params.id);
     await sendOrderEmails(req.params.id, pdf);
@@ -364,7 +477,8 @@ app.post('/api/orders/:id/resend', requireAdmin, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/orders/:id/pdf', requireAdmin, async (req, res) => {
+app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (req, res) => {
+  if (!await checkOrderBrandScope(req, res)) return;
   try {
     const pdf = await generateOrderPDF(req.params.id);
     res.setHeader('Content-Type', 'application/pdf');
