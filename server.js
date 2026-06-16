@@ -887,29 +887,38 @@ async function generateLinesheetPDF(brandId, seasonId) {
   const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
     const chunks = [];
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
+    const pageW = doc.page.width;   // ~842
+    const contentRight = pageW - 40;
+    const contentW = contentRight - 40;
+
     const drawHeader = () => {
-      const hTop = 50;
-      if (logoBuf) doc.image(logoBuf, 50, hTop, { width: 40, height: 40 });
-      const tx = logoBuf ? 98 : 50;
-      doc.fontSize(16).fillColor('#0a0a0a').font('Helvetica-Bold').text(brand.name, tx, hTop, { lineBreak: false });
-      doc.fontSize(8.5).fillColor('#888').font('Helvetica').text(`Linesheet — ${showroomName}`, tx, hTop + 19, { lineBreak: false });
-      doc.fontSize(7.5).fillColor('#aaa').text(dateStr, tx, hTop + 30, { lineBreak: false });
-      doc.moveTo(50, hTop + 48).lineTo(545, hTop + 48).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-      return hTop + 58;
+      const hTop = 40;
+      if (logoBuf) doc.image(logoBuf, 40, hTop, { width: 36, height: 36 });
+      const tx = logoBuf ? 84 : 40;
+      doc.fontSize(15).fillColor('#0a0a0a').font('Helvetica-Bold').text(brand.name, tx, hTop, { lineBreak: false });
+      doc.fontSize(8).fillColor('#888').font('Helvetica').text(`Linesheet — ${showroomName}`, tx, hTop + 17, { lineBreak: false });
+      doc.fontSize(7).fillColor('#aaa').text(dateStr, tx, hTop + 27, { lineBreak: false });
+      doc.moveTo(40, hTop + 44).lineTo(contentRight, hTop + 44).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      return hTop + 54;
     };
 
     let y = drawHeader();
     let currentCollection = null;
 
-    // Layout: image left (fixed), full description right (dynamic height)
-    const imgW = 130, imgH = 130, textX = 195, textW = 350;
-    const startX = 50;
+    // Two-column layout in landscape: image left of each column, full description to its right
+    const colGap = 24;
+    const colW = (contentW - colGap) / 2;
+    const imgW = 120, imgH = 120, textGap = 14;
+    const textW = colW - imgW - textGap;
+    const cols = [40, 40 + colW + colGap];
+    let colIdx = 0;
+    let colY = [y, y];
 
     const getFirstImage = (p) => {
       try {
@@ -927,22 +936,23 @@ async function generateLinesheetPDF(brandId, seasonId) {
       if (p.color) ty += 11;
       if (p.sizes) ty += 11;
       ty += 14; // price line
-      return Math.max(ty, imgH) + 18; // + bottom padding/separator
+      return Math.max(ty, imgH) + 16;
     };
 
-    const drawProductCard = (p, yy) => {
+    const drawProductCard = (p, x, yy) => {
       const img = getFirstImage(p);
+      const textX = x + imgW + textGap;
       if (img && img.startsWith('data:image')) {
         try {
           const base64 = img.replace(/^data:image\/\w+;base64,/, '');
           const buf = Buffer.from(base64, 'base64');
-          doc.rect(startX, yy, imgW, imgH).fillColor('#f2f2f2').fill();
-          doc.image(buf, startX, yy, { fit: [imgW, imgH], align: 'center', valign: 'center' });
+          doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
+          doc.image(buf, x, yy, { fit: [imgW, imgH], align: 'center', valign: 'center' });
         } catch(e) {
-          doc.rect(startX, yy, imgW, imgH).fillColor('#f2f2f2').fill();
+          doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
         }
       } else {
-        doc.rect(startX, yy, imgW, imgH).fillColor('#f2f2f2').fill();
+        doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
       }
 
       let ty = yy;
@@ -955,28 +965,43 @@ async function generateLinesheetPDF(brandId, seasonId) {
       }
       if (p.color) { doc.fontSize(7).fillColor('#888').text(p.color, textX, ty, { width: textW }); ty += 11; }
       if (p.sizes) { doc.fontSize(7).fillColor('#888').text(p.sizes, textX, ty, { width: textW }); ty += 11; }
-      doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, textX, ty, { width: 120, continued: p.price_retail > 0 });
+      doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, textX, ty, { width: textW / 2, continued: p.price_retail > 0 });
       if (p.price_retail > 0) doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(`   RRP ${parseFloat(p.price_retail).toFixed(2)} €`);
+    };
+
+    const newPage = () => {
+      doc.addPage();
+      const ny = drawHeader();
+      colY = [ny, ny];
+      colIdx = 0;
     };
 
     prods.rows.forEach((p) => {
       if (p.collection_name && p.collection_name !== currentCollection) {
         currentCollection = p.collection_name;
-        if (y > 680) { doc.addPage(); y = drawHeader(); }
-        doc.fontSize(10).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 50, y, { width: 495 });
-        y += 18;
+        // start new collection on a fresh left column row
+        const rowY = Math.max(colY[0], colY[1]);
+        colY = [rowY, rowY];
+        colIdx = 0;
+        if (rowY > doc.page.height - 120) { newPage(); }
+        doc.fontSize(10).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 40, colY[0], { width: contentW });
+        colY = [colY[0] + 18, colY[0] + 18];
       }
 
       const cardH = measureCardHeight(p);
-      if (y + cardH > 790) { doc.addPage(); y = drawHeader(); }
+      if (colY[colIdx] + cardH > doc.page.height - 50) {
+        if (colIdx === 0) { colIdx = 1; } else { newPage(); }
+      }
 
-      drawProductCard(p, y);
-      doc.moveTo(50, y + cardH - 10).lineTo(545, y + cardH - 10).strokeColor('#eee').lineWidth(0.5).stroke();
-      y += cardH;
+      const x = cols[colIdx];
+      drawProductCard(p, x, colY[colIdx]);
+      doc.moveTo(x, colY[colIdx] + cardH - 8).lineTo(x + colW, colY[colIdx] + cardH - 8).strokeColor('#eee').lineWidth(0.5).stroke();
+      colY[colIdx] += cardH;
+      colIdx = colIdx === 0 ? 1 : 0;
     });
 
-    doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
-      .text(`Document généré automatiquement — ${showroomName}`, 50, 800, { align: 'center', width: 495 });
+    doc.fontSize(7).fillColor('#ccc').font('Helvetica')
+      .text(`Document généré automatiquement — ${showroomName}`, 40, doc.page.height - 30, { align: 'center', width: contentW });
 
     doc.end();
   });
