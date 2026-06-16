@@ -757,6 +757,7 @@ app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
 });
 
 app.get('/buyer/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'buyer.html')));
+app.get('/rdv/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'rdv.html')));
 
 // ==================== PDF ====================
 

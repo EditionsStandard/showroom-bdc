@@ -624,6 +624,20 @@
   </div>
 </div>
 
+<!-- MODAL APPOINTMENTS -->
+<div class="modal-overlay" id="modal-appointments">
+  <div class="modal" style="max-width:600px">
+    <h3 id="appointments-title">Rendez-vous</h3>
+    <table id="appointments-table">
+      <thead><tr><th>Date</th><th>Heure</th><th>Client</th><th>Contact</th><th>Note</th></tr></thead>
+      <tbody id="appointments-body"></tbody>
+    </table>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-appointments')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL QR PRODUIT -->
 <div class="modal-overlay" id="modal-qr-product">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -833,6 +847,7 @@ async function loadBrands() {
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
         <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ Modifier</button>
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
+        <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 Facturation</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>` : ''}
       </div>
@@ -997,6 +1012,21 @@ async function cancelBrandSubscription() {
   closeModal('modal-billing');
   loadBrands();
   toast('Accès désactivé');
+}
+
+async function loadAppointments(brandId, brandName) {
+  document.getElementById('appointments-title').textContent = `Rendez-vous — ${brandName}`;
+  openModal('modal-appointments');
+  const data = await fetch(`/api/brands/${brandId}/appointments`).then(r => r.json());
+  const dateFmt = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  document.getElementById('appointments-body').innerHTML = data.map(a => `
+    <tr>
+      <td>${dateFmt(a.slot_date)}</td>
+      <td>${a.slot_time}</td>
+      <td>${a.client_name}</td>
+      <td><a href="mailto:${a.client_email}" style="color:#CCEB3C">${a.client_email}</a>${a.client_phone ? '<br>' + a.client_phone : ''}</td>
+      <td>${a.notes || '—'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun rendez-vous</td></tr>';
 }
 
 async function showQR(brandId, brandName) {

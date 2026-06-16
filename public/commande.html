@@ -421,11 +421,16 @@
         <div class="landing-agent-phone" id="landing-agent-phone"></div>
       </div>
     </div>
+    <div id="landing-seasons" style="display:none;margin-bottom:16px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px" data-i18n="season_select_label">Choisir une saison</div>
+      <div id="landing-seasons-list" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
       <button id="lang-toggle-0" onclick="toggleLang()" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit">EN</button>
       <button onclick="toggleTheme()" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 11px;cursor:pointer;color:var(--soft);font-size:15px;line-height:1">🌙</button>
     </div>
     <button class="landing-btn" id="btn-start" data-i18n="btn_start">Commencer ma sélection →</button>
+    <a id="btn-rdv" href="#" style="display:none;text-align:center;margin-top:12px;font-size:11px;color:var(--soft);text-decoration:underline;text-underline-offset:3px;letter-spacing:.04em" data-i18n="btn_rdv">📅 Réserver un rendez-vous</a>
   </div>
 </div>
 
@@ -439,6 +444,7 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
+      <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:inherit"></select>
       <button id="lang-toggle" onclick="toggleLang()" title="Switch language" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;transition:border-color .2s,color .2s">EN</button>
       <button id="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button>
       <img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85">
@@ -668,6 +674,8 @@ const TRANSLATIONS = {
     no_items:'Aucun article.', all:'Tout', qty:'Quantité',
     ref_label:'Réf.', lbl_country:'Pays', country_ph:'Sélectionner un pays…',
     btn_start:'Commencer ma sélection →',
+    season_select_label:'Choisir une saison',
+    btn_rdv:'📅 Réserver un rendez-vous',
     btn_dl_sel:'Télécharger',
     moq_qty_warn: (n) => `⚠ Minimum ${n} pièces requis par la marque.`,
     moq_amt_warn: (n) => `⚠ Montant minimum de commande : ${n.toFixed(2)} € HT.`,
@@ -732,6 +740,8 @@ const TRANSLATIONS = {
     no_items:'No items.', all:'All', qty:'Quantity',
     ref_label:'Ref.', lbl_country:'Country', country_ph:'Select a country…',
     btn_start:'Start my selection →',
+    season_select_label:'Choose a season',
+    btn_rdv:'📅 Book an appointment',
     btn_dl_sel:'Download',
     moq_qty_warn: (n) => `⚠ Minimum ${n} pieces required by the brand.`,
     moq_amt_warn: (n) => `⚠ Minimum order amount: ${n.toFixed(2)} € excl. VAT.`,
@@ -795,6 +805,10 @@ let brandName = '';
 let brandMoqQty = 0;
 let brandMoqAmount = 0;
 let agentData = {};
+let seasonsData = [];
+let selectedSeasonId = '';
+let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
+let selectedCurrency = currenciesData[0];
 const CART_KEY = 'bdc_cart_' + brandId;
 const cart = {}; // key: "productId|color|size" → {product, size, color, qty}
 const selectedVariant = {}; // pid → colorLabel currently shown
@@ -836,6 +850,33 @@ async function init() {
     brandMoqQty = parseInt(data.brand.moq_qty) || 0;
     brandMoqAmount = parseFloat(data.brand.moq_amount) || 0;
     agentData = data.agent || {};
+    seasonsData = data.seasons || [];
+    if (data.currencies && data.currencies.length) {
+      currenciesData = data.currencies;
+      selectedCurrency = currenciesData[0];
+    }
+
+    // Season selector (only if more than one season configured)
+    if (seasonsData.length > 1) {
+      selectedSeasonId = seasonsData[0].id;
+      document.getElementById('landing-seasons').style.display = 'block';
+      document.getElementById('landing-seasons-list').innerHTML = seasonsData.map((s, i) =>
+        '<button class="color-btn' + (i === 0 ? ' active' : '') + '" data-season-id="' + s.id + '" onclick="selectSeason(\'' + s.id + '\')">' + esc(s.name) + '</button>'
+      ).join('');
+    } else if (seasonsData.length === 1) {
+      selectedSeasonId = seasonsData[0].id;
+    }
+
+    // Currency selector
+    if (currenciesData.length > 1) {
+      const sel = document.getElementById('currency-select');
+      sel.style.display = '';
+      sel.innerHTML = currenciesData.map(c => '<option value="' + c.code + '">' + c.code + ' ' + c.symbol + '</option>').join('');
+    }
+
+    // Appointment booking link
+    document.getElementById('btn-rdv').href = '/rdv/' + brandId;
+    document.getElementById('btn-rdv').style.display = 'block';
 
     document.title = brandName + ' — Bon de Commande';
 
@@ -879,7 +920,7 @@ async function init() {
     // Header (for pages 1-4)
     document.getElementById('brand-name').textContent = brandName;
 
-    renderProducts(productsData);
+    applyFilters();
     buildCollectionFilters(productsData);
     restoreCart();
     updateCartBar();
@@ -901,6 +942,22 @@ function startSession() {
   document.getElementById('steps-bar').style.display = '';
   document.getElementById('cart-bar').style.display = 'flex';
   goToPage(1);
+}
+
+function selectSeason(seasonId) {
+  selectedSeasonId = seasonId;
+  document.querySelectorAll('#landing-seasons-list .color-btn').forEach(b => b.classList.toggle('active', b.dataset.seasonId === seasonId));
+  if (typeof applyFilters === 'function') applyFilters();
+}
+
+function changeCurrency(code) {
+  selectedCurrency = currenciesData.find(c => c.code === code) || currenciesData[0];
+  if (typeof applyFilters === 'function') applyFilters();
+}
+
+function fmtPrice(amountEur) {
+  const converted = parseFloat(amountEur || 0) * (selectedCurrency.rate || 1);
+  return converted.toFixed(2) + ' ' + selectedCurrency.symbol;
 }
 
 function scrollToProduct(productId) {
@@ -1009,8 +1066,8 @@ function renderProducts(products) {
       + '<div class="product-tags">'
       + (p.color ? '<span class="tag">🎨 ' + esc(p.color) + '</span>' : '')
       + (p.composition ? '<span class="tag">🧵 ' + esc(p.composition) + '</span>' : '')
-      + (p.price > 0 ? '<span class="tag tag-price">Wholesale ' + Number(p.price).toFixed(2) + ' €</span>' : '')
-      + (p.price_retail > 0 ? '<span class="tag" style="background:#2a2a3a;color:#aaa">Retail ' + Number(p.price_retail).toFixed(2) + ' €</span>' : '')
+      + (p.price > 0 ? '<span class="tag tag-price">Wholesale ' + fmtPrice(p.price) + '</span>' : '')
+      + (p.price_retail > 0 ? '<span class="tag" style="background:#2a2a3a;color:#aaa">Retail ' + fmtPrice(p.price_retail) + '</span>' : '')
       + '</div></div>'
       + '<div class="size-rows">' + sizeRowsHtml + '</div>'
       + '</div>';
@@ -1137,6 +1194,9 @@ function buildCollectionFilters(products) {
 function applyFilters() {
   const q = document.getElementById('search-input').value.toLowerCase();
   let filtered = productsData;
+  if (selectedSeasonId) {
+    filtered = filtered.filter(p => p.season_id === selectedSeasonId);
+  }
   if (activeCollection && activeCollection !== '__all__') {
     filtered = filtered.filter(p => p.collection_name === activeCollection);
   }

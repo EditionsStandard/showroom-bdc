@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Réserver un rendez-vous</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; letter-spacing: .02em; margin-bottom: 6px; }
+  .sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-bottom: 28px; text-transform: uppercase; letter-spacing: .1em; }
+  .field { margin-bottom: 16px; }
+  .field label { display:block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
+  .field input, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .day-block { margin-bottom: 18px; }
+  .day-label { font-family: var(--dot), monospace; font-size: 13px; color: var(--soft); margin-bottom: 8px; letter-spacing: .02em; }
+  .slots { display: flex; flex-wrap: wrap; gap: 8px; }
+  .slot-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 8px 14px; font-size: 12px; letter-spacing: .04em; cursor: pointer; font-family: 'Space Mono', monospace; transition: border-color .15s, color .15s; }
+  .slot-btn.selected { border-color: var(--accent); color: var(--accent); }
+  .btn { display: block; width: 100%; background: var(--accent); color: var(--black); border: none; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .12em; text-transform: uppercase; border-radius: 2px; font-family: 'Space Mono', monospace; margin-top: 20px; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .msg { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 16px; padding: 14px; background: var(--dark); border: 1px dotted var(--border); border-radius: 2px; }
+  .msg.error { color: var(--accent); }
+  .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+  .success-check { width:56px; height:56px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px; color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <h1>Réserver un rendez-vous</h1>
+  <p class="sub" id="sub-label">Choisissez un créneau disponible</p>
+  <div id="slots-container" class="loader">Chargement des créneaux…</div>
+
+  <div id="form-section" style="display:none">
+    <div class="field"><label>Nom complet</label><input id="rdv-name" type="text"></div>
+    <div class="field"><label>Email</label><input id="rdv-email" type="email"></div>
+    <div class="field"><label>Téléphone</label><input id="rdv-phone" type="tel"></div>
+    <div class="field"><label>Note (optionnel)</label><textarea id="rdv-notes" rows="3"></textarea></div>
+    <button class="btn" id="btn-confirm" onclick="confirmAppointment()">Confirmer le rendez-vous</button>
+    <div id="rdv-msg"></div>
+  </div>
+
+  <div id="success-view" style="display:none;text-align:center;padding:40px 0">
+    <div class="success-check">✓</div>
+    <h1 style="font-size:18px">Rendez-vous confirmé</h1>
+    <p class="msg" id="success-detail" style="text-align:left"></p>
+  </div>
+</div>
+
+<script>
+const brandId = window.location.pathname.split('/').pop();
+let selectedDate = null, selectedTime = null;
+
+async function loadSlots() {
+  const data = await fetch(`/api/public/brands/${brandId}/slots`).then(r => r.json());
+  const container = document.getElementById('slots-container');
+  if (!data.slots || !data.slots.length) {
+    container.innerHTML = '<p class="msg">Aucun créneau disponible pour le moment.</p>';
+    return;
+  }
+  const dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  container.innerHTML = data.slots.map(day => {
+    const d = new Date(day.date + 'T00:00:00');
+    const label = dayNames[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1);
+    return `<div class="day-block">
+      <div class="day-label">${label}</div>
+      <div class="slots">${day.times.map(t => `<button class="slot-btn" data-date="${day.date}" data-time="${t}" onclick="pickSlot('${day.date}','${t}',this)">${t}</button>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function pickSlot(date, time, btn) {
+  selectedDate = date;
+  selectedTime = time;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('form-section').style.display = 'block';
+  document.getElementById('form-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function confirmAppointment() {
+  const client_name = document.getElementById('rdv-name').value.trim();
+  const client_email = document.getElementById('rdv-email').value.trim();
+  const client_phone = document.getElementById('rdv-phone').value.trim();
+  const notes = document.getElementById('rdv-notes').value.trim();
+  const msg = document.getElementById('rdv-msg');
+
+  if (!selectedDate || !selectedTime) { msg.innerHTML = '<div class="msg error">Choisissez un créneau.</div>'; return; }
+  if (!client_name || !client_email) { msg.innerHTML = '<div class="msg error">Nom et email requis.</div>'; return; }
+
+  document.getElementById('btn-confirm').disabled = true;
+  try {
+    const r = await fetch('/api/public/appointments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brand_id: brandId, client_name, client_email, client_phone, slot_date: selectedDate, slot_time: selectedTime, notes })
+    }).then(r => r.json());
+
+    if (r.error) {
+      msg.innerHTML = `<div class="msg error">${r.error}</div>`;
+      document.getElementById('btn-confirm').disabled = false;
+      return;
+    }
+
+    document.getElementById('app').querySelectorAll(':scope > div').forEach(el => el.style.display = 'none');
+    document.getElementById('success-view').style.display = 'block';
+    document.getElementById('success-detail').textContent = `${client_name}, votre rendez-vous est confirmé le ${selectedDate} à ${selectedTime}.`;
+  } catch(e) {
+    msg.innerHTML = '<div class="msg error">Erreur, réessayez.</div>';
+    document.getElementById('btn-confirm').disabled = false;
+  }
+}
+
+loadSlots();
+</script>
+</body>
+</html>
