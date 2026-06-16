@@ -1584,7 +1584,9 @@ async function importCSV(input) {
 
     const header = parseCSVLine(lines[0], sep).map(h => h.trim().toLowerCase().replace(/\s+/g,'_'));
     const idx = {
-      collection_name: header.findIndex(h => h === 'collection_name' || h === 'collection' || h === 'season'),
+      collection_name: header.findIndex(h => h === 'collection_name' || h === 'collection') !== -1
+        ? header.findIndex(h => h === 'collection_name' || h === 'collection')
+        : header.findIndex(h => h === 'season'),
       reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'référence' || h === 'sku'),
       description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'désignation' || h === 'product_name'),
       color: header.findIndex(h => h === 'color' || h === 'couleur' || h === 'finish'),
