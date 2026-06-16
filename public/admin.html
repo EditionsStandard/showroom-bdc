@@ -1401,15 +1401,15 @@ async function importCSV(input) {
 
     const header = parseCSVLine(lines[0], sep).map(h => h.trim().toLowerCase().replace(/\s+/g,'_'));
     const idx = {
-      collection_name: header.indexOf('collection_name'),
-      reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'référence'),
-      description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'désignation'),
-      color: header.findIndex(h => h === 'color' || h === 'couleur'),
-      composition: header.indexOf('composition'),
-      sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille'),
-      price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht'),
-      price_retail: header.findIndex(h => h === 'price_retail' || h === 'retail_price' || h === 'retail' || h === 'prix_retail' || h === 'prix_public'),
-      image_url: header.findIndex(h => h === 'image_url' || h === 'image' || h === 'photo')
+      collection_name: header.findIndex(h => h === 'collection_name' || h === 'collection' || h === 'season'),
+      reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'référence' || h === 'sku'),
+      description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'désignation' || h === 'product_name'),
+      color: header.findIndex(h => h === 'color' || h === 'couleur' || h === 'finish'),
+      composition: header.findIndex(h => h === 'composition'),
+      sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille' || h === 'size'),
+      price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht' || h === 'wholesale_price_eur' || h === 'wholesale_price'),
+      price_retail: header.findIndex(h => h === 'price_retail' || h === 'retail_price' || h === 'retail' || h === 'prix_retail' || h === 'prix_public' || h === 'retail_price_eur'),
+      image_url: header.findIndex(h => h === 'image_url' || h === 'image' || h === 'photo' || h === 'image_file')
     };
 
     if (idx.reference === -1) {
