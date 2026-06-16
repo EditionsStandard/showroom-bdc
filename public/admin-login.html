@@ -15,7 +15,9 @@
   label { display: block; color: #888; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
   input { width: 100%; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 15px; outline: none; transition: border-color .2s; }
   input:focus { border-color: #CCEB3C; }
-  .btn { width: 100%; background: #6c63ff; color: #fff; border: none; border-radius: 8px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 24px; transition: opacity .2s; }
+  .btn { width: 100%; background: #CCEB3C; color: #111; border: none; border-radius: 8px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 24px; transition: opacity .2s; }
+  .toggle { text-align: center; margin-top: 18px; }
+  .toggle a { color: #888; font-size: 12px; text-decoration: underline; cursor: pointer; }
   .btn:hover { opacity: .85; }
   .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
 </style>
@@ -28,13 +30,29 @@
     <p>Showroom — Administration</p>
   </div>
   <form method="POST" action="/admin/login">
-    <script>if(location.search.includes('error')) document.write('<div class="error">Mot de passe incorrect.</div>')</script>
+    <script>if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
+    <div id="email-field" style="display:none;margin-bottom:16px">
+      <label>Email</label>
+      <input type="email" name="email" id="email-input" placeholder="email@exemple.com">
+    </div>
     <div style="margin-bottom:16px">
       <label>Mot de passe</label>
       <input type="password" name="password" autofocus placeholder="••••••••">
     </div>
     <button class="btn" type="submit">Connexion</button>
   </form>
+  <div class="toggle">
+    <a onclick="toggleMode()" id="toggle-link">Connexion agent / designer →</a>
+  </div>
 </div>
+<script>
+function toggleMode() {
+  const field = document.getElementById('email-field');
+  const link = document.getElementById('toggle-link');
+  const showingEmail = field.style.display === 'block';
+  field.style.display = showingEmail ? 'none' : 'block';
+  link.textContent = showingEmail ? 'Connexion agent / designer →' : '← Connexion owner';
+}
+</script>
 </body>
 </html>
