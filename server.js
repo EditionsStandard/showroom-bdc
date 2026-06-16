@@ -318,12 +318,12 @@ app.get('/api/brands/:brandId/products', requireBrandScope('owner','agent','desi
 });
 
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, composition, images, variants, season_id } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
   );
   res.json({ id });
 });
@@ -340,10 +340,10 @@ async function checkProductBrandScope(req, res) {
 
 app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
   if (!await checkProductBrandScope(req, res)) return;
-  const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, composition, images, variants, season_id } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id } = req.body;
   await pool.query(
-    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,composition=$10,images=$11,variants=$12,season_id=$13 WHERE id=$14',
-    [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
+    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14 WHERE id=$15',
+    [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
   );
   res.json({ ok: true });
 });

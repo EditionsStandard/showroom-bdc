@@ -337,13 +337,17 @@ async function openBrand(brandId) {
       <input id="product-search" type="text" placeholder="Rechercher une référence…" oninput="applyProductFilters()">
     </div>
     <div id="collection-filters" class="collection-filters"></div>
+    <div id="category-filters" class="collection-filters"></div>
     <div id="products-list" class="products-grid"></div>`;
   activeCollection = '__all__';
+  activeCategory = '__all__';
   buildCollectionFilters(currentProducts);
+  buildCategoryFilters(currentProducts);
   applyProductFilters();
 }
 
 let activeCollection = '__all__';
+let activeCategory = '__all__';
 
 function buildCollectionFilters(products) {
   const collections = ['__all__', ...new Set(products.map(p => p.collection_name).filter(Boolean))];
@@ -351,7 +355,7 @@ function buildCollectionFilters(products) {
   if (collections.length <= 2) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = collections.map(c =>
-    `<button class="col-filter${c === activeCollection ? ' active' : ''}" data-col="${esc(c)}">${c === '__all__' ? 'Tout' : esc(c)}</button>`
+    `<button class="col-filter${c === activeCollection ? ' active' : ''}" data-col="${esc(c)}">${c === '__all__' ? 'Toutes collections' : esc(c)}</button>`
   ).join('');
   bar.onclick = e => {
     const btn = e.target.closest('.col-filter');
@@ -362,18 +366,39 @@ function buildCollectionFilters(products) {
   };
 }
 
+function buildCategoryFilters(products) {
+  const categories = ['__all__', ...new Set(products.map(p => p.category).filter(Boolean))];
+  const bar = document.getElementById('category-filters');
+  if (categories.length <= 2) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = categories.map(c =>
+    `<button class="col-filter${c === activeCategory ? ' active' : ''}" data-cat="${esc(c)}">${c === '__all__' ? 'Toutes catégories' : esc(c)}</button>`
+  ).join('');
+  bar.onclick = e => {
+    const btn = e.target.closest('.col-filter');
+    if (!btn) return;
+    activeCategory = btn.dataset.cat;
+    bar.querySelectorAll('.col-filter').forEach(b => b.classList.toggle('active', b.dataset.cat === activeCategory));
+    applyProductFilters();
+  };
+}
+
 function applyProductFilters() {
   const q = (document.getElementById('product-search')?.value || '').toLowerCase();
   let filtered = currentProducts;
   if (activeCollection && activeCollection !== '__all__') {
     filtered = filtered.filter(p => p.collection_name === activeCollection);
   }
+  if (activeCategory && activeCategory !== '__all__') {
+    filtered = filtered.filter(p => p.category === activeCategory);
+  }
   if (q) {
     filtered = filtered.filter(p =>
       (p.reference||'').toLowerCase().includes(q) ||
       (p.description||'').toLowerCase().includes(q) ||
       (p.color||'').toLowerCase().includes(q) ||
-      (p.collection_name||'').toLowerCase().includes(q)
+      (p.collection_name||'').toLowerCase().includes(q) ||
+      (p.category||'').toLowerCase().includes(q)
     );
   }
   renderProductsList(filtered);

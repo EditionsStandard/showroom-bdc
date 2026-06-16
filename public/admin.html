@@ -548,7 +548,7 @@
       <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()">🖼️ Vider les photos</button>
     </div>
     <table id="products-table">
-      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Composition</th><th>Tailles</th><th>Wholesale HT</th><th>Retail</th><th>Image</th><th></th></tr></thead>
+      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Catégorie</th><th>Composition</th><th>Tailles</th><th>Wholesale HT</th><th>Retail</th><th>Image</th><th></th></tr></thead>
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
@@ -564,7 +564,7 @@
       </label>
     </div>
     <div style="margin-bottom:16px">
-      <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : reference (ou ref/référence), description (ou désignation), color (ou couleur), composition, sizes (ou tailles), price (ou prix), price_retail (ou retail_price/retail), image_url<br>Photos — nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
+      <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : reference (ou ref/référence), description (ou désignation), color (ou couleur), category (ou catégorie/type), composition, sizes (ou tailles), price (ou prix), price_retail (ou retail_price/retail), image_url<br>Photos — nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
     </div>
     <div id="bulk-photos-result" style="display:none;margin-bottom:12px"></div>
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
@@ -582,6 +582,7 @@
       <div class="form-group"><label>Désignation</label><textarea id="p-desc" rows="4" style="line-height:1.5;resize:vertical" placeholder="Veste en cuir..."></textarea></div>
       <div class="form-row">
         <div class="form-group"><label>Couleur</label><input id="p-color" type="text" placeholder="Noir, Blanc..."></div>
+        <div class="form-group"><label>Catégorie <span style="color:#555;font-weight:400;font-size:11px">(ex: Bague, Veste, Sac...)</span></label><input id="p-category" type="text" placeholder="Bague, Collier, Veste..."></div>
         <div class="form-group"><label>Composition</label><input id="p-composition" type="text" placeholder="100% coton, 80% laine 20% soie..."></div>
       </div>
       <div class="form-group"><label>Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" placeholder="XS, S, M, L, XL ou 36, 38, 40..."></div>
@@ -1259,12 +1260,13 @@ async function refreshProducts() {
     try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
-    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',season_id:p.season_id||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
+    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',season_id:p.season_id||'',reference:p.reference,description:p.description||'',color:p.color||'',category:p.category||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
     return `<tr>
       <td>${p.collection_name ? `<span class="tag" style="background:#2a2a4a;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
       <td>${p.description||'—'}</td>
       <td>${p.color||'—'}</td>
+      <td>${p.category||'—'}</td>
       <td>${p.composition||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td>${Number(p.price).toFixed(2)} €</td>
@@ -1276,7 +1278,7 @@ async function refreshProducts() {
         <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">✕</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="9" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
 }
 
 let currentImages = [];
@@ -1291,6 +1293,7 @@ function resetProductForm() {
   document.getElementById('p-ref').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-color').value = '';
+  document.getElementById('p-category').value = '';
   document.getElementById('p-composition').value = '';
   document.getElementById('p-sizes').value = '';
   document.getElementById('p-price').value = '';
@@ -1325,6 +1328,7 @@ function editProduct(p) {
   document.getElementById('p-ref').value = p.reference || '';
   document.getElementById('p-desc').value = p.description || '';
   document.getElementById('p-color').value = p.color || '';
+  document.getElementById('p-category').value = p.category || '';
   document.getElementById('p-composition').value = p.composition || '';
   document.getElementById('p-sizes').value = p.sizes || '';
   document.getElementById('p-price').value = p.price || '';
@@ -1504,6 +1508,7 @@ async function saveProduct() {
     reference,
     description: document.getElementById('p-desc').value,
     color: document.getElementById('p-color').value,
+    category: document.getElementById('p-category').value,
     composition: document.getElementById('p-composition').value,
     sizes: document.getElementById('p-sizes').value,
     price: document.getElementById('p-price').value,
@@ -1583,6 +1588,7 @@ async function importCSV(input) {
       reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'référence' || h === 'sku'),
       description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'désignation' || h === 'product_name'),
       color: header.findIndex(h => h === 'color' || h === 'couleur' || h === 'finish'),
+      category: header.findIndex(h => h === 'category' || h === 'catégorie' || h === 'type'),
       composition: header.findIndex(h => h === 'composition'),
       sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille' || h === 'size'),
       price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht' || h === 'wholesale_price_eur' || h === 'wholesale_price'),
@@ -1608,6 +1614,7 @@ async function importCSV(input) {
         composition: idx.composition >= 0 ? cols[idx.composition]?.trim() || '' : '',
         description: idx.description >= 0 ? cols[idx.description]?.trim() || '' : '',
         color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',
+        category: idx.category >= 0 ? cols[idx.category]?.trim() || '' : '',
         sizes: idx.sizes >= 0 ? cols[idx.sizes]?.trim() || '' : '',
         price: idx.price >= 0 ? parseFloat((cols[idx.price]||'0').replace(',','.')) || 0 : 0,
         price_retail: idx.price_retail >= 0 ? parseFloat((cols[idx.price_retail]||'0').replace(',','.')) || 0 : 0,

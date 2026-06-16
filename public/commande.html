@@ -468,6 +468,7 @@
     <input id="search-input" type="text" data-i18n-ph="search_ph" placeholder="Rechercher une référence…">
   </div>
   <div id="collection-filters" style="display:none;overflow-x:auto;white-space:nowrap;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--dark);-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+  <div id="category-filters" style="display:none;overflow-x:auto;white-space:nowrap;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--dark);-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
   <div id="products-container"><div class="loader" data-i18n="loading">Chargement…</div></div>
 </div>
 
@@ -929,6 +930,7 @@ async function init() {
 
     applyFilters();
     buildCollectionFilters(productsData);
+    buildCategoryFilters(productsData);
     restoreCart();
     updateCartBar();
 
@@ -1180,6 +1182,7 @@ function updateCartBar() {
 
 // ── Collection filters ───────────────────────────────
 let activeCollection = '__all__';
+let activeCategory = '__all__';
 
 function buildCollectionFilters(products) {
   const collections = ['__all__', ...new Set(products.map(p => p.collection_name).filter(Boolean))];
@@ -1198,6 +1201,23 @@ function buildCollectionFilters(products) {
   });
 }
 
+function buildCategoryFilters(products) {
+  const categories = ['__all__', ...new Set(products.map(p => p.category).filter(Boolean))];
+  const bar = document.getElementById('category-filters');
+  if (categories.length <= 2) { bar.style.display = 'none'; return; }
+  bar.style.display = 'block';
+  bar.innerHTML = categories.map(c =>
+    '<button class="col-filter' + (c === activeCategory ? ' active' : '') + '" data-cat="' + esc(c) + '">' + (c === '__all__' ? T('all') : esc(c)) + '</button>'
+  ).join('');
+  bar.addEventListener('click', function(e) {
+    const btn = e.target.closest('.col-filter');
+    if (!btn) return;
+    activeCategory = btn.dataset.cat;
+    bar.querySelectorAll('.col-filter').forEach(b => b.classList.toggle('active', b.dataset.cat === activeCategory));
+    applyFilters();
+  });
+}
+
 function applyFilters() {
   const q = document.getElementById('search-input').value.toLowerCase();
   let filtered = productsData;
@@ -1207,12 +1227,16 @@ function applyFilters() {
   if (activeCollection && activeCollection !== '__all__') {
     filtered = filtered.filter(p => p.collection_name === activeCollection);
   }
+  if (activeCategory && activeCategory !== '__all__') {
+    filtered = filtered.filter(p => p.category === activeCategory);
+  }
   if (q) {
     filtered = filtered.filter(p =>
       (p.reference||'').toLowerCase().includes(q) ||
       (p.description||'').toLowerCase().includes(q) ||
       (p.color||'').toLowerCase().includes(q) ||
-      (p.collection_name||'').toLowerCase().includes(q)
+      (p.collection_name||'').toLowerCase().includes(q) ||
+      (p.category||'').toLowerCase().includes(q)
     );
   }
   renderProducts(filtered);
