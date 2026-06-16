@@ -26,6 +26,7 @@ async function init() {
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT DEFAULT '';
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT DEFAULT '';
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_price_id TEXT DEFAULT '';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT '';
   `).catch(() => {});
 
   await pool.query(`

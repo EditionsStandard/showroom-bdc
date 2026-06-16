@@ -203,19 +203,19 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 });
 
 app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount } = req.body;
+  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0]);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount,about_text) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'']);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireRole('owner', 'agent', 'designer'), async (req, res) => {
   if (req.userRole === 'designer' && req.userBrandId !== req.params.id) return res.status(403).json({ error: 'Accès refusé' });
-  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount } = req.body;
-  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7 WHERE id=$8',
-    [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, req.params.id]);
+  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text } = req.body;
+  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7, about_text=$8 WHERE id=$9',
+    [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', req.params.id]);
   res.json({ ok: true });
 });
 
@@ -725,7 +725,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
 });
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
-  const b = await pool.query("SELECT id, name, cgv_text, moq_qty, moq_amount, subscription_status FROM brands WHERE id=$1", [req.params.brandId]);
+  const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, about_text, cgv_text, moq_qty, moq_amount, subscription_status FROM brands WHERE id=$1", [req.params.brandId]);
   if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   res.json({ brand: b.rows[0], products: p.rows });
