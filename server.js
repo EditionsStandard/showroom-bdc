@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
 const multer = require('multer');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || '');
+const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 const { pool, init } = require('./database');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 // Stripe webhook needs the raw body for signature verification — must be registered before express.json()
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(503).send('Stripe non configuré');
   const sig = req.headers['stripe-signature'];
   let event;
   try {
