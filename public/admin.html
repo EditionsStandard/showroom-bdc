@@ -547,6 +547,31 @@
   </div>
 </div>
 
+<!-- MODAL FACTURATION -->
+<div class="modal-overlay" id="modal-billing">
+  <div class="modal" style="max-width:420px">
+    <h3 id="billing-brand-name">Facturation</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Statut actuel : <span id="billing-status"></span></p>
+
+    <div class="form-group">
+      <label>ID du prix Stripe (price_xxx)</label>
+      <input id="billing-price-id" type="text" placeholder="price_1AbC...">
+      <p style="font-size:11px;color:#666;margin-top:4px">Créé dans Stripe → Produits → Prix récurrent.</p>
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-bottom:10px;width:100%" onclick="generateCheckoutLink()">🔗 Générer le lien d'abonnement</button>
+    <div id="billing-link-result" style="display:none;margin-bottom:10px;font-size:12px;word-break:break-all;background:#1a1a2a;padding:10px;border-radius:8px"></div>
+
+    <div class="sep"></div>
+    <button class="btn btn-secondary btn-sm" style="width:100%;margin-bottom:8px" onclick="setSubscriptionStatus('active')">✅ Activer manuellement</button>
+    <button class="btn btn-secondary btn-sm" style="width:100%;margin-bottom:8px" onclick="setSubscriptionStatus('trial')">⏳ Repasser en essai</button>
+    <button class="btn btn-danger btn-sm" style="width:100%" onclick="cancelBrandSubscription()">❌ Désactiver l'accès</button>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-billing')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL QR PRODUIT -->
 <div class="modal-overlay" id="modal-qr-product">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -680,15 +705,21 @@ async function loadBrands() {
       ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius:8px 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
     const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||''}).replace(/'/g,"&#39;");
+    const subBadge = {
+      active: '<span class="badge" style="background:#1f3d1f;color:#5ec95e">✅ Actif</span>',
+      trial: '<span class="badge" style="background:#3d3a1f;color:#e0c95e">⏳ Essai</span>',
+      inactive: '<span class="badge" style="background:#3d1f1f;color:#e05e5e">❌ Impayé</span>'
+    }[b.subscription_status || 'trial'];
     return `<div class="brand-card" style="padding-top:${b.cover_image?'0':'16px'}">
       ${coverHtml}
       ${logoHtml}
       <h4>${b.name}</h4>
-      <div class="brand-meta">ID: ${b.id.slice(0,8)}</div>
+      <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
         <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ Modifier</button>
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
+        <button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 Facturation</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>
       </div>
     </div>`;
@@ -806,6 +837,52 @@ async function deleteBrand(id) {
   await fetch(`/api/brands/${id}`, { method: 'DELETE' });
   loadBrands();
   toast('Marque supprimée');
+}
+
+let billingBrandId = null;
+function openBilling(brandId, brandName, status) {
+  billingBrandId = brandId;
+  document.getElementById('billing-brand-name').textContent = `Facturation — ${brandName}`;
+  const labels = { active: '✅ Actif', trial: '⏳ Essai', inactive: '❌ Impayé' };
+  document.getElementById('billing-status').textContent = labels[status] || status;
+  document.getElementById('billing-price-id').value = '';
+  document.getElementById('billing-link-result').style.display = 'none';
+  openModal('modal-billing');
+}
+
+async function generateCheckoutLink() {
+  const priceId = document.getElementById('billing-price-id').value.trim();
+  if (!priceId) { alert('Renseigne l\'ID du prix Stripe'); return; }
+  const resultDiv = document.getElementById('billing-link-result');
+  resultDiv.style.display = 'block';
+  resultDiv.textContent = 'Génération...';
+  try {
+    const r = await fetch(`/api/brands/${billingBrandId}/checkout-link`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priceId })
+    }).then(r => r.json());
+    if (r.error) { resultDiv.innerHTML = `<span style="color:#e74c3c">${r.error}</span>`; return; }
+    resultDiv.innerHTML = `<a href="${r.url}" target="_blank" style="color:#6c63ff">${r.url}</a>`;
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:#e74c3c">${e.message}</span>`;
+  }
+}
+
+async function setSubscriptionStatus(status) {
+  await fetch(`/api/brands/${billingBrandId}/subscription-status`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
+  });
+  closeModal('modal-billing');
+  loadBrands();
+  toast('Statut mis à jour');
+}
+
+async function cancelBrandSubscription() {
+  if (!confirm('Désactiver l\'accès de cette marque ? Le showroom ne sera plus accessible aux acheteurs.')) return;
+  const r = await fetch(`/api/brands/${billingBrandId}/cancel-subscription`, { method: 'POST' }).then(r => r.json());
+  if (r.error) { alert(r.error); return; }
+  closeModal('modal-billing');
+  loadBrands();
+  toast('Accès désactivé');
 }
 
 async function showQR(brandId, brandName) {

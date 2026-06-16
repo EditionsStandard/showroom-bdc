@@ -587,6 +587,8 @@
       <a id="success-agent-phone" href="#" style="display:none;font-size:12px;color:var(--accent);margin-top:4px;text-decoration:none;display:block"></a>
     </div>
 
+    <a id="success-buyer-space-link" href="#" style="display:block;font-size:11px;color:var(--soft);letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px;margin-bottom:20px" data-i18n="success_buyer_space">Voir l'historique de mes commandes</a>
+
     <p data-i18n="success_thanks" style="font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
   </div>
 </div>
@@ -645,6 +647,7 @@ const TRANSLATIONS = {
     mailto_cgv_title: 'CONDITIONS GÉNÉRALES DE VENTE',
     mailto_sign: 'Cordialement,\nEditions Standard Showroom',
     success_warn:"⚠ Cette commande ne sera définitive qu'après<br>acceptation de la marque et signature des deux parties.",
+    success_buyer_space:"Voir l'historique de mes commandes",
     success_thanks:'Merci pour votre visite — Editions Standard',
     offline_label:'Hors ligne — les commandes seront envoyées dès reconnexion',
     online_sync:'En ligne — synchronisation en cours…',
@@ -708,6 +711,7 @@ const TRANSLATIONS = {
     mailto_cgv_title: 'TERMS & CONDITIONS',
     mailto_sign: 'Kind regards,\nEditions Standard Showroom',
     success_warn:'⚠ This order will only be final after<br>brand acceptance and signature by both parties.',
+    success_buyer_space:'View my order history',
     success_thanks:'Thank you for your visit — Editions Standard',
     offline_label:'Offline — orders will be sent when reconnected',
     online_sync:'Online — syncing…',
@@ -818,7 +822,12 @@ function restoreCart() {
 // ── Init ──────────────────────────────────────────────
 async function init() {
   try {
-    const data = await fetch('/api/public/brands/' + brandId).then(r => r.json());
+    const res = await fetch('/api/public/brands/' + brandId);
+    const data = await res.json();
+    if (data.error === 'subscription_inactive') {
+      document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center"><div><p style="font-size:14px;color:var(--muted);line-height:1.6">' + (data.message || 'Ce showroom est temporairement indisponible.') + '</p></div></div>';
+      return;
+    }
     if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">' + T('no_brand') + '</div>'; return; }
     productsData = data.products;
     brandCgvText = data.brand.cgv_text || '';
@@ -1573,6 +1582,7 @@ function showSuccess(email, offline, orderId) {
     }
     document.getElementById('success-agent-contact').style.display = 'block';
   }
+  document.getElementById('success-buyer-space-link').href = '/buyer/' + brandId;
 
   // Clear saved cart after successful order
   localStorage.removeItem(CART_KEY);

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espace acheteur</title>
+<style>
+  :root { --black:#0a0a0a; --dark:#151515; --border:#2a2a2a; --white:#fff; --muted:#888; --soft:#bbb; --accent:#ccec3c; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--black); color: var(--white); min-height: 100vh; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .sub { font-size: 12px; color: var(--muted); margin-bottom: 28px; }
+  .field { margin-bottom: 16px; }
+  .field label { display:block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+  .field input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--white); font-size: 14px; outline: none; }
+  .field input:focus { border-color: var(--accent); }
+  .btn { display: block; width: 100%; background: var(--accent); color: var(--black); border: none; padding: 14px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: .08em; text-transform: uppercase; border-radius: 8px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .msg { font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 16px; padding: 14px; background: var(--dark); border-radius: 8px; }
+  .msg.error { color: #e05e5e; }
+  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  .order-ref { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .order-date { font-size: 11px; color: var(--muted); }
+  .order-total { font-size: 18px; font-weight: 700; color: var(--accent); margin-top: 6px; }
+  .order-status { display:inline-block; font-size: 10px; padding: 3px 9px; border-radius: 10px; margin-top: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .order-status.confirmed { background: #3d3a1f; color: #e0c95e; }
+  .order-status.validated { background: #1f3d1f; color: #5ec95e; }
+  .order-status.cancelled { background: #3d1f1f; color: #e05e5e; }
+  .order-pdf { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--accent); text-decoration: none; }
+  .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <h1>Mon espace commandes</h1>
+  <p class="sub">Consultez l'historique de vos commandes.</p>
+  <div id="login-view">
+    <div class="field">
+      <label>Votre email</label>
+      <input id="email-input" type="email" placeholder="vous@exemple.com">
+    </div>
+    <button class="btn" id="btn-request" onclick="requestLink()">Recevoir mon lien d'accès</button>
+    <div id="login-msg"></div>
+  </div>
+  <div id="orders-view" style="display:none">
+    <div id="orders-list" class="loader">Chargement…</div>
+  </div>
+</div>
+
+<script>
+const brandId = window.location.pathname.split('/').pop();
+const urlToken = new URLSearchParams(window.location.search).get('token');
+
+async function requestLink() {
+  const email = document.getElementById('email-input').value.trim();
+  const msg = document.getElementById('login-msg');
+  if (!email) return;
+  document.getElementById('btn-request').disabled = true;
+  msg.innerHTML = '';
+  try {
+    const r = await fetch('/api/buyer/request-link', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brand_id: brandId, email })
+    }).then(r => r.json());
+    msg.innerHTML = `<div class="msg">${r.message || 'Si un compte existe pour cet email, un lien vous a été envoyé.'}</div>`;
+  } catch(e) {
+    msg.innerHTML = `<div class="msg error">Erreur, réessayez.</div>`;
+  }
+  document.getElementById('btn-request').disabled = false;
+}
+
+async function verifyAndLoad() {
+  const r = await fetch(`/api/buyer/verify?brand_id=${brandId}&token=${urlToken}`).then(r => r.json());
+  if (r.error) {
+    document.getElementById('login-msg').innerHTML = `<div class="msg error">${r.error}</div>`;
+    return;
+  }
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('orders-view').style.display = 'block';
+  loadOrders();
+}
+
+async function loadOrders() {
+  const data = await fetch('/api/buyer/orders').then(r => r.json());
+  const list = document.getElementById('orders-list');
+  if (!data.orders || !data.orders.length) {
+    list.innerHTML = '<p style="color:#888;font-size:13px">Aucune commande trouvée.</p>';
+    return;
+  }
+  const statusLabel = { confirmed: 'Reçue', validated: 'Validée', cancelled: 'Annulée' };
+  list.innerHTML = data.orders.map(o => `
+    <div class="order-card">
+      <div class="order-ref">Commande #${o.id.slice(0,8).toUpperCase()}</div>
+      <div class="order-date">${new Date(o.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}</div>
+      <div class="order-total">${Number(o.total||0).toFixed(2)} €</div>
+      <span class="order-status ${o.status}">${statusLabel[o.status] || o.status}</span><br>
+      <a class="order-pdf" href="/api/buyer/orders/${o.id}/pdf" target="_blank">📄 Télécharger le PDF</a>
+    </div>
+  `).join('');
+}
+
+if (urlToken) {
+  verifyAndLoad();
+} else {
+  document.getElementById('login-msg').innerHTML = '';
+}
+</script>
+</body>
+</html>

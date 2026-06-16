@@ -6,12 +6,45 @@ const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
 const multer = require('multer');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || '');
 const { pool, init } = require('./database');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Stripe webhook needs the raw body for signature verification — must be registered before express.json()
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    return res.status(400).send(`Webhook signature error: ${err.message}`);
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const brandId = session.metadata?.brand_id;
+      if (brandId) {
+        await pool.query(
+          'UPDATE brands SET subscription_status=$1, stripe_customer_id=$2, stripe_subscription_id=$3 WHERE id=$4',
+          ['active', session.customer, session.subscription, brandId]
+        );
+      }
+    } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      const status = sub.status === 'active' || sub.status === 'trialing' ? 'active' : 'inactive';
+      await pool.query('UPDATE brands SET subscription_status=$1 WHERE stripe_subscription_id=$2', [status, sub.id]);
+    }
+  } catch (err) {
+    console.error('Stripe webhook handling error:', err);
+  }
+
+  res.json({ received: true });
+});
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -109,6 +142,61 @@ app.get('/api/brands/:id/qrcode', requireAdmin, async (req, res) => {
   const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
   const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
   res.json({ qr, url });
+});
+
+app.post('/api/brands/:id/checkout-link', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { priceId } = req.body;
+  const b = await pool.query('SELECT * FROM brands WHERE id=$1', [id]);
+  if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+  const brand = b.rows[0];
+
+  if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: 'STRIPE_SECRET_KEY non configurée' });
+  if (!priceId) return res.status(400).json({ error: 'priceId requis' });
+
+  try {
+    let customerId = brand.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ name: brand.name, metadata: { brand_id: id } });
+      customerId = customer.id;
+      await pool.query('UPDATE brands SET stripe_customer_id=$1 WHERE id=$2', [customerId, id]);
+    }
+    const base = getBaseUrl(req);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${base}/admin?subscribed=1`,
+      cancel_url: `${base}/admin`,
+      metadata: { brand_id: id }
+    });
+    await pool.query('UPDATE brands SET subscription_price_id=$1 WHERE id=$2', [priceId, id]);
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/brands/:id/cancel-subscription', requireAdmin, async (req, res) => {
+  const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
+  if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+  try {
+    if (b.rows[0].stripe_subscription_id) {
+      await stripe.subscriptions.cancel(b.rows[0].stripe_subscription_id).catch(() => {});
+    }
+    await pool.query('UPDATE brands SET subscription_status=$1 WHERE id=$2', ['inactive', req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/brands/:id/subscription-status', requireAdmin, async (req, res) => {
+  // Manual override (e.g. extending a trial, or marking active without Stripe)
+  const { status } = req.body;
+  if (!['trial','active','inactive'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
+  await pool.query('UPDATE brands SET subscription_status=$1 WHERE id=$2', [status, req.params.id]);
+  res.json({ ok: true });
 });
 
 app.get('/api/brands/:brandId/products/:productId/qrcode', requireAdmin, async (req, res) => {
@@ -310,8 +398,11 @@ app.get('/api/public/cgv', async (req, res) => {
 });
 
 app.get('/api/public/brands/:brandId', async (req, res) => {
-  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount FROM brands WHERE id=$1', [req.params.brandId]);
+  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount,subscription_status FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+  if (b.rows[0].subscription_status === 'inactive') {
+    return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
+  }
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   const agentName  = await getSetting('agent_name');
   const agentTitle = await getSetting('agent_title');
@@ -349,6 +440,11 @@ app.post('/api/public/orders', async (req, res) => {
   const validLines = lines.filter(l => l.quantity > 0);
   if (!validLines.length) return res.status(400).json({ error: 'Aucune quantité saisie' });
 
+  const brandCheck = await pool.query('SELECT subscription_status FROM brands WHERE id=$1', [brand_id]);
+  if (brandCheck.rows[0]?.subscription_status === 'inactive') {
+    return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
+  }
+
   const orderId = uuidv4();
   await pool.query(
     `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted)
@@ -376,6 +472,88 @@ app.post('/api/public/orders', async (req, res) => {
 
   res.json({ ok: true, order_id: orderId });
 });
+
+// ==================== BUYER ACCESS (magic link) ====================
+
+app.post('/api/buyer/request-link', async (req, res) => {
+  const { brand_id, email } = req.body;
+  if (!brand_id || !email) return res.status(400).json({ error: 'Email requis' });
+
+  const b = await pool.query('SELECT id, name FROM brands WHERE id=$1', [brand_id]);
+  if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+
+  const hasOrders = await pool.query('SELECT 1 FROM orders WHERE brand_id=$1 AND client_email=$2 LIMIT 1', [brand_id, email]);
+  // Always respond success regardless, to avoid leaking which emails have ordered
+  if (hasOrders.rows[0]) {
+    const token = uuidv4();
+    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+    await pool.query('INSERT INTO buyer_magic_links (token, brand_id, email, expires_at) VALUES ($1,$2,$3,$4)', [token, brand_id, email, expires]);
+
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      const { Resend } = require('resend');
+      const resend = new Resend(resendKey);
+      const fromAddress = await getSetting('smtp_from');
+      const showroomName = await getSetting('showroom_name');
+      const fromField = fromAddress || 'showroom@editionsstandard.com';
+      const url = `${getBaseUrl(req)}/buyer/${brand_id}?token=${token}`;
+      await resend.emails.send({
+        from: `${showroomName} <${fromField}>`,
+        to: [email],
+        subject: `Votre espace commandes — ${b.rows[0].name}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+          <h2 style="margin-bottom:16px">Votre espace commandes</h2>
+          <p>Cliquez sur le lien ci-dessous pour accéder à l'historique de vos commandes pour <strong>${b.rows[0].name}</strong>. Ce lien est valable 30 minutes.</p>
+          <a href="${url}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;margin-top:12px">Accéder à mon espace</a>
+        </div>`
+      }).catch(e => console.error('Buyer magic link email error:', e.message));
+    }
+  }
+
+  res.json({ ok: true, message: 'Si un compte existe pour cet email, un lien a été envoyé.' });
+});
+
+app.get('/api/buyer/verify', async (req, res) => {
+  const { brand_id, token } = req.query;
+  const r = await pool.query('SELECT * FROM buyer_magic_links WHERE token=$1 AND brand_id=$2', [token, brand_id]);
+  const link = r.rows[0];
+  if (!link || link.used || new Date(link.expires_at) < new Date()) {
+    return res.status(401).json({ error: 'Lien invalide ou expiré' });
+  }
+  await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1', [token]);
+  req.session.buyerEmail = link.email;
+  req.session.buyerBrandId = brand_id;
+  res.json({ ok: true, email: link.email });
+});
+
+app.get('/api/buyer/orders', async (req, res) => {
+  if (!req.session.buyerEmail || !req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+  const r = await pool.query(`
+    SELECT o.*, SUM(ol.quantity * ol.unit_price) as total
+    FROM orders o
+    LEFT JOIN order_lines ol ON ol.order_id = o.id
+    WHERE o.brand_id=$1 AND o.client_email=$2
+    GROUP BY o.id ORDER BY o.created_at DESC
+  `, [req.session.buyerBrandId, req.session.buyerEmail]);
+  res.json({ email: req.session.buyerEmail, orders: r.rows });
+});
+
+app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
+  if (!req.session.buyerEmail || !req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+  try {
+    const r = await pool.query(
+      'SELECT id FROM orders WHERE id=$1 AND brand_id=$2 AND client_email=$3',
+      [req.params.id, req.session.buyerBrandId, req.session.buyerEmail]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Non disponible' });
+    const pdf = await generateOrderPDF(req.params.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
+    res.send(pdf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/buyer/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'buyer.html')));
 
 // ==================== PDF ====================
 

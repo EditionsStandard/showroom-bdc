@@ -22,6 +22,21 @@ async function init() {
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_amount NUMERIC DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_country TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT DEFAULT '';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT DEFAULT '';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_price_id TEXT DEFAULT '';
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS buyer_magic_links (
+      token TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `).catch(() => {});
 
   await pool.query(`
