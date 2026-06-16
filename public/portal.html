@@ -82,6 +82,20 @@
   .success-check { width:72px; height:72px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; color:var(--accent); }
   .msg { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 4px; margin-top: 14px; }
   .msg.error { color: var(--accent); }
+  .product-img { cursor: zoom-in; }
+  .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+  .img-modal.open { display: flex; }
+  .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; }
+  .img-modal-main img { max-width: 92vw; max-height: 82vh; object-fit: contain; user-select: none; }
+  .img-close { position: absolute; top: 16px; right: 16px; color: var(--soft); font-size: 28px; background: none; border: none; cursor: pointer; line-height: 1; padding: 10px; z-index: 10; font-family: 'Inter', sans-serif; font-weight: 300; }
+  .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--soft); font-size: 40px; width: 56px; height: 80px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
+  .img-nav:active { color: #fff; }
+  .img-nav-prev { left: 4px; }
+  .img-nav-next { right: 4px; }
+  .img-dots { display: flex; gap: 8px; padding: 16px 0 8px; }
+  .img-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); border: none; cursor: pointer; padding: 0; transition: background .2s; }
+  .img-dot.active { background: var(--accent); }
+  .img-counter { color: var(--muted); font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
 </style>
 <script>
 // Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash
@@ -152,6 +166,18 @@
     <div id="success-detail" class="msg" style="text-align:left"></div>
     <button class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
   </div>
+</div>
+
+<!-- Carousel lightbox -->
+<div class="img-modal" id="img-modal">
+  <button class="img-close" id="img-close">✕</button>
+  <div class="img-modal-main">
+    <button class="img-nav img-nav-prev" id="img-prev">‹</button>
+    <img id="img-modal-src" src="" alt="">
+    <button class="img-nav img-nav-next" id="img-next">›</button>
+  </div>
+  <div class="img-dots" id="img-dots"></div>
+  <div class="img-counter" id="img-counter"></div>
 </div>
 
 <div class="cart-bar" id="cart-bar" style="display:none">
@@ -250,7 +276,10 @@ function renderProductsList() {
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];
-    const img = imgs[0] ? `<img class="product-img" src="${esc(imgs[0])}">` : `<div class="product-img"></div>`;
+    const imgsJson = esc(JSON.stringify(imgs));
+    const img = imgs[0]
+      ? `<img class="product-img" src="${esc(imgs[0])}" data-images="${imgsJson}" onclick="openCarouselFromEl(this)">`
+      : `<div class="product-img"></div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
     const qtyHtml = sizes.length ? sizes.map(sz => {
@@ -422,6 +451,68 @@ async function loadOrders() {
       <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline;display:inline-block;margin-top:10px">📄 Télécharger le PDF</a>
     </div>`).join('');
 }
+
+// ── Carousel lightbox ─────────────────────────────────
+let carouselImgs = [], carouselIdx = 0;
+let touchStartX = 0;
+
+function openCarouselFromEl(el) {
+  let imgs = [];
+  try { imgs = JSON.parse(el.dataset.images || '[]'); } catch(e) {}
+  if (!imgs.length) imgs = [el.src];
+  openCarousel(imgs, 0);
+}
+
+function openCarousel(imgs, idx) {
+  carouselImgs = imgs;
+  carouselIdx = idx;
+  document.getElementById('img-modal').classList.add('open');
+  renderCarousel();
+}
+
+function renderCarousel() {
+  document.getElementById('img-modal-src').src = carouselImgs[carouselIdx];
+  const n = carouselImgs.length;
+  document.getElementById('img-prev').style.display = n > 1 ? 'flex' : 'none';
+  document.getElementById('img-next').style.display = n > 1 ? 'flex' : 'none';
+  document.getElementById('img-counter').textContent = n > 1 ? (carouselIdx + 1) + ' / ' + n : '';
+  const dots = document.getElementById('img-dots');
+  dots.innerHTML = n > 1 ? carouselImgs.map((_, i) =>
+    '<button class="img-dot' + (i === carouselIdx ? ' active' : '') + '" data-i="' + i + '"></button>'
+  ).join('') : '';
+}
+
+function carouselGo(delta) {
+  carouselIdx = (carouselIdx + delta + carouselImgs.length) % carouselImgs.length;
+  renderCarousel();
+}
+
+function closeCarousel() {
+  document.getElementById('img-modal').classList.remove('open');
+  document.getElementById('img-modal-src').src = '';
+}
+
+document.getElementById('img-close').addEventListener('click', closeCarousel);
+document.getElementById('img-prev').addEventListener('click', () => carouselGo(-1));
+document.getElementById('img-next').addEventListener('click', () => carouselGo(1));
+document.getElementById('img-dots').addEventListener('click', e => {
+  const btn = e.target.closest('.img-dot');
+  if (btn) { carouselIdx = parseInt(btn.dataset.i); renderCarousel(); }
+});
+document.getElementById('img-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeCarousel();
+});
+document.getElementById('img-modal').addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+document.getElementById('img-modal').addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 40) carouselGo(dx < 0 ? 1 : -1);
+}, { passive: true });
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('img-modal').classList.contains('open')) return;
+  if (e.key === 'ArrowRight') carouselGo(1);
+  if (e.key === 'ArrowLeft') carouselGo(-1);
+  if (e.key === 'Escape') closeCarousel();
+});
 
 init();
 </script>
