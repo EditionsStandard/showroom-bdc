@@ -180,6 +180,7 @@
 
   /* ── Desktop layout ── */
   @media (min-width: 768px) {
+    .home-link-label { display: inline !important; }
     body { background: #050505; }
 
     /* Centred container */
@@ -449,7 +450,10 @@
       <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:inherit"></select>
       <button id="lang-toggle" onclick="toggleLang()" title="Switch language" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;transition:border-color .2s,color .2s">EN</button>
       <button id="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button>
-      <a href="/" title="Retour à l'accueil"><img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85"></a>
+      <a href="/" title="Retour à l'accueil" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:'Inter',sans-serif">
+        <img src="/logo.svg" style="width:32px;height:32px;border-radius:4px;flex-shrink:0;opacity:.85">
+        <span class="home-link-label" style="display:none">← Accueil</span>
+      </a>
     </div>
   </div>
 </div>
