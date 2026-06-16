@@ -917,7 +917,6 @@ async function generateLinesheetPDF(brandId, seasonId) {
     const imgW = 120, imgH = 120, textGap = 14;
     const textW = colW - imgW - textGap;
     const cols = [40, 40 + colW + colGap];
-    let colIdx = 0;
     let colY = [y, y];
 
     const getFirstImage = (p) => {
@@ -973,7 +972,6 @@ async function generateLinesheetPDF(brandId, seasonId) {
       doc.addPage();
       const ny = drawHeader();
       colY = [ny, ny];
-      colIdx = 0;
     };
 
     prods.rows.forEach((p) => {
@@ -982,22 +980,30 @@ async function generateLinesheetPDF(brandId, seasonId) {
         // start new collection on a fresh left column row
         const rowY = Math.max(colY[0], colY[1]);
         colY = [rowY, rowY];
-        colIdx = 0;
         if (rowY > doc.page.height - 120) { newPage(); }
         doc.fontSize(10).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 40, colY[0], { width: contentW });
         colY = [colY[0] + 18, colY[0] + 18];
       }
 
       const cardH = measureCardHeight(p);
-      if (colY[colIdx] + cardH > doc.page.height - 50) {
-        if (colIdx === 0) { colIdx = 1; } else { newPage(); }
+      const pageLimit = doc.page.height - 50;
+
+      // Place in whichever column has the most room; fall back to a new page if neither fits.
+      let idx = colY[0] <= colY[1] ? 0 : 1;
+      if (colY[idx] + cardH > pageLimit) {
+        const otherIdx = idx === 0 ? 1 : 0;
+        if (colY[otherIdx] + cardH <= pageLimit) {
+          idx = otherIdx;
+        } else {
+          newPage();
+          idx = 0;
+        }
       }
 
-      const x = cols[colIdx];
-      drawProductCard(p, x, colY[colIdx]);
-      doc.moveTo(x, colY[colIdx] + cardH - 8).lineTo(x + colW, colY[colIdx] + cardH - 8).strokeColor('#eee').lineWidth(0.5).stroke();
-      colY[colIdx] += cardH;
-      colIdx = colIdx === 0 ? 1 : 0;
+      const x = cols[idx];
+      drawProductCard(p, x, colY[idx]);
+      doc.moveTo(x, colY[idx] + cardH - 8).lineTo(x + colW, colY[idx] + cardH - 8).strokeColor('#eee').lineWidth(0.5).stroke();
+      colY[idx] += cardH;
     });
 
     doc.fontSize(7).fillColor('#ccc').font('Helvetica')
