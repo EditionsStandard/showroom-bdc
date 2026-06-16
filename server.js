@@ -796,17 +796,57 @@ app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const bcrypt = require('bcryptjs');
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
+  const cleanEmail = email.toLowerCase().trim();
   try {
     await pool.query(
       'INSERT INTO buyers (id, email, password_hash, name, company, phone, country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [id, email.toLowerCase().trim(), hash, name||'', company||'', phone||'', country||'']
+      [id, cleanEmail, hash, name||'', company||'', phone||'', country||'']
     );
     res.json({ id });
+    sendBuyerWelcomeEmail({ email: cleanEmail, password, name, req }).catch(e => console.error('Buyer welcome email error:', e.message));
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     res.status(500).json({ error: err.message });
   }
 });
+
+async function sendBuyerWelcomeEmail({ email, password, name, req }) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) { console.log('RESEND_API_KEY non configurée — email de bienvenue acheteur non envoyé'); return; }
+  const { Resend } = require('resend');
+  const resend = new Resend(resendKey);
+  const showroomName = await getSetting('showroom_name');
+  const fromAddress = await getSetting('smtp_from');
+  const fromField = fromAddress || 'showroom@editionsstandard.com';
+  const portalUrl = `${getBaseUrl(req)}/portal-login`;
+
+  await resend.emails.send({
+    from: `${showroomName} <${fromField}>`,
+    to: [email],
+    subject: `Votre accès au showroom — ${showroomName}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
+        <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
+          <span style="color:#CCEB3C;font-size:22px;font-weight:700;letter-spacing:2px">${showroomName.toUpperCase()}</span>
+        </div>
+        <div style="padding:32px">
+          <p>Bonjour${name ? ' ' + name : ''},</p>
+          <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
+          <div style="background:#f7f7f7;border-radius:6px;padding:16px 20px;margin:24px 0">
+            <p style="margin:0 0 6px;font-size:13px;color:#888">Email</p>
+            <p style="margin:0 0 14px;font-weight:700">${email}</p>
+            <p style="margin:0 0 6px;font-size:13px;color:#888">Mot de passe</p>
+            <p style="margin:0;font-weight:700">${password}</p>
+          </div>
+          <p style="text-align:center;margin:28px 0">
+            <a href="${portalUrl}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:700">Accéder au showroom →</a>
+          </p>
+          <p style="font-size:13px;color:#888">En cas de question, n'hésitez pas à nous contacter.</p>
+          <p>Cordialement,<br><strong>${showroomName}</strong></p>
+        </div>
+      </div>`
+  });
+}
 
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
