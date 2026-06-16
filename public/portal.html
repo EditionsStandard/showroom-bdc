@@ -46,6 +46,12 @@
   .brand-banner-moq { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 4px; margin-bottom: 14px; }
   .brand-banner-cgv summary { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); cursor: pointer; text-decoration: underline; letter-spacing: .02em; }
   .brand-banner-cgv p { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 10px; max-width: 700px; }
+  .search-bar { margin-bottom: 14px; max-width: 420px; }
+  .search-bar input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
+  .search-bar input:focus { border-color: var(--accent); }
+  .collection-filters { display: none; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .col-filter { display: inline-block; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: transparent; font-family: 'Space Mono', monospace; border-radius: 20px; transition: border-color .15s, color .15s; }
+  .col-filter.active { border-color: var(--accent); color: var(--accent); }
   .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .product-img { width: 100%; height: 280px; object-fit: cover; background: #1a1a1a; display: block; }
   .product-info { padding: 18px 20px; }
@@ -217,7 +223,7 @@ function fmtPrice(amountEur) {
 
 function changeCurrency(code) {
   selectedCurrency = currenciesData.find(c => c.code === code) || currenciesData[0];
-  if (currentBrand) renderProductsList();
+  if (currentBrand) applyProductFilters();
   if (document.getElementById('view-cart').style.display !== 'none') renderCart();
   updateCartBar();
 }
@@ -327,8 +333,50 @@ async function openBrand(brandId) {
         ${cgvHtml}
       </div>
     </div>
+    <div class="search-bar">
+      <input id="product-search" type="text" placeholder="Rechercher une référence…" oninput="applyProductFilters()">
+    </div>
+    <div id="collection-filters" class="collection-filters"></div>
     <div id="products-list" class="products-grid"></div>`;
-  renderProductsList();
+  activeCollection = '__all__';
+  buildCollectionFilters(currentProducts);
+  applyProductFilters();
+}
+
+let activeCollection = '__all__';
+
+function buildCollectionFilters(products) {
+  const collections = ['__all__', ...new Set(products.map(p => p.collection_name).filter(Boolean))];
+  const bar = document.getElementById('collection-filters');
+  if (collections.length <= 2) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = collections.map(c =>
+    `<button class="col-filter${c === activeCollection ? ' active' : ''}" data-col="${esc(c)}">${c === '__all__' ? 'Tout' : esc(c)}</button>`
+  ).join('');
+  bar.onclick = e => {
+    const btn = e.target.closest('.col-filter');
+    if (!btn) return;
+    activeCollection = btn.dataset.col;
+    bar.querySelectorAll('.col-filter').forEach(b => b.classList.toggle('active', b.dataset.col === activeCollection));
+    applyProductFilters();
+  };
+}
+
+function applyProductFilters() {
+  const q = (document.getElementById('product-search')?.value || '').toLowerCase();
+  let filtered = currentProducts;
+  if (activeCollection && activeCollection !== '__all__') {
+    filtered = filtered.filter(p => p.collection_name === activeCollection);
+  }
+  if (q) {
+    filtered = filtered.filter(p =>
+      (p.reference||'').toLowerCase().includes(q) ||
+      (p.description||'').toLowerCase().includes(q) ||
+      (p.color||'').toLowerCase().includes(q) ||
+      (p.collection_name||'').toLowerCase().includes(q)
+    );
+  }
+  renderProductsList(filtered);
 }
 
 function closeBrand() {
@@ -337,9 +385,11 @@ function closeBrand() {
   currentBrand = null;
 }
 
-function renderProductsList() {
+function renderProductsList(products) {
+  const list = products || currentProducts;
   const el = document.getElementById('products-list');
-  el.innerHTML = currentProducts.map(p => {
+  if (!list.length) { el.innerHTML = '<p class="msg">Aucune référence ne correspond.</p>'; return; }
+  el.innerHTML = list.map(p => {
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];

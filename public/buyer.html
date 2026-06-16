@@ -9,8 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
   :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; }
+  html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
   .wrap { max-width: 520px; margin: 0 auto; padding: 32px 20px 60px; }
   h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; letter-spacing: .02em; margin-bottom: 6px; }
   .sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-bottom: 28px; text-transform: uppercase; letter-spacing: .1em; }
@@ -33,6 +34,16 @@
   .order-pdf { display: inline-block; margin-top: 10px; font-size: 11px; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-family: 'Inter', sans-serif; letter-spacing: .02em; }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
 </style>
+<script>
+(function() {
+  function getTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', getTheme());
+})();
+</script>
 </head>
 <body>
 <div class="wrap" id="app">

@@ -4,23 +4,39 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Administration — Editions Standard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-  .card { background: #111; border: 1px solid #222; border-radius: 16px; padding: 48px 40px; width: 100%; max-width: 380px; }
+  html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s; }
+  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; }
   .logo-wrap { text-align: center; margin-bottom: 32px; }
-  .logo-wrap img { width: 80px; height: 80px; border-radius: 8px; }
-  .logo-wrap h1 { font-size: 16px; color: #fff; font-weight: 700; margin-top: 12px; letter-spacing: .5px; }
-  .logo-wrap p { color: #555; font-size: 12px; margin-top: 3px; }
-  label { display: block; color: #888; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-  input { width: 100%; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 15px; outline: none; transition: border-color .2s; }
-  input:focus { border-color: #CCEB3C; }
-  .btn { width: 100%; background: #CCEB3C; color: #111; border: none; border-radius: 8px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 24px; transition: opacity .2s; }
-  .toggle { text-align: center; margin-top: 18px; }
-  .toggle a { color: #888; font-size: 12px; text-decoration: underline; cursor: pointer; }
+  .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
+  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 14px; letter-spacing: .02em; }
+  .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
+  label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
+  input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .2s; }
+  input:focus { border-color: var(--accent); }
+  .field { margin-bottom: 16px; }
+  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: opacity .2s; }
   .btn:hover { opacity: .85; }
-  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .toggle { text-align: center; margin-top: 18px; }
+  .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
 </style>
+<script>
+(function() {
+  function getTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', getTheme());
+})();
+</script>
 </head>
 <body>
 <div class="card">
@@ -31,11 +47,11 @@
   </div>
   <form method="POST" action="/admin/login">
     <script>if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
-    <div id="email-field" style="display:none;margin-bottom:16px">
+    <div id="email-field" class="field" style="display:none">
       <label>Email</label>
       <input type="email" name="email" id="email-input" placeholder="email@exemple.com" disabled autocomplete="off">
     </div>
-    <div style="margin-bottom:16px">
+    <div class="field">
       <label>Mot de passe</label>
       <input type="password" name="password" autofocus placeholder="••••••••">
     </div>
