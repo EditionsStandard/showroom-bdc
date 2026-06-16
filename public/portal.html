@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Portail Acheteur — Editions Standard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#555; --soft:#999; --white:#f5f4f0; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 70px; }
+  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+  .header h1 { font-family: var(--dot), monospace; font-size: 18px; font-weight: 400; }
+  .header .nav { display: flex; gap: 14px; align-items: center; font-family: 'Inter', sans-serif; font-size: 11px; }
+  .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
+  .header .nav a.active { color: var(--accent); }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 24px 20px; }
+  .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color .15s; }
+  .brand-card:hover { border-color: var(--accent); }
+  .brand-cover { width: 100%; height: 90px; object-fit: cover; display: block; background: #1a1a1a; }
+  .brand-cover-ph { width: 100%; height: 90px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 22px; opacity: .3; }
+  .brand-info { padding: 12px 14px; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 14px; }
+  .back-btn { background: none; border: none; color: var(--soft); font-size: 11px; cursor: pointer; margin-bottom: 16px; font-family: 'Inter', sans-serif; letter-spacing: .06em; }
+  .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 14px; margin-bottom: 10px; display: flex; gap: 14px; }
+  .product-img { width: 80px; height: 80px; object-fit: cover; border-radius: 3px; background: #1a1a1a; flex-shrink: 0; }
+  .product-info { flex: 1; min-width: 0; }
+  .product-ref { font-family: var(--dot), monospace; font-size: 14px; }
+  .product-desc { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--soft); margin-top: 4px; line-height: 1.5; }
+  .product-meta { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .product-price { font-size: 12px; color: var(--accent); margin-top: 6px; font-weight: 700; }
+  .qty-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .qty-row select { background: var(--black); border: 1px solid var(--border); color: var(--white); padding: 4px 8px; font-size: 11px; font-family: 'Inter', sans-serif; border-radius: 2px; }
+  .qty-btn { width: 26px; height: 26px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 14px; border-radius: 2px; }
+  .qty-display { min-width: 24px; text-align: center; font-size: 13px; font-weight: 700; }
+  .qty-display.active { color: var(--accent); }
+  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 60; }
+  .cart-bar strong { font-family: var(--dot), monospace; font-size: 16px; }
+  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 10px 18px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 2px; font-family: 'Space Mono', monospace; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
+  .field input, .field select, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 2px; padding: 10px 12px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .cgv-box { background: var(--dark); border: 1px dotted var(--border); border-radius: 2px; padding: 14px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--soft); line-height: 1.6; margin-bottom: 10px; max-height: 140px; overflow-y: auto; }
+  .cgv-box h4 { font-family: var(--dot), monospace; font-size: 12px; color: var(--white); margin-bottom: 6px; font-weight: 400; }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 8px; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); margin: 16px 0; }
+  #sig-canvas { background: #fff; border-radius: 2px; width: 100%; height: 120px; touch-action: none; cursor: crosshair; }
+  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 16px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; font-family: 'Space Mono', monospace; margin-top: 16px; }
+  .btn-confirm:disabled { opacity: .4; cursor: default; }
+  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; margin-bottom: 10px; }
+  .order-status { display: inline-block; font-size: 9px; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Space Mono', monospace; margin-top: 6px; }
+  .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
+  .order-status.validated { background: #1f3d1f; color: #5ec95e; }
+  .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
+  .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+  .success-check { width:60px; height:60px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:24px; color:var(--accent); }
+  .msg { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; padding: 14px; background: var(--dark); border-radius: 2px; margin-top: 12px; }
+  .msg.error { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Showroom</h1>
+  <div class="nav">
+    <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
+    <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
+    <a href="/portal-logout">Déconnexion</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="view-catalog">
+    <div id="brand-picker"></div>
+    <div id="brand-products" style="display:none"></div>
+  </div>
+
+  <div id="view-cart" style="display:none">
+    <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
+    <h2 style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:16px">Ma sélection</h2>
+    <div id="cart-lines"></div>
+    <div id="checkout-form" style="margin-top:24px">
+      <div class="field"><label>Nom complet *</label><input id="ck-name"></div>
+      <div class="field"><label>Société</label><input id="ck-company"></div>
+      <div class="field"><label>Téléphone</label><input id="ck-phone"></div>
+      <div class="field"><label>Pays</label><input id="ck-country"></div>
+      <div id="cgv-blocks"></div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="ck-cgv" style="margin-top:2px">
+        <label for="ck-cgv">J'ai lu et j'accepte les conditions générales de vente de chaque marque sélectionnée. Je comprends que cette commande sera approuvée et finalisée selon les critères propres à chaque marque.</label>
+      </div>
+      <canvas id="sig-canvas"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <span style="font-family:'Inter',sans-serif;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
+        <a onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:10px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
+      </div>
+      <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
+      <div id="checkout-msg"></div>
+    </div>
+  </div>
+
+  <div id="view-orders" style="display:none">
+    <h2 style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:16px">Mes commandes</h2>
+    <div id="orders-list" class="loader">Chargement…</div>
+  </div>
+
+  <div id="view-success" style="display:none;text-align:center;padding:40px 0">
+    <div class="success-check">✓</div>
+    <h2 style="font-family:var(--dot),monospace;font-size:20px;margin-bottom:12px">Sélection confirmée</h2>
+    <div id="success-detail" class="msg" style="text-align:left"></div>
+    <button class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
+  </div>
+</div>
+
+<div class="cart-bar" id="cart-bar" style="display:none">
+  <div>
+    <strong id="cart-total">0,00 €</strong>
+    <div style="font-size:11px;font-family:'Inter',sans-serif">— <span id="cart-count">0</span> article(s)</div>
+  </div>
+  <button onclick="showView('cart')">Voir ma sélection →</button>
+</div>
+
+<script>
+let me = null;
+let allBrands = [];
+let currentBrand = null;
+let currentProducts = [];
+const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function sentenceCase(s) {
+  s = String(s||'');
+  if (!s) return s;
+  const letters = s.replace(/[^a-zA-Z]/g, '');
+  const upperRatio = letters.length ? (letters.replace(/[^A-Z]/g,'').length / letters.length) : 0;
+  if (upperRatio < 0.7) return s;
+  return s.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w)/g, c => c.toUpperCase());
+}
+
+async function init() {
+  me = await fetch('/api/portal/me').then(r => r.json());
+  allBrands = await fetch('/api/portal/brands').then(r => r.json());
+  renderBrandPicker();
+}
+
+function showView(view) {
+  document.getElementById('view-catalog').style.display = view === 'catalog' ? 'block' : 'none';
+  document.getElementById('view-cart').style.display = view === 'cart' ? 'block' : 'none';
+  document.getElementById('view-orders').style.display = view === 'orders' ? 'block' : 'none';
+  document.getElementById('view-success').style.display = 'none';
+  document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
+  document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
+  document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).length) ? 'flex' : (view === 'cart' ? 'none' : document.getElementById('cart-bar').style.display);
+  if (view === 'cart') renderCart();
+  if (view === 'orders') loadOrders();
+  if (view === 'catalog') updateCartBar();
+}
+
+function renderBrandPicker() {
+  const el = document.getElementById('brand-picker');
+  el.innerHTML = '<div class="brand-grid">' + allBrands.map(b => {
+    const cover = b.cover_image ? `<img class="brand-cover" src="${esc(b.cover_image)}">` : `<div class="brand-cover-ph">🏷️</div>`;
+    return `<div class="brand-card" onclick="openBrand('${b.id}')">${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
+  }).join('') + '</div>';
+}
+
+async function openBrand(brandId) {
+  const data = await fetch(`/api/portal/brands/${brandId}/products`).then(r => r.json());
+  if (data.error) { alert(data.error); return; }
+  currentBrand = data.brand;
+  currentProducts = data.products;
+  document.getElementById('brand-picker').style.display = 'none';
+  const container = document.getElementById('brand-products');
+  container.style.display = 'block';
+  container.innerHTML = `<button class="back-btn" onclick="closeBrand()">← Toutes les marques</button>
+    <h2 style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:16px">${esc(currentBrand.name)}</h2>
+    <div id="products-list"></div>`;
+  renderProductsList();
+}
+
+function closeBrand() {
+  document.getElementById('brand-picker').style.display = 'block';
+  document.getElementById('brand-products').style.display = 'none';
+  currentBrand = null;
+}
+
+function renderProductsList() {
+  const el = document.getElementById('products-list');
+  el.innerHTML = currentProducts.map(p => {
+    let imgs = [];
+    try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
+    if (!imgs.length && p.image_url) imgs = [p.image_url];
+    const img = imgs[0] ? `<img class="product-img" src="${esc(imgs[0])}">` : `<div class="product-img"></div>`;
+    const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const key0 = currentBrand.id + '|' + p.id + '|';
+    const qtyHtml = sizes.length ? sizes.map(sz => {
+      const k = currentBrand.id + '|' + p.id + '|' + sz;
+      const q = cart[k] ? cart[k].qty : 0;
+      return `<div class="qty-row"><span style="font-size:11px;font-family:'Inter',sans-serif;min-width:30px">${esc(sz)}</span>
+        <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
+        <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
+        <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
+    }).join('') : (() => {
+      const q = cart[key0] ? cart[key0].qty : 0;
+      return `<div class="qty-row"><button class="qty-btn" onclick="changeQty('${p.id}','',-1)">−</button>
+        <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
+        <button class="qty-btn" onclick="changeQty('${p.id}','',1)">+</button></div>`;
+    })();
+    return `<div class="product-card">
+      ${img}
+      <div class="product-info">
+        <div class="product-ref">${esc(p.reference)}</div>
+        <div class="product-desc">${esc(sentenceCase(p.description))}</div>
+        <div class="product-meta">${esc(p.color||'')}</div>
+        <div class="product-price">${Number(p.price||0).toFixed(2)} €</div>
+        ${qtyHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function changeQty(productId, size, delta) {
+  const p = currentProducts.find(x => x.id === productId);
+  const key = currentBrand.id + '|' + productId + '|' + size;
+  if (!cart[key]) cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: p.color, size, qty: 0, price: p.price };
+  cart[key].qty = Math.max(0, cart[key].qty + delta);
+  if (cart[key].qty === 0) delete cart[key];
+  const elId = `qd_${productId}_${size.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const el = document.getElementById(elId);
+  if (el) { el.textContent = cart[key] ? cart[key].qty : 0; el.classList.toggle('active', !!cart[key] && cart[key].qty > 0); }
+  updateCartBar();
+}
+
+function updateCartBar() {
+  const items = Object.values(cart);
+  const count = items.reduce((s,i) => s + i.qty, 0);
+  const total = items.reduce((s,i) => s + i.qty * parseFloat(i.price||0), 0);
+  document.getElementById('cart-count').textContent = count;
+  document.getElementById('cart-total').textContent = total.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('cart-bar').style.display = count > 0 && document.getElementById('view-catalog').style.display !== 'none' ? 'flex' : 'none';
+}
+
+function renderCart() {
+  document.getElementById('cart-bar').style.display = 'none';
+  const items = Object.values(cart);
+  const byBrand = {};
+  items.forEach(i => { (byBrand[i.brand_id] = byBrand[i.brand_id] || []).push(i); });
+
+  const linesHtml = Object.entries(byBrand).map(([brandId, lines]) => {
+    const brandTotal = lines.reduce((s,l) => s + l.qty * parseFloat(l.price||0), 0);
+    return `<div style="margin-bottom:20px">
+      <div style="font-family:var(--dot),monospace;font-size:13px;color:var(--accent);margin-bottom:8px">${esc(lines[0].brand_name)}</div>
+      ${lines.map(l => `<div style="display:flex;justify-content:space-between;font-size:12px;font-family:'Inter',sans-serif;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span>${esc(l.reference)} ${l.size ? '— ' + esc(l.size) : ''} × ${l.qty}</span>
+        <span>${(l.qty * parseFloat(l.price||0)).toFixed(2)} €</span>
+      </div>`).join('')}
+      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:6px">Sous-total : ${brandTotal.toFixed(2)} €</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('cart-lines').innerHTML = linesHtml || '<p class="msg">Votre sélection est vide.</p>';
+
+  const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
+    const brand = allBrands.find(b => b.id === brandId);
+    return `<div class="cgv-box"><h4>${esc(lines[0].brand_name)} — CGV</h4>${esc(brand?.cgv_text || 'Conditions générales de vente standard.')}</div>`;
+  }).join('');
+  document.getElementById('cgv-blocks').innerHTML = cgvHtml;
+
+  if (me) {
+    document.getElementById('ck-name').value = me.name || '';
+    document.getElementById('ck-company').value = me.company || '';
+    document.getElementById('ck-phone').value = me.phone || '';
+    document.getElementById('ck-country').value = me.country || '';
+  }
+
+  initSigCanvas();
+}
+
+// ── Signature ──
+let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true;
+function initSigCanvas() {
+  sigCanvas = document.getElementById('sig-canvas');
+  sigCtx = sigCanvas.getContext('2d');
+  const rect = sigCanvas.getBoundingClientRect();
+  sigCanvas.width = rect.width || 600;
+  sigCanvas.height = 120;
+  sigCtx.strokeStyle = '#0a0a0a';
+  sigCtx.lineWidth = 2;
+  sigCtx.lineCap = 'round';
+  sigEmpty = true;
+
+  const getPos = e => {
+    const r = sigCanvas.getBoundingClientRect();
+    const scaleX = sigCanvas.width / r.width;
+    return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleX };
+  };
+  sigCanvas.onmousedown = e => { sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
+  sigCanvas.onmousemove = e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; };
+  sigCanvas.onmouseup = () => { sigDrawing = false; };
+  sigCanvas.onmouseleave = () => { sigDrawing = false; };
+  sigCanvas.ontouchstart = e => { e.preventDefault(); sigDrawing = true; const p = getPos(e.touches[0]); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
+  sigCanvas.ontouchmove = e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e.touches[0]); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; };
+  sigCanvas.ontouchend = () => { sigDrawing = false; };
+}
+
+function clearSig() {
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigEmpty = true;
+}
+
+async function submitCheckout() {
+  const msg = document.getElementById('checkout-msg');
+  const client_name = document.getElementById('ck-name').value.trim();
+  if (!client_name) { msg.innerHTML = '<div class="msg error">Nom requis.</div>'; return; }
+  if (!document.getElementById('ck-cgv').checked) { msg.innerHTML = '<div class="msg error">Veuillez accepter les CGV.</div>'; return; }
+  if (sigEmpty) { msg.innerHTML = '<div class="msg error">Signature requise.</div>'; return; }
+  if (!Object.keys(cart).length) { msg.innerHTML = '<div class="msg error">Sélection vide.</div>'; return; }
+
+  document.getElementById('btn-confirm-order').disabled = true;
+  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty }));
+  const buyer_signature = sigCanvas.toDataURL('image/png');
+
+  try {
+    const r = await fetch('/api/portal/checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lines, client_name,
+        client_company: document.getElementById('ck-company').value.trim(),
+        client_phone: document.getElementById('ck-phone').value.trim(),
+        client_country: document.getElementById('ck-country').value.trim(),
+        buyer_signature, cgv_accepted: 1
+      })
+    }).then(r => r.json());
+
+    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; document.getElementById('btn-confirm-order').disabled = false; return; }
+
+    Object.keys(cart).forEach(k => delete cart[k]);
+    document.getElementById('view-cart').style.display = 'none';
+    document.getElementById('view-success').style.display = 'block';
+    const brandNames = r.orders.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
+    document.getElementById('success-detail').innerHTML =
+      `Votre sélection a été transmise pour : <strong>${esc(brandNames)}</strong>.<br><br>
+       Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`;
+  } catch(e) {
+    msg.innerHTML = '<div class="msg error">Erreur, réessayez.</div>';
+    document.getElementById('btn-confirm-order').disabled = false;
+  }
+}
+
+async function loadOrders() {
+  const data = await fetch('/api/portal/orders').then(r => r.json());
+  const list = document.getElementById('orders-list');
+  if (!data.length) { list.innerHTML = '<p class="msg">Aucune commande pour le moment.</p>'; return; }
+  const statusLabel = { confirmed: 'Reçue', validated: 'Validée', cancelled: 'Annulée' };
+  list.innerHTML = data.map(o => `
+    <div class="order-card">
+      <div style="font-family:var(--dot),monospace;font-size:13px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
+      <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);margin-top:2px">${new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="font-family:var(--dot),monospace;font-size:16px;color:var(--accent);margin-top:6px">${Number(o.total||0).toFixed(2)} €</div>
+      <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span><br>
+      <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);text-decoration:underline;display:inline-block;margin-top:8px">📄 Télécharger le PDF</a>
+    </div>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>

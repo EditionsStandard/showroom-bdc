@@ -642,24 +642,21 @@ app.post('/api/public/selection-pdf', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/public/orders', async (req, res) => {
-  const { brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted } = req.body;
-  if (!brand_id || !client_name || !client_email || !lines?.length) {
-    return res.status(400).json({ error: 'Données incomplètes' });
-  }
-  const validLines = lines.filter(l => l.quantity > 0);
-  if (!validLines.length) return res.status(400).json({ error: 'Aucune quantité saisie' });
+async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
+  const validLines = (lines || []).filter(l => l.quantity > 0);
+  if (!validLines.length) return { error: 'Aucune quantité saisie' };
 
   const brandCheck = await pool.query('SELECT subscription_status FROM brands WHERE id=$1', [brand_id]);
-  if (brandCheck.rows[0]?.subscription_status === 'inactive') {
-    return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
+  if (!brandCheck.rows[0]) return { error: 'Marque introuvable' };
+  if (brandCheck.rows[0].subscription_status === 'inactive') {
+    return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
   }
 
   const orderId = uuidv4();
   await pool.query(
-    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10)`,
-    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0]
+    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11)`,
+    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null]
   );
 
   for (const line of validLines) {
@@ -680,7 +677,140 @@ app.post('/api/public/orders', async (req, res) => {
   const orderTotal = parseFloat(totRes.rows[0]?.total || 0);
   syncAirtable(client_email, client_company, client_name, orderTotal).catch(e => console.error('Airtable sync error:', e.message));
 
-  res.json({ ok: true, order_id: orderId });
+  return { order_id: orderId, total: orderTotal };
+}
+
+app.post('/api/public/orders', async (req, res) => {
+  const { brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted } = req.body;
+  if (!brand_id || !client_name || !client_email || !lines?.length) {
+    return res.status(400).json({ error: 'Données incomplètes' });
+  }
+  const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
+  if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
+  res.json({ ok: true, order_id: result.order_id });
+});
+
+// ==================== BUYER PORTAL (email + password, multi-brand) ====================
+
+function requireBuyerAuth(req, res, next) {
+  if (req.session?.buyerPortal) return next();
+  res.status(401).json({ error: 'Non connecté' });
+}
+
+app.get('/portal-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-login.html')));
+
+app.post('/portal-login', async (req, res) => {
+  const { email, password } = req.body;
+  const bcrypt = require('bcryptjs');
+  const r = await pool.query('SELECT * FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
+  const buyer = r.rows[0];
+  if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
+    req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
+    return res.redirect('/portal');
+  }
+  res.redirect('/portal-login?error=1');
+});
+
+app.get('/portal-logout', (req, res) => { req.session.destroy(); res.redirect('/portal-login'); });
+app.get('/portal', (req, res) => {
+  if (!req.session?.buyerPortal) return res.redirect('/portal-login');
+  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+});
+
+app.get('/api/portal/me', requireBuyerAuth, (req, res) => res.json(req.session.buyerPortal));
+
+app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, cgv_text, moq_qty, moq_amount FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
+  res.json(r.rows);
+});
+
+app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
+  const b = await pool.query("SELECT id, name, cgv_text, moq_qty, moq_amount, subscription_status FROM brands WHERE id=$1", [req.params.brandId]);
+  if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
+  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
+  res.json({ brand: b.rows[0], products: p.rows });
+});
+
+app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
+  const buyer = req.session.buyerPortal;
+  const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes } = req.body;
+  if (!lines?.length) return res.status(400).json({ error: 'Sélection vide' });
+  if (!client_name) return res.status(400).json({ error: 'Nom requis' });
+
+  // Group lines by brand — one order per brand
+  const byBrand = {};
+  for (const line of lines) {
+    if (!byBrand[line.brand_id]) byBrand[line.brand_id] = [];
+    byBrand[line.brand_id].push(line);
+  }
+
+  const results = [];
+  for (const [brand_id, brandLines] of Object.entries(byBrand)) {
+    const r = await createOrder({
+      brand_id, client_name,
+      client_email: buyer.email,
+      client_company: client_company || buyer.company,
+      client_phone: client_phone || buyer.phone,
+      client_country: client_country || buyer.country,
+      notes, lines: brandLines, buyer_signature, cgv_accepted, buyer_id: buyer.id
+    });
+    results.push({ brand_id, ...r });
+  }
+
+  res.json({ ok: true, orders: results });
+});
+
+app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query(`
+    SELECT o.*, b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
+    FROM orders o
+    JOIN brands b ON o.brand_id = b.id
+    LEFT JOIN order_lines ol ON ol.order_id = o.id
+    WHERE o.buyer_id = $1
+    GROUP BY o.id, b.name
+    ORDER BY o.created_at DESC
+  `, [req.session.buyerPortal.id]);
+  res.json(r.rows);
+});
+
+app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
+  const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
+  if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
+  try {
+    const pdf = await generateOrderPDF(req.params.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
+    res.send(pdf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: manage buyer accounts (owner + agent)
+app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
+  const r = await pool.query('SELECT id, email, name, company, phone, country, created_at FROM buyers ORDER BY created_at DESC');
+  res.json(r.rows);
+});
+
+app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
+  const { email, password, name, company, phone, country } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+  const bcrypt = require('bcryptjs');
+  const hash = await bcrypt.hash(password, 10);
+  const id = uuidv4();
+  try {
+    await pool.query(
+      'INSERT INTO buyers (id, email, password_hash, name, company, phone, country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [id, email.toLowerCase().trim(), hash, name||'', company||'', phone||'', country||'']
+    );
+    res.json({ id });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
+  await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 // ==================== BUYER ACCESS (magic link) ====================
@@ -1263,7 +1393,8 @@ async function sendOrderEmails(orderId, pdfBuffer) {
             <p style="margin:0;font-size:14px;color:#555;line-height:1.6">
               Cette proposition ne constitue <strong>pas un engagement ferme</strong>. Elle ne sera définitive qu'après :<br>
               &bull; Acceptation formelle de la marque <strong>${order.brand_name}</strong><br>
-              &bull; Signature du bon de commande par les deux parties (acheteur et agent)
+              &bull; Signature du bon de commande par les deux parties (acheteur et agent)<br><br>
+              Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.
             </p>
           </div>
 

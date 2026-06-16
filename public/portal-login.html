@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portail Acheteur — Editions Standard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; }
+  .logo-wrap { text-align: center; margin-bottom: 32px; }
+  .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
+  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 14px; letter-spacing: .02em; }
+  .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
+  label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
+  input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .2s; }
+  input:focus { border-color: var(--accent); }
+  .field { margin-bottom: 16px; }
+  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; }
+  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-wrap">
+    <img src="/logo.svg" alt="Editions Standard">
+    <h1>Portail Acheteur</h1>
+    <p>Editions Standard — Showroom</p>
+  </div>
+  <form method="POST" action="/portal-login">
+    <script>if(location.search.includes('error')) document.write('<div class="error">Email ou mot de passe incorrect.</div>')</script>
+    <div class="field"><label>Email</label><input type="email" name="email" autofocus placeholder="vous@exemple.com"></div>
+    <div class="field"><label>Mot de passe</label><input type="password" name="password" placeholder="••••••••"></div>
+    <button class="btn" type="submit">Connexion</button>
+  </form>
+</div>
+</body>
+</html>

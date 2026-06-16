@@ -274,6 +274,7 @@
     <a data-section="orders"><span class="icon">📋</span> Commandes</a>
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span> Paramètres</a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span> Comptes</a>
+    <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span> Acheteurs</a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
@@ -421,6 +422,34 @@
       <table id="staff-table">
         <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Marque</th><th></th></tr></thead>
         <tbody id="staff-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="buyers" class="section">
+    <h1>Acheteurs</h1>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Comptes du portail acheteur multi-marques (<code>/portal</code>). Un acheteur connecté voit toutes les marques actives.</p>
+    <div class="card">
+      <h3>Créer un compte acheteur</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Nom</label><input id="buyer-name" type="text" placeholder="Prénom Nom"></div>
+        <div class="form-group"><label>Société</label><input id="buyer-company" type="text" placeholder="Boutique XYZ"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email *</label><input id="buyer-email" type="email" placeholder="acheteur@exemple.com"></div>
+        <div class="form-group"><label>Mot de passe *</label><input id="buyer-password" type="password"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Téléphone</label><input id="buyer-phone" type="tel"></div>
+        <div class="form-group"><label>Pays</label><input id="buyer-country" type="text"></div>
+      </div>
+      <button class="btn btn-primary" onclick="createBuyer()">Créer le compte</button>
+    </div>
+    <div class="card">
+      <h3>Comptes acheteurs existants</h3>
+      <table id="buyers-table">
+        <thead><tr><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th></th></tr></thead>
+        <tbody id="buyers-body"></tbody>
       </table>
     </div>
   </div>
@@ -720,6 +749,7 @@ document.querySelectorAll('nav a').forEach(a => {
     if (a.dataset.section === 'orders') loadOrders();
     if (a.dataset.section === 'settings') loadSettings();
     if (a.dataset.section === 'staff') loadStaff();
+    if (a.dataset.section === 'buyers') loadBuyers();
   });
 });
 
@@ -731,6 +761,9 @@ async function initUserRole() {
     document.getElementById('nav-staff').style.display = '';
   } else {
     document.getElementById('nav-settings').style.display = 'none';
+  }
+  if (me.role === 'designer') {
+    document.getElementById('nav-buyers').style.display = 'none';
   }
 }
 initUserRole();
@@ -781,6 +814,45 @@ async function deleteStaff(id) {
   if (!confirm('Supprimer ce compte ?')) return;
   await fetch(`/api/staff/${id}`, { method: 'DELETE' });
   loadStaff();
+  toast('Compte supprimé');
+}
+
+async function loadBuyers() {
+  const buyers = await fetch('/api/buyers').then(r => r.json());
+  document.getElementById('buyers-body').innerHTML = buyers.map(b => `
+    <tr>
+      <td>${b.name || '—'}</td>
+      <td>${b.company || '—'}</td>
+      <td>${b.email}</td>
+      <td>${b.phone || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">Supprimer</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun compte acheteur</td></tr>';
+}
+
+async function createBuyer() {
+  const name = document.getElementById('buyer-name').value.trim();
+  const company = document.getElementById('buyer-company').value.trim();
+  const email = document.getElementById('buyer-email').value.trim();
+  const password = document.getElementById('buyer-password').value;
+  const phone = document.getElementById('buyer-phone').value.trim();
+  const country = document.getElementById('buyer-country').value.trim();
+  if (!email || !password) { alert('Email et mot de passe requis'); return; }
+
+  const r = await fetch('/api/buyers', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, company, email, password, phone, country })
+  }).then(r => r.json());
+  if (r.error) { alert(r.error); return; }
+
+  ['buyer-name','buyer-company','buyer-email','buyer-password','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
+  loadBuyers();
+  toast('Compte acheteur créé');
+}
+
+async function deleteBuyer(id) {
+  if (!confirm('Supprimer ce compte acheteur ?')) return;
+  await fetch(`/api/buyers/${id}`, { method: 'DELETE' });
+  loadBuyers();
   toast('Compte supprimé');
 }
 

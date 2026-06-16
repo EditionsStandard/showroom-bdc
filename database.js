@@ -29,6 +29,23 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS buyers (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT DEFAULT '',
+      company TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      country TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_id TEXT REFERENCES buyers(id) ON DELETE SET NULL;
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS seasons (
       id TEXT PRIMARY KEY,
       brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
