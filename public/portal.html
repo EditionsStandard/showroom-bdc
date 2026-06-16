@@ -20,11 +20,14 @@
   [data-theme="light"] #sig-canvas { background: #fafafa; border: 1px solid var(--border); }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s; }
-  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
-  .header h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; }
-  .header .nav { display: flex; gap: 24px; align-items: center; font-family: 'Inter', sans-serif; font-size: 13px; }
+  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-left img { width: 36px; height: 36px; border-radius: 6px; display: block; }
+  .header h1 { font-family: var(--dot), monospace; font-size: 22px; font-weight: 400; }
+  .header .nav { display: flex; gap: 22px; align-items: center; font-family: 'Inter', sans-serif; font-size: 13px; }
   .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
   .header .nav a.active { color: var(--accent); font-weight: 600; }
+  .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
   .wrap { max-width: 1400px; margin: 0 auto; padding: 36px 40px 60px; }
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
   .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
@@ -87,10 +90,14 @@
 </head>
 <body>
 <div class="header">
-  <h1>Showroom</h1>
+  <div class="header-left">
+    <a href="/" title="Retour à l'accueil"><img src="/logo.svg" alt="Editions Standard"></a>
+    <h1>Showroom</h1>
+  </div>
   <div class="nav">
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
+    <a href="/" class="nav-home">← Accueil</a>
     <a href="/portal-logout">Déconnexion</a>
   </div>
 </div>
