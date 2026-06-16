@@ -14,20 +14,20 @@
   [data-theme="light"] .brand-cover, [data-theme="light"] .brand-cover-placeholder { background: #eee; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 60px; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 48px 40px 60px; }
   .top { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
-  .top img { width: 40px; height: 40px; border-radius: 6px; }
-  h1 { font-family: var(--dot), monospace; font-size: 26px; font-weight: 400; letter-spacing: .02em; }
-  .sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin: 6px 0 36px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .brand-card { display: block; text-decoration: none; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; transition: border-color .15s; }
-  .brand-card:hover { border-color: var(--accent); }
-  .brand-cover { width: 100%; height: 110px; object-fit: cover; display: block; background: #1a1a1a; }
-  .brand-cover-placeholder { width: 100%; height: 110px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: .3; }
-  .brand-info { padding: 16px 18px; }
-  .brand-logo { height: 28px; max-width: 100px; object-fit: contain; margin-bottom: 10px; }
-  .brand-name { font-family: var(--dot), monospace; font-size: 16px; color: var(--white); letter-spacing: .01em; }
-  .brand-cta { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 6px; }
+  .top img { width: 48px; height: 48px; border-radius: 8px; }
+  h1 { font-family: var(--dot), monospace; font-size: 30px; font-weight: 400; letter-spacing: .02em; }
+  .sub { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin: 8px 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
+  .brand-card { display: block; text-decoration: none; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; transition: border-color .15s, transform .15s; }
+  .brand-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .brand-cover { width: 100%; height: 200px; object-fit: cover; display: block; background: #1a1a1a; }
+  .brand-cover-placeholder { width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
+  .brand-info { padding: 18px 20px; }
+  .brand-logo { height: 32px; max-width: 110px; object-fit: contain; margin-bottom: 12px; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 19px; color: var(--white); letter-spacing: .01em; }
+  .brand-cta { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 8px; }
   .empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); padding: 40px 0; text-align: center; }
   .footer { margin-top: 48px; text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
 </style>

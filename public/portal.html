@@ -116,8 +116,10 @@
     <h1>Showroom</h1>
   </div>
   <div class="nav">
+    <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
+    <a id="nav-account" onclick="showView('account')">Mon compte</a>
     <a href="/" class="nav-home">← Accueil</a>
     <a href="/portal-logout">Déconnexion</a>
   </div>
@@ -160,6 +162,14 @@
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 
+  <div id="view-account" style="display:none;max-width:420px">
+    <h2 class="section-title">Mon compte</h2>
+    <div class="field"><label>Mot de passe actuel</label><input id="pw-current" type="password"></div>
+    <div class="field"><label>Nouveau mot de passe</label><input id="pw-new" type="password"></div>
+    <button class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
+    <div id="pw-msg"></div>
+  </div>
+
   <div id="view-success" style="display:none;text-align:center;padding:60px 0;max-width:560px;margin:0 auto">
     <div class="success-check">✓</div>
     <h2 class="section-title" style="text-align:center">Sélection confirmée</h2>
@@ -193,9 +203,35 @@ let me = null;
 let allBrands = [];
 let currentBrand = null;
 let currentProducts = [];
+let CART_KEY = 'portal_cart';
+let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
+let selectedCurrency = currenciesData[0];
 const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function fmtPrice(amountEur) {
+  const converted = parseFloat(amountEur || 0) * (selectedCurrency.rate || 1);
+  return converted.toFixed(2) + ' ' + selectedCurrency.symbol;
+}
+
+function changeCurrency(code) {
+  selectedCurrency = currenciesData.find(c => c.code === code) || currenciesData[0];
+  if (currentBrand) renderProductsList();
+  if (document.getElementById('view-cart').style.display !== 'none') renderCart();
+  updateCartBar();
+}
+
+function saveCart() {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+
+function restoreCart() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
+    Object.entries(saved).forEach(([k, v]) => { if (v.qty > 0) cart[k] = v; });
+  } catch(e) {}
+}
 
 function sentenceCase(s) {
   s = String(s||'');
@@ -208,21 +244,52 @@ function sentenceCase(s) {
 
 async function init() {
   me = await fetch('/api/portal/me').then(r => r.json());
+  CART_KEY = 'portal_cart_' + (me.email || 'default');
+  restoreCart();
   allBrands = await fetch('/api/portal/brands').then(r => r.json());
   renderBrandPicker();
+  updateCartBar();
+
+  const currencies = await fetch('/api/portal/currencies').then(r => r.json());
+  if (currencies && currencies.length) {
+    currenciesData = currencies;
+    selectedCurrency = currenciesData[0];
+    if (currenciesData.length > 1) {
+      const sel = document.getElementById('currency-select');
+      sel.style.display = '';
+      sel.innerHTML = currenciesData.map(c => `<option value="${c.code}">${c.code} ${c.symbol}</option>`).join('');
+    }
+  }
 }
 
 function showView(view) {
   document.getElementById('view-catalog').style.display = view === 'catalog' ? 'block' : 'none';
   document.getElementById('view-cart').style.display = view === 'cart' ? 'block' : 'none';
   document.getElementById('view-orders').style.display = view === 'orders' ? 'block' : 'none';
+  document.getElementById('view-account').style.display = view === 'account' ? 'block' : 'none';
   document.getElementById('view-success').style.display = 'none';
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
+  document.getElementById('nav-account').classList.toggle('active', view === 'account');
   document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).length) ? 'flex' : (view === 'cart' ? 'none' : document.getElementById('cart-bar').style.display);
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
+}
+
+async function changePassword() {
+  const currentPassword = document.getElementById('pw-current').value;
+  const newPassword = document.getElementById('pw-new').value;
+  const msg = document.getElementById('pw-msg');
+  if (!currentPassword || !newPassword) { msg.innerHTML = '<div class="msg error">Tous les champs sont requis.</div>'; return; }
+  const r = await fetch('/api/portal/change-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword })
+  }).then(r => r.json());
+  if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
+  document.getElementById('pw-current').value = '';
+  document.getElementById('pw-new').value = '';
+  msg.innerHTML = '<div class="msg">Mot de passe mis à jour ✓</div>';
 }
 
 function renderBrandPicker() {
@@ -301,7 +368,7 @@ function renderProductsList() {
         <div class="product-ref">${esc(p.reference)}</div>
         <div class="product-desc">${esc(sentenceCase(p.description))}</div>
         <div class="product-meta">${esc(p.color||'')}</div>
-        <div class="product-price">${Number(p.price||0).toFixed(2)} €</div>
+        <div class="product-price">${fmtPrice(p.price)}</div>
         ${qtyHtml}
       </div>
     </div>`;
@@ -317,6 +384,7 @@ function changeQty(productId, size, delta) {
   const elId = `qd_${productId}_${size.replace(/[^a-zA-Z0-9]/g,'_')}`;
   const el = document.getElementById(elId);
   if (el) { el.textContent = cart[key] ? cart[key].qty : 0; el.classList.toggle('active', !!cart[key] && cart[key].qty > 0); }
+  saveCart();
   updateCartBar();
 }
 
@@ -325,7 +393,7 @@ function updateCartBar() {
   const count = items.reduce((s,i) => s + i.qty, 0);
   const total = items.reduce((s,i) => s + i.qty * parseFloat(i.price||0), 0);
   document.getElementById('cart-count').textContent = count;
-  document.getElementById('cart-total').textContent = total.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('cart-total').textContent = fmtPrice(total);
   document.getElementById('cart-bar').style.display = count > 0 && document.getElementById('view-catalog').style.display !== 'none' ? 'flex' : 'none';
 }
 
@@ -335,19 +403,34 @@ function renderCart() {
   const byBrand = {};
   items.forEach(i => { (byBrand[i.brand_id] = byBrand[i.brand_id] || []).push(i); });
 
+let moqBlocked = false;
   const linesHtml = Object.entries(byBrand).map(([brandId, lines]) => {
     const brandTotal = lines.reduce((s,l) => s + l.qty * parseFloat(l.price||0), 0);
+    const brandQty = lines.reduce((s,l) => s + l.qty, 0);
+    const brand = allBrands.find(b => b.id === brandId);
+    const moqQty = parseInt(brand?.moq_qty) || 0;
+    const moqAmount = parseFloat(brand?.moq_amount) || 0;
+    let moqWarnHtml = '';
+    if ((moqQty > 0 && brandQty < moqQty) || (moqAmount > 0 && brandTotal < moqAmount)) {
+      moqBlocked = true;
+      const parts = [];
+      if (moqQty > 0 && brandQty < moqQty) parts.push(`minimum ${moqQty} pièces (actuellement ${brandQty})`);
+      if (moqAmount > 0 && brandTotal < moqAmount) parts.push(`minimum ${moqAmount.toFixed(2)} € HT (actuellement ${brandTotal.toFixed(2)} €)`);
+      moqWarnHtml = `<div class="msg error" style="margin-top:8px">⚠ ${esc(lines[0].brand_name)} : ${parts.join(' — ')}</div>`;
+    }
     return `<div style="margin-bottom:20px">
       <div style="font-family:var(--dot),monospace;font-size:13px;color:var(--accent);margin-bottom:8px">${esc(lines[0].brand_name)}</div>
       ${lines.map(l => `<div style="display:flex;justify-content:space-between;font-size:12px;font-family:'Inter',sans-serif;padding:6px 0;border-bottom:1px solid var(--border)">
         <span>${esc(l.reference)} ${l.size ? '— ' + esc(l.size) : ''} × ${l.qty}</span>
-        <span>${(l.qty * parseFloat(l.price||0)).toFixed(2)} €</span>
+        <span>${fmtPrice(l.qty * parseFloat(l.price||0))}</span>
       </div>`).join('')}
-      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:6px">Sous-total : ${brandTotal.toFixed(2)} €</div>
+      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:6px">Sous-total : ${fmtPrice(brandTotal)}</div>
+      ${moqWarnHtml}
     </div>`;
   }).join('');
 
   document.getElementById('cart-lines').innerHTML = linesHtml || '<p class="msg">Votre sélection est vide.</p>';
+  document.getElementById('btn-confirm-order').disabled = moqBlocked;
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
     const brand = allBrands.find(b => b.id === brandId);
@@ -424,6 +507,7 @@ async function submitCheckout() {
     if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; document.getElementById('btn-confirm-order').disabled = false; return; }
 
     Object.keys(cart).forEach(k => delete cart[k]);
+    saveCart();
     document.getElementById('view-cart').style.display = 'none';
     document.getElementById('view-success').style.display = 'block';
     const brandNames = r.orders.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');

@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
@@ -51,6 +52,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
+  store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
   secret: process.env.SESSION_SECRET || 'showroom-durand-secret-2024',
   resave: false,
   saveUninitialized: false,
@@ -131,7 +133,7 @@ app.post('/admin/login', async (req, res) => {
   }
 });
 
-app.get('/admin/logout', (req, res) => { req.session.destroy(); res.redirect('/admin/login'); });
+app.get('/admin/logout', (req, res) => { delete req.session.admin; delete req.session.staffUser; res.redirect('/admin/login'); });
 app.get('/admin', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 app.get('/api/me', requireAdmin, (req, res) => {
@@ -605,7 +607,7 @@ app.get('/api/public/cgv', async (req, res) => {
 });
 
 app.get('/api/public/brands/:brandId', async (req, res) => {
-  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount,subscription_status FROM brands WHERE id=$1', [req.params.brandId]);
+  const b = await pool.query('SELECT id,name,logo_url,logo,cover_image,cgv_text,about_text,moq_qty,moq_amount,subscription_status FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   if (b.rows[0].subscription_status === 'inactive') {
     return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
@@ -645,12 +647,29 @@ app.post('/api/public/selection-pdf', async (req, res) => {
 async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
   const validLines = (lines || []).filter(l => l.quantity > 0);
   if (!validLines.length) return { error: 'Aucune quantité saisie' };
+  if (!buyer_signature) return { error: 'Signature requise' };
+  if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
 
-  const brandCheck = await pool.query('SELECT subscription_status FROM brands WHERE id=$1', [brand_id]);
+  const brandCheck = await pool.query('SELECT subscription_status, moq_qty, moq_amount FROM brands WHERE id=$1', [brand_id]);
   if (!brandCheck.rows[0]) return { error: 'Marque introuvable' };
   if (brandCheck.rows[0].subscription_status === 'inactive') {
     return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
   }
+
+  // Resolve product prices server-side (never trust client-submitted prices)
+  const resolvedLines = [];
+  for (const line of validLines) {
+    const p = await pool.query('SELECT * FROM products WHERE id=$1', [line.product_id]);
+    if (!p.rows[0]) continue;
+    resolvedLines.push({ ...line, product: p.rows[0] });
+  }
+
+  const totalQty = resolvedLines.reduce((s, l) => s + l.quantity, 0);
+  const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * parseFloat(l.product.price || 0), 0);
+  const moqQty = parseInt(brandCheck.rows[0].moq_qty) || 0;
+  const moqAmount = parseFloat(brandCheck.rows[0].moq_amount) || 0;
+  if (moqQty > 0 && totalQty < moqQty) return { error: `Minimum ${moqQty} pièces requis pour cette marque (sélection actuelle : ${totalQty}).` };
+  if (moqAmount > 0 && totalAmount < moqAmount) return { error: `Montant minimum de ${moqAmount.toFixed(2)} € HT requis pour cette marque (sélection actuelle : ${totalAmount.toFixed(2)} €).` };
 
   const orderId = uuidv4();
   await pool.query(
@@ -659,12 +678,10 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null]
   );
 
-  for (const line of validLines) {
-    const p = await pool.query('SELECT * FROM products WHERE id=$1', [line.product_id]);
-    if (!p.rows[0]) continue;
+  for (const line of resolvedLines) {
     await pool.query(
       'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, p.rows[0].price, p.rows[0].price_retail||0]
+      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0]
     );
   }
 
@@ -711,13 +728,35 @@ app.post('/portal-login', async (req, res) => {
   res.redirect('/portal-login?error=1');
 });
 
-app.get('/portal-logout', (req, res) => { req.session.destroy(); res.redirect('/portal-login'); });
+app.get('/portal-logout', (req, res) => { delete req.session.buyerPortal; res.redirect('/portal-login'); });
 app.get('/portal', (req, res) => {
   if (!req.session?.buyerPortal) return res.redirect('/portal-login');
   res.sendFile(path.join(__dirname, 'public', 'portal.html'));
 });
 
 app.get('/api/portal/me', requireBuyerAuth, (req, res) => res.json(req.session.buyerPortal));
+
+app.get('/api/portal/currencies', requireBuyerAuth, async (req, res) => {
+  let currencies = [];
+  try { currencies = JSON.parse(await getSetting('currencies_json') || '[]'); } catch(e) {}
+  res.json(currencies);
+});
+
+app.post('/api/portal/change-password', requireBuyerAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
+  if (newPassword.length < 6) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
+
+  const bcrypt = require('bcryptjs');
+  const r = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+  const buyer = r.rows[0];
+  if (!buyer || !await bcrypt.compare(currentPassword, buyer.password_hash)) {
+    return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+  }
+  const hash = await bcrypt.hash(newPassword, 10);
+  await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyer.id]);
+  res.json({ ok: true });
+});
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, cgv_text, moq_qty, moq_amount FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
@@ -731,17 +770,47 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
   res.json({ brand: b.rows[0], products: p.rows });
 });
 
+async function checkMoq(brand_id, lines) {
+  const validLines = (lines || []).filter(l => l.quantity > 0);
+  const b = await pool.query('SELECT moq_qty, moq_amount FROM brands WHERE id=$1', [brand_id]);
+  if (!b.rows[0]) return 'Marque introuvable';
+  const moqQty = parseInt(b.rows[0].moq_qty) || 0;
+  const moqAmount = parseFloat(b.rows[0].moq_amount) || 0;
+  if (!moqQty && !moqAmount) return null;
+
+  let totalQty = 0, totalAmount = 0;
+  for (const line of validLines) {
+    const p = await pool.query('SELECT price FROM products WHERE id=$1', [line.product_id]);
+    if (!p.rows[0]) continue;
+    totalQty += line.quantity;
+    totalAmount += line.quantity * parseFloat(p.rows[0].price || 0);
+  }
+  if (moqQty > 0 && totalQty < moqQty) return `Minimum ${moqQty} pièces requis (sélection actuelle : ${totalQty}).`;
+  if (moqAmount > 0 && totalAmount < moqAmount) return `Montant minimum de ${moqAmount.toFixed(2)} € HT requis (sélection actuelle : ${totalAmount.toFixed(2)} €).`;
+  return null;
+}
+
 app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes } = req.body;
   if (!lines?.length) return res.status(400).json({ error: 'Sélection vide' });
   if (!client_name) return res.status(400).json({ error: 'Nom requis' });
+  if (!buyer_signature) return res.status(400).json({ error: 'Signature requise' });
+  if (!cgv_accepted) return res.status(400).json({ error: 'Acceptation des CGV requise' });
 
   // Group lines by brand — one order per brand
   const byBrand = {};
   for (const line of lines) {
     if (!byBrand[line.brand_id]) byBrand[line.brand_id] = [];
     byBrand[line.brand_id].push(line);
+  }
+
+  // Validate MOQ for every brand BEFORE creating any order — all or nothing
+  const brandsList = await pool.query('SELECT id, name FROM brands WHERE id = ANY($1)', [Object.keys(byBrand)]);
+  const brandNameOf = id => brandsList.rows.find(b => b.id === id)?.name || id;
+  for (const [brand_id, brandLines] of Object.entries(byBrand)) {
+    const moqError = await checkMoq(brand_id, brandLines);
+    if (moqError) return res.status(400).json({ error: `${brandNameOf(brand_id)} : ${moqError}` });
   }
 
   const results = [];

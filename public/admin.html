@@ -1255,7 +1255,10 @@ async function refreshProducts() {
   const products = await fetch(`/api/brands/${currentBrandId}/products`).then(r => r.json());
   const tbody = document.getElementById('products-body');
   tbody.innerHTML = products.map(p => {
-    const imgThumb = p.image_url ? `<img src="${p.image_url}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
+    let _thumbImgs = [];
+    try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
+    const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
+    const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
     const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',season_id:p.season_id||'',reference:p.reference,description:p.description||'',color:p.color||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
     return `<tr>
       <td>${p.collection_name ? `<span class="tag" style="background:#2a2a4a;color:#aaa">${p.collection_name}</span>` : '—'}</td>

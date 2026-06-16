@@ -412,6 +412,7 @@
     </div>
   </div>
   <div class="landing-body">
+    <p id="landing-about" style="display:none;font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:16px"></p>
     <div class="landing-moq" id="landing-moq"></div>
     <div class="landing-agent-card" id="landing-agent-card" style="display:none">
       <div class="landing-agent-avatar" id="landing-agent-avatar">ES</div>
@@ -893,6 +894,11 @@ async function init() {
       ci.src = data.brand.cover_image;
       ci.style.display = 'block';
     }
+    if (data.brand.about_text) {
+      const aboutEl = document.getElementById('landing-about');
+      aboutEl.textContent = data.brand.about_text;
+      aboutEl.style.display = 'block';
+    }
 
     // Agent card
     if (agentData.name) {
@@ -1167,7 +1173,7 @@ function updateCartBar() {
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
   const totalPrice = items.reduce((s, i) => s + i.qty * parseFloat(i.product.price || 0), 0);
   document.getElementById('cart-count').textContent = T('cart_items', totalQty);
-  document.getElementById('cart-total').textContent = totalPrice.toFixed(2).replace('.', ',') + ' €';
+  document.getElementById('cart-total').textContent = fmtPrice(totalPrice);
   document.getElementById('btn-next').disabled = totalQty === 0;
 }
 
@@ -1255,6 +1261,10 @@ document.getElementById('btn-next').addEventListener('click', function() {
     if (!country) { alert(T('err_country')); return; }
     goToPage(3);
   } else if (currentPage === 3) {
+    if (document.getElementById('moq-warning').style.display !== 'none') {
+      document.getElementById('moq-warning').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     goToPage(4);
   }
 });
@@ -1294,7 +1304,7 @@ function renderRecap() {
       + lines.map(l => {
           const k = l.product.id + '|' + l.color + '|' + l.size;
           const pu = parseFloat(l.product.price || 0);
-          const lineTotal = (l.qty * pu).toFixed(2);
+          const lineTotal = fmtPrice(l.qty * pu);
           const colorLabel = l.color || l.product.color || '—';
           // Thumbnail
           let imgs = [];
@@ -1312,7 +1322,7 @@ function renderRecap() {
             + '<span class="recap-edit-num">' + l.qty + '</span>'
             + '<button class="recap-edit-btn" onclick="recapChangeQty(' + JSON.stringify(k) + ',1)">+</button>'
             + '</div></td>'
-            + '<td>' + lineTotal + ' €</td>'
+            + '<td>' + lineTotal + '</td>'
             + '<td><button class="recap-edit-btn" style="color:#e74c3c" onclick="recapChangeQty(' + JSON.stringify(k) + ',-999)">✕</button></td>'
             + '</tr>';
         }).join('')
@@ -1321,7 +1331,7 @@ function renderRecap() {
     document.getElementById('recap-lines').innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0">' + T('no_items') + '</div>';
   }
 
-  document.getElementById('recap-total').textContent = total.toFixed(2).replace('.', ',') + ' €';
+  document.getElementById('recap-total').textContent = fmtPrice(total);
 
   // MOQ warning
   const moqWarn = document.getElementById('moq-warning');
@@ -1601,14 +1611,14 @@ function buildMailtoLink(email, clientName, orderId) {
   body += T('mailto_summary') + '\n' + '─'.repeat(40) + '\n\n';
   lines.forEach(l => {
     const pu = parseFloat(l.product.price||0);
-    const lt = (l.qty * pu).toFixed(2).replace('.',',');
+    const lt = fmtPrice(l.qty * pu);
     const parts = [l.product.reference];
     if (l.color) parts.push(l.color);
     if (l.size) parts.push(l.size);
-    body += '• ' + parts.join(' / ') + '  ×' + l.qty + '  →  ' + lt + ' €\n';
+    body += '• ' + parts.join(' / ') + '  ×' + l.qty + '  →  ' + lt + '\n';
   });
   body += '\n' + '─'.repeat(40) + '\n';
-  body += T('mailto_total') + ' : ' + total.toFixed(2).replace('.',',') + ' €\n\n';
+  body += T('mailto_total') + ' : ' + fmtPrice(total) + '\n\n';
   body += T('mailto_warning') + '\n\n';
   if (brandCgvText) {
     body += T('mailto_cgv_title') + '\n' + '─'.repeat(40) + '\n' + brandCgvText + '\n\n';
