@@ -8,58 +8,82 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#555; --soft:#999; --white:#f5f4f0; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  :root {
+    --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#777; --soft:#bbb; --white:#f5f4f0; --accent:#CCEB3C;
+    --dot:'DotGothic16','Space Mono',monospace;
+  }
+  [data-theme="light"] {
+    --black:#f5f4f0; --dark:#fff; --mid:#eee; --border:#ddd; --muted:#888; --soft:#444; --white:#111; --accent:#6b8500;
+  }
+  [data-theme="light"] .cart-bar { background: #111; color: #fff; }
+  [data-theme="light"] .cart-bar button { background: #CCEB3C; color: #111; }
+  [data-theme="light"] #sig-canvas { background: #fafafa; border: 1px solid var(--border); }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 70px; }
-  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
-  .header h1 { font-family: var(--dot), monospace; font-size: 18px; font-weight: 400; }
-  .header .nav { display: flex; gap: 14px; align-items: center; font-family: 'Inter', sans-serif; font-size: 11px; }
+  html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s; }
+  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+  .header h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; }
+  .header .nav { display: flex; gap: 24px; align-items: center; font-family: 'Inter', sans-serif; font-size: 13px; }
   .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
-  .header .nav a.active { color: var(--accent); }
-  .wrap { max-width: 700px; margin: 0 auto; padding: 24px 20px; }
-  .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-  .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color .15s; }
-  .brand-card:hover { border-color: var(--accent); }
-  .brand-cover { width: 100%; height: 90px; object-fit: cover; display: block; background: #1a1a1a; }
-  .brand-cover-ph { width: 100%; height: 90px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 22px; opacity: .3; }
-  .brand-info { padding: 12px 14px; }
-  .brand-name { font-family: var(--dot), monospace; font-size: 14px; }
-  .back-btn { background: none; border: none; color: var(--soft); font-size: 11px; cursor: pointer; margin-bottom: 16px; font-family: 'Inter', sans-serif; letter-spacing: .06em; }
-  .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 14px; margin-bottom: 10px; display: flex; gap: 14px; }
-  .product-img { width: 80px; height: 80px; object-fit: cover; border-radius: 3px; background: #1a1a1a; flex-shrink: 0; }
-  .product-info { flex: 1; min-width: 0; }
-  .product-ref { font-family: var(--dot), monospace; font-size: 14px; }
-  .product-desc { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--soft); margin-top: 4px; line-height: 1.5; }
-  .product-meta { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); margin-top: 4px; }
-  .product-price { font-size: 12px; color: var(--accent); margin-top: 6px; font-weight: 700; }
-  .qty-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-  .qty-row select { background: var(--black); border: 1px solid var(--border); color: var(--white); padding: 4px 8px; font-size: 11px; font-family: 'Inter', sans-serif; border-radius: 2px; }
-  .qty-btn { width: 26px; height: 26px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 14px; border-radius: 2px; }
-  .qty-display { min-width: 24px; text-align: center; font-size: 13px; font-weight: 700; }
+  .header .nav a.active { color: var(--accent); font-weight: 600; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 36px 40px 60px; }
+  h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
+  .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
+  .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .brand-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .brand-cover { width: 100%; height: 200px; object-fit: cover; display: block; background: #1a1a1a; }
+  .brand-cover-ph { width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
+  .brand-info { padding: 18px 20px; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 19px; }
+  .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Inter', sans-serif; letter-spacing: .06em; }
+  .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+  .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .product-img { width: 100%; height: 280px; object-fit: cover; background: #1a1a1a; display: block; }
+  .product-info { padding: 18px 20px; }
+  .product-ref { font-family: var(--dot), monospace; font-size: 17px; }
+  .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.6; }
+  .product-meta { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .product-price { font-size: 16px; color: var(--accent); margin-top: 10px; font-weight: 700; font-family: var(--dot), monospace; }
+  .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .qty-btn { width: 32px; height: 32px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 16px; border-radius: 4px; }
+  .qty-display { min-width: 28px; text-align: center; font-size: 15px; font-weight: 700; }
   .qty-display.active { color: var(--accent); }
-  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 60; }
-  .cart-bar strong { font-family: var(--dot), monospace; font-size: 16px; }
-  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 10px 18px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 2px; font-family: 'Space Mono', monospace; }
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
-  .field input, .field select, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 2px; padding: 10px 12px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
+  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; z-index: 60; }
+  .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; }
+  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 4px; font-family: 'Space Mono', monospace; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; font-family: 'Inter', sans-serif; }
+  .field input, .field select, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; color: var(--white); font-size: 15px; font-family: 'Inter', sans-serif; outline: none; }
   .field input:focus, .field select:focus { border-color: var(--accent); }
-  .cgv-box { background: var(--dark); border: 1px dotted var(--border); border-radius: 2px; padding: 14px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--soft); line-height: 1.6; margin-bottom: 10px; max-height: 140px; overflow-y: auto; }
-  .cgv-box h4 { font-family: var(--dot), monospace; font-size: 12px; color: var(--white); margin-bottom: 6px; font-weight: 400; }
-  .checkbox-row { display: flex; align-items: flex-start; gap: 8px; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); margin: 16px 0; }
-  #sig-canvas { background: #fff; border-radius: 2px; width: 100%; height: 120px; touch-action: none; cursor: crosshair; }
-  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 16px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; font-family: 'Space Mono', monospace; margin-top: 16px; }
+  .cgv-box { background: var(--dark); border: 1px dotted var(--border); border-radius: 4px; padding: 16px; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); line-height: 1.7; margin-bottom: 12px; max-height: 160px; overflow-y: auto; }
+  .cgv-box h4 { font-family: var(--dot), monospace; font-size: 14px; color: var(--white); margin-bottom: 8px; font-weight: 400; }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin: 18px 0; }
+  #sig-canvas { background: #fff; border-radius: 4px; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
+  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; border-radius: 4px; font-family: 'Space Mono', monospace; margin-top: 18px; max-width: 480px; }
   .btn-confirm:disabled { opacity: .4; cursor: default; }
-  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; margin-bottom: 10px; }
-  .order-status { display: inline-block; font-size: 9px; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Space Mono', monospace; margin-top: 6px; }
+  .checkout-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; }
+  @media (max-width: 900px) { .checkout-layout { grid-template-columns: 1fr; } }
+  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; padding: 20px 22px; margin-bottom: 14px; }
+  .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .order-status { display: inline-block; font-size: 10px; padding: 4px 12px; border-radius: 10px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Space Mono', monospace; margin-top: 8px; }
   .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
   .order-status.validated { background: #1f3d1f; color: #5ec95e; }
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
-  .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
-  .success-check { width:60px; height:60px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:24px; color:var(--accent); }
-  .msg { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; padding: 14px; background: var(--dark); border-radius: 2px; margin-top: 12px; }
+  .loader { text-align: center; padding: 60px; color: var(--muted); font-size: 14px; }
+  .success-check { width:72px; height:72px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; color:var(--accent); }
+  .msg { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 4px; margin-top: 14px; }
   .msg.error { color: var(--accent); }
 </style>
+<script>
+// Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash
+(function() {
+  function getTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', getTheme());
+})();
+</script>
 </head>
 <body>
 <div class="header">
@@ -79,36 +103,38 @@
 
   <div id="view-cart" style="display:none">
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
-    <h2 style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:16px">Ma sélection</h2>
-    <div id="cart-lines"></div>
-    <div id="checkout-form" style="margin-top:24px">
-      <div class="field"><label>Nom complet *</label><input id="ck-name"></div>
-      <div class="field"><label>Société</label><input id="ck-company"></div>
-      <div class="field"><label>Téléphone</label><input id="ck-phone"></div>
-      <div class="field"><label>Pays</label><input id="ck-country"></div>
-      <div id="cgv-blocks"></div>
-      <div class="checkbox-row">
-        <input type="checkbox" id="ck-cgv" style="margin-top:2px">
-        <label for="ck-cgv">J'ai lu et j'accepte les conditions générales de vente de chaque marque sélectionnée. Je comprends que cette commande sera approuvée et finalisée selon les critères propres à chaque marque.</label>
+    <h2 class="section-title">Ma sélection</h2>
+    <div class="checkout-layout">
+      <div id="cart-lines"></div>
+      <div id="checkout-form">
+        <div class="field"><label>Nom complet *</label><input id="ck-name"></div>
+        <div class="field"><label>Société</label><input id="ck-company"></div>
+        <div class="field"><label>Téléphone</label><input id="ck-phone"></div>
+        <div class="field"><label>Pays</label><input id="ck-country"></div>
+        <div id="cgv-blocks"></div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="ck-cgv" style="margin-top:2px">
+          <label for="ck-cgv">J'ai lu et j'accepte les conditions générales de vente de chaque marque sélectionnée. Je comprends que cette commande sera approuvée et finalisée selon les critères propres à chaque marque.</label>
+        </div>
+        <canvas id="sig-canvas"></canvas>
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
+          <a onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
+        </div>
+        <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
+        <div id="checkout-msg"></div>
       </div>
-      <canvas id="sig-canvas"></canvas>
-      <div style="display:flex;justify-content:space-between;margin-top:6px">
-        <span style="font-family:'Inter',sans-serif;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
-        <a onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:10px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
-      </div>
-      <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
-      <div id="checkout-msg"></div>
     </div>
   </div>
 
   <div id="view-orders" style="display:none">
-    <h2 style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:16px">Mes commandes</h2>
+    <h2 class="section-title">Mes commandes</h2>
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 
-  <div id="view-success" style="display:none;text-align:center;padding:40px 0">
+  <div id="view-success" style="display:none;text-align:center;padding:60px 0;max-width:560px;margin:0 auto">
     <div class="success-check">✓</div>
-    <h2 style="font-family:var(--dot),monospace;font-size:20px;margin-bottom:12px">Sélection confirmée</h2>
+    <h2 class="section-title" style="text-align:center">Sélection confirmée</h2>
     <div id="success-detail" class="msg" style="text-align:left"></div>
     <button class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
   </div>
@@ -176,8 +202,8 @@ async function openBrand(brandId) {
   const container = document.getElementById('brand-products');
   container.style.display = 'block';
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">← Toutes les marques</button>
-    <h2 style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:16px">${esc(currentBrand.name)}</h2>
-    <div id="products-list"></div>`;
+    <h2 class="section-title">${esc(currentBrand.name)}</h2>
+    <div id="products-list" class="products-grid"></div>`;
   renderProductsList();
 }
 
@@ -355,13 +381,14 @@ async function loadOrders() {
   const list = document.getElementById('orders-list');
   if (!data.length) { list.innerHTML = '<p class="msg">Aucune commande pour le moment.</p>'; return; }
   const statusLabel = { confirmed: 'Reçue', validated: 'Validée', cancelled: 'Annulée' };
+  list.className = 'orders-grid';
   list.innerHTML = data.map(o => `
     <div class="order-card">
-      <div style="font-family:var(--dot),monospace;font-size:13px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
-      <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);margin-top:2px">${new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
-      <div style="font-family:var(--dot),monospace;font-size:16px;color:var(--accent);margin-top:6px">${Number(o.total||0).toFixed(2)} €</div>
+      <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
+      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${Number(o.total||0).toFixed(2)} €</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span><br>
-      <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);text-decoration:underline;display:inline-block;margin-top:8px">📄 Télécharger le PDF</a>
+      <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline;display:inline-block;margin-top:10px">📄 Télécharger le PDF</a>
     </div>`).join('');
 }
 
