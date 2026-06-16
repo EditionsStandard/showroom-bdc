@@ -102,6 +102,44 @@
   .img-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); border: none; cursor: pointer; padding: 0; transition: background .2s; }
   .img-dot.active { background: var(--accent); }
   .img-counter { color: var(--muted); font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
+
+  /* ── Responsive: tablet ── */
+  @media (max-width: 1024px) {
+    .wrap { padding: 28px 24px 80px; }
+    .header { padding: 16px 24px; }
+    .products-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  }
+
+  /* ── Responsive: mobile ── */
+  @media (max-width: 640px) {
+    .header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; row-gap: 8px; }
+    .header-left img { width: 30px; height: 30px; }
+    .header h1 { font-size: 18px; }
+    .header .nav { gap: 10px; font-size: 11px; flex-wrap: wrap; row-gap: 6px; }
+    .header .nav a.nav-home { padding-left: 10px; border-left: none; }
+    #currency-select { padding: 4px 8px; font-size: 11px; }
+    .wrap { padding: 18px 14px 90px; }
+    h2.section-title { font-size: 21px; margin-bottom: 16px; }
+    .brand-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .brand-cover, .brand-cover-ph { height: 130px; }
+    .brand-info { padding: 12px 14px; }
+    .brand-name { font-size: 15px; }
+    .products-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .product-img { height: 190px; }
+    .product-info { padding: 12px 14px; }
+    .product-ref { font-size: 14px; }
+    .product-desc { font-size: 12px; }
+    .qty-btn { width: 30px; height: 30px; }
+    .brand-banner-cover { height: 150px; }
+    .brand-banner-info { padding: 16px 18px; }
+    .search-bar { max-width: 100%; }
+    .cart-bar { padding: 12px 16px; }
+    .cart-bar strong { font-size: 16px; }
+    .cart-bar button { padding: 10px 16px; font-size: 11px; }
+    .orders-grid { grid-template-columns: 1fr; }
+    #sig-canvas { height: 120px; }
+    .img-nav { width: 44px; height: 64px; font-size: 30px; }
+  }
 </style>
 <script>
 // Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash

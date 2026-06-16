@@ -30,6 +30,20 @@
   .brand-cta { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 8px; }
   .empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); padding: 40px 0; text-align: center; }
   .footer { margin-top: 48px; text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+
+  @media (max-width: 1024px) {
+    .wrap { padding: 32px 24px 48px; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 20px 16px 40px; }
+    .top img { width: 32px; height: 32px; }
+    h1 { font-size: 22px; }
+    .sub { margin: 6px 0 24px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .brand-cover, .brand-cover-placeholder { height: 130px; }
+    .brand-info { padding: 12px 14px; }
+    .brand-name { font-size: 15px; }
+  }
 </style>
 <script>
 // Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash
