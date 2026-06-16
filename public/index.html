@@ -10,8 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
   :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
+  [data-theme="light"] .brand-cover, [data-theme="light"] .brand-cover-placeholder { background: #eee; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; }
+  html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
   .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 60px; }
   .top { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
   .top img { width: 40px; height: 40px; border-radius: 6px; }
@@ -29,6 +31,17 @@
   .empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); padding: 40px 0; text-align: center; }
   .footer { margin-top: 48px; text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
 </style>
+<script>
+// Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash
+(function() {
+  function getTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', getTheme());
+})();
+</script>
 </head>
 <body>
 <div class="wrap">
