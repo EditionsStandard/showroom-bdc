@@ -907,10 +907,9 @@ async function generateLinesheetPDF(brandId, seasonId) {
     let y = drawHeader();
     let currentCollection = null;
 
-    // Grid layout: 2 columns of cards with image, ref, desc, price
-    const cardW = 240, cardH = 270, gapX = 15, cols = 2;
+    // Layout: image left (fixed), full description right (dynamic height)
+    const imgW = 130, imgH = 130, textX = 195, textW = 350;
     const startX = 50;
-    let col = 0;
 
     const getFirstImage = (p) => {
       try {
@@ -920,50 +919,60 @@ async function generateLinesheetPDF(brandId, seasonId) {
       return p.image_url || null;
     };
 
-    const drawProductCard = (p, x, yy) => {
+    const measureCardHeight = (p) => {
+      const nameText = p.description || '';
+      doc.fontSize(7.5).font('Helvetica');
+      const nameH = nameText ? doc.heightOfString(nameText, { width: textW }) : 0;
+      let ty = 14 + nameH + 4;
+      if (p.color) ty += 11;
+      if (p.sizes) ty += 11;
+      ty += 14; // price line
+      return Math.max(ty, imgH) + 18; // + bottom padding/separator
+    };
+
+    const drawProductCard = (p, yy) => {
       const img = getFirstImage(p);
-      const imgH = 180;
       if (img && img.startsWith('data:image')) {
         try {
           const base64 = img.replace(/^data:image\/\w+;base64,/, '');
           const buf = Buffer.from(base64, 'base64');
-          doc.rect(x, yy, cardW, imgH).fillColor('#f2f2f2').fill();
-          doc.image(buf, x, yy, { fit: [cardW, imgH], align: 'center', valign: 'center' });
+          doc.rect(startX, yy, imgW, imgH).fillColor('#f2f2f2').fill();
+          doc.image(buf, startX, yy, { fit: [imgW, imgH], align: 'center', valign: 'center' });
         } catch(e) {
-          doc.rect(x, yy, cardW, imgH).fillColor('#f2f2f2').fill();
+          doc.rect(startX, yy, imgW, imgH).fillColor('#f2f2f2').fill();
         }
       } else {
-        doc.rect(x, yy, cardW, imgH).fillColor('#f2f2f2').fill();
+        doc.rect(startX, yy, imgW, imgH).fillColor('#f2f2f2').fill();
       }
 
-      let ty = yy + imgH + 8;
-      doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference, x, ty, { width: cardW });
-      ty += 12;
-      const nameText = (p.description || '').length > 55 ? p.description.slice(0, 52) + '…' : (p.description || '');
-      doc.fontSize(7.5).fillColor('#555').font('Helvetica').text(nameText, x, ty, { width: cardW });
-      ty += doc.heightOfString(nameText, { width: cardW }) + 3;
-      if (p.color) { doc.fontSize(7).fillColor('#888').text(p.color, x, ty, { width: cardW }); ty += 10; }
-      if (p.sizes) { doc.fontSize(7).fillColor('#888').text(p.sizes, x, ty, { width: cardW }); ty += 10; }
-      doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, x, ty, { width: cardW / 2 });
-      if (p.price_retail > 0) doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(`RRP ${parseFloat(p.price_retail).toFixed(2)} €`, x + cardW / 2, ty, { width: cardW / 2, align: 'right' });
+      let ty = yy;
+      doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference, textX, ty, { width: textW });
+      ty += 14;
+      const nameText = p.description || '';
+      if (nameText) {
+        doc.fontSize(7.5).fillColor('#555').font('Helvetica').text(nameText, textX, ty, { width: textW });
+        ty += doc.heightOfString(nameText, { width: textW }) + 4;
+      }
+      if (p.color) { doc.fontSize(7).fillColor('#888').text(p.color, textX, ty, { width: textW }); ty += 11; }
+      if (p.sizes) { doc.fontSize(7).fillColor('#888').text(p.sizes, textX, ty, { width: textW }); ty += 11; }
+      doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, textX, ty, { width: 120, continued: p.price_retail > 0 });
+      if (p.price_retail > 0) doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(`   RRP ${parseFloat(p.price_retail).toFixed(2)} €`);
     };
 
     prods.rows.forEach((p) => {
       if (p.collection_name && p.collection_name !== currentCollection) {
         currentCollection = p.collection_name;
-        if (col !== 0) { y += cardH + 20; col = 0; }
         if (y > 680) { doc.addPage(); y = drawHeader(); }
         doc.fontSize(10).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 50, y, { width: 495 });
         y += 18;
       }
 
-      if (y + cardH > 790) { doc.addPage(); y = drawHeader(); col = 0; }
+      const cardH = measureCardHeight(p);
+      if (y + cardH > 790) { doc.addPage(); y = drawHeader(); }
 
-      const x = startX + col * (cardW + gapX);
-      drawProductCard(p, x, y);
-
-      col++;
-      if (col >= cols) { col = 0; y += cardH + 20; }
+      drawProductCard(p, y);
+      doc.moveTo(50, y + cardH - 10).lineTo(545, y + cardH - 10).strokeColor('#eee').lineWidth(0.5).stroke();
+      y += cardH;
     });
 
     doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
