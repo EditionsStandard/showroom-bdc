@@ -23,6 +23,8 @@
   .field { margin-bottom: 16px; }
   .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; }
   .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
+  .toggle { text-align: center; margin-top: 18px; }
+  .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
 </style>
 <script>
 (function() {
@@ -38,7 +40,7 @@
 <body>
 <div class="card">
   <div class="logo-wrap">
-    <img src="/logo.svg" alt="Editions Standard">
+    <a href="/" title="Retour à l'accueil"><img src="/logo.svg" alt="Editions Standard"></a>
     <h1>Portail Acheteur</h1>
     <p>Editions Standard — Showroom</p>
   </div>
@@ -48,6 +50,9 @@
     <div class="field"><label>Mot de passe</label><input type="password" name="password" placeholder="••••••••"></div>
     <button class="btn" type="submit">Connexion</button>
   </form>
+  <div class="toggle">
+    <a href="/">← Retour à l'accueil</a>
+  </div>
 </div>
 </body>
 </html>
