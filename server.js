@@ -905,48 +905,69 @@ async function generateLinesheetPDF(brandId, seasonId) {
     };
 
     let y = drawHeader();
-    const drawColumnHeaders = (yy) => {
-      doc.fontSize(7).fillColor('#aaa').font('Helvetica');
-      doc.text('RÉFÉRENCE', 50, yy, { width: 75 });
-      doc.text('DÉSIGNATION', 130, yy, { width: 130 });
-      doc.text('COULEUR', 265, yy, { width: 60 });
-      doc.text('TAILLES', 330, yy, { width: 85 });
-      doc.text('WHOLESALE', 420, yy, { width: 60, align: 'right' });
-      doc.text('RETAIL', 485, yy, { width: 60, align: 'right' });
-      doc.moveTo(50, yy + 12).lineTo(545, yy + 12).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-      return yy + 18;
-    };
-
-    y = drawColumnHeaders(y);
     let currentCollection = null;
 
-    prods.rows.forEach((p, i) => {
-      if (p.collection_name && p.collection_name !== currentCollection) {
-        currentCollection = p.collection_name;
-        if (y > 700) { doc.addPage(); y = drawHeader(); y = drawColumnHeaders(y); }
-        doc.fontSize(9).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 50, y, { width: 495 });
-        y += 16;
+    // Grid layout: 2 columns of cards with image, ref, desc, price
+    const cardW = 240, cardH = 270, gapX = 15, cols = 2;
+    const startX = 50;
+    let col = 0;
+
+    const getFirstImage = (p) => {
+      try {
+        const imgs = JSON.parse(p.images || '[]');
+        if (imgs.length) return imgs[0];
+      } catch(e) {}
+      return p.image_url || null;
+    };
+
+    const drawProductCard = (p, x, yy) => {
+      const img = getFirstImage(p);
+      const imgH = 180;
+      if (img && img.startsWith('data:image')) {
+        try {
+          const base64 = img.replace(/^data:image\/\w+;base64,/, '');
+          const buf = Buffer.from(base64, 'base64');
+          doc.rect(x, yy, cardW, imgH).fillColor('#f2f2f2').fill();
+          doc.image(buf, x, yy, { fit: [cardW, imgH], align: 'center', valign: 'center' });
+        } catch(e) {
+          doc.rect(x, yy, cardW, imgH).fillColor('#f2f2f2').fill();
+        }
+      } else {
+        doc.rect(x, yy, cardW, imgH).fillColor('#f2f2f2').fill();
       }
 
-      const nameText = (p.description || '').length > 70 ? p.description.slice(0, 67) + '…' : (p.description || '');
-      const nameH = doc.heightOfString(nameText, { width: 130 });
-      const rowH = Math.max(nameH, 12) + 8;
+      let ty = yy + imgH + 8;
+      doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference, x, ty, { width: cardW });
+      ty += 12;
+      const nameText = (p.description || '').length > 55 ? p.description.slice(0, 52) + '…' : (p.description || '');
+      doc.fontSize(7.5).fillColor('#555').font('Helvetica').text(nameText, x, ty, { width: cardW });
+      ty += doc.heightOfString(nameText, { width: cardW }) + 3;
+      if (p.color) { doc.fontSize(7).fillColor('#888').text(p.color, x, ty, { width: cardW }); ty += 10; }
+      if (p.sizes) { doc.fontSize(7).fillColor('#888').text(p.sizes, x, ty, { width: cardW }); ty += 10; }
+      doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, x, ty, { width: cardW / 2 });
+      if (p.price_retail > 0) doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(`RRP ${parseFloat(p.price_retail).toFixed(2)} €`, x + cardW / 2, ty, { width: cardW / 2, align: 'right' });
+    };
 
-      if (y + rowH > 760) { doc.addPage(); y = drawHeader(); y = drawColumnHeaders(y); }
+    prods.rows.forEach((p) => {
+      if (p.collection_name && p.collection_name !== currentCollection) {
+        currentCollection = p.collection_name;
+        if (col !== 0) { y += cardH + 20; col = 0; }
+        if (y > 680) { doc.addPage(); y = drawHeader(); }
+        doc.fontSize(10).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 50, y, { width: 495 });
+        y += 18;
+      }
 
-      if (i % 2 === 0) doc.rect(50, y - 2, 495, rowH).fillColor('#f7f7f7').fill();
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold').fontSize(8).text(p.reference, 50, y, { width: 75 });
-      doc.fillColor('#333').font('Helvetica').fontSize(8).text(nameText, 130, y, { width: 130 });
-      doc.fillColor('#555').text(p.color || '—', 265, y, { width: 60 });
-      doc.fillColor('#555').text(p.sizes || '—', 330, y, { width: 85 });
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, 420, y, { width: 60, align: 'right' });
-      doc.fillColor('#888').font('Helvetica').text(p.price_retail > 0 ? `${parseFloat(p.price_retail).toFixed(2)} €` : '—', 485, y, { width: 60, align: 'right' });
+      if (y + cardH > 790) { doc.addPage(); y = drawHeader(); col = 0; }
 
-      y += rowH;
+      const x = startX + col * (cardW + gapX);
+      drawProductCard(p, x, y);
+
+      col++;
+      if (col >= cols) { col = 0; y += cardH + 20; }
     });
 
     doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
-      .text(`Document généré automatiquement — ${showroomName}`, 50, 780, { align: 'center', width: 495 });
+      .text(`Document généré automatiquement — ${showroomName}`, 50, 800, { align: 'center', width: 495 });
 
     doc.end();
   });
