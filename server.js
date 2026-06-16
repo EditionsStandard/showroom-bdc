@@ -574,6 +574,13 @@ app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (r
 
 // ==================== PUBLIC ====================
 
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+app.get('/api/public/brands', async (req, res) => {
+  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
+  res.json(r.rows);
+});
+
 app.get('/commande/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'commande.html')));
 
 // PDF public — accessible 24h après la commande (pour share sheet mobile)

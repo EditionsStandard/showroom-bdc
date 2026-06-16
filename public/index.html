@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Showroom — Editions Standard</title>
+<link rel="apple-touch-icon" href="/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 60px; }
+  .top { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .top img { width: 40px; height: 40px; border-radius: 6px; }
+  h1 { font-family: var(--dot), monospace; font-size: 26px; font-weight: 400; letter-spacing: .02em; }
+  .sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin: 6px 0 36px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .brand-card { display: block; text-decoration: none; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; transition: border-color .15s; }
+  .brand-card:hover { border-color: var(--accent); }
+  .brand-cover { width: 100%; height: 110px; object-fit: cover; display: block; background: #1a1a1a; }
+  .brand-cover-placeholder { width: 100%; height: 110px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: .3; }
+  .brand-info { padding: 16px 18px; }
+  .brand-logo { height: 28px; max-width: 100px; object-fit: contain; margin-bottom: 10px; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 16px; color: var(--white); letter-spacing: .01em; }
+  .brand-cta { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 6px; }
+  .empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); padding: 40px 0; text-align: center; }
+  .footer { margin-top: 48px; text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/logo.svg" alt="">
+    <h1>Showroom</h1>
+  </div>
+  <div class="sub">Editions Standard — Sélectionnez une marque</div>
+  <div class="grid" id="brands-grid">
+    <div class="empty">Chargement…</div>
+  </div>
+  <div class="footer">Editions Standard — Showroom B2B</div>
+</div>
+
+<script>
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function loadBrands() {
+  const grid = document.getElementById('brands-grid');
+  try {
+    const brands = await fetch('/api/public/brands').then(r => r.json());
+    if (!brands.length) {
+      grid.innerHTML = '<div class="empty">Aucune marque disponible pour le moment.</div>';
+      return;
+    }
+    grid.innerHTML = brands.map(b => {
+      const logoSrc = b.logo || b.logo_url || '';
+      const coverHtml = b.cover_image
+        ? `<img class="brand-cover" src="${esc(b.cover_image)}">`
+        : `<div class="brand-cover-placeholder">🏷️</div>`;
+      const logoHtml = logoSrc ? `<img class="brand-logo" src="${esc(logoSrc)}">` : '';
+      return `<a class="brand-card" href="/commande/${b.id}">
+        ${coverHtml}
+        <div class="brand-info">
+          ${logoHtml}
+          <div class="brand-name">${esc(b.name)}</div>
+          <div class="brand-cta">Voir la collection →</div>
+        </div>
+      </a>`;
+    }).join('');
+  } catch(e) {
+    grid.innerHTML = '<div class="empty">Erreur de chargement.</div>';
+  }
+}
+
+loadBrands();
+</script>
+</body>
+</html>
