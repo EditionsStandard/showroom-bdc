@@ -33,7 +33,7 @@
     <script>if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
     <div id="email-field" style="display:none;margin-bottom:16px">
       <label>Email</label>
-      <input type="email" name="email" id="email-input" placeholder="email@exemple.com">
+      <input type="email" name="email" id="email-input" placeholder="email@exemple.com" disabled autocomplete="off">
     </div>
     <div style="margin-bottom:16px">
       <label>Mot de passe</label>
@@ -48,9 +48,12 @@
 <script>
 function toggleMode() {
   const field = document.getElementById('email-field');
+  const input = document.getElementById('email-input');
   const link = document.getElementById('toggle-link');
   const showingEmail = field.style.display === 'block';
   field.style.display = showingEmail ? 'none' : 'block';
+  input.disabled = showingEmail;
+  if (showingEmail) input.value = '';
   link.textContent = showingEmail ? 'Connexion agent / designer →' : '← Connexion owner';
 }
 </script>
