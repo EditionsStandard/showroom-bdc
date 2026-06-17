@@ -67,8 +67,9 @@
   .brand-banner-info { padding: 24px 28px; }
   .brand-banner-about { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; max-width: 700px; margin-bottom: 14px; }
   .brand-banner-moq { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 4px; margin-bottom: 14px; }
-  .brand-banner-cgv summary { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); cursor: pointer; letter-spacing: .02em; padding: 4px 0; }
-  .brand-banner-cgv summary:hover { color: var(--white); }
+  .brand-banner-cgv-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .brand-banner-cgv-title { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 16px; }
+  .cgv-brand-page { max-height: 320px; overflow-y: auto; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; }
   .cgv-formatted { margin-top: 16px; }
   .search-bar { margin-bottom: 14px; max-width: 420px; }
   .search-bar input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
@@ -510,7 +511,7 @@ async function openBrand(brandId) {
   if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(`Minimum ${Number(currentBrand.moq_amount).toFixed(2)} € HT`);
   const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
   const aboutHtml = currentBrand.about_text ? `<p class="brand-banner-about">${esc(currentBrand.about_text)}</p>` : '';
-  const cgvHtml = currentBrand.cgv_text ? `<details class="brand-banner-cgv"><summary>Conditions générales de vente</summary><div class="cgv-formatted">${formatCgv(currentBrand.cgv_text)}</div></details>` : '';
+  const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title">Conditions générales de vente</div><div class="cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}">` : '';
 
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">← Toutes les marques</button>
