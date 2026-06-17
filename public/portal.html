@@ -28,6 +28,8 @@
   .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
   .header .nav a.active { color: var(--accent); font-weight: 600; }
   .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
+  .btn-logout { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid #c0392b; border-radius: 4px; color: #e74c3c !important; font-size: 12px; text-decoration: none; letter-spacing: .04em; cursor: pointer; transition: background .15s, color .15s; }
+  .btn-logout:hover { background: #e74c3c; color: #fff !important; }
   .wrap { width: 100%; padding: 36px 40px 60px; }
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
   .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
@@ -165,7 +167,7 @@
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-account" onclick="showView('account')">Mon compte</a>
     <a href="/" class="nav-home">← Accueil</a>
-    <a href="/portal-logout">Déconnexion</a>
+    <a href="/portal-logout" class="btn-logout">⏻ Déconnexion</a>
   </div>
 </div>
 
