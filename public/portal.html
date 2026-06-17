@@ -28,8 +28,25 @@
   .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
   .header .nav a.active { color: var(--accent); font-weight: 600; }
   .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
-  .btn-logout { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid #c0392b; border-radius: 4px; color: #e74c3c !important; font-size: 12px; text-decoration: none; letter-spacing: .04em; cursor: pointer; transition: background .15s, color .15s; }
-  .btn-logout:hover { background: #e74c3c; color: #fff !important; }
+  /* ── User dropdown ── */
+  .user-menu { position: relative; }
+  .user-btn { display: flex; align-items: center; gap: 9px; background: var(--dark); border: 1px solid var(--border); border-radius: 24px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--white); transition: border-color .15s; user-select: none; }
+  .user-btn:hover { border-color: var(--accent); }
+  .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #111; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-chevron { font-size: 9px; opacity: .5; transition: transform .2s; }
+  .user-menu.open .user-chevron { transform: rotate(180deg); }
+  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 8px; min-width: 200px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 200; }
+  .user-menu.open .user-dropdown { display: block; }
+  .user-dropdown-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .user-dropdown-header .uname { font-size: 13px; font-weight: 600; color: var(--white); }
+  .user-dropdown-header .uemail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .user-dropdown-header .ucompany { font-size: 11px; color: var(--soft); }
+  .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); cursor: pointer; text-decoration: none; transition: background .1s, color .1s; border: none; background: none; width: 100%; text-align: left; }
+  .dropdown-item:hover { background: var(--border); color: var(--white); }
+  .dropdown-item.danger { color: #e74c3c; }
+  .dropdown-item.danger:hover { background: #e74c3c; color: #fff; }
+  .dropdown-sep { height: 1px; background: var(--border); margin: 4px 0; }
   .wrap { width: 100%; padding: 36px 40px 60px; }
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
   .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
@@ -165,10 +182,26 @@
     <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
-    <a id="nav-account" onclick="showView('account')">Mon compte</a>
-    <a href="/" class="nav-home">← Accueil</a>
   </div>
-  <a href="/portal-logout" class="btn-logout">⏻ Déconnexion</a>
+  <div class="user-menu" id="user-menu">
+    <div class="user-btn" onclick="toggleUserMenu()">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span class="user-name" id="user-name">Mon espace</span>
+      <span class="user-chevron">▼</span>
+    </div>
+    <div class="user-dropdown">
+      <div class="user-dropdown-header">
+        <div class="uname" id="dd-name">—</div>
+        <div class="uemail" id="dd-email">—</div>
+        <div class="ucompany" id="dd-company"></div>
+      </div>
+      <button class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
+      <button class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
+      <button class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
+      <div class="dropdown-sep"></div>
+      <a class="dropdown-item danger" href="/portal-logout">⏻ Déconnexion</a>
+    </div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -256,6 +289,12 @@ const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, produc
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
+function closeUserMenu() { document.getElementById('user-menu').classList.remove('open'); }
+document.addEventListener('click', e => {
+  if (!document.getElementById('user-menu').contains(e.target)) closeUserMenu();
+});
+
 function fmtPrice(amountEur) {
   const converted = parseFloat(amountEur || 0) * (selectedCurrency.rate || 1);
   return converted.toFixed(2) + ' ' + selectedCurrency.symbol;
@@ -292,6 +331,13 @@ async function init() {
   me = await fetch('/api/portal/me').then(r => r.json());
   CART_KEY = 'portal_cart_' + (me.email || 'default');
   restoreCart();
+  // Populate user menu
+  const initials = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-name').textContent = me.name || 'Mon espace';
+  document.getElementById('dd-name').textContent = me.name || '';
+  document.getElementById('dd-email').textContent = me.email || '';
+  document.getElementById('dd-company').textContent = me.company || '';
   allBrands = await fetch('/api/portal/brands').then(r => r.json());
   renderBrandPicker();
   updateCartBar();
