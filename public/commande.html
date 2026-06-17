@@ -1450,14 +1450,42 @@ function renderSignaturePage() {
   // Display brand-specific CGV (loaded at init)
   const cgvEl = document.getElementById('cgv-text-display');
   if (cgvEl) {
-    const paras = (brandCgvText || '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
-    if (paras.length > 1) {
-      cgvEl.innerHTML = paras.map(p =>
-        '<p style="margin:0 0 18px">' + p.replace(/\n/g, '<br>') + '</p>'
-      ).join('');
-    } else {
-      cgvEl.innerHTML = (brandCgvText || '').replace(/\n/g, '<br><br>');
+    const lines = (brandCgvText || '').split('\n');
+    let html = '';
+    let inPara = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      if (!line) {
+        if (inPara) { html += '</p>'; inPara = false; }
+        continue;
+      }
+
+      // Main title: first non-empty line if it looks like a title (no period at end, possibly ALL CAPS or contains "TERMS")
+      const isMainTitle = i === 0 || (i < 3 && line === line.toUpperCase() && line.length < 100);
+      // Numbered section: "1. TITLE", "1. Title" etc.
+      const isSectionHeader = /^\d+\.\s+[A-Z]/.test(line) && line.length < 120;
+      // All-caps short line (sub-section)
+      const isSubHeader = !isSectionHeader && line === line.toUpperCase() && line.length < 80 && /[A-Z]{3,}/.test(line);
+
+      if (isMainTitle && i === 0) {
+        if (inPara) { html += '</p>'; inPara = false; }
+        html += '<h2 style="font-family:\'Space Mono\',monospace;font-size:15px;font-weight:700;color:var(--white);letter-spacing:.04em;margin:0 0 20px;line-height:1.4">' + esc(line) + '</h2>';
+      } else if (isSectionHeader) {
+        if (inPara) { html += '</p>'; inPara = false; }
+        html += '<h3 style="font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;color:var(--white);text-transform:uppercase;letter-spacing:.06em;margin:24px 0 10px;padding-top:8px;border-top:1px solid var(--border)">' + esc(line) + '</h3>';
+      } else if (isSubHeader) {
+        if (inPara) { html += '</p>'; inPara = false; }
+        html += '<p style="font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.08em;margin:16px 0 6px">' + esc(line) + '</p>';
+      } else {
+        if (!inPara) { html += '<p style="margin:0 0 12px;font-family:\'Inter\',sans-serif;font-size:13px;color:var(--soft);line-height:1.9">'; inPara = true; }
+        else { html += '<br>'; }
+        html += esc(line);
+      }
     }
+    if (inPara) html += '</p>';
+    cgvEl.innerHTML = html;
   }
 
   // Fill in name + date
