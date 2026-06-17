@@ -523,7 +523,7 @@
   <button class="btn-back" id="back-to-3" data-i18n="back">← Retour</button>
   <div class="recap-card">
     <h4 data-i18n="cgv_title">Conditions générales</h4>
-    <div id="cgv-text-display" style="font-size:11px;line-height:1.8;color:var(--soft);max-height:160px;overflow-y:auto;border:1px solid var(--border);padding:14px;margin-bottom:16px;background:var(--black)"></div>
+    <div id="cgv-text-display" style="font-size:13px;line-height:2;color:var(--soft);max-height:420px;overflow-y:auto;border:1px solid var(--border);padding:20px 24px;margin-bottom:20px;background:var(--black);border-radius:4px;font-family:'Inter',sans-serif;letter-spacing:.01em"></div>
     <label class="cgv-check-label">
       <input type="checkbox" id="cgv-checkbox">
       <span data-i18n="cgv_accept">J'ai lu et j'accepte les conditions générales de vente</span>
@@ -1449,7 +1449,16 @@ function updateSignBtn() {
 function renderSignaturePage() {
   // Display brand-specific CGV (loaded at init)
   const cgvEl = document.getElementById('cgv-text-display');
-  if (cgvEl) cgvEl.textContent = brandCgvText;
+  if (cgvEl) {
+    const paras = (brandCgvText || '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+    if (paras.length > 1) {
+      cgvEl.innerHTML = paras.map(p =>
+        '<p style="margin:0 0 18px">' + p.replace(/\n/g, '<br>') + '</p>'
+      ).join('');
+    } else {
+      cgvEl.innerHTML = (brandCgvText || '').replace(/\n/g, '<br><br>');
+    }
+  }
 
   // Fill in name + date
   const name = document.getElementById('c-name').value.trim();
