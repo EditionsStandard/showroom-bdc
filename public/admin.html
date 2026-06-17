@@ -25,6 +25,9 @@
   .sidebar-footer a:hover { color: #e74c3c; }
 
   .main { margin-left: 220px; padding: 32px; min-height: 100vh; }
+  .topbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 24px; gap: 12px; }
+  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #c0392b; border-radius: 4px; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: 'Inter', sans-serif; letter-spacing: .04em; transition: background .15s, color .15s; }
+  .btn-logout-top:hover { background: #e74c3c; color: #fff; }
 
   /* Sections */
   .section { display: none; }
@@ -283,6 +286,9 @@
 </div>
 
 <div class="main">
+  <div class="topbar">
+    <a href="/admin/logout" class="btn-logout-top">⏻ Déconnexion</a>
+  </div>
 
   <!-- DASHBOARD -->
   <div id="dashboard" class="section active">
