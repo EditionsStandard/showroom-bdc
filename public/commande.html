@@ -937,7 +937,6 @@ async function init() {
     buildCategoryFilters(productsData);
     restoreCart();
     updateCartBar();
-    loadImagesInBackground(productsData);
 
     // QR deep-link: ?product=ID → auto-start and scroll to product
     const qrProductId = new URLSearchParams(window.location.search).get('product');
@@ -1014,18 +1013,36 @@ function renderProducts(products) {
 
     let variants = [];
     try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
-    // filter out empty variants (images not loaded yet at this stage — filter only on color)
-    variants = variants.filter(v => v.color);
+    // filter out empty variants
+    variants = variants.filter(v => v.color || v.images.length);
 
-    const variantsJson = esc(JSON.stringify(variants));
-    // Placeholder shown while images load in background
-    const imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
-      + '<div class="product-img product-img-lazy" id="pimg_' + p.id + '" data-pid="' + p.id + '" data-vi="0" style="height:360px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#0d0d0d"><span style="font-size:28px;opacity:.2">◻</span></div>'
-      + '<span id="pimgbadge_' + p.id + '" style="display:none;position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none"></span>'
-      + '</div>'
-      + (variants.length ? '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
+    let imgs = [];
+    try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
+    if (!imgs.length && p.image_url) imgs = [p.image_url];
+
+    // Build image block
+    let imgHtml = '';
+    if (variants.length) {
+      // Show first variant's images, color buttons below
+      const firstImgs = variants[0].images.length ? variants[0].images : imgs;
+      const firstSrc = firstImgs[0] || '';
+      const variantsJson = esc(JSON.stringify(variants));
+      imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
+        + (firstSrc ? '<img class="product-img" id="pimg_' + p.id + '" src="' + esc(firstSrc) + '" data-images="' + esc(JSON.stringify(firstImgs)) + '" onerror="this.style.display=\'none\'">'
+                    : '<div class="product-img-placeholder"></div>')
+        + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
+        + '</div>'
+        + '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
         + variants.map((v, vi) => '<button class="color-btn' + (vi===0?' active':'') + '" data-vi="' + vi + '" data-pid="' + p.id + '">' + esc(v.color||('Coloris '+(vi+1))) + '</button>').join('')
-        + '</div>' : '');
+        + '</div>';
+    } else if (imgs.length) {
+      imgHtml = '<div class="product-img-wrap" style="position:relative">'
+        + '<img class="product-img" src="' + esc(imgs[0]) + '" data-images="' + esc(JSON.stringify(imgs)) + '" onerror="this.parentElement.style.display=\'none\'">'
+        + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
+        + '</div>';
+    } else {
+      imgHtml = '<div class="product-img-placeholder"></div>';
+    }
 
     // Init selected variant for this product (first variant or empty)
     if (variants.length && !selectedVariant[p.id]) {
@@ -1070,74 +1087,11 @@ function renderProducts(products) {
   }).join('');
 }
 
-// ── Image loading ─────────────────────────────────────
-const _imgCache = {};
-
-async function loadProductImages(pid) {
-  if (_imgCache[pid]) return _imgCache[pid];
-  const data = await fetch('/api/public/products/' + pid + '/images').then(r => r.json());
-  let imgs = []; try { imgs = JSON.parse(data.images || '[]'); } catch(e) {}
-  let variants = []; try { variants = JSON.parse(data.variants || '[]'); } catch(e) {}
-  _imgCache[pid] = { imgs, variants };
-  return _imgCache[pid];
-}
-
-function applyProductImage(pid, imgs) {
-  const placeholder = document.getElementById('pimg_' + pid);
-  if (!placeholder) return;
-  if (imgs.length) {
-    const el = document.createElement('img');
-    el.className = 'product-img';
-    el.id = 'pimg_' + pid;
-    el.dataset.pid = pid;
-    el.dataset.images = JSON.stringify(imgs);
-    el.src = imgs[0];
-    el.style.cursor = 'pointer';
-    el.onerror = function() { this.style.display = 'none'; };
-    placeholder.replaceWith(el);
-  }
-  const badgeEl = document.getElementById('pimgbadge_' + pid);
-  if (badgeEl && imgs.length > 1) { badgeEl.textContent = imgs.length + ' 📷'; badgeEl.style.display = ''; }
-}
-
-async function loadImagesInBackground(products) {
-  for (const p of products) {
-    try {
-      const { imgs, variants } = await loadProductImages(p.id);
-      // Determine which images to show (first variant or base images)
-      const firstVariantImgs = variants.length && variants[0].images && variants[0].images.length
-        ? variants[0].images : imgs;
-      applyProductImage(p.id, firstVariantImgs);
-      // Update vcolors data-variants with full data (for color switching)
-      const vwrap = document.getElementById('vcolors_' + p.id);
-      if (vwrap && variants.length) vwrap.dataset.variants = JSON.stringify(variants);
-    } catch(e) { /* skip failed product */ }
-  }
-}
-
 // ── Event delegation (works on mobile) ───────────────
-document.getElementById('products-container').addEventListener('click', async function(e) {
-  // Image click → open carousel
-  const imgEl = e.target.closest('.product-img');
-  if (imgEl && imgEl.dataset.images) {
-    openCarousel(JSON.parse(imgEl.dataset.images), 0);
-    return;
-  }
-  // Placeholder click → wait for background load then open
-  const placeholder = e.target.closest('.product-img-lazy');
-  if (placeholder) {
-    const pid = placeholder.dataset.pid;
-    if (pid) {
-      const { imgs, variants } = await loadProductImages(pid);
-      const firstImgs = variants.length && variants[0].images && variants[0].images.length
-        ? variants[0].images : imgs;
-      applyProductImage(pid, firstImgs);
-      const vwrap = document.getElementById('vcolors_' + pid);
-      if (vwrap && variants.length) vwrap.dataset.variants = JSON.stringify(variants);
-      if (firstImgs.length) openCarousel(firstImgs, 0);
-    }
-    return;
-  }
+document.getElementById('products-container').addEventListener('click', function(e) {
+  // Image carousel
+  const img = e.target.closest('.product-img');
+  if (img && img.dataset.images) { openCarousel(JSON.parse(img.dataset.images), 0); return; }
 
   // Color variant switch
   const cbtn = e.target.closest('.color-btn');
@@ -1145,21 +1099,18 @@ document.getElementById('products-container').addEventListener('click', async fu
     const pid = cbtn.dataset.pid;
     const vi = parseInt(cbtn.dataset.vi);
     const wrap = document.getElementById('vcolors_' + pid);
-    let variants = JSON.parse(wrap.dataset.variants || '[]');
-    // Ensure images are loaded
-    if (!variants[0] || !variants[0].images) {
-      const loaded = await loadProductImages(pid);
-      variants = loaded.variants;
-      if (variants.length) wrap.dataset.variants = JSON.stringify(variants);
-    }
-    const v = variants[vi] || {};
-    const vImgs = v.images && v.images.length ? v.images : (_imgCache[pid] ? _imgCache[pid].imgs : []);
+    const variants = JSON.parse(wrap.dataset.variants);
+    const v = variants[vi];
+    const vImgs = v.images && v.images.length ? v.images : [];
+    // Track selected variant color
     selectedVariant[pid] = v.color || ('Coloris ' + (vi + 1));
+    // update active button
     wrap.querySelectorAll('.color-btn').forEach((b, i) => {
       b.classList.toggle('active', i === vi);
       b.style.borderColor = '';
       b.style.color = '';
     });
+    // Refresh qty displays to reflect cart quantities for this color
     const product = productsData.find(p => p.id === pid);
     if (product) {
       const sizes = (product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1170,8 +1121,18 @@ document.getElementById('products-container').addEventListener('click', async fu
         if (el) { el.textContent = q; el.classList.toggle('active', q > 0); }
       });
     }
-    applyProductImage(pid, vImgs);
+    // update image
+    const pimg = document.getElementById('pimg_' + pid);
     const badge = document.getElementById('pimgbadge_' + pid);
+    if (pimg) {
+      if (vImgs.length) {
+        pimg.src = vImgs[0];
+        pimg.dataset.images = JSON.stringify(vImgs);
+        pimg.style.display = '';
+      } else {
+        pimg.style.display = 'none';
+      }
+    }
     if (badge) {
       if (vImgs.length > 1) { badge.textContent = vImgs.length + ' 📷'; badge.style.display = ''; }
       else { badge.style.display = 'none'; }

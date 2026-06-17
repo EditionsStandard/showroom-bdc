@@ -612,30 +612,15 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
   if (b.rows[0].subscription_status === 'inactive') {
     return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
   }
-  const [pRes, seasonsRes, agentName, agentTitle, agentPhone, showroomName, currenciesRaw] = await Promise.all([
-    pool.query('SELECT id,brand_id,reference,name,color,price,wholesale_price,category,collection_name,active,sizes,variants FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]),
-    pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC', [req.params.brandId]),
-    getSetting('agent_name'),
-    getSetting('agent_title'),
-    getSetting('agent_phone'),
-    getSetting('showroom_name'),
-    getSetting('currencies_json'),
-  ]);
+  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
+  const seasons = await pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC', [req.params.brandId]);
+  const agentName  = await getSetting('agent_name');
+  const agentTitle = await getSetting('agent_title');
+  const agentPhone = await getSetting('agent_phone');
+  const showroomName = await getSetting('showroom_name');
   let currencies = [];
-  try { currencies = JSON.parse(currenciesRaw || '[]'); } catch(e) {}
-  // Strip images from products to reduce payload — images are loaded lazily on demand
-  const products = pRes.rows.map(p => {
-    let variants = [];
-    try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
-    return { ...p, images: '[]', variants: JSON.stringify(variants.map(v => ({ color: v.color }))) };
-  });
-  res.json({ brand: b.rows[0], products, seasons: seasonsRes.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
-});
-
-app.get('/api/public/products/:id/images', async (req, res) => {
-  const r = await pool.query('SELECT images, variants FROM products WHERE id=$1 AND active=1', [req.params.id]);
-  if (!r.rows[0]) return res.status(404).json({ error: 'not found' });
-  res.json({ images: r.rows[0].images, variants: r.rows[0].variants });
+  try { currencies = JSON.parse(await getSetting('currencies_json') || '[]'); } catch(e) {}
+  res.json({ brand: b.rows[0], products: p.rows, seasons: seasons.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
 app.post('/api/public/selection-pdf', async (req, res) => {
