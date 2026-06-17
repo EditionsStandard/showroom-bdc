@@ -32,15 +32,15 @@
   /* ── Header ── */
   .header { background: var(--black); color: var(--white); padding: 18px 20px 14px; position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); }
   .header h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; letter-spacing: .03em; line-height: 1.1; }
-  .header p { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: .12em; text-transform: uppercase; }
+  .header p { font-size: 12px; color: var(--muted); margin-top: 3px; letter-spacing: .12em; text-transform: uppercase; }
   .header-meta { display: flex; justify-content: space-between; align-items: center; }
 
   /* ── Steps ── */
   .steps { display: flex; background: var(--black); border-bottom: 1px solid var(--border); }
-  .step { flex: 1; text-align: center; padding: 11px 4px; font-size: 10px; color: var(--muted); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; transition: color .2s; }
+  .step { flex: 1; text-align: center; padding: 12px 4px; font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; transition: color .2s; }
   .step.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
   .step.done { color: var(--soft); }
-  .step-num { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--border); font-size: 9px; line-height: 18px; margin-right: 5px; }
+  .step-num { display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: var(--border); font-size: 10px; line-height: 20px; margin-right: 5px; }
   .step.active .step-num { background: var(--accent); color: var(--black); font-weight: 700; }
   .step.done .step-num { background: #2d2d2d; }
 
@@ -55,15 +55,15 @@
   .product-img:active { transform: scale(.98); }
   .product-img-placeholder { width: 100%; height: 3px; background: var(--border); }
   .product-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
-  .product-collection { font-size: 9px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .16em; margin-bottom: 6px; }
+  .product-collection { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .16em; margin-bottom: 6px; }
   .product-ref { font-family: var(--dot), monospace; font-size: 21px; font-weight: 400; color: var(--white); letter-spacing: .02em; line-height: 1.2; }
   .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.7; font-weight: 400; letter-spacing: .01em; }
   .product-tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .tag { font-size: 10px; color: var(--soft); background: var(--mid); padding: 4px 10px; border-radius: 2px; letter-spacing: .06em; text-transform: uppercase; }
+  .tag { font-size: 11px; color: var(--soft); background: var(--mid); padding: 5px 12px; border-radius: 2px; letter-spacing: .06em; text-transform: uppercase; }
   .tag-price { font-size: 11px; font-weight: 600; color: var(--accent); background: rgba(204,235,60,.08); letter-spacing: .04em; }
 
   /* ── Variant colors ── */
-  .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 6px 14px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Inter', sans-serif; }
+  .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Inter', sans-serif; }
   .color-btn.active { border-color: var(--accent); color: var(--accent); }
 
   /* ── Size / qty rows ── */
@@ -88,7 +88,7 @@
   /* ── Cart bar ── */
   .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; z-index: 40; }
   .cart-info strong { font-size: 17px; color: var(--black); display: block; font-weight: 700; }
-  .cart-info span { font-size: 10px; color: rgba(0,0,0,.6); letter-spacing: .08em; text-transform: uppercase; }
+  .cart-info span { font-size: 11px; color: rgba(0,0,0,.6); letter-spacing: .08em; text-transform: uppercase; }
   .btn-next { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; letter-spacing: .1em; text-transform: uppercase; font-family: 'Inter', sans-serif; }
   .btn-next:disabled { background: rgba(0,0,0,.25); color: rgba(0,0,0,.4); }
 
@@ -97,7 +97,7 @@
   .form-section { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 24px 20px; margin-bottom: 2px; }
   .form-section h3 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--white); letter-spacing: .02em; }
   .field { margin-bottom: 18px; }
-  .field label { display: block; font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 8px; }
+  .field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
   .field input, .field textarea { width: 100%; border: none; border-bottom: 1px solid var(--border); background: transparent; padding: 10px 0; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; color: var(--white); transition: border-color .2s; }
   .field input:focus, .field textarea:focus { border-color: var(--accent); }
   .field input::placeholder, .field textarea::placeholder { color: var(--muted); }
@@ -108,9 +108,9 @@
   .recap-card { background: var(--dark); border: 1px solid var(--border); padding: 20px; margin-bottom: 2px; }
   .recap-card h4 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--white); letter-spacing: .04em; }
   .recap-table { width: 100%; border-collapse: collapse; }
-  .recap-table thead th { font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; padding: 0 8px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }
+  .recap-table thead th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; padding: 0 8px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }
   .recap-table thead th:last-child { text-align: right; padding-right: 0; }
-  .recap-table tbody td { font-size: 12px; color: var(--soft); padding: 10px 8px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.4; }
+  .recap-table tbody td { font-size: 13px; color: var(--soft); padding: 13px 8px 13px 0; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.6; }
   .recap-table tbody tr:last-child td { border-bottom: none; }
   .recap-table tbody td:last-child { text-align: right; padding-right: 0; font-weight: 600; color: var(--white); white-space: nowrap; }
   .recap-table tbody td.td-ref { color: var(--white); font-weight: 600; font-size: 13px; }
@@ -120,12 +120,12 @@
   .recap-table tbody td.td-pu { color: var(--soft); font-size: 11px; }
   .recap-line { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--soft); }
   .recap-line:last-child { border-bottom: none; }
-  .recap-sub { font-size: 10px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .06em; }
+  .recap-sub { font-size: 11px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .06em; }
   .recap-price { font-weight: 600; color: var(--white); white-space: nowrap; margin-left: 8px; }
 
   /* ── Total ── */
   .total-bar { background: var(--mid); border: 1px solid var(--border); padding: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-  .total-bar .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .14em; }
+  .total-bar .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .14em; }
   .total-bar .amt { font-family: var(--dot), monospace; font-size: 30px; font-weight: 400; color: var(--accent); }
 
   /* ── Back btn ── */
@@ -136,11 +136,11 @@
   .btn-confirm:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
 
   /* ── Collection filters ── */
-  .col-filter { display: inline-block; padding: 5px 14px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; margin-right: 6px; background: transparent; font-family: 'Space Mono', monospace; transition: border-color .15s, color .15s; white-space: nowrap; }
+  .col-filter { display: inline-block; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; margin-right: 6px; background: transparent; font-family: 'Space Mono', monospace; transition: border-color .15s, color .15s; white-space: nowrap; }
   .col-filter.active { border-color: var(--accent); color: var(--accent); }
 
   /* ── CGV + Signature ── */
-  .cgv-check-label { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 12px; color: var(--soft); line-height: 1.5; }
+  .cgv-check-label { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 13px; color: var(--soft); line-height: 1.7; }
   .cgv-check-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; accent-color: var(--accent); cursor: pointer; }
   .cgv-check-label span { flex: 1; }
 
@@ -154,7 +154,7 @@
   .loader { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
 
   /* ── Offline banner ── */
-  .offline-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: #1a1a1a; border-bottom: 1px solid #333; padding: 10px 20px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); justify-content: space-between; align-items: center; }
+  .offline-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: #1a1a1a; border-bottom: 1px solid #333; padding: 10px 20px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); justify-content: space-between; align-items: center; }
   .offline-banner.visible { display: flex; }
   body.has-banner .header { top: 41px; }
   body.has-banner .search-bar { top: 138px; }
