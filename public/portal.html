@@ -29,14 +29,14 @@
   .header .nav a.active { color: var(--accent); font-weight: 600; }
   .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
   /* ── User dropdown ── */
-  .user-menu { position: relative; }
-  .user-btn { display: flex; align-items: center; gap: 9px; background: var(--dark); border: 1px solid var(--border); border-radius: 24px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--white); transition: border-color .15s; user-select: none; }
-  .user-btn:hover { border-color: var(--accent); }
-  .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #111; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .user-menu { position: relative; flex-shrink: 0; }
+  .user-btn { display: flex; align-items: center; gap: 9px; background: var(--accent); border: none; border-radius: 24px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; font-weight: 600; transition: opacity .15s; user-select: none; }
+  .user-btn:hover { opacity: .85; }
+  .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: #111; color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
   .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .user-chevron { font-size: 9px; opacity: .5; transition: transform .2s; }
+  .user-chevron { font-size: 9px; opacity: .6; transition: transform .2s; }
   .user-menu.open .user-chevron { transform: rotate(180deg); }
-  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 8px; min-width: 200px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 200; }
+  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 8px; min-width: 220px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: 300; }
   .user-menu.open .user-dropdown { display: block; }
   .user-dropdown-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
   .user-dropdown-header .uname { font-size: 13px; font-weight: 600; color: var(--white); }
@@ -47,6 +47,10 @@
   .dropdown-item.danger { color: #e74c3c; }
   .dropdown-item.danger:hover { background: #e74c3c; color: #fff; }
   .dropdown-sep { height: 1px; background: var(--border); margin: 4px 0; }
+  /* ── Profile form ── */
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .profile-grid .field-full { grid-column: 1 / -1; }
+  @media (max-width: 640px) { .profile-grid { grid-template-columns: 1fr; } .user-name { display: none; } }
   .wrap { width: 100%; padding: 36px 40px 60px; }
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
   .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
@@ -241,12 +245,52 @@
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 
-  <div id="view-account" style="display:none;max-width:420px">
-    <h2 class="section-title">Mon compte</h2>
-    <div class="field"><label>Mot de passe actuel</label><input id="pw-current" type="password"></div>
-    <div class="field"><label>Nouveau mot de passe</label><input id="pw-new" type="password"></div>
-    <button class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
-    <div id="pw-msg"></div>
+  <div id="view-account" style="display:none;max-width:680px">
+    <h2 class="section-title">Mon profil</h2>
+
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:24px">
+      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
+      <div class="profile-grid">
+        <div class="field">
+          <label>Prénom / Nom *</label>
+          <input id="prof-name" type="text" placeholder="Jean Dupont">
+        </div>
+        <div class="field">
+          <label>Entreprise / Boutique</label>
+          <input id="prof-company" type="text" placeholder="Ma Boutique SARL">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input id="prof-email" type="email" disabled style="opacity:.5;cursor:not-allowed">
+        </div>
+        <div class="field">
+          <label>Téléphone</label>
+          <input id="prof-phone" type="tel" placeholder="+33 6 00 00 00 00">
+        </div>
+        <div class="field field-full">
+          <label>Pays</label>
+          <input id="prof-country" type="text" placeholder="France">
+        </div>
+      </div>
+      <button class="btn-confirm" onclick="saveProfile()">Enregistrer les modifications</button>
+      <div id="prof-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+    </div>
+
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px">
+      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Changer le mot de passe</h3>
+      <div class="profile-grid">
+        <div class="field">
+          <label>Mot de passe actuel</label>
+          <input id="pw-current" type="password" placeholder="••••••••">
+        </div>
+        <div class="field">
+          <label>Nouveau mot de passe</label>
+          <input id="pw-new" type="password" placeholder="••••••••">
+        </div>
+      </div>
+      <button class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
+      <div id="pw-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+    </div>
   </div>
 
   <div id="view-success" style="display:none;text-align:center;padding:60px 0;max-width:560px;margin:0 auto">
@@ -362,11 +406,41 @@ function showView(view) {
   document.getElementById('view-success').style.display = 'none';
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
-  document.getElementById('nav-account').classList.toggle('active', view === 'account');
   document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).length) ? 'flex' : (view === 'cart' ? 'none' : document.getElementById('cart-bar').style.display);
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
+  if (view === 'account') fillProfileForm();
+}
+
+function fillProfileForm() {
+  document.getElementById('prof-name').value = me.name || '';
+  document.getElementById('prof-company').value = me.company || '';
+  document.getElementById('prof-email').value = me.email || '';
+  document.getElementById('prof-phone').value = me.phone || '';
+  document.getElementById('prof-country').value = me.country || '';
+  document.getElementById('prof-msg').textContent = '';
+  document.getElementById('pw-msg').textContent = '';
+}
+
+async function saveProfile() {
+  const name = document.getElementById('prof-name').value.trim();
+  const company = document.getElementById('prof-company').value.trim();
+  const phone = document.getElementById('prof-phone').value.trim();
+  const country = document.getElementById('prof-country').value.trim();
+  const msg = document.getElementById('prof-msg');
+  if (!name) { msg.innerHTML = '<span style="color:#e74c3c">Le nom est requis.</span>'; return; }
+  const r = await fetch('/api/portal/update-profile', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, company, phone, country })
+  }).then(r => r.json());
+  if (r.error) { msg.innerHTML = `<span style="color:#e74c3c">${r.error}</span>`; return; }
+  me = { ...me, name, company, phone, country };
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('dd-name').textContent = name;
+  document.getElementById('dd-company').textContent = company;
+  msg.innerHTML = '<span style="color:var(--accent)">Profil mis à jour ✓</span>';
 }
 
 async function changePassword() {

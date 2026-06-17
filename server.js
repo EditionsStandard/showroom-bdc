@@ -758,6 +758,15 @@ app.post('/api/portal/change-password', requireBuyerAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
+  const { name, company, phone, country } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Le nom est requis' });
+  await pool.query('UPDATE buyers SET name=$1, company=$2, phone=$3, country=$4 WHERE id=$5',
+    [name.trim(), company||'', phone||'', country||'', req.session.buyerPortal.id]);
+  req.session.buyerPortal = { ...req.session.buyerPortal, name: name.trim(), company: company||'', phone: phone||'', country: country||'' };
+  res.json({ ok: true });
+});
+
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, cgv_text, moq_qty, moq_amount FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
   res.json(r.rows);
