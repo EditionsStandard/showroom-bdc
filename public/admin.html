@@ -1326,7 +1326,7 @@ function editProduct(p) {
 
   let variants = [];
   try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
-  currentVariants = variants;
+  currentVariants = variants.map(v => ({ color: v.color || '', images: Array.isArray(v.images) ? v.images : [] }));
 
   document.getElementById('p-id').value = p.id;
   document.getElementById('p-collection').value = p.collection_name || '';
