@@ -1016,33 +1016,15 @@ function renderProducts(products) {
     // filter out empty variants
     variants = variants.filter(v => v.color || v.images.length);
 
-    let imgs = [];
-    try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
-    if (!imgs.length && p.image_url) imgs = [p.image_url];
-
-    // Build image block
-    let imgHtml = '';
-    if (variants.length) {
-      // Show first variant's images, color buttons below
-      const firstImgs = variants[0].images.length ? variants[0].images : imgs;
-      const firstSrc = firstImgs[0] || '';
-      const variantsJson = esc(JSON.stringify(variants));
-      imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
-        + (firstSrc ? '<img class="product-img" id="pimg_' + p.id + '" src="' + esc(firstSrc) + '" data-images="' + esc(JSON.stringify(firstImgs)) + '" onerror="this.style.display=\'none\'">'
-                    : '<div class="product-img-placeholder"></div>')
-        + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
-        + '</div>'
-        + '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
+    // Images are lazy-loaded on click to keep initial page load fast
+    const variantsJson = esc(JSON.stringify(variants));
+    const imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
+      + '<div class="product-img product-img-lazy" id="pimg_' + p.id + '" data-pid="' + p.id + '" data-vi="0" style="display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-size:28px;opacity:.25">📷</span></div>'
+      + '<span id="pimgbadge_' + p.id + '" style="display:none;position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none"></span>'
+      + '</div>'
+      + (variants.length ? '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
         + variants.map((v, vi) => '<button class="color-btn' + (vi===0?' active':'') + '" data-vi="' + vi + '" data-pid="' + p.id + '">' + esc(v.color||('Coloris '+(vi+1))) + '</button>').join('')
-        + '</div>';
-    } else if (imgs.length) {
-      imgHtml = '<div class="product-img-wrap" style="position:relative">'
-        + '<img class="product-img" src="' + esc(imgs[0]) + '" data-images="' + esc(JSON.stringify(imgs)) + '" onerror="this.parentElement.style.display=\'none\'">'
-        + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:12px;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
-        + '</div>';
-    } else {
-      imgHtml = '<div class="product-img-placeholder"></div>';
-    }
+        + '</div>' : '');
 
     // Init selected variant for this product (first variant or empty)
     if (variants.length && !selectedVariant[p.id]) {
@@ -1087,11 +1069,56 @@ function renderProducts(products) {
   }).join('');
 }
 
+// ── Lazy image loading ────────────────────────────────
+const _imgCache = {};
+async function loadProductImages(pid) {
+  if (_imgCache[pid]) return _imgCache[pid];
+  const data = await fetch('/api/public/products/' + pid + '/images').then(r => r.json());
+  let imgs = []; try { imgs = JSON.parse(data.images || '[]'); } catch(e) {}
+  let variants = []; try { variants = JSON.parse(data.variants || '[]'); } catch(e) {}
+  _imgCache[pid] = { imgs, variants };
+  return _imgCache[pid];
+}
+
+function applyProductImage(pid, imgs, badge) {
+  const wrap = document.getElementById('imgwrap_' + pid);
+  if (!wrap) return;
+  const placeholder = document.getElementById('pimg_' + pid);
+  if (imgs.length) {
+    const el = document.createElement('img');
+    el.className = 'product-img';
+    el.id = 'pimg_' + pid;
+    el.dataset.pid = pid;
+    el.dataset.vi = placeholder ? (placeholder.dataset.vi || '0') : '0';
+    el.dataset.images = JSON.stringify(imgs);
+    el.src = imgs[0];
+    el.onerror = function() { this.style.display = 'none'; };
+    if (placeholder) placeholder.replaceWith(el);
+  }
+  const badgeEl = document.getElementById('pimgbadge_' + pid);
+  if (badgeEl && imgs.length > 1) { badgeEl.textContent = imgs.length + ' 📷'; badgeEl.style.display = ''; }
+}
+
 // ── Event delegation (works on mobile) ───────────────
-document.getElementById('products-container').addEventListener('click', function(e) {
-  // Image carousel
-  const img = e.target.closest('.product-img');
-  if (img && img.dataset.images) { openCarousel(JSON.parse(img.dataset.images), 0); return; }
+document.getElementById('products-container').addEventListener('click', async function(e) {
+  // Image click (real img or lazy placeholder)
+  const imgEl = e.target.closest('.product-img, .product-img-lazy');
+  if (imgEl) {
+    const pid = imgEl.dataset.pid;
+    if (imgEl.dataset.images) { openCarousel(JSON.parse(imgEl.dataset.images), 0); return; }
+    if (pid) {
+      const { imgs, variants } = await loadProductImages(pid);
+      const vi = parseInt(imgEl.dataset.vi || '0');
+      const vImgs = (variants[vi] && variants[vi].images && variants[vi].images.length) ? variants[vi].images : imgs;
+      const display = vImgs.length ? vImgs : imgs;
+      applyProductImage(pid, display);
+      // Also update vcolors data-variants with full variant data
+      const vwrap = document.getElementById('vcolors_' + pid);
+      if (vwrap && variants.length) vwrap.dataset.variants = JSON.stringify(variants);
+      if (display.length) openCarousel(display, 0);
+    }
+    return;
+  }
 
   // Color variant switch
   const cbtn = e.target.closest('.color-btn');
@@ -1099,8 +1126,14 @@ document.getElementById('products-container').addEventListener('click', function
     const pid = cbtn.dataset.pid;
     const vi = parseInt(cbtn.dataset.vi);
     const wrap = document.getElementById('vcolors_' + pid);
-    const variants = JSON.parse(wrap.dataset.variants);
-    const v = variants[vi];
+    let variants = JSON.parse(wrap.dataset.variants || '[]');
+    // Lazy-load images if not yet available
+    if (variants.length && !variants[0].images) {
+      const loaded = await loadProductImages(pid);
+      variants = loaded.variants;
+      wrap.dataset.variants = JSON.stringify(variants);
+    }
+    const v = variants[vi] || {};
     const vImgs = v.images && v.images.length ? v.images : [];
     // Track selected variant color
     selectedVariant[pid] = v.color || ('Coloris ' + (vi + 1));
@@ -1124,15 +1157,8 @@ document.getElementById('products-container').addEventListener('click', function
     // update image
     const pimg = document.getElementById('pimg_' + pid);
     const badge = document.getElementById('pimgbadge_' + pid);
-    if (pimg) {
-      if (vImgs.length) {
-        pimg.src = vImgs[0];
-        pimg.dataset.images = JSON.stringify(vImgs);
-        pimg.style.display = '';
-      } else {
-        pimg.style.display = 'none';
-      }
-    }
+    if (pimg) { pimg.dataset.vi = vi; }
+    applyProductImage(pid, vImgs);
     if (badge) {
       if (vImgs.length > 1) { badge.textContent = vImgs.length + ' 📷'; badge.style.display = ''; }
       else { badge.style.display = 'none'; }
