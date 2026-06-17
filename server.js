@@ -8,6 +8,12 @@ const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
 const multer = require('multer');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dhihyr2ci',
+  api_key: process.env.CLOUDINARY_API_KEY || '119441874249666',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'LGise4-aebSVBvPFywOiV3C7y1Y'
+});
 const { pool, init } = require('./database');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -359,6 +365,21 @@ app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','d
   res.json({ ok: true, deleted: r.rowCount });
 });
 
+app.post('/api/upload-image', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const slug = `img-${Date.now()}`;
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: 'showroom/uploads',
+      public_id: slug,
+      transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto' }]
+    });
+    res.json({ url: result.secure_url });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/brands/:brandId/products-photos', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query("UPDATE products SET images='[]', image_url='' WHERE brand_id=$1", [req.params.brandId]);
   res.json({ ok: true, cleared: r.rowCount });
@@ -482,7 +503,18 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
     }
     const entry = pending.get(product.id);
     const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    entry.images.push(base64);
+    let imageData = base64;
+    try {
+      const slug = `${product.reference}-${colorHint || product.color}-${Date.now()}`.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
+      const uploaded = await cloudinary.uploader.upload(base64, {
+        folder: `showroom/${brandId}`,
+        public_id: slug,
+        overwrite: false,
+        transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto' }]
+      });
+      imageData = uploaded.secure_url;
+    } catch(e) { /* keep base64 on cloudinary error */ }
+    entry.images.push(imageData);
     entry.ranks.push(viewRank(colorHint));
     results.push({ file: file.originalname, status: 'ok', ref, color: colorHint || product.color });
   }

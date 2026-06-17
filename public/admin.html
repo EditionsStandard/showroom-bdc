@@ -1404,12 +1404,16 @@ function removeVariantImage(vi, ji) {
 async function handleVariantImageUpload(input, vi) {
   const files = Array.from(input.files);
   if (!files.length) return;
-  toast(`Compression de ${files.length} photo(s)…`);
+  toast(`Upload de ${files.length} photo(s)…`);
   let added = 0, errors = 0;
   for (const file of files) {
     try {
-      const compressed = await compressAndAdd(file);
-      currentVariants[vi].images.push(compressed);
+      const fd = new FormData();
+      fd.append('image', file);
+      const r = await fetch('/api/upload-image', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (!r.ok || !data.url) throw new Error(data.error || 'Upload failed');
+      currentVariants[vi].images.push(data.url);
       added++;
     } catch(err) {
       console.error('Variant image error:', file.name, err.message);
@@ -1418,7 +1422,7 @@ async function handleVariantImageUpload(input, vi) {
   }
   input.value = '';
   renderVariantsList();
-  if (errors > 0 && added === 0) toast(`Erreur : impossible de lire ${errors} fichier(s). Essayez JPG ou PNG.`, true);
+  if (errors > 0 && added === 0) toast(`Erreur upload ${errors} fichier(s).`, true);
   else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s)`, true);
   else toast(`${added} photo(s) ajoutée(s)`);
 }
@@ -1478,13 +1482,16 @@ function compressAndAdd(file) {
 async function handleImageUpload(input) {
   const files = Array.from(input.files);
   if (!files.length) return;
-  toast(`Compression de ${files.length} photo(s)…`);
+  toast(`Upload de ${files.length} photo(s)…`);
   let added = 0, errors = 0;
   for (const file of files) {
     try {
-      const compressed = await compressAndAdd(file);
-      const kb = Math.round(compressed.length * 0.75 / 1024);
-      currentImages.push(compressed);
+      const fd = new FormData();
+      fd.append('image', file);
+      const r = await fetch('/api/upload-image', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (!r.ok || !data.url) throw new Error(data.error || 'Upload failed');
+      currentImages.push(data.url);
       added++;
     } catch(err) {
       console.error('Image upload error:', file.name, err.message);
@@ -1493,8 +1500,8 @@ async function handleImageUpload(input) {
   }
   input.value = '';
   renderImagesGrid();
-  if (errors > 0 && added === 0) toast(`Erreur : impossible de lire ${errors} fichier(s). Essayez JPG ou PNG.`, true);
-  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s) (format non supporté)`, true);
+  if (errors > 0 && added === 0) toast(`Erreur upload ${errors} fichier(s).`, true);
+  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s)`, true);
   else toast(`${added} photo(s) ajoutée(s)`);
 }
 
