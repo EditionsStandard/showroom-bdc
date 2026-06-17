@@ -714,9 +714,12 @@ function requireBuyerAuth(req, res, next) {
   res.status(401).json({ error: 'Non connecté' });
 }
 
-app.get('/portal-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-login.html')));
+// Ancien lien conservé pour compatibilité
+app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-portail'));
 
-app.post('/portal-login', async (req, res) => {
+app.get('/editions-showroom-b2b-portail', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-login.html')));
+
+app.post('/editions-showroom-b2b-portail', async (req, res) => {
   const { email, password } = req.body;
   const bcrypt = require('bcryptjs');
   const r = await pool.query('SELECT * FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
@@ -725,12 +728,12 @@ app.post('/portal-login', async (req, res) => {
     req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
     return res.redirect('/portal');
   }
-  res.redirect('/portal-login?error=1');
+  res.redirect('/editions-showroom-b2b-portail?error=1');
 });
 
-app.get('/portal-logout', (req, res) => { delete req.session.buyerPortal; res.redirect('/portal-login'); });
+app.get('/portal-logout', (req, res) => { delete req.session.buyerPortal; res.redirect('/editions-showroom-b2b-portail'); });
 app.get('/portal', (req, res) => {
-  if (!req.session?.buyerPortal) return res.redirect('/portal-login');
+  if (!req.session?.buyerPortal) return res.redirect('/editions-showroom-b2b-portail');
   res.sendFile(path.join(__dirname, 'public', 'portal.html'));
 });
 
