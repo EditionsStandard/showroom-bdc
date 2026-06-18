@@ -779,7 +779,9 @@ app.post('/editions-showroom-b2b-portail', async (req, res) => {
   res.redirect('/editions-showroom-b2b-portail?error=1');
 });
 
-app.get('/portal-logout', (req, res) => { delete req.session.buyerPortal; res.redirect('/editions-showroom-b2b-portail'); });
+app.get('/portal-logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/editions-showroom-b2b-portail'));
+});
 app.get('/portal', (req, res) => {
   if (!req.session?.buyerPortal) return res.redirect('/editions-showroom-b2b-portail');
   res.sendFile(path.join(__dirname, 'public', 'portal.html'));
