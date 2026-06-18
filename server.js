@@ -147,8 +147,20 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     return res.redirect('/admin/login?error=1');
   }
 
+  const bcrypt = require('bcryptjs');
   const adminPassword = await getSetting('admin_password');
-  if (password === adminPassword) {
+  let valid = false;
+  if (adminPassword.startsWith('$2')) {
+    valid = await bcrypt.compare(password || '', adminPassword);
+  } else {
+    // Plaintext in DB — compare then upgrade to hash on first successful login
+    valid = (password === adminPassword);
+    if (valid) {
+      const hashed = await bcrypt.hash(password, 10);
+      await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', ['admin_password', hashed]);
+    }
+  }
+  if (valid) {
     req.session.admin = true;
     res.redirect('/admin');
   } else {
@@ -221,10 +233,13 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
   const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json'];
-  for (const [key, value] of Object.entries(req.body)) {
-    if (allowed.includes(key)) {
-      await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
+  const bcrypt = require('bcryptjs');
+  for (let [key, value] of Object.entries(req.body)) {
+    if (!allowed.includes(key)) continue;
+    if (key === 'admin_password' && value && !value.startsWith('$2')) {
+      value = await bcrypt.hash(value, 10);
     }
+    await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
   }
   res.json({ ok: true });
 });
@@ -956,9 +971,9 @@ app.post('/api/portal/forgot-password', async (req, res) => {
     const crypto = require('crypto');
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await pool.query('DELETE FROM buyer_password_resets WHERE buyer_id=$1', [buyer.id]);
     await pool.query(
-      `INSERT INTO buyer_password_resets (token, buyer_id, expires_at) VALUES ($1,$2,$3)
-       ON CONFLICT DO NOTHING`,
+      'INSERT INTO buyer_password_resets (token, buyer_id, expires_at) VALUES ($1,$2,$3)',
       [token, buyer.id, expires]
     );
     const resendKey = process.env.RESEND_API_KEY;
