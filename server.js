@@ -902,6 +902,16 @@ app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
   res.json(r.rows);
 });
 
+app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
+  const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
+  if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
+  const lines = await pool.query(
+    'SELECT ol.quantity, ol.unit_price, ol.size, p.reference, p.color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
+    [req.params.id]
+  );
+  res.json(lines.rows);
+});
+
 app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
   const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });

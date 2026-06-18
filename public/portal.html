@@ -53,7 +53,7 @@
   .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
   .profile-grid .field-full { grid-column: 1 / -1; }
   @media (max-width: 640px) { .profile-grid { grid-template-columns: 1fr; } .user-name { display: none; } }
-  .wrap { width: 100%; padding: 36px 40px 60px; }
+  .wrap { width: 100%; max-width: 1400px; margin: 0 auto; padding: 36px 40px 60px; }
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
   .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
   .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s; }
@@ -80,7 +80,11 @@
   .col-filter { display: inline-block; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: transparent; font-family: 'Space Mono', monospace; border-radius: 20px; transition: border-color .15s, color .15s; }
   .col-filter.active { border-color: var(--accent); color: var(--accent); }
   .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .product-img { width: 100%; height: 280px; object-fit: cover; background: #1a1a1a; display: block; }
+  .product-img-wrap { position: relative; overflow: hidden; }
+  .product-img { width: 100%; height: 280px; object-fit: cover; background: #1a1a1a; display: block; transition: opacity .3s; }
+  .product-img-2 { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
+  .product-img-wrap:hover .product-img-1 { opacity: 0; }
+  .product-img-wrap:hover .product-img-2 { opacity: 1; }
   .product-info { padding: 18px 20px; }
   .product-ref { font-family: var(--dot), monospace; font-size: 17px; }
   .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.6; }
@@ -97,8 +101,13 @@
   .field label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; font-family: 'Inter', sans-serif; }
   .field input, .field select, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; color: var(--white); font-size: 15px; font-family: 'Inter', sans-serif; outline: none; }
   .field input:focus, .field select:focus { border-color: var(--accent); }
-  .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; margin-bottom: 16px; max-height: 420px; overflow-y: auto; }
-  .cgv-box h4 { font-family: var(--dot), monospace; font-size: 14px; color: var(--white); margin-bottom: 14px; font-weight: 400; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
+  .cgv-box-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; }
+  .cgv-box-header h4 { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); font-weight: 400; margin: 0; }
+  .cgv-box-toggle { font-size: 11px; color: var(--muted); transition: transform .2s; }
+  .cgv-box.open .cgv-box-toggle { transform: rotate(180deg); }
+  .cgv-box-body { display: none; padding: 0 18px 18px; max-height: 320px; overflow-y: auto; border-top: 1px solid var(--border); }
+  .cgv-box.open .cgv-box-body { display: block; }
   .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin: 18px 0; }
   #sig-canvas { background: #fff; border-radius: 4px; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
   .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; border-radius: 4px; font-family: 'Space Mono', monospace; margin-top: 18px; max-width: 480px; }
@@ -153,6 +162,7 @@
     .brand-name { font-size: 15px; }
     .products-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
     .product-img { height: 190px; }
+    .product-img-2 { height: 190px; }
     .product-info { padding: 12px 14px; }
     .product-ref { font-size: 14px; }
     .product-desc { font-size: 12px; }
@@ -368,6 +378,10 @@ function formatCgv(text) {
   return html;
 }
 
+function toggleCgv(brandId) {
+  document.getElementById('cgv-' + brandId).classList.toggle('open');
+}
+
 function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
 function closeUserMenu() { document.getElementById('user-menu').classList.remove('open'); }
 document.addEventListener('click', e => {
@@ -495,10 +509,22 @@ async function changePassword() {
 
 function renderBrandPicker() {
   const el = document.getElementById('brand-picker');
-  el.innerHTML = '<div class="brand-grid">' + allBrands.map(b => {
-    const cover = b.cover_image ? `<img class="brand-cover" src="${esc(b.cover_image)}">` : `<div class="brand-cover-ph">🏷️</div>`;
-    return `<div class="brand-card" onclick="openBrand('${b.id}')">${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
-  }).join('') + '</div>';
+  const greeting = me?.name ? `Bonjour ${me.name.split(' ')[0]} 👋` : 'Bienvenue';
+  el.innerHTML = `
+    <div style="margin-bottom:28px;padding:20px 24px;background:var(--dark);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:4px">${greeting}</div>
+        <div style="font-family:'Inter',sans-serif;font-size:13px;color:var(--muted)">Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.</div>
+      </div>
+      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-align:right">
+        <span style="color:var(--accent);font-weight:700">${allBrands.length}</span> marque${allBrands.length > 1 ? 's' : ''} disponible${allBrands.length > 1 ? 's' : ''}
+      </div>
+    </div>
+    <div class="brand-grid">` +
+    allBrands.map(b => {
+      const cover = b.cover_image ? `<img class="brand-cover" src="${esc(b.cover_image)}">` : `<div class="brand-cover-ph">🏷️</div>`;
+      return `<div class="brand-card" onclick="openBrand('${b.id}')">${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
+    }).join('') + '</div>';
 }
 
 async function openBrand(brandId) {
@@ -615,7 +641,10 @@ function renderProductsList(products) {
     if (!imgs.length && p.image_url) imgs = [p.image_url];
     const imgsJson = esc(JSON.stringify(imgs));
     const img = imgs[0]
-      ? `<img class="product-img" src="${esc(imgs[0])}" data-images="${imgsJson}" onclick="openCarouselFromEl(this)">`
+      ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
+          <img class="product-img product-img-1" src="${esc(imgs[0])}" alt="${esc(p.reference)}">
+          ${imgs[1] ? `<img class="product-img-2" src="${esc(imgs[1])}" alt="">` : ''}
+         </div>`
       : `<div class="product-img"></div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
@@ -704,7 +733,13 @@ let moqBlocked = false;
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
     const brand = allBrands.find(b => b.id === brandId);
-    return `<div class="cgv-box"><h4>${esc(lines[0].brand_name)} — CGV</h4><div class="cgv-formatted">${formatCgv(brand?.cgv_text || '')}</div></div>`;
+    return `<div class="cgv-box" id="cgv-${brandId}">
+      <div class="cgv-box-header" onclick="toggleCgv('${brandId}')">
+        <h4>${esc(lines[0].brand_name)} — Conditions générales de vente</h4>
+        <span class="cgv-box-toggle">▼</span>
+      </div>
+      <div class="cgv-box-body"><div class="cgv-formatted">${formatCgv(brand?.cgv_text || '')}</div></div>
+    </div>`;
   }).join('');
   document.getElementById('cgv-blocks').innerHTML = cgvHtml;
 
@@ -801,9 +836,35 @@ async function loadOrders() {
       <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
       <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
       <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${Number(o.total||0).toFixed(2)} €</div>
-      <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span><br>
-      <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline;display:inline-block;margin-top:10px">📄 Télécharger le PDF</a>
+      <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
+      <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:10px">
+        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">Voir le détail</button>
+        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">📄 PDF</a>
+      </div>
     </div>`).join('');
+}
+
+async function toggleOrderLines(orderId) {
+  const el = document.getElementById('lines-' + orderId);
+  const btn = el.nextElementSibling.querySelector('button');
+  if (el.style.display !== 'none') {
+    el.style.display = 'none';
+    btn.textContent = 'Voir le détail';
+    return;
+  }
+  if (el.dataset.loaded) { el.style.display = 'block'; btn.textContent = 'Masquer'; return; }
+  el.innerHTML = '<span style="font-family:\'Inter\',sans-serif;font-size:12px;color:var(--muted)">Chargement…</span>';
+  el.style.display = 'block';
+  const lines = await fetch('/api/portal/orders/' + orderId + '/lines').then(r => r.json());
+  el.dataset.loaded = '1';
+  if (!lines.length) { el.innerHTML = '<span style="font-family:\'Inter\',sans-serif;font-size:12px;color:var(--muted)">Aucun article.</span>'; btn.textContent = 'Masquer'; return; }
+  el.innerHTML = lines.map(l => `
+    <div style="display:flex;justify-content:space-between;font-family:'Inter',sans-serif;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--soft)">${esc(l.reference)}${l.size ? ' — ' + esc(l.size) : ''} × ${l.quantity}</span>
+      <span style="color:var(--white)">${Number(l.quantity * l.unit_price).toFixed(2)} €</span>
+    </div>`).join('');
+  btn.textContent = 'Masquer';
 }
 
 // ── Carousel lightbox ─────────────────────────────────
