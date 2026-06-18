@@ -263,8 +263,7 @@ app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
   res.json({ id, name });
 });
 
-app.put('/api/brands/:id', requireRole('owner', 'agent', 'designer'), async (req, res) => {
-  if (req.userRole === 'designer' && req.userBrandId !== req.params.id) return res.status(403).json({ error: 'Accès refusé' });
+app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text } = req.body;
   await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7, about_text=$8 WHERE id=$9',
     [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', req.params.id]);

@@ -1408,7 +1408,7 @@ async function loadBrands() {
       <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
-        <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>
+        ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
         <button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>
