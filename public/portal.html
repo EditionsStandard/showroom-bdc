@@ -194,6 +194,124 @@
   }
   document.documentElement.setAttribute('data-theme', getTheme());
 })();
+
+// ── Translations ──────────────────────────────────────
+const TRANSLATIONS = {
+  fr: {
+    nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
+    dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_logout: '⏻ Déconnexion',
+    back_catalog: '← Retour au catalogue', back_brands: '← Toutes les marques',
+    cart_title: 'Ma sélection', cart_btn: 'Voir ma sélection →',
+    ck_name: 'Nom complet *', ck_company: 'Société', ck_phone: 'Téléphone', ck_country: 'Pays',
+    cgv_accept: "J'ai lu et j'accepte les conditions générales de vente de chaque marque sélectionnée. Je comprends que cette commande sera approuvée et finalisée selon les critères propres à chaque marque.",
+    sig_label: 'Signature', sig_clear: 'Effacer',
+    btn_confirm: 'Valider ma sélection',
+    orders_title: 'Mes commandes', orders_loading: 'Chargement…', orders_empty: 'Aucune commande pour le moment.',
+    orders_see_detail: 'Voir le détail', orders_hide: 'Masquer', orders_pdf: '📄 PDF',
+    status_confirmed: 'Reçue', status_validated: 'Validée', status_cancelled: 'Annulée',
+    account_title: 'Mon profil', account_info: 'Informations personnelles', account_save: 'Enregistrer les modifications',
+    account_pw: 'Changer le mot de passe', pw_current: 'Mot de passe actuel', pw_new: 'Nouveau mot de passe', pw_btn: 'Changer le mot de passe',
+    prof_name: 'Prénom / Nom *', prof_company: 'Entreprise / Boutique', prof_email: 'Email', prof_phone: 'Téléphone', prof_country: 'Pays',
+    ph_name: 'Jean Dupont', ph_company: 'Ma Boutique SARL', ph_phone: '+33 6 00 00 00 00', ph_country: 'France',
+    success_title: 'Sélection confirmée', success_back: 'Retour au catalogue',
+    success_msg: (brands) => `Votre sélection a été transmise pour : <strong>${brands}</strong>.<br><br>Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`,
+    welcome_sub: 'Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.',
+    welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> marque${n>1?'s':''} disponible${n>1?'s':''}`,
+    search_ph: 'Rechercher une référence…',
+    cgv_modal_title: (brand) => `${brand} — Conditions générales de vente`,
+    cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
+    moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
+    err_name: 'Nom requis.', err_cgv: 'Veuillez accepter les CGV.', err_sig: 'Signature requise.', err_empty: 'Sélection vide.', err_retry: 'Erreur, réessayez.',
+    lang_btn: 'EN',
+  },
+  en: {
+    nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
+    dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_logout: '⏻ Log out',
+    back_catalog: '← Back to catalogue', back_brands: '← All brands',
+    cart_title: 'My selection', cart_btn: 'View my selection →',
+    ck_name: 'Full name *', ck_company: 'Company', ck_phone: 'Phone', ck_country: 'Country',
+    cgv_accept: 'I have read and accept the general terms and conditions of each selected brand. I understand that this order will be approved and finalised according to each brand\'s own criteria.',
+    sig_label: 'Signature', sig_clear: 'Clear',
+    btn_confirm: 'Confirm my selection',
+    orders_title: 'My orders', orders_loading: 'Loading…', orders_empty: 'No orders yet.',
+    orders_see_detail: 'View details', orders_hide: 'Hide', orders_pdf: '📄 PDF',
+    status_confirmed: 'Received', status_validated: 'Validated', status_cancelled: 'Cancelled',
+    account_title: 'My profile', account_info: 'Personal information', account_save: 'Save changes',
+    account_pw: 'Change password', pw_current: 'Current password', pw_new: 'New password', pw_btn: 'Change password',
+    prof_name: 'First / Last name *', prof_company: 'Company / Store', prof_email: 'Email', prof_phone: 'Phone', prof_country: 'Country',
+    ph_name: 'John Smith', ph_company: 'My Store Ltd', ph_phone: '+44 7700 000000', ph_country: 'United Kingdom',
+    success_title: 'Selection confirmed', success_back: 'Back to catalogue',
+    success_msg: (brands) => `Your selection has been sent for: <strong>${brands}</strong>.<br><br>You will receive a confirmation email for each brand. Please allow <strong>7 days</strong> to receive the final version, dated and signed by both parties.`,
+    welcome_sub: 'Select a brand to browse its collection, add items and place your order.',
+    welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> brand${n>1?'s':''} available`,
+    search_ph: 'Search by reference…',
+    cgv_modal_title: (brand) => `${brand} — Terms & Conditions`,
+    cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
+    moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
+    err_name: 'Name required.', err_cgv: 'Please accept the terms and conditions.', err_sig: 'Signature required.', err_empty: 'Selection is empty.', err_retry: 'Error, please try again.',
+    lang_btn: 'FR',
+  }
+};
+let currentLang = localStorage.getItem('portal_lang') || 'fr';
+function t(key, ...args) {
+  const val = TRANSLATIONS[currentLang][key];
+  return typeof val === 'function' ? val(...args) : val;
+}
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('portal_lang', lang);
+  applyLang();
+}
+function applyLang() {
+  const T = TRANSLATIONS[currentLang];
+  document.getElementById('nav-catalog').textContent = T.nav_catalog;
+  document.getElementById('nav-orders').textContent = T.nav_orders;
+  document.getElementById('nav-profile').textContent = T.nav_profile;
+  document.getElementById('nav-logout').textContent = T.nav_logout;
+  document.getElementById('dd-catalog').textContent = T.dd_catalog;
+  document.getElementById('dd-orders').textContent = T.dd_orders;
+  document.getElementById('dd-profile').textContent = T.dd_profile;
+  document.getElementById('dd-logout').textContent = T.dd_logout;
+  document.getElementById('lang-btn').textContent = T.lang_btn;
+  // Cart view static labels
+  const backBtn = document.querySelector('#view-cart .back-btn');
+  if (backBtn) backBtn.textContent = T.back_catalog;
+  const cartTitle = document.querySelector('#view-cart .section-title');
+  if (cartTitle) cartTitle.textContent = T.cart_title;
+  document.getElementById('cart-bar-btn').textContent = T.cart_btn;
+  document.querySelector('label[for="ck-cgv"]').textContent = T.cgv_accept;
+  document.getElementById('sig-label').textContent = T.sig_label;
+  document.getElementById('sig-clear').textContent = T.sig_clear;
+  document.getElementById('btn-confirm-order').textContent = T.btn_confirm;
+  document.querySelector('#view-cart label[data-field="name"]').textContent = T.ck_name;
+  document.querySelector('#view-cart label[data-field="company"]').textContent = T.ck_company;
+  document.querySelector('#view-cart label[data-field="phone"]').textContent = T.ck_phone;
+  document.querySelector('#view-cart label[data-field="country"]').textContent = T.ck_country;
+  // Orders
+  document.querySelector('#view-orders .section-title').textContent = T.orders_title;
+  // Account
+  document.querySelector('#view-account .section-title').textContent = T.account_title;
+  document.getElementById('account-info-title').textContent = T.account_info;
+  document.getElementById('account-save-btn').textContent = T.account_save;
+  document.getElementById('account-pw-title').textContent = T.account_pw;
+  document.getElementById('account-pw-btn').textContent = T.pw_btn;
+  document.querySelector('label[data-field="prof-name"]').textContent = T.prof_name;
+  document.querySelector('label[data-field="prof-company"]').textContent = T.prof_company;
+  document.querySelector('label[data-field="prof-email"]').textContent = T.prof_email;
+  document.querySelector('label[data-field="prof-phone"]').textContent = T.prof_phone;
+  document.querySelector('label[data-field="prof-country"]').textContent = T.prof_country;
+  document.getElementById('prof-name').placeholder = T.ph_name;
+  document.getElementById('prof-company').placeholder = T.ph_company;
+  document.getElementById('prof-phone').placeholder = T.ph_phone;
+  document.getElementById('prof-country').placeholder = T.ph_country;
+  document.querySelector('label[data-field="pw-current"]').textContent = T.pw_current;
+  document.querySelector('label[data-field="pw-new"]').textContent = T.pw_new;
+  // Success
+  document.getElementById('success-back-btn').textContent = T.success_back;
+  // Re-render dynamic parts if visible
+  if (currentBrand) applyProductFilters();
+  if (document.getElementById('brand-picker').style.display !== 'none' && allBrands.length) renderBrandPicker();
+}
 </script>
 </head>
 <body>
@@ -206,8 +324,9 @@
     <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
-    <a onclick="showView('account')">Mon profil</a>
-    <a href="/portal-logout" class="nav-logout">Déconnexion</a>
+    <a id="nav-profile" onclick="showView('account')">Mon profil</a>
+    <a id="nav-logout" href="/portal-logout" class="nav-logout">Déconnexion</a>
+    <button id="lang-btn" onclick="setLang(currentLang==='fr'?'en':'fr')" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:'Inter',sans-serif;letter-spacing:.06em">EN</button>
   </div>
   <div class="user-menu" id="user-menu">
     <div class="user-btn" onclick="toggleUserMenu()">
@@ -221,11 +340,11 @@
         <div class="uemail" id="dd-email">—</div>
         <div class="ucompany" id="dd-company"></div>
       </div>
-      <button class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
-      <button class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
-      <button class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
+      <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
+      <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
+      <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
-      <a class="dropdown-item danger" href="/portal-logout">⏻ Déconnexion</a>
+      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout">⏻ Déconnexion</a>
     </div>
   </div>
 </div>
@@ -242,10 +361,10 @@
     <div class="checkout-layout">
       <div id="cart-lines"></div>
       <div id="checkout-form">
-        <div class="field"><label>Nom complet *</label><input id="ck-name"></div>
-        <div class="field"><label>Société</label><input id="ck-company"></div>
-        <div class="field"><label>Téléphone</label><input id="ck-phone"></div>
-        <div class="field"><label>Pays</label><input id="ck-country"></div>
+        <div class="field"><label data-field="name">Nom complet *</label><input id="ck-name"></div>
+        <div class="field"><label data-field="company">Société</label><input id="ck-company"></div>
+        <div class="field"><label data-field="phone">Téléphone</label><input id="ck-phone"></div>
+        <div class="field"><label data-field="country">Pays</label><input id="ck-country"></div>
         <div id="cgv-blocks"></div>
         <div class="checkbox-row">
           <input type="checkbox" id="ck-cgv" style="margin-top:2px">
@@ -253,8 +372,8 @@
         </div>
         <canvas id="sig-canvas"></canvas>
         <div style="display:flex;justify-content:space-between;margin-top:6px">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
-          <a onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
+          <span id="sig-label" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
+          <a id="sig-clear" onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
         </div>
         <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
         <div id="checkout-msg"></div>
@@ -271,46 +390,25 @@
     <h2 class="section-title">Mon profil</h2>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:24px">
-      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
+      <h3 id="account-info-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
       <div class="profile-grid">
-        <div class="field">
-          <label>Prénom / Nom *</label>
-          <input id="prof-name" type="text" placeholder="Jean Dupont">
-        </div>
-        <div class="field">
-          <label>Entreprise / Boutique</label>
-          <input id="prof-company" type="text" placeholder="Ma Boutique SARL">
-        </div>
-        <div class="field">
-          <label>Email</label>
-          <input id="prof-email" type="email" disabled style="opacity:.5;cursor:not-allowed">
-        </div>
-        <div class="field">
-          <label>Téléphone</label>
-          <input id="prof-phone" type="tel" placeholder="+33 6 00 00 00 00">
-        </div>
-        <div class="field field-full">
-          <label>Pays</label>
-          <input id="prof-country" type="text" placeholder="France">
-        </div>
+        <div class="field"><label data-field="prof-name">Prénom / Nom *</label><input id="prof-name" type="text" placeholder="Jean Dupont"></div>
+        <div class="field"><label data-field="prof-company">Entreprise / Boutique</label><input id="prof-company" type="text" placeholder="Ma Boutique SARL"></div>
+        <div class="field"><label data-field="prof-email">Email</label><input id="prof-email" type="email" disabled style="opacity:.5;cursor:not-allowed"></div>
+        <div class="field"><label data-field="prof-phone">Téléphone</label><input id="prof-phone" type="tel" placeholder="+33 6 00 00 00 00"></div>
+        <div class="field field-full"><label data-field="prof-country">Pays</label><input id="prof-country" type="text" placeholder="France"></div>
       </div>
-      <button class="btn-confirm" onclick="saveProfile()">Enregistrer les modifications</button>
+      <button id="account-save-btn" class="btn-confirm" onclick="saveProfile()">Enregistrer les modifications</button>
       <div id="prof-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px">
-      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Changer le mot de passe</h3>
+      <h3 id="account-pw-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Changer le mot de passe</h3>
       <div class="profile-grid">
-        <div class="field">
-          <label>Mot de passe actuel</label>
-          <input id="pw-current" type="password" placeholder="••••••••">
-        </div>
-        <div class="field">
-          <label>Nouveau mot de passe</label>
-          <input id="pw-new" type="password" placeholder="••••••••">
-        </div>
+        <div class="field"><label data-field="pw-current">Mot de passe actuel</label><input id="pw-current" type="password" placeholder="••••••••"></div>
+        <div class="field"><label data-field="pw-new">Nouveau mot de passe</label><input id="pw-new" type="password" placeholder="••••••••"></div>
       </div>
-      <button class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
+      <button id="account-pw-btn" class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
       <div id="pw-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
   </div>
@@ -319,7 +417,7 @@
     <div class="success-check">✓</div>
     <h2 class="section-title" style="text-align:center">Sélection confirmée</h2>
     <div id="success-detail" class="msg" style="text-align:left"></div>
-    <button class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
+    <button id="success-back-btn" class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
   </div>
 </div>
 
@@ -351,7 +449,7 @@
     <strong id="cart-total">0,00 €</strong>
     <div style="font-size:11px;font-family:'Inter',sans-serif">— <span id="cart-count">0</span> article(s)</div>
   </div>
-  <button onclick="showView('cart')">Voir ma sélection →</button>
+  <button id="cart-bar-btn" onclick="showView('cart')">Voir ma sélection →</button>
 </div>
 
 <script>
@@ -397,7 +495,7 @@ function formatCgv(text) {
 
 function openCgvModal(brandId, brandName) {
   const brand = allBrands.find(b => b.id === brandId);
-  document.getElementById('cgv-modal-title').textContent = brandName + ' — Conditions générales de vente';
+  document.getElementById('cgv-modal-title').textContent = t('cgv_modal_title', brandName);
   document.getElementById('cgv-modal-body').innerHTML = '<div class="cgv-formatted">' + formatCgv(brand?.cgv_text || '') + '</div>';
   document.getElementById('cgv-modal').classList.add('open');
 }
@@ -461,6 +559,7 @@ async function init() {
   document.getElementById('dd-email').textContent = me.email || '';
   document.getElementById('dd-company').textContent = me.company || '';
   allBrands = await fetch('/api/portal/brands').then(r => r.json());
+  applyLang();
   renderBrandPicker();
   updateCartBar();
 
@@ -538,15 +637,15 @@ async function changePassword() {
 
 function renderBrandPicker() {
   const el = document.getElementById('brand-picker');
-  const greeting = me?.name ? `Bonjour ${me.name.split(' ')[0]} 👋` : 'Bienvenue';
+  const greeting = me?.name ? (currentLang === 'fr' ? `Bonjour ${me.name.split(' ')[0]} 👋` : `Hello ${me.name.split(' ')[0]} 👋`) : (currentLang === 'fr' ? 'Bienvenue' : 'Welcome');
   el.innerHTML = `
     <div style="margin-bottom:28px;padding:20px 24px;background:var(--dark);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:4px">${greeting}</div>
-        <div style="font-family:'Inter',sans-serif;font-size:13px;color:var(--muted)">Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.</div>
+        <div style="font-family:'Inter',sans-serif;font-size:13px;color:var(--muted)">${t('welcome_sub')}</div>
       </div>
       <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-align:right">
-        <span style="color:var(--accent);font-weight:700">${allBrands.length}</span> marque${allBrands.length > 1 ? 's' : ''} disponible${allBrands.length > 1 ? 's' : ''}
+        ${t('welcome_brands', allBrands.length)}
       </div>
     </div>
     <div class="brand-grid">` +
@@ -573,7 +672,7 @@ async function openBrand(brandId) {
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title">Conditions générales de vente</div><div class="cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}">` : '';
 
-  container.innerHTML = `<button class="back-btn" onclick="closeBrand()">← Toutes les marques</button>
+  container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
     <div class="brand-banner">
       ${coverHtml}
       <div class="brand-banner-info">
@@ -584,7 +683,7 @@ async function openBrand(brandId) {
       </div>
     </div>
     <div class="search-bar">
-      <input id="product-search" type="text" placeholder="Rechercher une référence…" oninput="applyProductFilters()">
+      <input id="product-search" type="text" placeholder="${t('search_ph')}" oninput="applyProductFilters()">
     </div>
     <div id="collection-filters" class="collection-filters"></div>
     <div id="category-filters" class="collection-filters"></div>
@@ -762,7 +861,7 @@ let moqBlocked = false;
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
     return `<div class="cgv-box" onclick="openCgvModal('${brandId}','${esc(lines[0].brand_name)}')">
-      <h4>${esc(lines[0].brand_name)} — Conditions générales de vente</h4>
+      <h4>${t('cgv_btn_label', esc(lines[0].brand_name))}</h4>
       <span class="cgv-box-icon">↗</span>
     </div>`;
   }).join('');
@@ -813,10 +912,10 @@ function clearSig() {
 async function submitCheckout() {
   const msg = document.getElementById('checkout-msg');
   const client_name = document.getElementById('ck-name').value.trim();
-  if (!client_name) { msg.innerHTML = '<div class="msg error">Nom requis.</div>'; return; }
-  if (!document.getElementById('ck-cgv').checked) { msg.innerHTML = '<div class="msg error">Veuillez accepter les CGV.</div>'; return; }
-  if (sigEmpty) { msg.innerHTML = '<div class="msg error">Signature requise.</div>'; return; }
-  if (!Object.keys(cart).length) { msg.innerHTML = '<div class="msg error">Sélection vide.</div>'; return; }
+  if (!client_name) { msg.innerHTML = `<div class="msg error">${t('err_name')}</div>`; return; }
+  if (!document.getElementById('ck-cgv').checked) { msg.innerHTML = `<div class="msg error">${t('err_cgv')}</div>`; return; }
+  if (sigEmpty) { msg.innerHTML = `<div class="msg error">${t('err_sig')}</div>`; return; }
+  if (!Object.keys(cart).length) { msg.innerHTML = `<div class="msg error">${t('err_empty')}</div>`; return; }
 
   document.getElementById('btn-confirm-order').disabled = true;
   const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty }));
@@ -841,11 +940,9 @@ async function submitCheckout() {
     document.getElementById('view-cart').style.display = 'none';
     document.getElementById('view-success').style.display = 'block';
     const brandNames = r.orders.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
-    document.getElementById('success-detail').innerHTML =
-      `Votre sélection a été transmise pour : <strong>${esc(brandNames)}</strong>.<br><br>
-       Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`;
+    document.getElementById('success-detail').innerHTML = t('success_msg', esc(brandNames));
   } catch(e) {
-    msg.innerHTML = '<div class="msg error">Erreur, réessayez.</div>';
+    msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
     document.getElementById('btn-confirm-order').disabled = false;
   }
 }
@@ -854,18 +951,19 @@ async function loadOrders() {
   const data = await fetch('/api/portal/orders').then(r => r.json());
   const list = document.getElementById('orders-list');
   if (!data.length) { list.innerHTML = '<p class="msg">Aucune commande pour le moment.</p>'; return; }
-  const statusLabel = { confirmed: 'Reçue', validated: 'Validée', cancelled: 'Annulée' };
+  const statusLabel = { confirmed: t('status_confirmed'), validated: t('status_validated'), cancelled: t('status_cancelled') };
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
   list.className = 'orders-grid';
   list.innerHTML = data.map(o => `
     <div class="order-card">
       <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
-      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
       <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${Number(o.total||0).toFixed(2)} €</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
       <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px">
-        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">Voir le détail</button>
-        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">📄 PDF</a>
+        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
+        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">${t('orders_pdf')}</a>
       </div>
     </div>`).join('');
 }
@@ -875,21 +973,21 @@ async function toggleOrderLines(orderId) {
   const btn = el.nextElementSibling.querySelector('button');
   if (el.style.display !== 'none') {
     el.style.display = 'none';
-    btn.textContent = 'Voir le détail';
+    btn.textContent = t('orders_see_detail');
     return;
   }
-  if (el.dataset.loaded) { el.style.display = 'block'; btn.textContent = 'Masquer'; return; }
-  el.innerHTML = '<span style="font-family:\'Inter\',sans-serif;font-size:12px;color:var(--muted)">Chargement…</span>';
+  if (el.dataset.loaded) { el.style.display = 'block'; btn.textContent = t('orders_hide'); return; }
+  el.innerHTML = `<span style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted)">${t('orders_loading')}</span>`;
   el.style.display = 'block';
   const lines = await fetch('/api/portal/orders/' + orderId + '/lines').then(r => r.json());
   el.dataset.loaded = '1';
-  if (!lines.length) { el.innerHTML = '<span style="font-family:\'Inter\',sans-serif;font-size:12px;color:var(--muted)">Aucun article.</span>'; btn.textContent = 'Masquer'; return; }
+  if (!lines.length) { el.innerHTML = `<span style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted)">${currentLang==='en'?'No items.':'Aucun article.'}</span>`; btn.textContent = t('orders_hide'); return; }
   el.innerHTML = lines.map(l => `
     <div style="display:flex;justify-content:space-between;font-family:'Inter',sans-serif;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
       <span style="color:var(--soft)">${esc(l.reference)}${l.size ? ' — ' + esc(l.size) : ''} × ${l.quantity}</span>
       <span style="color:var(--white)">${Number(l.quantity * l.unit_price).toFixed(2)} €</span>
     </div>`).join('');
-  btn.textContent = 'Masquer';
+  btn.textContent = t('orders_hide');
 }
 
 // ── Carousel lightbox ─────────────────────────────────
