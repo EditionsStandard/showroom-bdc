@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Créer votre accès — Showroom</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f2f2f0; font-family: 'Inter', Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+  .card { background: #fff; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 4px 32px rgba(0,0,0,.08); }
+  .header { background: #0a0a0a; border-radius: 10px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .header-logo { color: #CCEB3C; font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; letter-spacing: 3px; }
+  .brand-block { text-align: center; margin-bottom: 24px; }
+  .brand-logo { max-height: 52px; max-width: 160px; object-fit: contain; margin-bottom: 8px; }
+  .brand-name { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 700; letter-spacing: 2px; color: #0a0a0a; text-transform: uppercase; }
+  h1 { font-size: 20px; font-weight: 700; color: #0a0a0a; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+  input { width: 100%; background: #f7f7f5; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 14px; font-size: 14px; color: #0a0a0a; outline: none; transition: border-color .2s; margin-bottom: 16px; }
+  input:focus { border-color: #0a0a0a; background: #fff; }
+  .btn { width: 100%; background: #0a0a0a; color: #fff; border: none; border-radius: 8px; padding: 14px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: 1px; margin-top: 4px; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .error { background: #fff3f3; border: 1px solid #f5c6c6; color: #c0392b; border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .success { text-align: center; display: none; }
+  .success h2 { font-size: 20px; margin-bottom: 8px; }
+  .success p { color: #666; font-size: 14px; margin-bottom: 20px; }
+  .login-link { text-align: center; margin-top: 20px; font-size: 13px; color: #888; }
+  .login-link a { color: #0a0a0a; font-weight: 600; }
+  #invalid { text-align: center; display: none; padding: 20px; }
+  #invalid h2 { font-size: 18px; color: #e74c3c; margin-bottom: 8px; }
+  #invalid p { color: #888; font-size: 14px; }
+  #loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="loading">Chargement…</div>
+
+  <div id="invalid">
+    <h2>Lien invalide</h2>
+    <p>Ce lien d'invitation est invalide ou a été désactivé.<br>Contactez votre interlocuteur pour obtenir un nouveau lien.</p>
+  </div>
+
+  <div id="form-section" style="display:none">
+    <div class="header">
+      <img src="/logo.svg" alt="Showroom" width="28" height="28" style="border-radius:4px">
+      <span class="header-logo" id="showroom-label">SHOWROOM</span>
+    </div>
+
+    <div class="brand-block" id="brand-block"></div>
+
+    <h1>Créer votre accès</h1>
+    <p class="subtitle">Remplissez le formulaire pour accéder au showroom.</p>
+
+    <div id="error-msg" class="error"></div>
+
+    <label>Nom complet *</label>
+    <input id="f-name" type="text" placeholder="Jean Dupont" autocomplete="name">
+    <label>Société</label>
+    <input id="f-company" type="text" placeholder="Boutique XYZ" autocomplete="organization">
+    <label>Email *</label>
+    <input id="f-email" type="email" placeholder="jean@boutique.com" autocomplete="email">
+    <label>Mot de passe * <span style="font-weight:400;font-size:11px;text-transform:none">(6 caractères minimum)</span></label>
+    <input id="f-password" type="password" placeholder="••••••••" autocomplete="new-password">
+
+    <button class="btn" id="submit-btn" onclick="submitForm()">CRÉER MON ACCÈS</button>
+
+    <div class="login-link">Déjà un compte ? <a href="/editions-showroom-b2b-portail">Se connecter</a></div>
+  </div>
+
+  <div id="success-section" class="success">
+    <div style="font-size:48px;margin-bottom:16px">✓</div>
+    <h2>Accès créé !</h2>
+    <p>Votre compte a bien été créé. Vous allez être redirigé vers le portail.</p>
+    <a href="/portal" class="btn" style="display:inline-block;text-decoration:none;text-align:center">ACCÉDER AU SHOWROOM</a>
+  </div>
+</div>
+
+<script>
+const token = location.pathname.split('/rejoindre/')[1];
+
+async function init() {
+  const r = await fetch(`/api/invite/${token}`).catch(() => null);
+  document.getElementById('loading').style.display = 'none';
+  if (!r || !r.ok) {
+    document.getElementById('invalid').style.display = 'block';
+    return;
+  }
+  const data = await r.json();
+
+  const brandBlock = document.getElementById('brand-block');
+  if (data.brand_logo) {
+    brandBlock.innerHTML = `<img class="brand-logo" src="${data.brand_logo}" alt="${data.brand_name}"><br><span class="brand-name">${data.brand_name}</span>`;
+  } else {
+    brandBlock.innerHTML = `<span class="brand-name">${data.brand_name}</span>`;
+  }
+
+  document.getElementById('form-section').style.display = 'block';
+}
+
+async function submitForm() {
+  const name = document.getElementById('f-name').value.trim();
+  const company = document.getElementById('f-company').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const password = document.getElementById('f-password').value;
+  const errEl = document.getElementById('error-msg');
+  const btn = document.getElementById('submit-btn');
+
+  errEl.style.display = 'none';
+  if (!name || !email || !password) { showErr('Veuillez remplir tous les champs obligatoires.'); return; }
+  if (password.length < 6) { showErr('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Création en cours…';
+
+  const r = await fetch(`/api/invite/${token}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, company, email, password })
+  });
+  const data = await r.json();
+
+  if (!r.ok) { showErr(data.error || 'Erreur serveur.'); btn.disabled = false; btn.textContent = 'CRÉER MON ACCÈS'; return; }
+
+  document.getElementById('form-section').style.display = 'none';
+  document.getElementById('success-section').style.display = 'block';
+  setTimeout(() => location.href = '/portal', 3000);
+}
+
+function showErr(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') submitForm(); });
+init();
+</script>
+</body>
+</html>

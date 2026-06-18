@@ -694,6 +694,43 @@
   </div>
 </div>
 
+<!-- MODAL INVITE LINK -->
+<div class="modal-overlay" id="modal-invite">
+  <div class="modal" style="max-width:480px">
+    <h3 id="invite-modal-title" style="margin-bottom:20px">Lien d'invitation acheteur</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:20px">Partagez ce lien avec vos acheteurs. Ils pourront créer leur propre compte et accéder directement au portail showroom.</p>
+
+    <div id="invite-no-link" style="display:none;text-align:center;padding:20px 0">
+      <p style="color:#666;font-size:13px;margin-bottom:16px">Aucun lien généré pour cette marque.</p>
+      <button class="btn btn-primary" onclick="generateInviteLink()">Générer un lien d'invitation</button>
+    </div>
+
+    <div id="invite-has-link" style="display:none">
+      <div style="background:#0a0a0a;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span id="invite-url" style="flex:1;font-size:12px;color:#aaa;word-break:break-all;font-family:'Courier New',monospace"></span>
+        <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()" title="Copier" style="flex-shrink:0">📋 Copier</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="invite-status-dot" style="width:8px;height:8px;border-radius:50%;background:#2ecc71"></div>
+          <span id="invite-status-label" style="font-size:13px;color:#aaa">Lien actif</span>
+        </div>
+        <button class="btn btn-sm" id="invite-toggle-btn" onclick="toggleInviteLink()">Désactiver</button>
+      </div>
+
+      <div style="border-top:1px solid #252525;padding-top:14px;display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="generateInviteLink()" style="font-size:12px">🔄 Régénérer un nouveau lien</button>
+      </div>
+      <p style="font-size:11px;color:#555;margin-top:8px">Régénérer invalide l'ancien lien immédiatement.</p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-invite')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL QR PRODUIT -->
 <div class="modal-overlay" id="modal-qr-product">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -1052,6 +1089,7 @@ async function loadBrands() {
         <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ Modifier</button>
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
+        <button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien acheteur</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 Facturation</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>` : ''}
       </div>
@@ -1219,6 +1257,57 @@ async function cancelBrandSubscription() {
   closeModal('modal-billing');
   loadBrands();
   toast('Accès désactivé');
+}
+
+// ── Invite Link ────────────────────────────────────────
+let inviteBrandId = null;
+let inviteActive = false;
+
+async function openInvitePanel(brandId, brandName) {
+  inviteBrandId = brandId;
+  document.getElementById('invite-modal-title').textContent = `Lien d'invitation — ${brandName}`;
+  openModal('modal-invite');
+  await refreshInviteLink();
+}
+
+async function refreshInviteLink() {
+  const data = await fetch(`/api/brands/${inviteBrandId}/invite-link`).then(r => r.json());
+  if (!data.token) {
+    document.getElementById('invite-no-link').style.display = 'block';
+    document.getElementById('invite-has-link').style.display = 'none';
+    return;
+  }
+  inviteActive = data.active === 1;
+  document.getElementById('invite-no-link').style.display = 'none';
+  document.getElementById('invite-has-link').style.display = 'block';
+  document.getElementById('invite-url').textContent = `${location.origin}/rejoindre/${data.token}`;
+  document.getElementById('invite-status-dot').style.background = inviteActive ? '#2ecc71' : '#e74c3c';
+  document.getElementById('invite-status-label').textContent = inviteActive ? 'Lien actif' : 'Lien désactivé';
+  const toggleBtn = document.getElementById('invite-toggle-btn');
+  toggleBtn.textContent = inviteActive ? 'Désactiver' : 'Réactiver';
+  toggleBtn.className = inviteActive ? 'btn btn-danger btn-sm' : 'btn btn-green btn-sm';
+}
+
+async function generateInviteLink() {
+  if (document.getElementById('invite-has-link').style.display !== 'none') {
+    if (!confirm('Régénérer un nouveau lien ? L\'ancien sera immédiatement invalidé.')) return;
+  }
+  await fetch(`/api/brands/${inviteBrandId}/invite-link`, { method: 'POST' });
+  await refreshInviteLink();
+  toast('Lien généré');
+}
+
+async function toggleInviteLink() {
+  await fetch(`/api/brands/${inviteBrandId}/invite-link/toggle`, {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ active: !inviteActive })
+  });
+  await refreshInviteLink();
+  toast(inviteActive ? 'Lien réactivé' : 'Lien désactivé');
+}
+
+function copyInviteLink() {
+  const url = document.getElementById('invite-url').textContent;
+  navigator.clipboard.writeText(url).then(() => toast('Lien copié !'));
 }
 
 async function loadAppointments(brandId, brandName) {

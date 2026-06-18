@@ -35,6 +35,15 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS brand_invite_links (
+      token TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS buyers (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,

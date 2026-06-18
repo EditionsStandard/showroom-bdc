@@ -1120,6 +1120,72 @@ app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => 
   res.json({ ok: true });
 });
 
+// ==================== BRAND INVITE LINKS ====================
+
+app.get('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'), async (req, res) => {
+  const r = await pool.query('SELECT * FROM brand_invite_links WHERE brand_id=$1 ORDER BY created_at DESC LIMIT 1', [req.params.brandId]);
+  if (!r.rows[0]) return res.json({ token: null, active: 0 });
+  res.json(r.rows[0]);
+});
+
+app.post('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'), async (req, res) => {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(24).toString('hex');
+  await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [req.params.brandId]);
+  await pool.query('INSERT INTO brand_invite_links (token, brand_id, active) VALUES ($1,$2,1)', [token, req.params.brandId]);
+  res.json({ token });
+});
+
+app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','agent'), async (req, res) => {
+  const { active } = req.body;
+  await pool.query('UPDATE brand_invite_links SET active=$1 WHERE brand_id=$2', [active ? 1 : 0, req.params.brandId]);
+  res.json({ ok: true });
+});
+
+app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
+
+app.get('/api/invite/:token', async (req, res) => {
+  const r = await pool.query(`
+    SELECT bil.*, b.name as brand_name, b.logo as brand_logo
+    FROM brand_invite_links bil
+    JOIN brands b ON b.id = bil.brand_id
+    WHERE bil.token=$1 AND bil.active=1
+  `, [req.params.token]);
+  if (!r.rows[0]) return res.status(404).json({ error: 'Lien invalide ou désactivé.' });
+  res.json({ brand_name: r.rows[0].brand_name, brand_logo: r.rows[0].brand_logo });
+});
+
+app.post('/api/invite/:token', async (req, res) => {
+  const r = await pool.query(`
+    SELECT bil.brand_id, b.name as brand_name
+    FROM brand_invite_links bil
+    JOIN brands b ON b.id = bil.brand_id
+    WHERE bil.token=$1 AND bil.active=1
+  `, [req.params.token]);
+  if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
+
+  const { name, company, email, password } = req.body;
+  if (!email || !password || password.length < 6) return res.status(400).json({ error: 'Email et mot de passe requis (6 caractères min).' });
+  if (!name) return res.status(400).json({ error: 'Nom requis.' });
+
+  const cleanEmail = email.toLowerCase().trim();
+  const bcrypt = require('bcryptjs');
+  const hash = await bcrypt.hash(password, 10);
+  const id = uuidv4();
+  try {
+    await pool.query(
+      'INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
+      [id, cleanEmail, hash, name.trim(), (company||'').trim()]
+    );
+    req.session.buyerPortal = { id, email: cleanEmail, name: name.trim() };
+    res.json({ ok: true });
+    sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé. Connectez-vous directement sur le portail.' });
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 // ==================== BUYER ACCESS (magic link) ====================
 
 app.post('/api/buyer/request-link', async (req, res) => {
