@@ -20,6 +20,7 @@ const { pool, init } = require('./database');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const app = express();
+app.set('trust proxy', 1); // Railway runs behind a proxy — required for secure cookies
 const PORT = process.env.PORT || 3000;
 
 // Stripe webhook needs the raw body for signature verification — must be registered before express.json()
