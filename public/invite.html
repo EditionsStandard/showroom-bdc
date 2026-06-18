@@ -31,53 +31,144 @@
   #invalid h2 { font-size: 18px; color: #e74c3c; margin-bottom: 8px; }
   #invalid p { color: #888; font-size: 14px; }
   #loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
+  #lang-toggle { background: none; border: 1px solid #444; border-radius: 20px; padding: 3px 10px; font-size: 11px; color: #CCEB3C; cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: .05em; transition: border-color .2s; }
+  #lang-toggle:hover { border-color: #CCEB3C; }
 </style>
 </head>
 <body>
 <div class="card">
-  <div id="loading">Chargement…</div>
+  <div id="loading" data-t="loading">Chargement…</div>
 
   <div id="invalid">
-    <h2>Lien invalide</h2>
-    <p>Ce lien d'invitation est invalide ou a été désactivé.<br>Contactez votre interlocuteur pour obtenir un nouveau lien.</p>
+    <h2 data-t="invalid_title">Lien invalide</h2>
+    <p data-t="invalid_msg">Ce lien d'invitation est invalide ou a été désactivé.<br>Contactez votre interlocuteur pour obtenir un nouveau lien.</p>
   </div>
 
   <div id="form-section" style="display:none">
     <div class="header">
       <img src="/logo.svg" alt="Showroom" width="28" height="28" style="border-radius:4px">
       <span class="header-logo" id="showroom-label">SHOWROOM</span>
+      <button id="lang-toggle" onclick="toggleLang()">EN</button>
     </div>
 
     <div class="brand-block" id="brand-block"></div>
 
-    <h1>Créer votre accès</h1>
-    <p class="subtitle">Remplissez le formulaire pour accéder au showroom.</p>
+    <h1 data-t="page_title">Créer votre accès</h1>
+    <p class="subtitle" data-t="page_subtitle">Remplissez le formulaire pour accéder au showroom.</p>
 
     <div id="error-msg" class="error"></div>
 
-    <label>Nom complet *</label>
-    <input id="f-name" type="text" placeholder="Jean Dupont" autocomplete="name">
-    <label>Société</label>
-    <input id="f-company" type="text" placeholder="Boutique XYZ" autocomplete="organization">
-    <label>Email *</label>
-    <input id="f-email" type="email" placeholder="jean@boutique.com" autocomplete="email">
-    <label>Mot de passe * <span style="font-weight:400;font-size:11px;text-transform:none">(6 caractères minimum)</span></label>
-    <input id="f-password" type="password" placeholder="••••••••" autocomplete="new-password">
+    <label data-t="name_label">Nom complet *</label>
+    <input id="f-name" type="text" data-tp="name_placeholder" autocomplete="name">
+    <label data-t="company_label">Société</label>
+    <input id="f-company" type="text" data-tp="company_placeholder" autocomplete="organization">
+    <label data-t="email_label">Email *</label>
+    <input id="f-email" type="email" data-tp="email_placeholder" autocomplete="email">
+    <label data-t="password_label">Mot de passe * <span style="font-weight:400;font-size:11px;text-transform:none" data-t="password_hint">(6 caractères minimum)</span></label>
+    <input id="f-password" type="password" data-tp="password_placeholder" autocomplete="new-password">
 
-    <button class="btn" id="submit-btn" onclick="submitForm()">CRÉER MON ACCÈS</button>
+    <button class="btn" id="submit-btn" onclick="submitForm()" data-t="submit_btn">CRÉER MON ACCÈS</button>
 
-    <div class="login-link">Déjà un compte ? <a href="/editions-showroom-b2b-portail">Se connecter</a></div>
+    <div class="login-link" data-t="login_link_html">Déjà un compte ? <a href="/editions-showroom-b2b-portail">Se connecter</a></div>
   </div>
 
   <div id="success-section" class="success">
     <div style="font-size:48px;margin-bottom:16px">✓</div>
-    <h2>Accès créé !</h2>
-    <p>Votre compte a bien été créé. Vous allez être redirigé vers le portail.</p>
-    <a href="/portal" class="btn" style="display:inline-block;text-decoration:none;text-align:center">ACCÉDER AU SHOWROOM</a>
+    <h2 data-t="success_title">Accès créé !</h2>
+    <p data-t="success_msg">Votre compte a bien été créé. Vous allez être redirigé vers le portail.</p>
+    <a href="/portal" class="btn" style="display:inline-block;text-decoration:none;text-align:center" data-t="go_portal_btn">ACCÉDER AU SHOWROOM</a>
   </div>
 </div>
 
 <script>
+const TRANSLATIONS = {
+  fr: {
+    loading: 'Chargement…',
+    invalid_title: 'Lien invalide',
+    invalid_msg: 'Ce lien d\'invitation est invalide ou a été désactivé. Contactez votre interlocuteur pour obtenir un nouveau lien.',
+    page_title: 'Créer votre accès',
+    page_subtitle: 'Remplissez le formulaire pour accéder au showroom.',
+    name_label: 'Nom complet *',
+    name_placeholder: 'Jean Dupont',
+    company_label: 'Société',
+    company_placeholder: 'Boutique XYZ',
+    email_label: 'Email *',
+    email_placeholder: 'jean@boutique.com',
+    password_label: 'Mot de passe *',
+    password_hint: '(6 caractères minimum)',
+    password_placeholder: '••••••••',
+    submit_btn: 'CRÉER MON ACCÈS',
+    login_link_html: null, // handled manually
+    success_title: 'Accès créé !',
+    success_msg: 'Votre compte a bien été créé. Vous allez être redirigé vers le portail.',
+    go_portal_btn: 'ACCÉDER AU SHOWROOM',
+    err_required: 'Veuillez remplir tous les champs obligatoires.',
+    err_pw_short: 'Le mot de passe doit contenir au moins 6 caractères.',
+    err_server: 'Erreur serveur.',
+    creating: 'Création en cours…',
+  },
+  en: {
+    loading: 'Loading…',
+    invalid_title: 'Invalid link',
+    invalid_msg: 'This invitation link is invalid or has been disabled. Contact your representative to get a new link.',
+    page_title: 'Create your access',
+    page_subtitle: 'Fill in the form to access the showroom.',
+    name_label: 'Full name *',
+    name_placeholder: 'Jane Smith',
+    company_label: 'Company',
+    company_placeholder: 'Boutique XYZ',
+    email_label: 'Email *',
+    email_placeholder: 'jane@boutique.com',
+    password_label: 'Password *',
+    password_hint: '(minimum 6 characters)',
+    password_placeholder: '••••••••',
+    submit_btn: 'CREATE MY ACCESS',
+    login_link_html: null, // handled manually
+    success_title: 'Access created!',
+    success_msg: 'Your account has been created. You will be redirected to the portal.',
+    go_portal_btn: 'GO TO SHOWROOM',
+    err_required: 'Please fill in all required fields.',
+    err_pw_short: 'Password must be at least 6 characters.',
+    err_server: 'Server error.',
+    creating: 'Creating…',
+  }
+};
+
+let currentLang = localStorage.getItem('portal_lang') || 'fr';
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] || TRANSLATIONS.fr)[key] || key;
+}
+
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.dataset.t;
+    if (key === 'login_link_html') {
+      const linkText = currentLang === 'fr' ? 'Se connecter' : 'Log in';
+      const prefixText = currentLang === 'fr' ? 'Déjà un compte ? ' : 'Already have an account? ';
+      el.innerHTML = prefixText + `<a href="/editions-showroom-b2b-portail">${linkText}</a>`;
+    } else if (key === 'invalid_msg') {
+      el.innerHTML = currentLang === 'fr'
+        ? 'Ce lien d\'invitation est invalide ou a été désactivé.<br>Contactez votre interlocuteur pour obtenir un nouveau lien.'
+        : 'This invitation link is invalid or has been disabled.<br>Contact your representative to get a new link.';
+    } else {
+      el.textContent = t(key);
+    }
+  });
+  document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
+  const toggleBtn = document.getElementById('lang-toggle');
+  if (toggleBtn) toggleBtn.textContent = currentLang === 'fr' ? 'EN' : 'FR';
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+  localStorage.setItem('portal_lang', currentLang);
+  applyLang();
+}
+
+applyLang();
+
 const token = location.pathname.split('/rejoindre/')[1];
 
 async function init() {
@@ -108,11 +199,11 @@ async function submitForm() {
   const btn = document.getElementById('submit-btn');
 
   errEl.style.display = 'none';
-  if (!name || !email || !password) { showErr('Veuillez remplir tous les champs obligatoires.'); return; }
-  if (password.length < 6) { showErr('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+  if (!name || !email || !password) { showErr(t('err_required')); return; }
+  if (password.length < 6) { showErr(t('err_pw_short')); return; }
 
   btn.disabled = true;
-  btn.textContent = 'Création en cours…';
+  btn.textContent = t('creating');
 
   const r = await fetch(`/api/invite/${token}`, {
     method: 'POST',
@@ -121,7 +212,7 @@ async function submitForm() {
   });
   const data = await r.json();
 
-  if (!r.ok) { showErr(data.error || 'Erreur serveur.'); btn.disabled = false; btn.textContent = 'CRÉER MON ACCÈS'; return; }
+  if (!r.ok) { showErr(data.error || t('err_server')); btn.disabled = false; btn.textContent = t('submit_btn'); return; }
 
   document.getElementById('form-section').style.display = 'none';
   document.getElementById('success-section').style.display = 'block';

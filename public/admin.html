@@ -181,6 +181,27 @@
   }
   #theme-toggle:hover { border-color: #CCEB3C; color: #e0e0e0; }
 
+  /* ── Lang toggle ── */
+  #lang-toggle {
+    background: none;
+    border: 1px solid #252525;
+    border-radius: 20px;
+    padding: 5px 12px;
+    cursor: pointer;
+    color: #888;
+    font-size: 12px;
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-top: 8px;
+    transition: border-color .2s, color .2s;
+    font-family: inherit;
+    letter-spacing: .05em;
+  }
+  #lang-toggle:hover { border-color: #CCEB3C; color: #e0e0e0; }
+  [data-theme="light"] #lang-toggle { border-color: #ddd; color: #888; }
+  [data-theme="light"] #lang-toggle:hover { border-color: #CCEB3C; color: #111; }
+
   /* ── Light mode ── */
   [data-theme="light"] body { background: #f5f4f0; color: #111; }
   [data-theme="light"] .sidebar { background: #ffffff; border-right-color: #ddd; }
@@ -240,7 +261,9 @@
   function applyTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     const btn = document.getElementById('theme-toggle');
-    if (btn) btn.textContent = (t === 'light' ? '🌙 Mode sombre' : '☀️ Mode clair');
+    if (btn) btn.textContent = (t === 'light'
+      ? (currentLang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
+      : (currentLang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode'));
   }
   window.toggleTheme = function() {
     const cur = document.documentElement.getAttribute('data-theme') || 'dark';
@@ -272,36 +295,37 @@
     </div>
   </div>
   <nav>
-    <a class="active" data-section="dashboard"><span class="icon">📊</span> Tableau de bord</a>
-    <a data-section="brands"><span class="icon">🏷️</span> Marques</a>
-    <a data-section="orders"><span class="icon">📋</span> Commandes</a>
-    <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span> Paramètres</a>
-    <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span> Comptes</a>
-    <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span> Acheteurs</a>
+    <a class="active" data-section="dashboard"><span class="icon">📊</span> <span data-t="nav_dashboard">Tableau de bord</span></a>
+    <a data-section="brands"><span class="icon">🏷️</span> <span data-t="nav_brands">Marques</span></a>
+    <a data-section="orders"><span class="icon">📋</span> <span data-t="nav_orders">Commandes</span></a>
+    <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span> <span data-t="nav_staff">Comptes</span></a>
+    <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span> <span data-t="nav_buyers">Acheteurs</span></a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
-    <a href="/admin/logout" style="display:block;margin-top:10px;padding:8px 14px;border:1px solid #c0392b;border-radius:4px;color:#e74c3c;font-size:12px;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#e74c3c';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='#e74c3c'">⏻ Déconnexion</a>
+    <button id="lang-toggle" onclick="toggleLang()">🌐 EN</button>
+    <a id="logout-link" href="/admin/logout" style="display:block;margin-top:10px;padding:8px 14px;border:1px solid #c0392b;border-radius:4px;color:#e74c3c;font-size:12px;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#e74c3c';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='#e74c3c'" data-t="logout">⏻ Déconnexion</a>
   </div>
 </div>
 
 <div class="main">
   <div class="topbar">
-    <a href="/admin/logout" class="btn-logout-top">⏻ Déconnexion</a>
+    <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
   <!-- DASHBOARD -->
   <div id="dashboard" class="section active">
-    <h1>Tableau de bord</h1>
+    <h1 data-t="h1_dashboard">Tableau de bord</h1>
     <div class="stats">
-      <div class="stat"><div class="num" id="stat-brands">—</div><div class="label">Marques</div></div>
-      <div class="stat"><div class="num" id="stat-orders">—</div><div class="label">Commandes</div></div>
-      <div class="stat"><div class="num" id="stat-total">—</div><div class="label">CA total HT</div></div>
+      <div class="stat"><div class="num" id="stat-brands">—</div><div class="label" data-t="stat_brands">Marques</div></div>
+      <div class="stat"><div class="num" id="stat-orders">—</div><div class="label" data-t="stat_orders">Commandes</div></div>
+      <div class="stat"><div class="num" id="stat-total">—</div><div class="label" data-t="stat_revenue">CA total HT</div></div>
     </div>
     <div class="card">
-      <h3>Dernières commandes</h3>
+      <h3 data-t="recent_orders">Dernières commandes</h3>
       <table id="recent-orders-table">
-        <thead><tr><th>Date</th><th>Client</th><th>Marque</th><th>Total</th><th>Actions</th></tr></thead>
+        <thead><tr><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total">Total</th><th data-t="th_actions">Actions</th></tr></thead>
         <tbody id="recent-orders-body"></tbody>
       </table>
     </div>
@@ -309,8 +333,8 @@
 
   <!-- BRANDS -->
   <div id="brands" class="section">
-    <h1>Marques & Collections</h1>
-    <button class="btn btn-primary" onclick="openBrandModal()">+ Nouvelle marque</button>
+    <h1 data-t="h1_brands">Marques & Collections</h1>
+    <button class="btn btn-primary" onclick="openBrandModal()" data-t="btn_new_brand">+ Nouvelle marque</button>
     <div style="height:20px"></div>
     <div class="brands-grid" id="brands-grid"></div>
   </div>
@@ -318,30 +342,30 @@
   <!-- ORDERS -->
   <div id="orders" class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">
-      <h1 style="margin:0">Commandes</h1>
+      <h1 style="margin:0" data-t="h1_orders">Commandes</h1>
       <span id="orders-count" style="font-size:13px;color:#888"></span>
     </div>
 
     <!-- Filters -->
     <div class="card" style="padding:16px 20px;margin-bottom:16px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <input id="orders-search" type="text" placeholder="🔍 Client, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterOrders()">
+        <input id="orders-search" type="text" data-tp="orders_search_placeholder" placeholder="🔍 Client, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterOrders()">
         <select id="orders-filter-brand" onchange="filterOrders()" style="padding:8px 12px;font-size:13px;min-width:140px">
-          <option value="">Toutes les marques</option>
+          <option value="" data-t="filter_all_brands">Toutes les marques</option>
         </select>
         <select id="orders-filter-status" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
-          <option value="">Tous les statuts</option>
-          <option value="confirmed">Reçue</option>
-          <option value="validated">Validée ✓</option>
-          <option value="cancelled">Annulée</option>
+          <option value="" data-t="filter_all_statuses">Tous les statuts</option>
+          <option value="confirmed" data-t="status_confirmed">Reçue</option>
+          <option value="validated" data-t="status_validated">Validée ✓</option>
+          <option value="cancelled" data-t="status_cancelled">Annulée</option>
         </select>
         <select id="orders-sort" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
-          <option value="date_desc">Date ↓</option>
-          <option value="date_asc">Date ↑</option>
-          <option value="total_desc">Total ↓</option>
-          <option value="brand">Marque A→Z</option>
+          <option value="date_desc" data-t="sort_date_desc">Date ↓</option>
+          <option value="date_asc" data-t="sort_date_asc">Date ↑</option>
+          <option value="total_desc" data-t="sort_total_desc">Total ↓</option>
+          <option value="brand" data-t="sort_brand">Marque A→Z</option>
         </select>
-        <button class="btn btn-secondary btn-sm" onclick="resetOrderFilters()">Réinitialiser</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetOrderFilters()" data-t="btn_reset">Réinitialiser</button>
       </div>
     </div>
 
@@ -351,7 +375,7 @@
     <div class="card" style="padding:0;overflow:hidden">
       <table id="orders-table" style="min-width:700px">
         <thead><tr>
-          <th>Réf.</th><th>Date</th><th>Client</th><th>Marque</th><th>Total HT</th><th>Statut</th><th>Actions</th>
+          <th data-t="th_ref">Réf.</th><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total_ht">Total HT</th><th data-t="th_status">Statut</th><th data-t="th_actions">Actions</th>
         </tr></thead>
         <tbody id="orders-body"></tbody>
       </table>
@@ -360,101 +384,101 @@
 
   <!-- SETTINGS -->
   <div id="settings" class="section">
-    <h1>Paramètres</h1>
+    <h1 data-t="h1_settings">Paramètres</h1>
     <div class="card">
-      <h3>Showroom</h3>
+      <h3 data-t="settings_showroom">Showroom</h3>
       <div class="form-row">
-        <div class="form-group"><label>Nom du showroom</label><input id="s-name" type="text"></div>
-        <div class="form-group"><label>Email showroom (copie BDC)</label><input id="s-email" type="email"></div>
+        <div class="form-group"><label data-t="s_name_label">Nom du showroom</label><input id="s-name" type="text"></div>
+        <div class="form-group"><label data-t="s_email_label">Email showroom (copie BDC)</label><input id="s-email" type="email"></div>
       </div>
       <div class="sep"></div>
-      <h3>Configuration SMTP (envoi emails)</h3>
+      <h3 data-t="settings_smtp">Configuration SMTP (envoi emails)</h3>
       <div class="form-row">
-        <div class="form-group"><label>Serveur SMTP</label><input id="s-smtp-host" type="text" placeholder="smtp.example.com"></div>
-        <div class="form-group"><label>Port</label><input id="s-smtp-port" type="number" placeholder="587"></div>
+        <div class="form-group"><label data-t="s_smtp_host_label">Serveur SMTP</label><input id="s-smtp-host" type="text" placeholder="smtp.example.com"></div>
+        <div class="form-group"><label data-t="s_smtp_port_label">Port</label><input id="s-smtp-port" type="number" placeholder="587"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Utilisateur SMTP</label><input id="s-smtp-user" type="text"></div>
-        <div class="form-group"><label>Mot de passe SMTP</label><input id="s-smtp-pass" type="password"></div>
+        <div class="form-group"><label data-t="s_smtp_user_label">Utilisateur SMTP</label><input id="s-smtp-user" type="text"></div>
+        <div class="form-group"><label data-t="s_smtp_pass_label">Mot de passe SMTP</label><input id="s-smtp-pass" type="password"></div>
       </div>
-      <div class="form-group"><label>Adresse expéditeur (From)</label><input id="s-smtp-from" type="email" placeholder="commandes@votreshowroom.com"></div>
+      <div class="form-group"><label data-t="s_smtp_from_label">Adresse expéditeur (From)</label><input id="s-smtp-from" type="email" data-tp="s_smtp_from_placeholder"></div>
       <div class="sep"></div>
-      <h3>Agent / Showroom (signature)</h3>
+      <h3 data-t="settings_agent">Agent / Showroom (signature)</h3>
       <div class="form-row">
-        <div class="form-group"><label>Nom de l'agent</label><input id="s-agent-name" type="text" placeholder="Prénom Nom"></div>
-        <div class="form-group"><label>Titre / Fonction</label><input id="s-agent-title" type="text" placeholder="Agent Commercial"></div>
-        <div class="form-group"><label>Téléphone (affiché sur la page d'accueil acheteur)</label><input id="s-agent-phone" type="tel" placeholder="+33 6 00 00 00 00"></div>
+        <div class="form-group"><label data-t="s_agent_name_label">Nom de l'agent</label><input id="s-agent-name" type="text" data-tp="s_agent_name_placeholder"></div>
+        <div class="form-group"><label data-t="s_agent_title_label">Titre / Fonction</label><input id="s-agent-title" type="text" data-tp="s_agent_title_placeholder"></div>
+        <div class="form-group"><label data-t="s_agent_phone_label">Téléphone (affiché sur la page d'accueil acheteur)</label><input id="s-agent-phone" type="tel" placeholder="+33 6 00 00 00 00"></div>
       </div>
       <div class="sep"></div>
-      <h3>Conditions Générales de Vente</h3>
-      <div class="form-group"><label>Texte CGV (affiché lors de la commande et dans le PDF)</label><textarea id="s-cgv-text" rows="5" style="resize:vertical"></textarea></div>
+      <h3 data-t="settings_cgv">Conditions Générales de Vente</h3>
+      <div class="form-group"><label data-t="s_cgv_label">Texte CGV (affiché lors de la commande et dans le PDF)</label><textarea id="s-cgv-text" rows="5" style="resize:vertical"></textarea></div>
       <div class="sep"></div>
-      <h3>Devises</h3>
-      <p style="font-size:11px;color:#666;margin-bottom:10px">Taux de conversion depuis l'euro (EUR=1). Affichage seulement — les commandes restent enregistrées en EUR.</p>
+      <h3 data-t="settings_currencies">Devises</h3>
+      <p style="font-size:11px;color:#666;margin-bottom:10px" data-t="currencies_note">Taux de conversion depuis l'euro (EUR=1). Affichage seulement — les commandes restent enregistrées en EUR.</p>
       <div id="currencies-list" style="margin-bottom:10px"></div>
-      <button class="btn btn-secondary btn-sm" onclick="addCurrencyRow()">+ Ajouter une devise</button>
+      <button class="btn btn-secondary btn-sm" onclick="addCurrencyRow()" data-t="btn_add_currency">+ Ajouter une devise</button>
       <div class="sep"></div>
-      <h3>Sécurité</h3>
-      <div class="form-group" style="max-width:260px"><label>Nouveau mot de passe admin</label><input id="s-admin-pass" type="password" placeholder="Laisser vide pour ne pas changer"></div>
-      <button class="btn btn-primary" onclick="saveSettings()">Enregistrer</button>
+      <h3 data-t="settings_security">Sécurité</h3>
+      <div class="form-group" style="max-width:260px"><label data-t="s_admin_pass_label">Nouveau mot de passe admin</label><input id="s-admin-pass" type="password" data-tp="s_admin_pass_placeholder"></div>
+      <button class="btn btn-primary" onclick="saveSettings()" data-t="btn_save">Enregistrer</button>
     </div>
   </div>
 
   <div id="staff" class="section">
-    <h1>Comptes</h1>
+    <h1 data-t="h1_staff">Comptes</h1>
     <div class="card">
-      <h3>Créer un compte</h3>
+      <h3 data-t="staff_create_title">Créer un compte</h3>
       <div class="form-row">
-        <div class="form-group"><label>Nom</label><input id="staff-name" type="text" placeholder="Prénom Nom"></div>
-        <div class="form-group"><label>Email</label><input id="staff-email" type="email" placeholder="email@exemple.com"></div>
+        <div class="form-group"><label data-t="lbl_name">Nom</label><input id="staff-name" type="text" data-tp="ph_full_name"></div>
+        <div class="form-group"><label data-t="lbl_email">Email</label><input id="staff-email" type="email" data-tp="ph_email_ex"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Mot de passe</label><input id="staff-password" type="password"></div>
-        <div class="form-group"><label>Rôle</label>
+        <div class="form-group"><label data-t="lbl_password">Mot de passe</label><input id="staff-password" type="password"></div>
+        <div class="form-group"><label data-t="lbl_role">Rôle</label>
           <select id="staff-role" onchange="toggleStaffBrandField()">
-            <option value="agent">Agent showroom — toutes les marques</option>
-            <option value="designer">Designer — une marque assignée</option>
+            <option value="agent" data-t="role_agent">Agent showroom — toutes les marques</option>
+            <option value="designer" data-t="role_designer">Designer — une marque assignée</option>
           </select>
         </div>
       </div>
       <div class="form-group" id="staff-brand-field" style="display:none">
-        <label>Marque assignée</label>
+        <label data-t="lbl_assigned_brand">Marque assignée</label>
         <select id="staff-brand-id"></select>
       </div>
-      <button class="btn btn-primary" onclick="createStaff()">Créer le compte</button>
+      <button class="btn btn-primary" onclick="createStaff()" data-t="btn_create_account">Créer le compte</button>
     </div>
     <div class="card">
-      <h3>Comptes existants</h3>
+      <h3 data-t="staff_existing_title">Comptes existants</h3>
       <table id="staff-table">
-        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Marque</th><th></th></tr></thead>
+        <thead><tr><th data-t="lbl_name">Nom</th><th data-t="lbl_email">Email</th><th data-t="lbl_role">Rôle</th><th data-t="th_brand">Marque</th><th></th></tr></thead>
         <tbody id="staff-body"></tbody>
       </table>
     </div>
   </div>
 
   <div id="buyers" class="section">
-    <h1>Acheteurs</h1>
-    <p style="font-size:12px;color:#888;margin-bottom:16px">Comptes du portail acheteur multi-marques (<code>/portal</code>). Un acheteur connecté voit toutes les marques actives.</p>
+    <h1 data-t="h1_buyers">Acheteurs</h1>
+    <p style="font-size:12px;color:#888;margin-bottom:16px" data-t="buyers_desc">Comptes du portail acheteur multi-marques (<code>/portal</code>). Un acheteur connecté voit toutes les marques actives.</p>
     <div class="card">
-      <h3>Créer un compte acheteur</h3>
+      <h3 data-t="buyers_create_title">Créer un compte acheteur</h3>
       <div class="form-row">
-        <div class="form-group"><label>Nom</label><input id="buyer-name" type="text" placeholder="Prénom Nom"></div>
-        <div class="form-group"><label>Société</label><input id="buyer-company" type="text" placeholder="Boutique XYZ"></div>
+        <div class="form-group"><label data-t="lbl_name">Nom</label><input id="buyer-name" type="text" data-tp="ph_full_name"></div>
+        <div class="form-group"><label data-t="lbl_company">Société</label><input id="buyer-company" type="text" data-tp="ph_company"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Email *</label><input id="buyer-email" type="email" placeholder="acheteur@exemple.com"></div>
-        <div class="form-group"><label>Mot de passe *</label><input id="buyer-password" type="password"></div>
+        <div class="form-group"><label data-t="lbl_email_req">Email *</label><input id="buyer-email" type="email" data-tp="ph_buyer_email"></div>
+        <div class="form-group"><label data-t="lbl_password_req">Mot de passe *</label><input id="buyer-password" type="password"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Téléphone</label><input id="buyer-phone" type="tel"></div>
-        <div class="form-group"><label>Pays</label><input id="buyer-country" type="text"></div>
+        <div class="form-group"><label data-t="lbl_phone">Téléphone</label><input id="buyer-phone" type="tel"></div>
+        <div class="form-group"><label data-t="lbl_country">Pays</label><input id="buyer-country" type="text"></div>
       </div>
-      <button class="btn btn-primary" onclick="createBuyer()">Créer le compte</button>
+      <button class="btn btn-primary" onclick="createBuyer()" data-t="btn_create_account">Créer le compte</button>
     </div>
     <div class="card">
-      <h3>Comptes acheteurs existants</h3>
+      <h3 data-t="buyers_existing_title">Comptes acheteurs existants</h3>
       <table id="buyers-table">
-        <thead><tr><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th></th></tr></thead>
+        <thead><tr><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th data-t="lbl_phone">Téléphone</th><th></th></tr></thead>
         <tbody id="buyers-body"></tbody>
       </table>
     </div>
@@ -527,8 +551,8 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-brand')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveBrand()">Enregistrer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-brand')" data-t="btn_cancel">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBrand()" data-t="btn_save">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -537,7 +561,7 @@
 <div class="modal-overlay" id="modal-products">
   <div class="modal" style="max-width:700px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
-      <span style="font-size:12px;color:#666;cursor:pointer" onclick="closeModal('modal-products')">Marques</span>
+      <span style="font-size:12px;color:#666;cursor:pointer" onclick="closeModal('modal-products')" data-t="nav_brands">Marques</span>
       <span style="color:#444">›</span>
       <h3 id="modal-products-title" style="margin:0;font-size:17px">Collection</h3>
     </div>
@@ -545,29 +569,29 @@
     <div class="card" style="padding:14px 16px;margin-bottom:16px;background:#0a0a0a">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888">Saisons</span>
-        <button class="btn btn-secondary btn-sm" onclick="openAddSeason()">+ Nouvelle saison</button>
+        <button class="btn btn-secondary btn-sm" onclick="openAddSeason()" data-t="btn_new_season">+ Nouvelle saison</button>
       </div>
       <div id="seasons-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
 
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Ajouter référence</button>
-      <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()">🖨️ Imprimer QR Codes</button>
-      <button class="btn btn-secondary btn-sm" onclick="downloadLinesheet()">📑 Télécharger linesheet</button>
-      <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 Supprimer la sélection (<span id="bulk-count">0</span>)</button>
-      <button class="btn btn-danger btn-sm" onclick="clearAllProducts()">🗑 Vider collection</button>
-      <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()">🖼️ Vider photos</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddProduct()" data-t="btn_add_ref">+ Ajouter référence</button>
+      <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()" data-t="btn_print_qr">🖨️ Imprimer QR Codes</button>
+      <button class="btn btn-secondary btn-sm" onclick="downloadLinesheet()" data-t="btn_linesheet">📑 Télécharger linesheet</button>
+      <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 <span data-t="btn_delete_selection">Supprimer la sélection</span> (<span id="bulk-count">0</span>)</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAllProducts()" data-t="btn_clear_collection">🗑 Vider collection</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()" data-t="btn_clear_photos">🖼️ Vider photos</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
-      <input id="products-search" type="text" placeholder="🔍 Rechercher référence, désignation, couleur…" style="flex:1" oninput="filterProducts()">
+      <input id="products-search" type="text" data-tp="products_search_placeholder" placeholder="🔍 Rechercher référence, désignation, couleur…" style="flex:1" oninput="filterProducts()">
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#888;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" id="show-inactive" onchange="filterProducts()" style="width:auto"> Voir inactifs
+        <input type="checkbox" id="show-inactive" onchange="filterProducts()" style="width:auto"> <span data-t="show_inactive">Voir inactifs</span>
       </label>
     </div>
     <table id="products-table">
       <thead><tr>
         <th style="width:28px"><input type="checkbox" id="select-all-products" onchange="toggleSelectAll(this)" style="width:auto"></th>
-        <th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Catégorie</th><th>Tailles</th><th>Prix HT</th><th>Image</th><th></th>
+        <th data-t="th_collection">Collection</th><th data-t="th_ref">Référence</th><th data-t="th_description">Désignation</th><th data-t="th_color">Couleur</th><th data-t="th_category">Catégorie</th><th data-t="th_sizes">Tailles</th><th data-t="th_price_ht">Prix HT</th><th data-t="th_image">Image</th><th></th>
       </tr></thead>
       <tbody id="products-body"></tbody>
     </table>
@@ -590,25 +614,25 @@
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
 
     <div id="add-product-form" style="display:none">
-      <h3 id="product-form-title">Nouvelle référence</h3>
+      <h3 id="product-form-title" data-t="product_form_title_new">Nouvelle référence</h3>
       <input type="hidden" id="p-id">
       <div class="form-row">
-        <div class="form-group"><label>Nom de collection</label><input id="p-collection" type="text" placeholder="Printemps-Été 2026"></div>
-        <div class="form-group"><label>Saison</label><select id="p-season-id"><option value="">— Aucune —</option></select></div>
-        <div class="form-group"><label>Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
-        <div class="form-group"><label>Prix wholesale HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
-        <div class="form-group"><label>Prix retail conseillé (€)</label><input id="p-price-retail" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label data-t="lbl_collection_name">Nom de collection</label><input id="p-collection" type="text" data-tp="ph_collection"></div>
+        <div class="form-group"><label data-t="lbl_season">Saison</label><select id="p-season-id"><option value="" data-t="opt_none">— Aucune —</option></select></div>
+        <div class="form-group"><label data-t="lbl_ref_req">Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
+        <div class="form-group"><label data-t="lbl_price_ws">Prix wholesale HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label data-t="lbl_price_retail">Prix retail conseillé (€)</label><input id="p-price-retail" type="number" step="0.01" placeholder="0.00"></div>
       </div>
-      <div class="form-group"><label>Désignation</label><textarea id="p-desc" rows="4" style="line-height:1.5;resize:vertical" placeholder="Veste en cuir..."></textarea></div>
+      <div class="form-group"><label data-t="th_description">Désignation</label><textarea id="p-desc" rows="4" style="line-height:1.5;resize:vertical" data-tp="ph_description"></textarea></div>
       <div class="form-row">
-        <div class="form-group"><label>Couleur</label><input id="p-color" type="text" placeholder="Noir, Blanc..."></div>
-        <div class="form-group"><label>Catégorie <span style="color:#555;font-weight:400;font-size:11px">(ex: Bague, Veste, Sac...)</span></label><input id="p-category" type="text" placeholder="Bague, Collier, Veste..."></div>
-        <div class="form-group"><label>Composition</label><input id="p-composition" type="text" placeholder="100% coton, 80% laine 20% soie..."></div>
+        <div class="form-group"><label data-t="th_color">Couleur</label><input id="p-color" type="text" data-tp="ph_color"></div>
+        <div class="form-group"><label data-t="lbl_category_hint">Catégorie <span style="color:#555;font-weight:400;font-size:11px">(ex: Bague, Veste, Sac...)</span></label><input id="p-category" type="text" data-tp="ph_category"></div>
+        <div class="form-group"><label data-t="lbl_composition">Composition</label><input id="p-composition" type="text" data-tp="ph_composition"></div>
       </div>
-      <div class="form-group"><label>Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" placeholder="XS, S, M, L, XL ou 36, 38, 40..."></div>
+      <div class="form-group"><label data-t="lbl_sizes">Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" data-tp="ph_sizes"></div>
       <!-- Photos sans variante -->
       <div class="form-group" id="p-images-section">
-        <label>Photos du produit <span style="color:#555;font-weight:400;font-size:11px">(si pas de variante couleur)</span></label>
+        <label data-t="lbl_product_photos">Photos du produit <span style="color:#555;font-weight:400;font-size:11px">(si pas de variante couleur)</span></label>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
             📷 Ajouter photo(s)
@@ -629,12 +653,12 @@
         <div id="p-variants-list" style="margin-top:8px;display:flex;flex-direction:column;gap:12px"></div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="btn btn-secondary" onclick="cancelProductForm()">Annuler</button>
-        <button class="btn btn-primary" id="product-form-btn" onclick="saveProduct()">Ajouter</button>
+        <button class="btn btn-secondary" onclick="cancelProductForm()" data-t="btn_cancel">Annuler</button>
+        <button class="btn btn-primary" id="product-form-btn" onclick="saveProduct()" data-t="btn_add">Ajouter</button>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-products')">Fermer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-products')" data-t="btn_close">Fermer</button>
     </div>
   </div>
 </div>
@@ -649,8 +673,8 @@
     </div>
     <p style="font-size:12px;color:#666;margin-top:8px">Scannez ce QR code pour accéder à la page de commande de cette marque.</p>
     <div class="modal-footer" style="justify-content:center">
-      <button class="btn btn-secondary" onclick="closeModal('modal-qr')">Fermer</button>
-      <button class="btn btn-primary" onclick="printQR()">Imprimer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-qr')" data-t="btn_close">Fermer</button>
+      <button class="btn btn-primary" onclick="printQR()" data-t="btn_print">Imprimer</button>
     </div>
   </div>
 </div>
@@ -675,7 +699,7 @@
     <button class="btn btn-danger btn-sm" style="width:100%" onclick="cancelBrandSubscription()">❌ Désactiver l'accès</button>
 
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-billing')">Fermer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-billing')" data-t="btn_close">Fermer</button>
     </div>
   </div>
 </div>
@@ -685,11 +709,11 @@
   <div class="modal" style="max-width:600px">
     <h3 id="appointments-title">Rendez-vous</h3>
     <table id="appointments-table">
-      <thead><tr><th>Date</th><th>Heure</th><th>Client</th><th>Contact</th><th>Note</th></tr></thead>
+      <thead><tr><th data-t="th_date">Date</th><th data-t="th_time">Heure</th><th data-t="th_client">Client</th><th data-t="th_contact">Contact</th><th data-t="th_note">Note</th></tr></thead>
       <tbody id="appointments-body"></tbody>
     </table>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-appointments')">Fermer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-appointments')" data-t="btn_close">Fermer</button>
     </div>
   </div>
 </div>
@@ -697,36 +721,36 @@
 <!-- MODAL INVITE LINK -->
 <div class="modal-overlay" id="modal-invite">
   <div class="modal" style="max-width:480px">
-    <h3 id="invite-modal-title" style="margin-bottom:20px">Lien d'invitation acheteur</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:20px">Partagez ce lien avec vos acheteurs. Ils pourront créer leur propre compte et accéder directement au portail showroom.</p>
+    <h3 id="invite-modal-title" style="margin-bottom:20px" data-t="invite_modal_title">Lien d'invitation acheteur</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:20px" data-t="invite_modal_desc">Partagez ce lien avec vos acheteurs. Ils pourront créer leur propre compte et accéder directement au portail showroom.</p>
 
     <div id="invite-no-link" style="display:none;text-align:center;padding:20px 0">
-      <p style="color:#666;font-size:13px;margin-bottom:16px">Aucun lien généré pour cette marque.</p>
-      <button class="btn btn-primary" onclick="generateInviteLink()">Générer un lien d'invitation</button>
+      <p style="color:#666;font-size:13px;margin-bottom:16px" data-t="invite_no_link_msg">Aucun lien généré pour cette marque.</p>
+      <button class="btn btn-primary" onclick="generateInviteLink()" data-t="btn_generate_link">Générer un lien d'invitation</button>
     </div>
 
     <div id="invite-has-link" style="display:none">
       <div style="background:#0a0a0a;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
         <span id="invite-url" style="flex:1;font-size:12px;color:#aaa;word-break:break-all;font-family:'Courier New',monospace"></span>
-        <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()" title="Copier" style="flex-shrink:0">📋 Copier</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()" data-t="btn_copy" style="flex-shrink:0">📋 Copier</button>
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:8px">
           <div id="invite-status-dot" style="width:8px;height:8px;border-radius:50%;background:#2ecc71"></div>
-          <span id="invite-status-label" style="font-size:13px;color:#aaa">Lien actif</span>
+          <span id="invite-status-label" style="font-size:13px;color:#aaa" data-t="invite_link_active">Lien actif</span>
         </div>
-        <button class="btn btn-sm" id="invite-toggle-btn" onclick="toggleInviteLink()">Désactiver</button>
+        <button class="btn btn-sm" id="invite-toggle-btn" onclick="toggleInviteLink()" data-t="btn_deactivate">Désactiver</button>
       </div>
 
       <div style="border-top:1px solid #252525;padding-top:14px;display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" onclick="generateInviteLink()" style="font-size:12px">🔄 Régénérer un nouveau lien</button>
+        <button class="btn btn-secondary btn-sm" onclick="generateInviteLink()" style="font-size:12px" data-t="btn_regenerate_link">🔄 Régénérer un nouveau lien</button>
       </div>
-      <p style="font-size:11px;color:#555;margin-top:8px">Régénérer invalide l'ancien lien immédiatement.</p>
+      <p style="font-size:11px;color:#555;margin-top:8px" data-t="invite_regenerate_note">Régénérer invalide l'ancien lien immédiatement.</p>
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-invite')">Fermer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-invite')" data-t="btn_close">Fermer</button>
     </div>
   </div>
 </div>
@@ -742,8 +766,8 @@
     </div>
     <p style="font-size:12px;color:#666;margin-top:8px">Scannez pour accéder directement à ce produit.</p>
     <div class="modal-footer" style="justify-content:center">
-      <button class="btn btn-secondary" onclick="closeModal('modal-qr-product')">Fermer</button>
-      <button class="btn btn-primary" onclick="printProductQR()">Imprimer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-qr-product')" data-t="btn_close">Fermer</button>
+      <button class="btn btn-primary" onclick="printProductQR()" data-t="btn_print">Imprimer</button>
     </div>
   </div>
 </div>
@@ -757,9 +781,9 @@
         <span id="mo-date" style="font-size:12px;color:#888"></span>
       </div>
       <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid #333;cursor:pointer">
-        <option value="confirmed">🟡 Reçue</option>
-        <option value="validated">🟢 Validée</option>
-        <option value="cancelled">🔴 Annulée</option>
+        <option value="confirmed" data-t="status_confirmed_icon">🟡 Reçue</option>
+        <option value="validated" data-t="status_validated_icon">🟢 Validée</option>
+        <option value="cancelled" data-t="status_cancelled_icon">🔴 Annulée</option>
       </select>
     </div>
 
@@ -770,9 +794,9 @@
     </div>
 
     <!-- Lines -->
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px">Articles commandés</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px" data-t="ordered_items">Articles commandés</div>
     <table style="margin-bottom:14px">
-      <thead><tr><th>Référence</th><th>Couleur</th><th>Taille</th><th>Qté</th><th>P.U. HT</th><th>Total HT</th></tr></thead>
+      <thead><tr><th data-t="th_ref">Référence</th><th data-t="th_color">Couleur</th><th data-t="th_size">Taille</th><th data-t="th_qty">Qté</th><th data-t="th_unit_price">P.U. HT</th><th data-t="th_total_ht">Total HT</th></tr></thead>
       <tbody id="mo-lines"></tbody>
     </table>
     <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:#0a0a0a;border-radius:6px;margin-bottom:14px"></div>
@@ -784,10 +808,10 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" onclick="deleteOrderFromModal()">🗑 Supprimer</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteOrderFromModal()" data-t="btn_delete">🗑 Supprimer</button>
       <a id="mo-pdf-link" href="#" target="_blank" class="btn btn-secondary">📄 PDF</a>
-      <button class="btn btn-green btn-sm" id="mo-resend-btn" onclick="resendFromModal()">📧 Renvoyer</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-order')">Fermer</button>
+      <button class="btn btn-green btn-sm" id="mo-resend-btn" onclick="resendFromModal()" data-t="btn_resend">📧 Renvoyer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-order')" data-t="btn_close">Fermer</button>
     </div>
   </div>
 </div>
@@ -795,21 +819,21 @@
 <!-- Modal édition agent/designer -->
 <div class="modal-overlay" id="modal-edit-staff">
   <div class="modal">
-    <h3>Modifier le compte</h3>
+    <h3 data-t="edit_staff_title">Modifier le compte</h3>
     <input type="hidden" id="edit-staff-id">
-    <div class="form-group"><label>Nom</label><input type="text" id="edit-staff-name"></div>
-    <div class="form-group"><label>Email</label><input type="email" id="edit-staff-email"></div>
-    <div class="form-group"><label>Nouveau mot de passe <span style="color:#666;font-weight:400">(laisser vide = inchangé)</span></label><input type="password" id="edit-staff-password" placeholder="••••••••"></div>
-    <div class="form-group"><label>Rôle</label>
+    <div class="form-group"><label data-t="lbl_name">Nom</label><input type="text" id="edit-staff-name"></div>
+    <div class="form-group"><label data-t="lbl_email">Email</label><input type="email" id="edit-staff-email"></div>
+    <div class="form-group"><label data-t="lbl_new_password">Nouveau mot de passe <span style="color:#666;font-weight:400" data-t="pw_leave_blank">(laisser vide = inchangé)</span></label><input type="password" id="edit-staff-password" placeholder="••••••••"></div>
+    <div class="form-group"><label data-t="lbl_role">Rôle</label>
       <select id="edit-staff-role" onchange="document.getElementById('edit-staff-brand-field').style.display=this.value==='designer'?'block':'none'">
-        <option value="agent">Agent showroom</option>
+        <option value="agent" data-t="role_agent_short">Agent showroom</option>
         <option value="designer">Designer</option>
       </select>
     </div>
-    <div class="form-group" id="edit-staff-brand-field" style="display:none"><label>Marque</label><select id="edit-staff-brand-id"></select></div>
+    <div class="form-group" id="edit-staff-brand-field" style="display:none"><label data-t="th_brand">Marque</label><select id="edit-staff-brand-id"></select></div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-edit-staff')">Annuler</button>
-      <button class="btn" onclick="saveEditStaff()">Enregistrer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-staff')" data-t="btn_cancel">Annuler</button>
+      <button class="btn" onclick="saveEditStaff()" data-t="btn_save">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -817,17 +841,17 @@
 <!-- Modal édition acheteur -->
 <div class="modal-overlay" id="modal-edit-buyer">
   <div class="modal">
-    <h3>Modifier le compte acheteur</h3>
+    <h3 data-t="edit_buyer_title">Modifier le compte acheteur</h3>
     <input type="hidden" id="edit-buyer-id">
-    <div class="form-group"><label>Nom</label><input type="text" id="edit-buyer-name"></div>
-    <div class="form-group"><label>Société</label><input type="text" id="edit-buyer-company"></div>
-    <div class="form-group"><label>Email</label><input type="email" id="edit-buyer-email"></div>
-    <div class="form-group"><label>Téléphone</label><input type="tel" id="edit-buyer-phone"></div>
-    <div class="form-group"><label>Pays</label><input type="text" id="edit-buyer-country"></div>
-    <div class="form-group"><label>Nouveau mot de passe <span style="color:#666;font-weight:400">(laisser vide = inchangé)</span></label><input type="password" id="edit-buyer-password" placeholder="••••••••"></div>
+    <div class="form-group"><label data-t="lbl_name">Nom</label><input type="text" id="edit-buyer-name"></div>
+    <div class="form-group"><label data-t="lbl_company">Société</label><input type="text" id="edit-buyer-company"></div>
+    <div class="form-group"><label data-t="lbl_email">Email</label><input type="email" id="edit-buyer-email"></div>
+    <div class="form-group"><label data-t="lbl_phone">Téléphone</label><input type="tel" id="edit-buyer-phone"></div>
+    <div class="form-group"><label data-t="lbl_country">Pays</label><input type="text" id="edit-buyer-country"></div>
+    <div class="form-group"><label data-t="lbl_new_password">Nouveau mot de passe <span style="color:#666;font-weight:400" data-t="pw_leave_blank">(laisser vide = inchangé)</span></label><input type="password" id="edit-buyer-password" placeholder="••••••••"></div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('modal-edit-buyer')">Annuler</button>
-      <button class="btn" onclick="saveEditBuyer()">Enregistrer</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-buyer')" data-t="btn_cancel">Annuler</button>
+      <button class="btn" onclick="saveEditBuyer()" data-t="btn_save">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -835,6 +859,298 @@
 <div id="toast"></div>
 
 <script>
+// ── i18n ──────────────────────────────────────────────
+const TRANSLATIONS = {
+  fr: {
+    // Nav
+    nav_dashboard: 'Tableau de bord', nav_brands: 'Marques', nav_orders: 'Commandes',
+    nav_settings: 'Paramètres', nav_staff: 'Comptes', nav_buyers: 'Acheteurs',
+    logout: '⏻ Déconnexion',
+    // Section headings
+    h1_dashboard: 'Tableau de bord', h1_brands: 'Marques & Collections',
+    h1_orders: 'Commandes', h1_settings: 'Paramètres', h1_staff: 'Comptes', h1_buyers: 'Acheteurs',
+    // Stats
+    stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'CA total HT',
+    recent_orders: 'Dernières commandes',
+    // Table headers
+    th_date: 'Date', th_client: 'Client', th_brand: 'Marque', th_total: 'Total',
+    th_actions: 'Actions', th_ref: 'Réf.', th_total_ht: 'Total HT', th_status: 'Statut',
+    th_collection: 'Collection', th_description: 'Désignation', th_color: 'Couleur',
+    th_category: 'Catégorie', th_sizes: 'Tailles', th_price_ht: 'Prix HT', th_image: 'Image',
+    th_name: 'Nom', th_email: 'Email', th_role: 'Rôle', th_company: 'Société', th_phone: 'Téléphone',
+    th_time: 'Heure', th_contact: 'Contact', th_note: 'Note',
+    th_size: 'Taille', th_qty: 'Qté', th_unit_price: 'P.U. HT',
+    // Buttons
+    btn_new_brand: '+ Nouvelle marque', btn_save: 'Enregistrer', btn_cancel: 'Annuler',
+    btn_close: 'Fermer', btn_reset: 'Réinitialiser', btn_print: 'Imprimer',
+    btn_add: 'Ajouter', btn_add_ref: '+ Ajouter référence',
+    btn_print_qr: '🖨️ Imprimer QR Codes', btn_linesheet: '📑 Télécharger linesheet',
+    btn_delete_selection: 'Supprimer la sélection', btn_clear_collection: '🗑 Vider collection',
+    btn_clear_photos: '🖼️ Vider photos', btn_new_season: '+ Nouvelle saison',
+    btn_create_account: 'Créer le compte', btn_generate_link: 'Générer un lien d\'invitation',
+    btn_copy: '📋 Copier', btn_deactivate: 'Désactiver', btn_regenerate_link: '🔄 Régénérer un nouveau lien',
+    btn_delete: '🗑 Supprimer', btn_resend: '📧 Renvoyer',
+    btn_add_currency: '+ Ajouter une devise',
+    // Filters
+    filter_all_brands: 'Toutes les marques', filter_all_statuses: 'Tous les statuts',
+    status_confirmed: 'Reçue', status_validated: 'Validée ✓', status_cancelled: 'Annulée',
+    status_confirmed_icon: '🟡 Reçue', status_validated_icon: '🟢 Validée', status_cancelled_icon: '🔴 Annulée',
+    sort_date_desc: 'Date ↓', sort_date_asc: 'Date ↑', sort_total_desc: 'Total ↓', sort_brand: 'Marque A→Z',
+    orders_search_placeholder: '🔍 Client, société…',
+    // Form labels
+    lbl_name: 'Nom', lbl_email: 'Email', lbl_password: 'Mot de passe', lbl_role: 'Rôle',
+    lbl_assigned_brand: 'Marque assignée', lbl_company: 'Société', lbl_phone: 'Téléphone',
+    lbl_country: 'Pays', lbl_email_req: 'Email *', lbl_password_req: 'Mot de passe *',
+    lbl_new_password: 'Nouveau mot de passe', pw_leave_blank: '(laisser vide = inchangé)',
+    lbl_collection_name: 'Nom de collection', lbl_season: 'Saison', lbl_ref_req: 'Référence *',
+    lbl_price_ws: 'Prix wholesale HT (€)', lbl_price_retail: 'Prix retail conseillé (€)',
+    lbl_category_hint: 'Catégorie', lbl_composition: 'Composition',
+    lbl_sizes: 'Tailles disponibles (séparées par virgule)',
+    lbl_product_photos: 'Photos du produit',
+    opt_none: '— Aucune —',
+    role_agent: 'Agent showroom — toutes les marques', role_designer: 'Designer — une marque assignée',
+    role_agent_short: 'Agent showroom',
+    // Settings
+    settings_showroom: 'Showroom', settings_smtp: 'Configuration SMTP (envoi emails)',
+    settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Conditions Générales de Vente',
+    settings_currencies: 'Devises', settings_security: 'Sécurité',
+    s_name_label: 'Nom du showroom', s_email_label: 'Email showroom (copie BDC)',
+    s_smtp_host_label: 'Serveur SMTP', s_smtp_port_label: 'Port',
+    s_smtp_user_label: 'Utilisateur SMTP', s_smtp_pass_label: 'Mot de passe SMTP',
+    s_smtp_from_label: 'Adresse expéditeur (From)', s_smtp_from_placeholder: 'commandes@votreshowroom.com',
+    s_agent_name_label: 'Nom de l\'agent', s_agent_name_placeholder: 'Prénom Nom',
+    s_agent_title_label: 'Titre / Fonction', s_agent_title_placeholder: 'Agent Commercial',
+    s_agent_phone_label: 'Téléphone (affiché sur la page d\'accueil acheteur)',
+    s_cgv_label: 'Texte CGV (affiché lors de la commande et dans le PDF)',
+    currencies_note: 'Taux de conversion depuis l\'euro (EUR=1). Affichage seulement — les commandes restent enregistrées en EUR.',
+    s_admin_pass_label: 'Nouveau mot de passe admin', s_admin_pass_placeholder: 'Laisser vide pour ne pas changer',
+    // Staff/buyers
+    staff_create_title: 'Créer un compte', staff_existing_title: 'Comptes existants',
+    buyers_create_title: 'Créer un compte acheteur', buyers_existing_title: 'Comptes acheteurs existants',
+    buyers_desc: 'Comptes du portail acheteur multi-marques (/portal). Un acheteur connecté voit toutes les marques actives.',
+    edit_staff_title: 'Modifier le compte', edit_buyer_title: 'Modifier le compte acheteur',
+    ph_full_name: 'Prénom Nom', ph_email_ex: 'email@exemple.com', ph_company: 'Boutique XYZ',
+    ph_buyer_email: 'acheteur@exemple.com', ph_collection: 'Printemps-Été 2026',
+    ph_description: 'Veste en cuir...', ph_color: 'Noir, Blanc...', ph_category: 'Bague, Collier, Veste...',
+    ph_composition: '100% coton, 80% laine 20% soie...', ph_sizes: 'XS, S, M, L, XL ou 36, 38, 40...',
+    products_search_placeholder: '🔍 Rechercher référence, désignation, couleur…',
+    show_inactive: 'Voir inactifs',
+    // Modals
+    product_form_title_new: 'Nouvelle référence', product_form_title_edit: 'Modifier la référence',
+    invite_modal_title: 'Lien d\'invitation acheteur',
+    invite_modal_desc: 'Partagez ce lien avec vos acheteurs. Ils pourront créer leur propre compte et accéder directement au portail showroom.',
+    invite_no_link_msg: 'Aucun lien généré pour cette marque.',
+    invite_link_active: 'Lien actif', invite_link_inactive: 'Lien désactivé',
+    btn_deactivate: 'Désactiver', btn_reactivate: 'Réactiver',
+    invite_regenerate_note: 'Régénérer invalide l\'ancien lien immédiatement.',
+    ordered_items: 'Articles commandés',
+    // Dynamic JS strings
+    js_new_brand_title: 'Nouvelle marque', js_edit_brand_title: 'Modifier la marque',
+    js_add_product: 'Ajouter', js_edit_product: 'Enregistrer',
+    js_brand_saved: 'Marque enregistrée', js_brand_deleted: 'Marque supprimée',
+    js_ref_added: 'Référence ajoutée', js_ref_updated: 'Référence modifiée',
+    js_ref_deleted: 'Référence supprimée', js_ref_duplicated: 'Référence dupliquée',
+    js_ref_activated: 'Référence réactivée', js_ref_deactivated: 'Référence désactivée',
+    js_collection_cleared: 'référence(s) supprimée(s)',
+    js_photos_cleared: 'Photos supprimées sur',
+    js_photos_cleared_suffix: 'référence(s)',
+    js_season_created: 'Saison créée', js_season_deleted: 'Saison supprimée',
+    js_link_generated: 'Lien généré', js_link_copied: 'Lien copié !',
+    js_link_activated: 'Lien réactivé', js_link_deactivated: 'Lien désactivé',
+    js_status_updated: 'Statut mis à jour ✓',
+    js_order_deleted: 'Commande supprimée', js_order_delete_error: 'Erreur lors de la suppression',
+    js_email_resent: 'Email renvoyé ✓',
+    js_settings_saved: 'Paramètres enregistrés ✓',
+    js_account_created: 'Compte créé', js_account_deleted: 'Compte supprimé',
+    js_account_updated: 'Compte mis à jour',
+    js_buyer_created: 'Compte acheteur créé', js_buyer_updated: 'Compte acheteur mis à jour',
+    js_name_required: 'Nom requis', js_ref_required: 'Référence requise',
+    js_error: 'Erreur',
+    // Confirm messages
+    confirm_delete_brand: 'Supprimer cette marque ?',
+    confirm_delete_ref: 'Supprimer cette référence ?',
+    confirm_clear_collection: 'Vider toute la collection ? Cette action est irréversible.',
+    confirm_clear_photos: 'Supprimer toutes les photos de cette collection (les références sont conservées) ?',
+    confirm_delete_order: 'Supprimer cette commande ? Cette action est irréversible.',
+    confirm_delete_staff: 'Supprimer ce compte ?',
+    confirm_delete_buyer: 'Supprimer ce compte acheteur ?',
+    confirm_deactivate_brand: 'Désactiver l\'accès de cette marque ? Le showroom ne sera plus accessible aux acheteurs.',
+    confirm_regenerate_link: 'Régénérer un nouveau lien ? L\'ancien sera immédiatement invalidé.',
+    confirm_bulk_delete: 'référence(s) ? Cette action est irréversible.',
+    confirm_delete_season: 'Supprimer cette saison ? Les références associées resteront mais sans saison.',
+    // Misc
+    no_brand: 'Aucune marque. Créez-en une.',
+    no_account: 'Aucun compte',
+    no_buyer_account: 'Aucun compte acheteur',
+    no_ref: 'Aucune référence',
+    no_appointment: 'Aucun rendez-vous',
+    no_order: 'Aucune commande',
+    btn_modify: 'Modifier', btn_delete_text: 'Supprimer',
+    label_active: 'Actif', label_inactive: 'Inactif',
+    label_billing: 'Facturation',
+    status_active_label: '✅ Actif', status_trial_label: '⏳ Essai', status_inactive_label: '❌ Impayé',
+  },
+  en: {
+    // Nav
+    nav_dashboard: 'Dashboard', nav_brands: 'Brands', nav_orders: 'Orders',
+    nav_settings: 'Settings', nav_staff: 'Accounts', nav_buyers: 'Buyers',
+    logout: '⏻ Log out',
+    // Section headings
+    h1_dashboard: 'Dashboard', h1_brands: 'Brands & Collections',
+    h1_orders: 'Orders', h1_settings: 'Settings', h1_staff: 'Accounts', h1_buyers: 'Buyers',
+    // Stats
+    stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Total revenue',
+    recent_orders: 'Recent orders',
+    // Table headers
+    th_date: 'Date', th_client: 'Client', th_brand: 'Brand', th_total: 'Total',
+    th_actions: 'Actions', th_ref: 'Ref.', th_total_ht: 'Total', th_status: 'Status',
+    th_collection: 'Collection', th_description: 'Description', th_color: 'Color',
+    th_category: 'Category', th_sizes: 'Sizes', th_price_ht: 'Price', th_image: 'Image',
+    th_name: 'Name', th_email: 'Email', th_role: 'Role', th_company: 'Company', th_phone: 'Phone',
+    th_time: 'Time', th_contact: 'Contact', th_note: 'Note',
+    th_size: 'Size', th_qty: 'Qty', th_unit_price: 'Unit price',
+    // Buttons
+    btn_new_brand: '+ New brand', btn_save: 'Save', btn_cancel: 'Cancel',
+    btn_close: 'Close', btn_reset: 'Reset', btn_print: 'Print',
+    btn_add: 'Add', btn_add_ref: '+ Add reference',
+    btn_print_qr: '🖨️ Print QR Codes', btn_linesheet: '📑 Download linesheet',
+    btn_delete_selection: 'Delete selection', btn_clear_collection: '🗑 Clear collection',
+    btn_clear_photos: '🖼️ Clear photos', btn_new_season: '+ New season',
+    btn_create_account: 'Create account', btn_generate_link: 'Generate invitation link',
+    btn_copy: '📋 Copy', btn_deactivate: 'Deactivate', btn_regenerate_link: '🔄 Generate new link',
+    btn_delete: '🗑 Delete', btn_resend: '📧 Resend',
+    btn_add_currency: '+ Add currency',
+    // Filters
+    filter_all_brands: 'All brands', filter_all_statuses: 'All statuses',
+    status_confirmed: 'Received', status_validated: 'Validated ✓', status_cancelled: 'Cancelled',
+    status_confirmed_icon: '🟡 Received', status_validated_icon: '🟢 Validated', status_cancelled_icon: '🔴 Cancelled',
+    sort_date_desc: 'Date ↓', sort_date_asc: 'Date ↑', sort_total_desc: 'Total ↓', sort_brand: 'Brand A→Z',
+    orders_search_placeholder: '🔍 Client, company…',
+    // Form labels
+    lbl_name: 'Name', lbl_email: 'Email', lbl_password: 'Password', lbl_role: 'Role',
+    lbl_assigned_brand: 'Assigned brand', lbl_company: 'Company', lbl_phone: 'Phone',
+    lbl_country: 'Country', lbl_email_req: 'Email *', lbl_password_req: 'Password *',
+    lbl_new_password: 'New password', pw_leave_blank: '(leave blank = unchanged)',
+    lbl_collection_name: 'Collection name', lbl_season: 'Season', lbl_ref_req: 'Reference *',
+    lbl_price_ws: 'Wholesale price (€)', lbl_price_retail: 'Suggested retail price (€)',
+    lbl_category_hint: 'Category', lbl_composition: 'Composition',
+    lbl_sizes: 'Available sizes (comma-separated)',
+    lbl_product_photos: 'Product photos',
+    opt_none: '— None —',
+    role_agent: 'Showroom agent — all brands', role_designer: 'Designer — one assigned brand',
+    role_agent_short: 'Showroom agent',
+    // Settings
+    settings_showroom: 'Showroom', settings_smtp: 'SMTP configuration (email sending)',
+    settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Terms & Conditions',
+    settings_currencies: 'Currencies', settings_security: 'Security',
+    s_name_label: 'Showroom name', s_email_label: 'Showroom email (BDC copy)',
+    s_smtp_host_label: 'SMTP server', s_smtp_port_label: 'Port',
+    s_smtp_user_label: 'SMTP user', s_smtp_pass_label: 'SMTP password',
+    s_smtp_from_label: 'Sender address (From)', s_smtp_from_placeholder: 'orders@yourshowroom.com',
+    s_agent_name_label: 'Agent name', s_agent_name_placeholder: 'First Last',
+    s_agent_title_label: 'Title / Function', s_agent_title_placeholder: 'Sales Agent',
+    s_agent_phone_label: 'Phone (displayed on buyer home page)',
+    s_cgv_label: 'T&C text (displayed during order and in PDF)',
+    currencies_note: 'Conversion rate from euro (EUR=1). Display only — orders remain recorded in EUR.',
+    s_admin_pass_label: 'New admin password', s_admin_pass_placeholder: 'Leave blank to keep unchanged',
+    // Staff/buyers
+    staff_create_title: 'Create account', staff_existing_title: 'Existing accounts',
+    buyers_create_title: 'Create buyer account', buyers_existing_title: 'Existing buyer accounts',
+    buyers_desc: 'Multi-brand buyer portal accounts (/portal). A logged-in buyer sees all active brands.',
+    edit_staff_title: 'Edit account', edit_buyer_title: 'Edit buyer account',
+    ph_full_name: 'First Last', ph_email_ex: 'email@example.com', ph_company: 'Boutique XYZ',
+    ph_buyer_email: 'buyer@example.com', ph_collection: 'Spring-Summer 2026',
+    ph_description: 'Leather jacket...', ph_color: 'Black, White...', ph_category: 'Ring, Jacket, Bag...',
+    ph_composition: '100% cotton, 80% wool 20% silk...', ph_sizes: 'XS, S, M, L, XL or 36, 38, 40...',
+    products_search_placeholder: '🔍 Search reference, description, color…',
+    show_inactive: 'Show inactive',
+    // Modals
+    product_form_title_new: 'New reference', product_form_title_edit: 'Edit reference',
+    invite_modal_title: 'Buyer invitation link',
+    invite_modal_desc: 'Share this link with your buyers. They can create their own account and access the showroom portal directly.',
+    invite_no_link_msg: 'No link generated for this brand.',
+    invite_link_active: 'Link active', invite_link_inactive: 'Link disabled',
+    btn_deactivate: 'Deactivate', btn_reactivate: 'Reactivate',
+    invite_regenerate_note: 'Regenerating immediately invalidates the old link.',
+    ordered_items: 'Ordered items',
+    // Dynamic JS strings
+    js_new_brand_title: 'New brand', js_edit_brand_title: 'Edit brand',
+    js_add_product: 'Add', js_edit_product: 'Save',
+    js_brand_saved: 'Brand saved', js_brand_deleted: 'Brand deleted',
+    js_ref_added: 'Reference added', js_ref_updated: 'Reference updated',
+    js_ref_deleted: 'Reference deleted', js_ref_duplicated: 'Reference duplicated',
+    js_ref_activated: 'Reference reactivated', js_ref_deactivated: 'Reference deactivated',
+    js_collection_cleared: 'reference(s) deleted',
+    js_photos_cleared: 'Photos cleared on',
+    js_photos_cleared_suffix: 'reference(s)',
+    js_season_created: 'Season created', js_season_deleted: 'Season deleted',
+    js_link_generated: 'Link generated', js_link_copied: 'Link copied!',
+    js_link_activated: 'Link reactivated', js_link_deactivated: 'Link deactivated',
+    js_status_updated: 'Status updated ✓',
+    js_order_deleted: 'Order deleted', js_order_delete_error: 'Error deleting order',
+    js_email_resent: 'Email resent ✓',
+    js_settings_saved: 'Settings saved ✓',
+    js_account_created: 'Account created', js_account_deleted: 'Account deleted',
+    js_account_updated: 'Account updated',
+    js_buyer_created: 'Buyer account created', js_buyer_updated: 'Buyer account updated',
+    js_name_required: 'Name required', js_ref_required: 'Reference required',
+    js_error: 'Error',
+    // Confirm messages
+    confirm_delete_brand: 'Delete this brand?',
+    confirm_delete_ref: 'Delete this reference?',
+    confirm_clear_collection: 'Clear the entire collection? This action is irreversible.',
+    confirm_clear_photos: 'Delete all photos in this collection (references are kept)?',
+    confirm_delete_order: 'Delete this order? This action is irreversible.',
+    confirm_delete_staff: 'Delete this account?',
+    confirm_delete_buyer: 'Delete this buyer account?',
+    confirm_deactivate_brand: 'Deactivate access for this brand? The showroom will no longer be accessible to buyers.',
+    confirm_regenerate_link: 'Generate a new link? The old one will be immediately invalidated.',
+    confirm_bulk_delete: 'reference(s)? This action is irreversible.',
+    confirm_delete_season: 'Delete this season? Associated references will remain but without a season.',
+    // Misc
+    no_brand: 'No brands. Create one.',
+    no_account: 'No accounts',
+    no_buyer_account: 'No buyer accounts',
+    no_ref: 'No references',
+    no_appointment: 'No appointments',
+    no_order: 'No orders',
+    btn_modify: 'Edit', btn_delete_text: 'Delete',
+    label_active: 'Active', label_inactive: 'Inactive',
+    label_billing: 'Billing',
+    status_active_label: '✅ Active', status_trial_label: '⏳ Trial', status_inactive_label: '❌ Unpaid',
+  }
+};
+
+let currentLang = localStorage.getItem('portal_lang') || 'fr';
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] || TRANSLATIONS.fr)[key] || key;
+}
+
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
+  const btn = document.getElementById('lang-toggle');
+  if (btn) btn.textContent = '🌐 ' + (currentLang === 'fr' ? 'EN' : 'FR');
+  // Update theme toggle text to match lang
+  const themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn) {
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    themeBtn.textContent = cur === 'light'
+      ? (currentLang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
+      : (currentLang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode');
+  }
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+  localStorage.setItem('portal_lang', currentLang);
+  applyLang();
+}
+
+document.addEventListener('DOMContentLoaded', applyLang);
+
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -882,7 +1198,7 @@ async function loadStaff() {
   sel.innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
 
   const staff = await fetch('/api/staff').then(r => r.json());
-  const roleLabel = { agent: 'Agent showroom', designer: 'Designer' };
+  const roleLabel = { agent: t('role_agent_short'), designer: 'Designer' };
   document.getElementById('staff-body').innerHTML = staff.map(s => `
     <tr>
       <td>${s.name || '—'}</td>
@@ -890,10 +1206,10 @@ async function loadStaff() {
       <td>${roleLabel[s.role] || s.role}</td>
       <td>${s.brand_name || '—'}</td>
       <td style="display:flex;gap:6px">
-        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${JSON.stringify(s)})">Modifier</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Supprimer</button>
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${JSON.stringify(s)})">${t('btn_modify')}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun compte</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
 }
 
 async function createStaff() {
@@ -914,14 +1230,14 @@ async function createStaff() {
   document.getElementById('staff-email').value = '';
   document.getElementById('staff-password').value = '';
   loadStaff();
-  toast('Compte créé');
+  toast(t('js_account_created'));
 }
 
 async function deleteStaff(id) {
-  if (!confirm('Supprimer ce compte ?')) return;
+  if (!confirm(t('confirm_delete_staff'))) return;
   await fetch(`/api/staff/${id}`, { method: 'DELETE' });
   loadStaff();
-  toast('Compte supprimé');
+  toast(t('js_account_deleted'));
 }
 
 async function openEditStaff(s) {
@@ -951,7 +1267,7 @@ async function saveEditStaff() {
   if (r.error) { toast(r.error, true); return; }
   closeModal('modal-edit-staff');
   loadStaff();
-  toast('Compte mis à jour');
+  toast(t('js_account_updated'));
 }
 
 async function loadBuyers() {
@@ -963,10 +1279,10 @@ async function loadBuyers() {
       <td>${b.email}</td>
       <td>${b.phone || '—'}</td>
       <td style="display:flex;gap:6px">
-        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">Modifier</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">Supprimer</button>
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun compte acheteur</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
 }
 
 async function createBuyer() {
@@ -986,14 +1302,14 @@ async function createBuyer() {
 
   ['buyer-name','buyer-company','buyer-email','buyer-password','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
   loadBuyers();
-  toast('Compte acheteur créé');
+  toast(t('js_buyer_created'));
 }
 
 async function deleteBuyer(id) {
-  if (!confirm('Supprimer ce compte acheteur ?')) return;
+  if (!confirm(t('confirm_delete_buyer'))) return;
   await fetch(`/api/buyers/${id}`, { method: 'DELETE' });
   loadBuyers();
-  toast('Compte supprimé');
+  toast(t('js_account_deleted'));
 }
 
 function openEditBuyer(b) {
@@ -1022,7 +1338,7 @@ async function saveEditBuyer() {
   if (r.error) { toast(r.error, true); return; }
   closeModal('modal-edit-buyer');
   loadBuyers();
-  toast('Compte acheteur mis à jour');
+  toast(t('js_buyer_updated'));
 }
 
 function toast(msg, err) {
@@ -1075,9 +1391,9 @@ async function loadBrands() {
       : '';
     const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,about_text:b.about_text||''}).replace(/'/g,"&#39;");
     const subBadge = {
-      active: '<span class="badge" style="background:#1f3d1f;color:#5ec95e">✅ Actif</span>',
-      trial: '<span class="badge" style="background:#3d3a1f;color:#e0c95e">⏳ Essai</span>',
-      inactive: '<span class="badge" style="background:#3d1f1f;color:#e05e5e">❌ Impayé</span>'
+      active: `<span class="badge" style="background:#1f3d1f;color:#5ec95e">${t('status_active_label')}</span>`,
+      trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
+      inactive: `<span class="badge" style="background:#3d1f1f;color:#e05e5e">${t('status_inactive_label')}</span>`
     }[b.subscription_status || 'trial'];
     return `<div class="brand-card" style="padding-top:${b.cover_image?'0':'16px'}">
       ${coverHtml}
@@ -1086,15 +1402,15 @@ async function loadBrands() {
       <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
-        <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ Modifier</button>
+        <button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
-        <button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien acheteur</button>
-        ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 Facturation</button>` : ''}
-        ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">Supprimer</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>
+        ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 ${t('label_billing')}</button>` : ''}
+        ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">${t('btn_delete_text')}</button>` : ''}
       </div>
     </div>`;
-  }).join('') || '<p style="color:#666">Aucune marque. Créez-en une.</p>';
+  }).join('') || `<p style="color:#666">${t('no_brand')}</p>`;
 }
 
 async function handleBrandImg(input, hiddenId, previewId) {
@@ -1154,7 +1470,7 @@ function resetBrandModal() {
 
 function openBrandModal() {
   resetBrandModal();
-  document.getElementById('modal-brand-title').textContent = 'Nouvelle marque';
+  document.getElementById('modal-brand-title').textContent = t('js_new_brand_title');
   openModal('modal-brand');
 }
 
@@ -1181,14 +1497,14 @@ function editBrand(b) {
   document.getElementById('brand-about').value = b.about_text || '';
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
-  document.getElementById('modal-brand-title').textContent = 'Modifier la marque';
+  document.getElementById('modal-brand-title').textContent = t('js_edit_brand_title');
   openModal('modal-brand');
 }
 
 async function saveBrand() {
   const id = document.getElementById('brand-id').value;
   const name = document.getElementById('brand-name').value.trim();
-  if (!name) return toast('Nom requis', true);
+  if (!name) return toast(t('js_name_required'), true);
   const body = {
     name,
     logo_url: '',
@@ -1202,15 +1518,15 @@ async function saveBrand() {
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';
   const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  if (r.ok) { closeModal('modal-brand'); loadBrands(); toast('Marque enregistrée'); }
-  else toast('Erreur', true);
+  if (r.ok) { closeModal('modal-brand'); loadBrands(); toast(t('js_brand_saved')); }
+  else toast(t('js_error'), true);
 }
 
 async function deleteBrand(id) {
-  if (!confirm('Supprimer cette marque ?')) return;
+  if (!confirm(t('confirm_delete_brand'))) return;
   await fetch(`/api/brands/${id}`, { method: 'DELETE' });
   loadBrands();
-  toast('Marque supprimée');
+  toast(t('js_brand_deleted'));
 }
 
 let billingBrandId = null;
@@ -1251,7 +1567,7 @@ async function setSubscriptionStatus(status) {
 }
 
 async function cancelBrandSubscription() {
-  if (!confirm('Désactiver l\'accès de cette marque ? Le showroom ne sera plus accessible aux acheteurs.')) return;
+  if (!confirm(t('confirm_deactivate_brand'))) return;
   const r = await fetch(`/api/brands/${billingBrandId}/cancel-subscription`, { method: 'POST' }).then(r => r.json());
   if (r.error) { alert(r.error); return; }
   closeModal('modal-billing');
@@ -1282,19 +1598,19 @@ async function refreshInviteLink() {
   document.getElementById('invite-has-link').style.display = 'block';
   document.getElementById('invite-url').textContent = `${location.origin}/rejoindre/${data.token}`;
   document.getElementById('invite-status-dot').style.background = inviteActive ? '#2ecc71' : '#e74c3c';
-  document.getElementById('invite-status-label').textContent = inviteActive ? 'Lien actif' : 'Lien désactivé';
+  document.getElementById('invite-status-label').textContent = inviteActive ? t('invite_link_active') : t('invite_link_inactive');
   const toggleBtn = document.getElementById('invite-toggle-btn');
-  toggleBtn.textContent = inviteActive ? 'Désactiver' : 'Réactiver';
+  toggleBtn.textContent = inviteActive ? t('btn_deactivate') : t('btn_reactivate');
   toggleBtn.className = inviteActive ? 'btn btn-danger btn-sm' : 'btn btn-green btn-sm';
 }
 
 async function generateInviteLink() {
   if (document.getElementById('invite-has-link').style.display !== 'none') {
-    if (!confirm('Régénérer un nouveau lien ? L\'ancien sera immédiatement invalidé.')) return;
+    if (!confirm(t('confirm_regenerate_link'))) return;
   }
   await fetch(`/api/brands/${inviteBrandId}/invite-link`, { method: 'POST' });
   await refreshInviteLink();
-  toast('Lien généré');
+  toast(t('js_link_generated'));
 }
 
 async function toggleInviteLink() {
@@ -1302,12 +1618,12 @@ async function toggleInviteLink() {
     method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ active: !inviteActive })
   });
   await refreshInviteLink();
-  toast(inviteActive ? 'Lien réactivé' : 'Lien désactivé');
+  toast(inviteActive ? t('js_link_activated') : t('js_link_deactivated'));
 }
 
 function copyInviteLink() {
   const url = document.getElementById('invite-url').textContent;
-  navigator.clipboard.writeText(url).then(() => toast('Lien copié !'));
+  navigator.clipboard.writeText(url).then(() => toast(t('js_link_copied')));
 }
 
 async function loadAppointments(brandId, brandName) {
@@ -1322,7 +1638,7 @@ async function loadAppointments(brandId, brandName) {
       <td>${a.client_name}</td>
       <td><a href="mailto:${a.client_email}" style="color:#CCEB3C">${a.client_email}</a>${a.client_phone ? '<br>' + a.client_phone : ''}</td>
       <td>${a.notes || '—'}</td>
-    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun rendez-vous</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_appointment')}</td></tr>`;
 }
 
 async function showQR(brandId, brandName) {
@@ -1444,7 +1760,7 @@ async function openAddSeason() {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
   });
   loadSeasons();
-  toast('Saison créée');
+  toast(t('js_season_created'));
 }
 
 async function toggleSeason(id, active) {
@@ -1456,10 +1772,10 @@ async function toggleSeason(id, active) {
 }
 
 async function deleteSeason(id) {
-  if (!confirm('Supprimer cette saison ? Les références associées resteront mais sans saison.')) return;
+  if (!confirm(t('confirm_delete_season'))) return;
   await fetch(`/api/seasons/${id}`, { method: 'DELETE' });
   loadSeasons();
-  toast('Saison supprimée');
+  toast(t('js_season_deleted'));
 }
 
 function downloadLinesheet() {
@@ -1514,7 +1830,7 @@ function renderProductsTable(products) {
         <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')" title="Supprimer">✕</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
+  }).join('') || `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">${t('no_ref')}</td></tr>`;
   updateBulkBar();
 }
 
@@ -1537,17 +1853,17 @@ function updateBulkBar() {
 async function bulkDeleteProducts() {
   const ids = [...document.querySelectorAll('.product-checkbox:checked')].map(c => c.dataset.id);
   if (!ids.length) return;
-  if (!confirm(`Supprimer ${ids.length} référence(s) ? Cette action est irréversible.`)) return;
+  if (!confirm(`${t('btn_delete_text')} ${ids.length} ${t('confirm_bulk_delete')}`)) return;
   await fetch(`/api/brands/${currentBrandId}/products/bulk`, {
     method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids })
   });
-  toast(`${ids.length} référence(s) supprimée(s)`);
+  toast(`${ids.length} ${t('js_collection_cleared')}`);
   refreshProducts();
 }
 
 async function duplicateProduct(id) {
   await fetch(`/api/products/${id}/duplicate`, { method: 'POST' });
-  toast('Référence dupliquée');
+  toast(t('js_ref_duplicated'));
   const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
   await refreshProducts();
   document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
@@ -1560,7 +1876,7 @@ async function toggleProductActive(id, newActive) {
   const p = productsCache.find(p => p.id === id);
   if (p) p.active = newActive;
   filterProducts();
-  toast(newActive ? 'Référence réactivée' : 'Référence désactivée');
+  toast(newActive ? t('js_ref_activated') : t('js_ref_deactivated'));
 }
 
 let currentImages = [];
@@ -1588,8 +1904,8 @@ function resetProductForm() {
 
 function openAddProduct() {
   resetProductForm();
-  document.getElementById('product-form-title').textContent = 'Nouvelle référence';
-  document.getElementById('product-form-btn').textContent = 'Ajouter';
+  document.getElementById('product-form-title').textContent = t('product_form_title_new');
+  document.getElementById('product-form-btn').textContent = t('js_add_product');
   document.getElementById('add-product-form').style.display = 'block';
 }
 
@@ -1619,8 +1935,8 @@ function editProduct(p) {
   document.getElementById('p-img-url-input').value = '';
   renderImagesGrid();
   renderVariantsList();
-  document.getElementById('product-form-title').textContent = 'Modifier la référence';
-  document.getElementById('product-form-btn').textContent = 'Enregistrer';
+  document.getElementById('product-form-title').textContent = t('product_form_title_edit');
+  document.getElementById('product-form-btn').textContent = t('js_edit_product');
   document.getElementById('add-product-form').style.display = 'block';
   document.getElementById('add-product-form').scrollIntoView({ behavior: 'smooth' });
 }
@@ -1788,7 +2104,7 @@ function cancelProductForm() {
 async function saveProduct() {
   const id = document.getElementById('p-id').value;
   const reference = document.getElementById('p-ref').value.trim();
-  if (!reference) return toast('Référence requise', true);
+  if (!reference) return toast(t('js_ref_required'), true);
   // first image: prefer first variant image if variants exist, else main images
   const firstImg = currentVariants.length ? (currentVariants[0].images[0] || '') : (currentImages[0] || '');
   const body = {
@@ -1817,8 +2133,8 @@ async function saveProduct() {
     cancelProductForm();
     await refreshProducts();
     document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
-    toast(id ? 'Référence modifiée' : 'Référence ajoutée');
-  } else toast('Erreur', true);
+    toast(id ? t('js_ref_updated') : t('js_ref_added'));
+  } else toast(t('js_error'), true);
 }
 
 function downloadCSVTemplate(e) {
@@ -1955,33 +2271,33 @@ function parseCSVLine(line, sep = ',') {
 }
 
 async function deleteProduct(id) {
-  if (!confirm('Supprimer cette référence ?')) return;
+  if (!confirm(t('confirm_delete_ref'))) return;
   const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
   await fetch(`/api/products/${id}`, { method: 'DELETE' });
   await refreshProducts();
   document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
-  toast('Référence supprimée');
+  toast(t('js_ref_deleted'));
 }
 
 async function clearAllProducts() {
-  if (!confirm('Vider toute la collection ? Cette action est irréversible.')) return;
+  if (!confirm(t('confirm_clear_collection'))) return;
   const r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'DELETE' }).then(r => r.json());
   refreshProducts();
-  toast(`${r.deleted} référence(s) supprimée(s)`);
+  toast(`${r.deleted} ${t('js_collection_cleared')}`);
 }
 
 async function clearAllPhotos() {
-  if (!confirm('Supprimer toutes les photos de cette collection (les références sont conservées) ?')) return;
+  if (!confirm(t('confirm_clear_photos'))) return;
   const r = await fetch(`/api/brands/${currentBrandId}/products-photos`, { method: 'DELETE' }).then(r => r.json());
   refreshProducts();
-  toast(`Photos supprimées sur ${r.cleared} référence(s)`);
+  toast(`${t('js_photos_cleared')} ${r.cleared} ${t('js_photos_cleared_suffix')}`);
 }
 
 // Orders
 let _allOrders = [];
 let _currentOrderId = null;
 
-const STATUS_LABEL = { confirmed: '🟡 Reçue', validated: '🟢 Validée', cancelled: '🔴 Annulée' };
+function STATUS_LABEL() { return { confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), cancelled: t('status_cancelled_icon') }; }
 const STATUS_BADGE = { confirmed: 'confirmed', validated: 'validated', cancelled: 'cancelled' };
 
 async function loadOrders() {
@@ -2038,13 +2354,13 @@ function filterOrders() {
       <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
       <td>${o.brand_name||''}</td>
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
-      <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL[o.status]||o.status}</span></td>
+      <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">👁 Voir</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>` : ''}
       </td>
     </tr>
-  `).join('') : '<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">Aucune commande</td></tr>';
+  `).join('') : `<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">${t('no_order')}</td></tr>`;
 }
 
 async function viewOrder(id) {
@@ -2106,18 +2422,18 @@ async function changeOrderStatus() {
   const o = _allOrders.find(x => x.id === _currentOrderId);
   if (o) o.status = status;
   filterOrders();
-  toast('Statut mis à jour ✓');
+  toast(t('js_status_updated'));
 }
 
 async function deleteOrder(id) {
-  if (!confirm('Supprimer cette commande ? Cette action est irréversible.')) return;
+  if (!confirm(t('confirm_delete_order'))) return;
   const r = await fetch('/api/orders/' + id, { method: 'DELETE' });
   if (r.ok) {
     _allOrders = _allOrders.filter(o => o.id !== id);
     filterOrders();
-    toast('Commande supprimée');
+    toast(t('js_order_deleted'));
   } else {
-    toast('Erreur lors de la suppression', true);
+    toast(t('js_order_delete_error'), true);
   }
 }
 
@@ -2132,15 +2448,15 @@ async function resendFromModal() {
   if (!_currentOrderId) return;
   const r = await fetch('/api/orders/' + _currentOrderId + '/resend', { method: 'POST' });
   const data = await r.json();
-  if (data.ok) toast('Email renvoyé ✓');
-  else toast(data.error || 'Erreur email', true);
+  if (data.ok) toast(t('js_email_resent'));
+  else toast(data.error || t('js_error'), true);
 }
 
 async function resend(id) {
   const r = await fetch(`/api/orders/${id}/resend`, { method: 'POST' });
   const data = await r.json();
-  if (data.ok) toast('Email renvoyé ✓');
-  else toast(data.error || 'Erreur email', true);
+  if (data.ok) toast(t('js_email_resent'));
+  else toast(data.error || t('js_error'), true);
 }
 
 // Settings
@@ -2215,12 +2531,13 @@ async function saveSettings() {
   const pass = document.getElementById('s-admin-pass').value;
   if (pass) body.admin_password = pass;
   const r = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  if (r.ok) toast('Paramètres enregistrés ✓');
-  else toast('Erreur', true);
+  if (r.ok) toast(t('js_settings_saved'));
+  else toast(t('js_error'), true);
 }
 
 // Init
 loadDashboard();
+applyLang();
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(o => {

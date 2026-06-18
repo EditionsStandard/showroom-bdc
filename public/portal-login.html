@@ -13,7 +13,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; }
-  .logo-wrap { text-align: center; margin-bottom: 32px; }
+  .logo-wrap { text-align: center; margin-bottom: 32px; position: relative; }
   .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
   .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 14px; letter-spacing: .02em; }
   .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
@@ -33,6 +33,8 @@
   .view { display: none; }
   .view.active { display: block; }
   .back-link { display: inline-block; margin-bottom: 20px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: underline; background: none; border: none; padding: 0; }
+  #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
+  #lang-toggle:hover { border-color: var(--accent); color: var(--white); }
 </style>
 <script>
 (function() {
@@ -48,42 +50,109 @@
 <body>
 <div class="card">
   <div class="logo-wrap">
+    <button id="lang-toggle" onclick="toggleLang()">FR | EN</button>
     <img src="/logo.svg" alt="Editions Standard">
-    <h1>Portail Acheteur</h1>
+    <h1 data-t="portal_title">Portail Acheteur</h1>
     <p>Editions Standard — Showroom</p>
   </div>
 
   <!-- Vue : connexion -->
   <div class="view active" id="view-login">
-    <div id="login-error" style="display:none" class="alert alert-error">Email ou mot de passe incorrect.</div>
+    <div id="login-error" style="display:none" class="alert alert-error" data-t="login_error">Email ou mot de passe incorrect.</div>
     <form method="POST" action="/editions-showroom-b2b-portail">
-      <div class="field"><label>Email</label><input type="email" name="email" autofocus placeholder="vous@exemple.com"></div>
-      <div class="field"><label>Mot de passe</label><input type="password" name="password" placeholder="••••••••"></div>
-      <button class="btn" type="submit">Connexion</button>
+      <div class="field"><label data-t="email_label">Email</label><input type="email" name="email" autofocus data-tp="email_placeholder"></div>
+      <div class="field"><label data-t="password_label">Mot de passe</label><input type="password" name="password" data-tp="password_placeholder"></div>
+      <button class="btn" type="submit" data-t="login_btn">Connexion</button>
     </form>
     <div class="toggle">
-      <a onclick="showView('forgot')">Mot de passe oublié ?</a>
+      <a onclick="showView('forgot')" data-t="forgot_link">Mot de passe oublié ?</a>
     </div>
   </div>
 
   <!-- Vue : mot de passe oublié -->
   <div class="view" id="view-forgot">
-    <button class="back-link" onclick="showView('login')">← Retour</button>
+    <button class="back-link" onclick="showView('login')" data-t="back_link">← Retour</button>
     <div id="forgot-msg"></div>
-    <div class="field"><label>Votre email</label><input type="email" id="forgot-email" placeholder="vous@exemple.com"></div>
-    <button class="btn" id="forgot-btn" onclick="sendReset()">Envoyer le lien</button>
+    <div class="field"><label data-t="your_email_label">Votre email</label><input type="email" id="forgot-email" data-tp="email_placeholder"></div>
+    <button class="btn" id="forgot-btn" onclick="sendReset()" data-t="send_reset_btn">Envoyer le lien</button>
   </div>
 
   <!-- Vue : nouveau mot de passe -->
   <div class="view" id="view-reset">
     <div id="reset-msg"></div>
-    <div class="field"><label>Nouveau mot de passe</label><input type="password" id="reset-pw" placeholder="••••••••" minlength="6"></div>
-    <div class="field"><label>Confirmer</label><input type="password" id="reset-pw2" placeholder="••••••••"></div>
-    <button class="btn" id="reset-btn" onclick="submitReset()">Enregistrer</button>
+    <div class="field"><label data-t="new_password_label">Nouveau mot de passe</label><input type="password" id="reset-pw" data-tp="password_placeholder" minlength="6"></div>
+    <div class="field"><label data-t="confirm_password_label">Confirmer</label><input type="password" id="reset-pw2" data-tp="password_placeholder"></div>
+    <button class="btn" id="reset-btn" onclick="submitReset()" data-t="save_btn">Enregistrer</button>
   </div>
 </div>
 
 <script>
+const TRANSLATIONS = {
+  fr: {
+    portal_title: 'Portail Acheteur',
+    email_label: 'Email',
+    email_placeholder: 'vous@exemple.com',
+    password_label: 'Mot de passe',
+    password_placeholder: '••••••••',
+    login_btn: 'Connexion',
+    forgot_link: 'Mot de passe oublié ?',
+    back_link: '← Retour',
+    your_email_label: 'Votre email',
+    send_reset_btn: 'Envoyer le lien',
+    new_password_label: 'Nouveau mot de passe',
+    confirm_password_label: 'Confirmer',
+    save_btn: 'Enregistrer',
+    login_error: 'Email ou mot de passe incorrect.',
+    email_required: 'Email requis.',
+    reset_success: 'Si un compte existe pour cet email, vous recevrez un lien dans quelques minutes.',
+    pw_too_short: 'Le mot de passe doit contenir au moins 6 caractères.',
+    pw_mismatch: 'Les mots de passe ne correspondent pas.',
+    pw_updated: 'Mot de passe mis à jour. Redirection…',
+  },
+  en: {
+    portal_title: 'Buyer Portal',
+    email_label: 'Email',
+    email_placeholder: 'you@example.com',
+    password_label: 'Password',
+    password_placeholder: '••••••••',
+    login_btn: 'Log in',
+    forgot_link: 'Forgot password?',
+    back_link: '← Back',
+    your_email_label: 'Your email',
+    send_reset_btn: 'Send reset link',
+    new_password_label: 'New password',
+    confirm_password_label: 'Confirm',
+    save_btn: 'Save',
+    login_error: 'Incorrect email or password.',
+    email_required: 'Email required.',
+    reset_success: 'If an account exists for this email, you will receive a link in a few minutes.',
+    pw_too_short: 'Password must be at least 6 characters.',
+    pw_mismatch: 'Passwords do not match.',
+    pw_updated: 'Password updated. Redirecting…',
+  }
+};
+
+let currentLang = localStorage.getItem('portal_lang') || 'fr';
+
+function t(key) {
+  return (TRANSLATIONS[currentLang] || TRANSLATIONS.fr)[key] || key;
+}
+
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
+  document.getElementById('lang-toggle').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+  localStorage.setItem('portal_lang', currentLang);
+  applyLang();
+}
+
+applyLang();
+
 let resetToken = null;
 
 function showView(name) {
@@ -107,7 +176,7 @@ async function sendReset() {
   const email = document.getElementById('forgot-email').value.trim();
   const msg = document.getElementById('forgot-msg');
   const btn = document.getElementById('forgot-btn');
-  if (!email) { msg.innerHTML = '<div class="alert alert-error">Email requis.</div>'; return; }
+  if (!email) { msg.innerHTML = `<div class="alert alert-error">${t('email_required')}</div>`; return; }
   btn.disabled = true;
   btn.textContent = '…';
   const r = await fetch('/api/portal/forgot-password', {
@@ -116,9 +185,9 @@ async function sendReset() {
     body: JSON.stringify({ email })
   }).then(r => r.json());
   btn.disabled = false;
-  btn.textContent = 'Envoyer le lien';
+  btn.textContent = t('send_reset_btn');
   // Toujours afficher succès (ne pas révéler si l'email existe)
-  msg.innerHTML = '<div class="alert alert-success">Si un compte existe pour cet email, vous recevrez un lien dans quelques minutes.</div>';
+  msg.innerHTML = `<div class="alert alert-success">${t('reset_success')}</div>`;
 }
 
 async function submitReset() {
@@ -126,8 +195,8 @@ async function submitReset() {
   const pw2 = document.getElementById('reset-pw2').value;
   const msg = document.getElementById('reset-msg');
   const btn = document.getElementById('reset-btn');
-  if (pw.length < 6) { msg.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>'; return; }
-  if (pw !== pw2) { msg.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>'; return; }
+  if (pw.length < 6) { msg.innerHTML = `<div class="alert alert-error">${t('pw_too_short')}</div>`; return; }
+  if (pw !== pw2) { msg.innerHTML = `<div class="alert alert-error">${t('pw_mismatch')}</div>`; return; }
   btn.disabled = true;
   btn.textContent = '…';
   const r = await fetch('/api/portal/reset-password', {
@@ -136,9 +205,9 @@ async function submitReset() {
     body: JSON.stringify({ token: resetToken, password: pw })
   }).then(r => r.json());
   btn.disabled = false;
-  btn.textContent = 'Enregistrer';
+  btn.textContent = t('save_btn');
   if (r.error) { msg.innerHTML = `<div class="alert alert-error">${r.error}</div>`; return; }
-  msg.innerHTML = '<div class="alert alert-success">Mot de passe mis à jour. Redirection…</div>';
+  msg.innerHTML = `<div class="alert alert-success">${t('pw_updated')}</div>`;
   setTimeout(() => { window.location = '/editions-showroom-b2b-portail'; }, 1500);
 }
 </script>
