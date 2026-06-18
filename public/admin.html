@@ -438,6 +438,7 @@
           <select id="staff-role" onchange="toggleStaffBrandField()">
             <option value="agent" data-t="role_agent">Agent showroom — toutes les marques</option>
             <option value="designer" data-t="role_designer">Designer — une marque assignée</option>
+            <option value="owner" id="role-owner-option" style="display:none" data-t="role_owner">Fondateur — accès complet</option>
           </select>
         </div>
       </div>
@@ -828,6 +829,7 @@
       <select id="edit-staff-role" onchange="document.getElementById('edit-staff-brand-field').style.display=this.value==='designer'?'block':'none'">
         <option value="agent" data-t="role_agent_short">Agent showroom</option>
         <option value="designer">Designer</option>
+        <option value="owner" id="edit-role-owner-option" style="display:none" data-t="role_owner">Fondateur — accès complet</option>
       </select>
     </div>
     <div class="form-group" id="edit-staff-brand-field" style="display:none"><label data-t="th_brand">Marque</label><select id="edit-staff-brand-id"></select></div>
@@ -909,6 +911,7 @@ const TRANSLATIONS = {
     lbl_product_photos: 'Photos du produit',
     opt_none: '— Aucune —',
     role_agent: 'Agent showroom — toutes les marques', role_designer: 'Designer — une marque assignée',
+    role_owner: 'Fondateur — accès complet',
     role_agent_short: 'Agent showroom',
     // Settings
     settings_showroom: 'Showroom', settings_smtp: 'Configuration SMTP (envoi emails)',
@@ -1038,6 +1041,7 @@ const TRANSLATIONS = {
     lbl_product_photos: 'Product photos',
     opt_none: '— None —',
     role_agent: 'Showroom agent — all brands', role_designer: 'Designer — one assigned brand',
+    role_owner: 'Founder — full access',
     role_agent_short: 'Showroom agent',
     // Settings
     settings_showroom: 'Showroom', settings_smtp: 'SMTP configuration (email sending)',
@@ -1179,6 +1183,8 @@ async function initUserRole() {
   currentUserRole = me.role;
   if (me.role === 'owner') {
     document.getElementById('nav-staff').style.display = '';
+    const ownerOpts = document.querySelectorAll('#role-owner-option, #edit-role-owner-option');
+    ownerOpts.forEach(el => el.style.display = '');
   } else {
     document.getElementById('nav-settings').style.display = 'none';
   }
@@ -1198,7 +1204,7 @@ async function loadStaff() {
   sel.innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
 
   const staff = await fetch('/api/staff').then(r => r.json());
-  const roleLabel = { agent: t('role_agent_short'), designer: 'Designer' };
+  const roleLabel = { owner: t('role_owner'), agent: t('role_agent_short'), designer: 'Designer' };
   document.getElementById('staff-body').innerHTML = staff.map(s => `
     <tr>
       <td>${s.name || '—'}</td>

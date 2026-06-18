@@ -187,7 +187,7 @@ app.get('/api/staff', requireRole('owner'), async (req, res) => {
 app.post('/api/staff', requireRole('owner'), async (req, res) => {
   const { email, password, role, brand_id, name } = req.body;
   if (!email || !password || !role) return res.status(400).json({ error: 'Email, mot de passe et rôle requis' });
-  if (!['agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+  if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
 
   const bcrypt = require('bcryptjs');
