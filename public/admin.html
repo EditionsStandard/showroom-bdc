@@ -988,6 +988,11 @@ const TRANSLATIONS = {
     no_ref: 'Aucune référence',
     no_appointment: 'Aucun rendez-vous',
     no_order: 'Aucune commande',
+    btn_view: '👁 Voir',
+    order_ref_prefix: 'Commande #',
+    orders_pending_label: 'en attente',
+    orders_count_label: (n) => `${n} commande${n!==1?'s':''}`,
+    orders_revenue_label: 'CA :',
     btn_modify: 'Modifier', btn_delete_text: 'Supprimer',
     label_active: 'Actif', label_inactive: 'Inactif',
     label_billing: 'Facturation',
@@ -1118,6 +1123,11 @@ const TRANSLATIONS = {
     no_ref: 'No references',
     no_appointment: 'No appointments',
     no_order: 'No orders',
+    btn_view: '👁 View',
+    order_ref_prefix: 'Order #',
+    orders_pending_label: 'pending',
+    orders_count_label: (n) => `${n} order${n!==1?'s':''}`,
+    orders_revenue_label: 'Revenue:',
     btn_modify: 'Edit', btn_delete_text: 'Delete',
     label_active: 'Active', label_inactive: 'Inactive',
     label_billing: 'Billing',
@@ -1151,6 +1161,18 @@ function toggleLang() {
   currentLang = currentLang === 'fr' ? 'en' : 'fr';
   localStorage.setItem('portal_lang', currentLang);
   applyLang();
+  // Re-render dynamic sections
+  const activeSection = document.querySelector('.section.active');
+  if (activeSection) {
+    const id = activeSection.id;
+    if (id === 'dashboard') loadDashboard();
+    else if (id === 'orders') filterOrders();
+    else if (id === 'brands') loadBrands();
+    else if (id === 'staff') loadStaff();
+    else if (id === 'buyers') loadBuyers();
+  }
+  // Re-render products table if open
+  if (document.getElementById('modal-products').classList.contains('open')) filterProducts();
 }
 
 document.addEventListener('DOMContentLoaded', applyLang);
@@ -1371,7 +1393,7 @@ async function loadDashboard() {
   const recent = orders.slice(0, 10);
   tbody.innerHTML = recent.map(o => `
     <tr>
-      <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
+      <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
       <td><strong>${o.client_name}</strong><br><span style="font-size:11px;color:#888">${o.client_email}</span></td>
       <td>${o.brand_name}</td>
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
@@ -1636,7 +1658,7 @@ async function loadAppointments(brandId, brandName) {
   document.getElementById('appointments-title').textContent = `Rendez-vous — ${brandName}`;
   openModal('modal-appointments');
   const data = await fetch(`/api/brands/${brandId}/appointments`).then(r => r.json());
-  const dateFmt = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dateFmt = d => new Date(d).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   document.getElementById('appointments-body').innerHTML = data.map(a => `
     <tr>
       <td>${dateFmt(a.slot_date)}</td>
@@ -2346,23 +2368,24 @@ function filterOrders() {
   // Stats
   const totalRev = list.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   const pending  = list.filter(o => o.status === 'confirmed').length;
+  const _loc = currentLang === 'en' ? 'en-GB' : 'fr-FR';
   document.getElementById('orders-stats').innerHTML =
-    `<span><strong>${list.length}</strong> commande${list.length!==1?'s':''}</span>` +
-    `<span style="margin-left:18px">CA : <strong>${totalRev.toFixed(2)} €</strong></span>` +
-    `<span style="margin-left:18px;color:#CCEB3C">${pending} en attente</span>`;
+    `<span><strong>${list.length}</strong> ${t('orders_count_label') instanceof Function ? t('orders_count_label')(list.length) : (TRANSLATIONS[currentLang]?.orders_count_label?.(list.length) || list.length + ' order(s)')}</span>` +
+    `<span style="margin-left:18px">${t('orders_revenue_label')} <strong>${totalRev.toFixed(2)} €</strong></span>` +
+    `<span style="margin-left:18px;color:#CCEB3C">${pending} ${t('orders_pending_label')}</span>`;
 
   // Table
   const tbody = document.getElementById('orders-body');
   tbody.innerHTML = list.length ? list.map(o => `
     <tr>
       <td style="font-size:11px;color:#888;font-family:monospace">${o.id.slice(0,8)}</td>
-      <td>${new Date(o.created_at).toLocaleDateString('fr-FR')}</td>
+      <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
       <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
       <td>${o.brand_name||''}</td>
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
-        <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">👁 Voir</button>
+        <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">${t('btn_view')}</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>` : ''}
       </td>
     </tr>
@@ -2375,8 +2398,8 @@ async function viewOrder(id) {
   const o = data.order;
   const lines = data.lines || [];
 
-  document.getElementById('mo-ref').textContent   = 'Commande #' + id.slice(0,8);
-  document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString('fr-FR');
+  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + id.slice(0,8);
+  document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR');
   document.getElementById('mo-status-select').value = o.status || 'confirmed';
 
   const readOnly = currentUserRole === 'designer';
