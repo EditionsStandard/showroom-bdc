@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
@@ -10,9 +11,9 @@ const multer = require('multer');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 const cloudinary = require('cloudinary').v2;
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dhihyr2ci',
-  api_key: process.env.CLOUDINARY_API_KEY || '119441874249666',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'LGise4-aebSVBvPFywOiV3C7y1Y'
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 const { pool, init } = require('./database');
 
@@ -58,12 +59,18 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.get('/index.html', (req, res) => res.redirect('/'));
 app.use(express.static(path.join(__dirname, 'public')));
+if (!process.env.SESSION_SECRET) console.warn('⚠️  SESSION_SECRET non défini — utilisez une valeur aléatoire en production');
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
-  secret: process.env.SESSION_SECRET || 'showroom-durand-secret-2024',
+  secret: process.env.SESSION_SECRET || 'showroom-dev-fallback-not-for-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 }
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
 }));
 
 // Helpers
@@ -113,11 +120,19 @@ function requireBrandScope(...allowed) {
   };
 }
 
+// Rate limiting — anti brute force sur les logins
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // ==================== ADMIN ROUTES ====================
 
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
 
-app.post('/admin/login', async (req, res) => {
+app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (email) {
@@ -140,7 +155,7 @@ app.post('/admin/login', async (req, res) => {
   }
 });
 
-app.get('/admin/logout', (req, res) => { delete req.session.admin; delete req.session.staffUser; res.redirect('/admin/login'); });
+app.get('/admin/logout', (req, res) => { req.session.destroy(() => res.redirect('/admin/login')); });
 app.get('/admin', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 app.get('/api/me', requireAdmin, (req, res) => {
@@ -767,7 +782,7 @@ app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-port
 
 app.get('/editions-showroom-b2b-portail', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-login.html')));
 
-app.post('/editions-showroom-b2b-portail', async (req, res) => {
+app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   const bcrypt = require('bcryptjs');
   const r = await pool.query('SELECT * FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
