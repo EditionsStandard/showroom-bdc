@@ -176,6 +176,18 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
   }
 });
 
+app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
+  const { name, email, role, brand_id, password } = req.body;
+  if (password) {
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, email, role, brand_id || null, hash, req.params.id]);
+  } else {
+    await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, email, role, brand_id || null, req.params.id]);
+  }
+  res.json({ ok: true });
+});
+
 app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
   await pool.query('DELETE FROM admin_users WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
@@ -960,6 +972,18 @@ async function sendBuyerWelcomeEmail({ email, password, name, req }) {
       </div>`
   });
 }
+
+app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
+  const { name, company, email, phone, country, password } = req.body;
+  if (password) {
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5,password_hash=$6 WHERE id=$7', [name, company, email, phone, country, hash, req.params.id]);
+  } else {
+    await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5 WHERE id=$6', [name, company, email, phone, country, req.params.id]);
+  }
+  res.json({ ok: true });
+});
 
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);

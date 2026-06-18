@@ -741,6 +741,46 @@
   </div>
 </div>
 
+<!-- Modal édition agent/designer -->
+<div class="modal-overlay" id="modal-edit-staff">
+  <div class="modal">
+    <h3>Modifier le compte</h3>
+    <input type="hidden" id="edit-staff-id">
+    <div class="form-group"><label>Nom</label><input type="text" id="edit-staff-name"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="edit-staff-email"></div>
+    <div class="form-group"><label>Nouveau mot de passe <span style="color:#666;font-weight:400">(laisser vide = inchangé)</span></label><input type="password" id="edit-staff-password" placeholder="••••••••"></div>
+    <div class="form-group"><label>Rôle</label>
+      <select id="edit-staff-role" onchange="document.getElementById('edit-staff-brand-field').style.display=this.value==='designer'?'block':'none'">
+        <option value="agent">Agent showroom</option>
+        <option value="designer">Designer</option>
+      </select>
+    </div>
+    <div class="form-group" id="edit-staff-brand-field" style="display:none"><label>Marque</label><select id="edit-staff-brand-id"></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-staff')">Annuler</button>
+      <button class="btn" onclick="saveEditStaff()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal édition acheteur -->
+<div class="modal-overlay" id="modal-edit-buyer">
+  <div class="modal">
+    <h3>Modifier le compte acheteur</h3>
+    <input type="hidden" id="edit-buyer-id">
+    <div class="form-group"><label>Nom</label><input type="text" id="edit-buyer-name"></div>
+    <div class="form-group"><label>Société</label><input type="text" id="edit-buyer-company"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="edit-buyer-email"></div>
+    <div class="form-group"><label>Téléphone</label><input type="tel" id="edit-buyer-phone"></div>
+    <div class="form-group"><label>Pays</label><input type="text" id="edit-buyer-country"></div>
+    <div class="form-group"><label>Nouveau mot de passe <span style="color:#666;font-weight:400">(laisser vide = inchangé)</span></label><input type="password" id="edit-buyer-password" placeholder="••••••••"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-buyer')">Annuler</button>
+      <button class="btn" onclick="saveEditBuyer()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -798,7 +838,10 @@ async function loadStaff() {
       <td>${s.email}</td>
       <td>${roleLabel[s.role] || s.role}</td>
       <td>${s.brand_name || '—'}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Supprimer</button></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${JSON.stringify(s)})">Modifier</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Supprimer</button>
+      </td>
     </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun compte</td></tr>';
 }
 
@@ -830,6 +873,36 @@ async function deleteStaff(id) {
   toast('Compte supprimé');
 }
 
+async function openEditStaff(s) {
+  const brands = await fetch('/api/brands').then(r => r.json());
+  const sel = document.getElementById('edit-staff-brand-id');
+  sel.innerHTML = brands.map(b => `<option value="${b.id}" ${b.id === s.brand_id ? 'selected' : ''}>${b.name}</option>`).join('');
+  document.getElementById('edit-staff-id').value = s.id;
+  document.getElementById('edit-staff-name').value = s.name || '';
+  document.getElementById('edit-staff-email').value = s.email || '';
+  document.getElementById('edit-staff-password').value = '';
+  document.getElementById('edit-staff-role').value = s.role || 'agent';
+  document.getElementById('edit-staff-brand-field').style.display = s.role === 'designer' ? 'block' : 'none';
+  openModal('modal-edit-staff');
+}
+
+async function saveEditStaff() {
+  const id = document.getElementById('edit-staff-id').value;
+  const body = {
+    name: document.getElementById('edit-staff-name').value.trim(),
+    email: document.getElementById('edit-staff-email').value.trim(),
+    role: document.getElementById('edit-staff-role').value,
+    brand_id: document.getElementById('edit-staff-brand-id').value
+  };
+  const pwd = document.getElementById('edit-staff-password').value;
+  if (pwd) body.password = pwd;
+  const r = await fetch(`/api/staff/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+  if (r.error) { toast(r.error, true); return; }
+  closeModal('modal-edit-staff');
+  loadStaff();
+  toast('Compte mis à jour');
+}
+
 async function loadBuyers() {
   const buyers = await fetch('/api/buyers').then(r => r.json());
   document.getElementById('buyers-body').innerHTML = buyers.map(b => `
@@ -838,7 +911,10 @@ async function loadBuyers() {
       <td>${b.company || '—'}</td>
       <td>${b.email}</td>
       <td>${b.phone || '—'}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">Supprimer</button></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">Modifier</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">Supprimer</button>
+      </td>
     </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun compte acheteur</td></tr>';
 }
 
@@ -867,6 +943,35 @@ async function deleteBuyer(id) {
   await fetch(`/api/buyers/${id}`, { method: 'DELETE' });
   loadBuyers();
   toast('Compte supprimé');
+}
+
+function openEditBuyer(b) {
+  document.getElementById('edit-buyer-id').value = b.id;
+  document.getElementById('edit-buyer-name').value = b.name || '';
+  document.getElementById('edit-buyer-company').value = b.company || '';
+  document.getElementById('edit-buyer-email').value = b.email || '';
+  document.getElementById('edit-buyer-phone').value = b.phone || '';
+  document.getElementById('edit-buyer-country').value = b.country || '';
+  document.getElementById('edit-buyer-password').value = '';
+  openModal('modal-edit-buyer');
+}
+
+async function saveEditBuyer() {
+  const id = document.getElementById('edit-buyer-id').value;
+  const body = {
+    name: document.getElementById('edit-buyer-name').value.trim(),
+    company: document.getElementById('edit-buyer-company').value.trim(),
+    email: document.getElementById('edit-buyer-email').value.trim(),
+    phone: document.getElementById('edit-buyer-phone').value.trim(),
+    country: document.getElementById('edit-buyer-country').value.trim()
+  };
+  const pwd = document.getElementById('edit-buyer-password').value;
+  if (pwd) body.password = pwd;
+  const r = await fetch(`/api/buyers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+  if (r.error) { toast(r.error, true); return; }
+  closeModal('modal-edit-buyer');
+  loadBuyers();
+  toast('Compte acheteur mis à jour');
 }
 
 function toast(msg, err) {
