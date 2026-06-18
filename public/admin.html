@@ -2334,7 +2334,7 @@ async function loadOrders() {
   // Populate brand filter
   const brandSel = document.getElementById('orders-filter-brand');
   const brands = [...new Set(_allOrders.map(o => o.brand_name).filter(Boolean))].sort();
-  brandSel.innerHTML = '<option value="">Toutes les marques</option>' +
+  brandSel.innerHTML = `<option value="">${t('filter_all_brands')}</option>` +
     brands.map(b => `<option value="${b}">${b}</option>`).join('');
 
   filterOrders();
