@@ -31,6 +31,10 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    UPDATE products SET collection_name = 'SS27' WHERE collection_name IS NULL OR collection_name = ''
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS buyers (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
