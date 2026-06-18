@@ -28,6 +28,8 @@
   .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
   .header .nav a.active { color: var(--accent); font-weight: 600; }
   .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
+  .header .nav a.nav-logout { color: #e05e5e; border: 1px solid #e05e5e44; border-radius: 20px; padding: 5px 12px; }
+  .header .nav a.nav-logout:hover { background: #e05e5e22; }
   /* ── User dropdown ── */
   .user-menu { position: relative; flex-shrink: 0; }
   .user-btn { display: flex; align-items: center; gap: 9px; background: var(--accent); border: none; border-radius: 24px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; font-weight: 600; transition: opacity .15s; user-select: none; }
@@ -188,6 +190,8 @@
     <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
+    <a onclick="showView('account')">Mon profil</a>
+    <a href="/portal-logout" class="nav-logout">Déconnexion</a>
   </div>
   <div class="user-menu" id="user-menu">
     <div class="user-btn" onclick="toggleUserMenu()">
