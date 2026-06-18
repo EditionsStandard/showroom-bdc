@@ -99,6 +99,16 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS buyer_password_resets (
+      token TEXT PRIMARY KEY,
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT

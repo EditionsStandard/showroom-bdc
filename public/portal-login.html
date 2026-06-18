@@ -11,7 +11,7 @@
   :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; }
   .logo-wrap { text-align: center; margin-bottom: 32px; }
   .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
@@ -22,9 +22,17 @@
   input:focus { border-color: var(--accent); }
   .field { margin-bottom: 16px; }
   .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; }
-  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-ghost { width: 100%; background: none; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 12px 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: border-color .2s, color .2s; }
+  .btn-ghost:hover { border-color: var(--soft); color: var(--white); }
+  .alert { border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
+  .alert-error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; }
+  .alert-success { background: #0a1a0a; border: 1px solid #27ae6033; color: #2ecc71; }
   .toggle { text-align: center; margin-top: 18px; }
   .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .back-link { display: inline-block; margin-bottom: 20px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: underline; background: none; border: none; padding: 0; }
 </style>
 <script>
 (function() {
@@ -44,12 +52,95 @@
     <h1>Portail Acheteur</h1>
     <p>Editions Standard — Showroom</p>
   </div>
-  <form method="POST" action="/editions-showroom-b2b-portail">
-    <script>if(location.search.includes('error')) document.write('<div class="error">Email ou mot de passe incorrect.</div>')</script>
-    <div class="field"><label>Email</label><input type="email" name="email" autofocus placeholder="vous@exemple.com"></div>
-    <div class="field"><label>Mot de passe</label><input type="password" name="password" placeholder="••••••••"></div>
-    <button class="btn" type="submit">Connexion</button>
-  </form>
+
+  <!-- Vue : connexion -->
+  <div class="view active" id="view-login">
+    <div id="login-error" style="display:none" class="alert alert-error">Email ou mot de passe incorrect.</div>
+    <form method="POST" action="/editions-showroom-b2b-portail">
+      <div class="field"><label>Email</label><input type="email" name="email" autofocus placeholder="vous@exemple.com"></div>
+      <div class="field"><label>Mot de passe</label><input type="password" name="password" placeholder="••••••••"></div>
+      <button class="btn" type="submit">Connexion</button>
+    </form>
+    <div class="toggle">
+      <a onclick="showView('forgot')">Mot de passe oublié ?</a>
+    </div>
+  </div>
+
+  <!-- Vue : mot de passe oublié -->
+  <div class="view" id="view-forgot">
+    <button class="back-link" onclick="showView('login')">← Retour</button>
+    <div id="forgot-msg"></div>
+    <div class="field"><label>Votre email</label><input type="email" id="forgot-email" placeholder="vous@exemple.com"></div>
+    <button class="btn" id="forgot-btn" onclick="sendReset()">Envoyer le lien</button>
+  </div>
+
+  <!-- Vue : nouveau mot de passe -->
+  <div class="view" id="view-reset">
+    <div id="reset-msg"></div>
+    <div class="field"><label>Nouveau mot de passe</label><input type="password" id="reset-pw" placeholder="••••••••" minlength="6"></div>
+    <div class="field"><label>Confirmer</label><input type="password" id="reset-pw2" placeholder="••••••••"></div>
+    <button class="btn" id="reset-btn" onclick="submitReset()">Enregistrer</button>
+  </div>
 </div>
+
+<script>
+let resetToken = null;
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+}
+
+// Afficher l'erreur de login si ?error dans l'URL
+if (location.search.includes('error')) {
+  document.getElementById('login-error').style.display = 'block';
+}
+
+// Si ?token= dans l'URL → vue de réinitialisation
+const params = new URLSearchParams(location.search);
+if (params.get('token')) {
+  resetToken = params.get('token');
+  showView('reset');
+}
+
+async function sendReset() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msg = document.getElementById('forgot-msg');
+  const btn = document.getElementById('forgot-btn');
+  if (!email) { msg.innerHTML = '<div class="alert alert-error">Email requis.</div>'; return; }
+  btn.disabled = true;
+  btn.textContent = '…';
+  const r = await fetch('/api/portal/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  }).then(r => r.json());
+  btn.disabled = false;
+  btn.textContent = 'Envoyer le lien';
+  // Toujours afficher succès (ne pas révéler si l'email existe)
+  msg.innerHTML = '<div class="alert alert-success">Si un compte existe pour cet email, vous recevrez un lien dans quelques minutes.</div>';
+}
+
+async function submitReset() {
+  const pw = document.getElementById('reset-pw').value;
+  const pw2 = document.getElementById('reset-pw2').value;
+  const msg = document.getElementById('reset-msg');
+  const btn = document.getElementById('reset-btn');
+  if (pw.length < 6) { msg.innerHTML = '<div class="alert alert-error">Le mot de passe doit contenir au moins 6 caractères.</div>'; return; }
+  if (pw !== pw2) { msg.innerHTML = '<div class="alert alert-error">Les mots de passe ne correspondent pas.</div>'; return; }
+  btn.disabled = true;
+  btn.textContent = '…';
+  const r = await fetch('/api/portal/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: resetToken, password: pw })
+  }).then(r => r.json());
+  btn.disabled = false;
+  btn.textContent = 'Enregistrer';
+  if (r.error) { msg.innerHTML = `<div class="alert alert-error">${r.error}</div>`; return; }
+  msg.innerHTML = '<div class="alert alert-success">Mot de passe mis à jour. Redirection…</div>';
+  setTimeout(() => { window.location = '/editions-showroom-b2b-portail'; }, 1500);
+}
+</script>
 </body>
 </html>

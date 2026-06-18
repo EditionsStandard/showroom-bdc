@@ -941,6 +941,71 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Forgot / reset password (public endpoints — no auth required)
+app.post('/api/portal/forgot-password', async (req, res) => {
+  const { email } = req.body || {};
+  res.json({ ok: true }); // always succeed — don't reveal if email exists
+  if (!email) return;
+  try {
+    const b = await pool.query('SELECT id, name FROM buyers WHERE email=$1', [email.toLowerCase().trim()]);
+    if (!b.rows[0]) return;
+    const buyer = b.rows[0];
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await pool.query(
+      `INSERT INTO buyer_password_resets (token, buyer_id, expires_at) VALUES ($1,$2,$3)
+       ON CONFLICT DO NOTHING`,
+      [token, buyer.id, expires]
+    );
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return;
+    const { Resend } = require('resend');
+    const resend = new Resend(resendKey);
+    const showroomName = await getSetting('showroom_name');
+    const fromAddress = await getSetting('smtp_from');
+    const resetUrl = `${getBaseUrl(req)}/portal-login?token=${token}`;
+    await resend.emails.send({
+      from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [email],
+      subject: `Réinitialisation de mot de passe — ${showroomName}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
+          <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
+            <span style="color:#CCEB3C;font-size:22px;font-weight:700;letter-spacing:2px">${showroomName.toUpperCase()}</span>
+          </div>
+          <div style="padding:32px">
+            <p>Bonjour${buyer.name ? ' ' + buyer.name : ''},</p>
+            <p>Vous avez demandé à réinitialiser votre mot de passe pour le showroom B2B.</p>
+            <p style="text-align:center;margin:28px 0">
+              <a href="${resetUrl}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:700">Choisir un nouveau mot de passe →</a>
+            </p>
+            <p style="font-size:13px;color:#888">Ce lien est valable 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
+            <p>Cordialement,<br><strong>${showroomName}</strong></p>
+          </div>
+        </div>`
+    });
+  } catch (e) { console.error('forgot-password error:', e.message); }
+});
+
+app.post('/api/portal/reset-password', async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password || password.length < 6)
+    return res.json({ error: 'Données invalides.' });
+  try {
+    const r = await pool.query(
+      'SELECT buyer_id FROM buyer_password_resets WHERE token=$1 AND used=false AND expires_at > NOW()',
+      [token]
+    );
+    if (!r.rows[0]) return res.json({ error: 'Lien invalide ou expiré.' });
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, r.rows[0].buyer_id]);
+    await pool.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [token]);
+    res.json({ ok: true });
+  } catch (e) { res.json({ error: 'Erreur serveur.' }); }
+});
+
 // Admin: manage buyer accounts (owner + agent)
 app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const r = await pool.query('SELECT id, email, name, company, phone, country, created_at FROM buyers ORDER BY created_at DESC');
