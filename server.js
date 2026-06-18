@@ -409,6 +409,33 @@ app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','d
   res.json({ ok: true, deleted: r.rowCount });
 });
 
+app.post('/api/products/:id/duplicate', requireRole('owner','agent','designer'), async (req, res) => {
+  if (!await checkProductBrandScope(req, res)) return;
+  const r = await pool.query('SELECT * FROM products WHERE id=$1', [req.params.id]);
+  if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
+  const p = r.rows[0];
+  const newId = uuidv4();
+  await pool.query(
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+    [newId, p.brand_id, p.reference + '-COPY', p.description, p.color, p.sizes, p.price, p.price_retail, p.image_url, p.collection_name, p.category, p.composition, p.images, p.variants, p.season_id]
+  );
+  res.json({ id: newId });
+});
+
+app.put('/api/products/:id/active', requireRole('owner','agent','designer'), async (req, res) => {
+  if (!await checkProductBrandScope(req, res)) return;
+  const { active } = req.body;
+  await pool.query('UPDATE products SET active=$1 WHERE id=$2', [active ? 1 : 0, req.params.id]);
+  res.json({ ok: true });
+});
+
+app.delete('/api/brands/:brandId/products/bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'IDs requis' });
+  await pool.query('DELETE FROM products WHERE id = ANY($1) AND brand_id=$2', [ids, req.params.brandId]);
+  res.json({ ok: true, deleted: ids.length });
+});
+
 app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;

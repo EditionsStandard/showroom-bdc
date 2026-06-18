@@ -536,7 +536,11 @@
 <!-- MODAL PRODUCTS -->
 <div class="modal-overlay" id="modal-products">
   <div class="modal" style="max-width:700px">
-    <h3 id="modal-products-title">Collection</h3>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <span style="font-size:12px;color:#666;cursor:pointer" onclick="closeModal('modal-products')">Marques</span>
+      <span style="color:#444">›</span>
+      <h3 id="modal-products-title" style="margin:0;font-size:17px">Collection</h3>
+    </div>
 
     <div class="card" style="padding:14px 16px;margin-bottom:16px;background:#0a0a0a">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -546,15 +550,25 @@
       <div id="seasons-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
 
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Ajouter référence</button>
       <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()">🖨️ Imprimer QR Codes</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadLinesheet()">📑 Télécharger linesheet</button>
-      <button class="btn btn-danger btn-sm" onclick="clearAllProducts()">🗑 Vider la collection</button>
-      <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()">🖼️ Vider les photos</button>
+      <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 Supprimer la sélection (<span id="bulk-count">0</span>)</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAllProducts()">🗑 Vider collection</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()">🖼️ Vider photos</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+      <input id="products-search" type="text" placeholder="🔍 Rechercher référence, désignation, couleur…" style="flex:1" oninput="filterProducts()">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#888;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="show-inactive" onchange="filterProducts()" style="width:auto"> Voir inactifs
+      </label>
     </div>
     <table id="products-table">
-      <thead><tr><th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Catégorie</th><th>Composition</th><th>Tailles</th><th>Wholesale HT</th><th>Retail</th><th>Image</th><th></th></tr></thead>
+      <thead><tr>
+        <th style="width:28px"><input type="checkbox" id="select-all-products" onchange="toggleSelectAll(this)" style="width:auto"></th>
+        <th>Collection</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Catégorie</th><th>Tailles</th><th>Prix HT</th><th>Image</th><th></th>
+      </tr></thead>
       <tbody id="products-body"></tbody>
     </table>
     <div class="sep"></div>
@@ -1312,7 +1326,7 @@ async function printAllProductQR() {
 // Products
 async function loadProducts(brandId, brandName) {
   currentBrandId = brandId;
-  document.getElementById('modal-products-title').textContent = `Collection — ${brandName}`;
+  document.getElementById('modal-products-title').textContent = brandName;
   document.getElementById('add-product-form').style.display = 'none';
   openModal('modal-products');
   refreshProducts();
@@ -1363,8 +1377,28 @@ function downloadLinesheet() {
   window.open(`/api/brands/${currentBrandId}/linesheet-pdf`, '_blank');
 }
 
+let productsCache = [];
+
 async function refreshProducts() {
-  const products = await fetch(`/api/brands/${currentBrandId}/products`).then(r => r.json());
+  productsCache = await fetch(`/api/brands/${currentBrandId}/products`).then(r => r.json());
+  filterProducts();
+}
+
+function filterProducts() {
+  const q = (document.getElementById('products-search')?.value || '').toLowerCase();
+  const showInactive = document.getElementById('show-inactive')?.checked;
+  const filtered = productsCache.filter(p => {
+    if (!showInactive && p.active === 0) return false;
+    if (!q) return true;
+    return (p.reference||'').toLowerCase().includes(q)
+      || (p.description||'').toLowerCase().includes(q)
+      || (p.color||'').toLowerCase().includes(q)
+      || (p.category||'').toLowerCase().includes(q);
+  });
+  renderProductsTable(filtered);
+}
+
+function renderProductsTable(products) {
   const tbody = document.getElementById('products-body');
   tbody.innerHTML = products.map(p => {
     let _thumbImgs = [];
@@ -1372,24 +1406,72 @@ async function refreshProducts() {
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
     const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',season_id:p.season_id||'',reference:p.reference,description:p.description||'',color:p.color||'',category:p.category||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
-    return `<tr>
+    const inactive = p.active === 0;
+    return `<tr style="${inactive ? 'opacity:0.45' : ''}">
+      <td><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateBulkBar()" style="width:auto"></td>
       <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
-      <td>${p.description||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.description||''}">${p.description||'—'}</td>
       <td>${p.color||'—'}</td>
       <td>${p.category||'—'}</td>
-      <td>${p.composition||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td>${Number(p.price).toFixed(2)} €</td>
-      <td>${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '—'}</td>
       <td>${imgThumb}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})'>✏️</button>
-        <button class="btn btn-secondary btn-sm" title="QR Code produit" onclick="showProductQR('${p.brand_id}','${p.id}')">📱</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">✕</button>
+        <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})' title="Modifier">✏️</button>
+        <button class="btn btn-secondary btn-sm" title="Dupliquer" onclick="duplicateProduct('${p.id}')">⧉</button>
+        <button class="btn btn-secondary btn-sm" title="${inactive ? 'Réactiver' : 'Désactiver'}" onclick="toggleProductActive('${p.id}',${inactive ? 1 : 0})" style="color:${inactive?'#2ecc71':'#888'}">${inactive ? '▶' : '⏸'}</button>
+        <button class="btn btn-secondary btn-sm" title="QR Code" onclick="showProductQR('${p.brand_id}','${p.id}')">📱</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')" title="Supprimer">✕</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="11" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">Aucune référence</td></tr>';
+  updateBulkBar();
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.product-checkbox').forEach(c => c.checked = cb.checked);
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.product-checkbox:checked');
+  const btn = document.getElementById('bulk-delete-btn');
+  const count = document.getElementById('bulk-count');
+  if (btn) { btn.style.display = checked.length > 0 ? 'inline-flex' : 'none'; }
+  if (count) count.textContent = checked.length;
+  const allCb = document.getElementById('select-all-products');
+  const all = document.querySelectorAll('.product-checkbox');
+  if (allCb && all.length) allCb.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+async function bulkDeleteProducts() {
+  const ids = [...document.querySelectorAll('.product-checkbox:checked')].map(c => c.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`Supprimer ${ids.length} référence(s) ? Cette action est irréversible.`)) return;
+  await fetch(`/api/brands/${currentBrandId}/products/bulk`, {
+    method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids })
+  });
+  toast(`${ids.length} référence(s) supprimée(s)`);
+  refreshProducts();
+}
+
+async function duplicateProduct(id) {
+  await fetch(`/api/products/${id}/duplicate`, { method: 'POST' });
+  toast('Référence dupliquée');
+  const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
+  await refreshProducts();
+  document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
+}
+
+async function toggleProductActive(id, newActive) {
+  await fetch(`/api/products/${id}/active`, {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ active: newActive })
+  });
+  const p = productsCache.find(p => p.id === id);
+  if (p) p.active = newActive;
+  filterProducts();
+  toast(newActive ? 'Référence réactivée' : 'Référence désactivée');
 }
 
 let currentImages = [];
@@ -1641,8 +1723,13 @@ async function saveProduct() {
   } else {
     r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   }
-  if (r.ok) { cancelProductForm(); refreshProducts(); toast(id ? 'Référence modifiée' : 'Référence ajoutée'); }
-  else toast('Erreur', true);
+  if (r.ok) {
+    const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
+    cancelProductForm();
+    await refreshProducts();
+    document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
+    toast(id ? 'Référence modifiée' : 'Référence ajoutée');
+  } else toast('Erreur', true);
 }
 
 function downloadCSVTemplate(e) {
@@ -1780,8 +1867,10 @@ function parseCSVLine(line, sep = ',') {
 
 async function deleteProduct(id) {
   if (!confirm('Supprimer cette référence ?')) return;
+  const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
   await fetch(`/api/products/${id}`, { method: 'DELETE' });
-  refreshProducts();
+  await refreshProducts();
+  document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
   toast('Référence supprimée');
 }
 
