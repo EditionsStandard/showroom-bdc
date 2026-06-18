@@ -72,6 +72,9 @@
   .brand-banner-cgv-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
   .brand-banner-cgv-title { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 16px; }
   .cgv-brand-page { max-height: 320px; overflow-y: auto; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; }
+  .cgv-accordion-body { display: none; margin-top: 12px; }
+  .brand-banner-cgv-section.open .cgv-accordion-body { display: block; }
+  .brand-banner-cgv-section.open .cgv-accordion-arrow { transform: rotate(180deg); display: inline-block; }
   .cgv-formatted { margin-top: 16px; }
   .search-bar { margin-bottom: 14px; max-width: 420px; }
   .search-bar input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
@@ -669,7 +672,7 @@ async function openBrand(brandId) {
   if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(`Minimum ${Number(currentBrand.moq_amount).toFixed(2)} € HT`);
   const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
   const aboutHtml = currentBrand.about_text ? `<p class="brand-banner-about">${esc(currentBrand.about_text)}</p>` : '';
-  const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title">Conditions générales de vente</div><div class="cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
+  const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">Conditions générales de vente <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}">` : '';
 
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
