@@ -101,13 +101,19 @@
   .field label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; font-family: 'Inter', sans-serif; }
   .field input, .field select, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; color: var(--white); font-size: 15px; font-family: 'Inter', sans-serif; outline: none; }
   .field input:focus, .field select:focus { border-color: var(--accent); }
-  .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
-  .cgv-box-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; }
-  .cgv-box-header h4 { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); font-weight: 400; margin: 0; }
-  .cgv-box-toggle { font-size: 11px; color: var(--muted); transition: transform .2s; }
-  .cgv-box.open .cgv-box-toggle { transform: rotate(180deg); }
-  .cgv-box-body { display: none; padding: 0 18px 18px; max-height: 320px; overflow-y: auto; border-top: 1px solid var(--border); }
-  .cgv-box.open .cgv-box-body { display: block; }
+  .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; transition: border-color .15s; }
+  .cgv-box:hover { border-color: var(--accent); }
+  .cgv-box h4 { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); font-weight: 400; margin: 0; }
+  .cgv-box-icon { font-size: 12px; color: var(--muted); }
+  /* CGV Modal */
+  .cgv-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 400; align-items: center; justify-content: center; padding: 20px; }
+  .cgv-modal-overlay.open { display: flex; }
+  .cgv-modal { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; width: 100%; max-width: 620px; max-height: 80vh; display: flex; flex-direction: column; }
+  .cgv-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .cgv-modal-header h3 { font-family: var(--dot), monospace; font-size: 15px; font-weight: 400; color: var(--white); }
+  .cgv-modal-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; }
+  .cgv-modal-close:hover { color: var(--white); }
+  .cgv-modal-body { overflow-y: auto; padding: 20px 24px; flex: 1; }
   .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin: 18px 0; }
   #sig-canvas { background: #fff; border-radius: 4px; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
   .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; border-radius: 4px; font-family: 'Space Mono', monospace; margin-top: 18px; max-width: 480px; }
@@ -317,6 +323,17 @@
   </div>
 </div>
 
+<!-- CGV Modal -->
+<div class="cgv-modal-overlay" id="cgv-modal">
+  <div class="cgv-modal">
+    <div class="cgv-modal-header">
+      <h3 id="cgv-modal-title">Conditions générales de vente</h3>
+      <button class="cgv-modal-close" onclick="closeCgvModal()">✕</button>
+    </div>
+    <div class="cgv-modal-body" id="cgv-modal-body"></div>
+  </div>
+</div>
+
 <!-- Carousel lightbox -->
 <div class="img-modal" id="img-modal">
   <button class="img-close" id="img-close">✕</button>
@@ -378,9 +395,21 @@ function formatCgv(text) {
   return html;
 }
 
-function toggleCgv(brandId) {
-  document.getElementById('cgv-' + brandId).classList.toggle('open');
+function openCgvModal(brandId, brandName) {
+  const brand = allBrands.find(b => b.id === brandId);
+  document.getElementById('cgv-modal-title').textContent = brandName + ' — Conditions générales de vente';
+  document.getElementById('cgv-modal-body').innerHTML = '<div class="cgv-formatted">' + formatCgv(brand?.cgv_text || '') + '</div>';
+  document.getElementById('cgv-modal').classList.add('open');
 }
+function closeCgvModal() {
+  document.getElementById('cgv-modal').classList.remove('open');
+}
+document.getElementById('cgv-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeCgvModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCgvModal();
+});
 
 function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
 function closeUserMenu() { document.getElementById('user-menu').classList.remove('open'); }
@@ -732,13 +761,9 @@ let moqBlocked = false;
   document.getElementById('btn-confirm-order').disabled = moqBlocked;
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
-    const brand = allBrands.find(b => b.id === brandId);
-    return `<div class="cgv-box" id="cgv-${brandId}">
-      <div class="cgv-box-header" onclick="toggleCgv('${brandId}')">
-        <h4>${esc(lines[0].brand_name)} — Conditions générales de vente</h4>
-        <span class="cgv-box-toggle">▼</span>
-      </div>
-      <div class="cgv-box-body"><div class="cgv-formatted">${formatCgv(brand?.cgv_text || '')}</div></div>
+    return `<div class="cgv-box" onclick="openCgvModal('${brandId}','${esc(lines[0].brand_name)}')">
+      <h4>${esc(lines[0].brand_name)} — Conditions générales de vente</h4>
+      <span class="cgv-box-icon">↗</span>
     </div>`;
   }).join('');
   document.getElementById('cgv-blocks').innerHTML = cgvHtml;
