@@ -551,7 +551,9 @@ function sentenceCase(s) {
 }
 
 async function init() {
-  me = await fetch('/api/portal/me').then(r => r.json());
+  const meRes = await fetch('/api/portal/me');
+  if (meRes.status === 401) { window.location.replace('/editions-showroom-b2b-portail'); return; }
+  me = await meRes.json();
   CART_KEY = 'portal_cart_' + (me.email || 'default');
   restoreCart();
   // Populate user menu
