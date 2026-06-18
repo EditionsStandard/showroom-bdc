@@ -987,21 +987,16 @@ app.post('/api/portal/forgot-password', async (req, res) => {
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       subject: `Réinitialisation de mot de passe — ${showroomName}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
-          <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
-            <span style="color:#CCEB3C;font-size:22px;font-weight:700;letter-spacing:2px">${showroomName.toUpperCase()}</span>
-          </div>
-          <div style="padding:32px">
-            <p>Bonjour${buyer.name ? ' ' + buyer.name : ''},</p>
-            <p>Vous avez demandé à réinitialiser votre mot de passe pour le showroom B2B.</p>
-            <p style="text-align:center;margin:28px 0">
-              <a href="${resetUrl}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:700">Choisir un nouveau mot de passe →</a>
-            </p>
-            <p style="font-size:13px;color:#888">Ce lien est valable 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
-            <p>Cordialement,<br><strong>${showroomName}</strong></p>
-          </div>
-        </div>`
+      html: emailLayout({
+        showroomName,
+        content: `
+          <p>Bonjour${buyer.name ? ' <strong>' + buyer.name + '</strong>' : ''},</p>
+          <p>Vous avez demandé à réinitialiser votre mot de passe pour le showroom B2B <strong>${showroomName}</strong>.</p>
+          ${emailBtn(resetUrl, 'Choisir un nouveau mot de passe →')}
+          <p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
+          <p>Cordialement,<br><strong>${showroomName}</strong></p>
+        `
+      })
     });
   } catch (e) { console.error('forgot-password error:', e.message); }
 });
@@ -1064,27 +1059,20 @@ async function sendBuyerWelcomeEmail({ email, password, name, req }) {
     from: `${showroomName} <${fromField}>`,
     to: [email],
     subject: `Votre accès au showroom — ${showroomName}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
-        <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
-          <span style="color:#CCEB3C;font-size:22px;font-weight:700;letter-spacing:2px">${showroomName.toUpperCase()}</span>
-        </div>
-        <div style="padding:32px">
-          <p>Bonjour${name ? ' ' + name : ''},</p>
-          <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
-          <div style="background:#f7f7f7;border-radius:6px;padding:16px 20px;margin:24px 0">
-            <p style="margin:0 0 6px;font-size:13px;color:#888">Email</p>
-            <p style="margin:0 0 14px;font-weight:700">${email}</p>
-            <p style="margin:0 0 6px;font-size:13px;color:#888">Mot de passe</p>
-            <p style="margin:0;font-weight:700">${password}</p>
-          </div>
-          <p style="text-align:center;margin:28px 0">
-            <a href="${portalUrl}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:700">Accéder au showroom →</a>
-          </p>
-          <p style="font-size:13px;color:#888">En cas de question, n'hésitez pas à nous contacter.</p>
-          <p>Cordialement,<br><strong>${showroomName}</strong></p>
-        </div>
-      </div>`
+    html: emailLayout({
+      showroomName,
+      content: `
+        <p>Bonjour${name ? ' <strong>' + name + '</strong>' : ''},</p>
+        <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
+        ${emailInfoBox([
+          ['Email', email],
+          ['Mot de passe', password],
+        ])}
+        ${emailBtn(portalUrl, 'Accéder au showroom →')}
+        <p style="font-size:13px;color:#888;margin-top:28px">En cas de question, n'hésitez pas à nous contacter.</p>
+        <p>Cordialement,<br><strong>${showroomName}</strong></p>
+      `
+    })
   });
 }
 
@@ -1133,11 +1121,16 @@ app.post('/api/buyer/request-link', async (req, res) => {
         from: `${showroomName} <${fromField}>`,
         to: [email],
         subject: `Votre espace commandes — ${b.rows[0].name}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px">
-          <h2 style="margin-bottom:16px">Votre espace commandes</h2>
-          <p>Cliquez sur le lien ci-dessous pour accéder à l'historique de vos commandes pour <strong>${b.rows[0].name}</strong>. Ce lien est valable 30 minutes.</p>
-          <a href="${url}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;margin-top:12px">Accéder à mon espace</a>
-        </div>`
+        html: emailLayout({
+          showroomName,
+          brandName: b.rows[0].name,
+          content: `
+            <p>Bonjour,</p>
+            <p>Cliquez sur le lien ci-dessous pour accéder à l'historique de vos commandes pour <strong>${b.rows[0].name}</strong>.</p>
+            ${emailBtn(url, 'Accéder à mon espace →')}
+            <p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>30 minutes</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
+          `
+        })
       }).catch(e => console.error('Buyer magic link email error:', e.message));
     }
   }
@@ -1632,37 +1625,99 @@ async function generateOrderPDF(orderId) {
 
 // ==================== EMAIL ====================
 
+const LOGO_URL = 'https://showroom.editionsstandard.com/logo.svg';
+
+function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor = '#CCEB3C', content, footer = '' }) {
+  const brandBlock = (brandName && brandLogo) ? `
+    <div style="background:#fff;padding:20px 32px;text-align:center;border-bottom:1px solid #eee">
+      <img src="${brandLogo}" alt="${brandName}" style="max-height:56px;max-width:180px;object-fit:contain">
+    </div>` : brandName ? `
+    <div style="background:#fff;padding:16px 32px;text-align:center;border-bottom:1px solid #eee">
+      <span style="font-family:'Courier New',Courier,monospace;font-size:16px;font-weight:700;letter-spacing:2px;color:#0a0a0a">${brandName.toUpperCase()}</span>
+    </div>` : '';
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f2f2f0">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f2f2f0;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+
+  <!-- HEADER -->
+  <tr><td style="background:#0a0a0a;padding:22px 32px;text-align:center;border-radius:6px 6px 0 0">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="text-align:left;vertical-align:middle">
+        <img src="${LOGO_URL}" alt="${showroomName}" width="36" height="36" style="border-radius:6px;vertical-align:middle">
+      </td>
+      <td style="text-align:right;vertical-align:middle">
+        <span style="font-family:'Courier New',Courier,monospace;color:${accentColor};font-size:13px;font-weight:700;letter-spacing:3px">${showroomName.toUpperCase()}</span>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  ${brandBlock ? `<tr><td>${brandBlock}</td></tr>` : ''}
+
+  <!-- BODY -->
+  <tr><td style="background:#fff;padding:32px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;line-height:1.7">
+    ${content}
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#f7f7f5;padding:16px 32px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#aaa;border-radius:0 0 6px 6px;border-top:1px solid #eee">
+    ${footer || `${showroomName} — Document généré automatiquement`}
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+function emailBtn(url, label) {
+  return `<table cellpadding="0" cellspacing="0" style="margin:28px auto">
+    <tr><td style="background:#0a0a0a;border-radius:4px;padding:14px 28px;text-align:center">
+      <a href="${url}" style="color:#fff;font-family:'Courier New',Courier,monospace;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:1px">${label}</a>
+    </td></tr>
+  </table>`;
+}
+
+function emailInfoBox(rows) {
+  return `<table cellpadding="0" cellspacing="0" style="width:100%;background:#f7f7f5;border-radius:4px;padding:0;margin:20px 0">
+    <tr><td style="padding:16px 20px">
+      ${rows.map(([label, value]) => `
+        <p style="margin:0 0 10px;font-size:13px"><span style="color:#888;display:inline-block;min-width:120px">${label}</span><strong style="color:#0a0a0a">${value}</strong></p>
+      `).join('')}
+    </td></tr>
+  </table>`;
+}
+
 async function sendOrderEmails(orderId, pdfBuffer) {
   const resendKey = process.env.RESEND_API_KEY;
   const [showroomEmail, showroomName, agentName, fromAddress] = await Promise.all([
     getSetting('showroom_email'), getSetting('showroom_name'),
     getSetting('agent_name'), getSetting('smtp_from')
   ]);
-
   if (!resendKey) { console.log('RESEND_API_KEY non configurée'); return; }
 
   const oRes = await pool.query(`
-    SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv,
+    SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv, b.logo as brand_logo,
       SUM(ol.quantity * ol.unit_price) as order_total
     FROM orders o
     JOIN brands b ON o.brand_id=b.id
     LEFT JOIN order_lines ol ON ol.order_id=o.id
     WHERE o.id=$1
-    GROUP BY o.id, b.name, b.cgv_text
+    GROUP BY o.id, b.name, b.cgv_text, b.logo
   `, [orderId]);
   const order = oRes.rows[0];
   const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${orderId.slice(0,8).toUpperCase()}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
   const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-
   const globalCgv = await getSetting('cgv_text');
   const cgvText = order.brand_cgv || globalCgv;
 
   const { Resend } = require('resend');
   const resend = new Resend(resendKey);
-  const fromField = fromAddress || `showroom@editionsstandard.com`;
+  const fromField = fromAddress || 'showroom@editionsstandard.com';
   const fromFormatted = `${showroomName} <${fromField}>`;
-
   const attachment = { filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' };
 
   // ── Email acheteur ──
@@ -1670,39 +1725,37 @@ async function sendOrderEmails(orderId, pdfBuffer) {
     from: fromFormatted,
     to: [order.client_email],
     subject: `Proposition de commande — ${order.brand_name} — ${showroomName}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222">
-        <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
-          <span style="color:#CCEB3C;font-size:22px;font-weight:700;letter-spacing:2px">${showroomName.toUpperCase()}</span>
-        </div>
-        <div style="padding:32px">
-          <p>Bonjour <strong>${order.client_name}</strong>,</p>
-          <p>Nous avons bien reçu votre proposition de commande pour la marque <strong>${order.brand_name}</strong> en date du ${dateStr}.</p>
-          <p>Votre proposition de commande signée (total HT : <strong>${totalStr}</strong>) est jointe à cet email.</p>
+    html: emailLayout({
+      showroomName,
+      brandName: order.brand_name,
+      brandLogo: order.brand_logo || '',
+      content: `
+        <p>Bonjour <strong>${order.client_name}</strong>,</p>
+        <p>Nous avons bien reçu votre proposition de commande pour la marque <strong>${order.brand_name}</strong> en date du ${dateStr}.</p>
+        <p>Votre proposition de commande signée (total HT : <strong>${totalStr}</strong>) est jointe à cet email en PDF.</p>
 
-          <div style="background:#fff8e1;border-left:4px solid #f0a500;padding:16px 20px;margin:24px 0;border-radius:2px">
-            <p style="margin:0 0 8px;font-weight:700;color:#b37a00">⚠️ IMPORTANT — Commande non définitive</p>
-            <p style="margin:0;font-size:14px;color:#555;line-height:1.6">
-              Cette proposition ne constitue <strong>pas un engagement ferme</strong>. Elle ne sera définitive qu'après :<br>
-              &bull; Acceptation formelle de la marque <strong>${order.brand_name}</strong><br>
-              &bull; Signature du bon de commande par les deux parties (acheteur et agent)<br><br>
-              Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.
+        <table cellpadding="0" cellspacing="0" style="width:100%;background:#fffbea;border-left:3px solid #d4a017;border-radius:0 4px 4px 0;margin:24px 0">
+          <tr><td style="padding:16px 20px">
+            <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:12px;font-weight:700;color:#8a6500;letter-spacing:1px;text-transform:uppercase">Important — Commande non définitive</p>
+            <p style="margin:0;font-size:13px;color:#555;line-height:1.7">
+              Cette proposition ne constitue <strong>pas un engagement ferme</strong>. Elle sera définitive après :<br>
+              &bull; Acceptation formelle de <strong>${order.brand_name}</strong><br>
+              &bull; Signature du bon de commande par les deux parties<br><br>
+              Un délai de <strong>7 jours ouvrés</strong> est nécessaire pour la version définitive signée.
             </p>
-          </div>
+          </td></tr>
+        </table>
 
-          <p style="font-size:14px;color:#555">Nous reviendrons vers vous dès confirmation de la marque. En cas de question, n'hésitez pas à nous contacter.</p>
-          <p>Cordialement,<br><strong>${agentName || showroomName}</strong><br><span style="color:#999;font-size:13px">${showroomName}</span></p>
-        </div>
+        <p style="color:#555;font-size:13px">Nous reviendrons vers vous dès confirmation. En cas de question, n'hésitez pas à nous contacter.</p>
+        <p style="margin-top:28px">Cordialement,<br><strong>${agentName || showroomName}</strong></p>
+
         ${cgvText ? `
-        <div style="background:#f9f9f9;border-top:1px solid #eee;padding:24px 32px">
-          <p style="margin:0 0 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#aaa">Conditions générales — ${order.brand_name}</p>
-          <p style="margin:0;font-size:11px;color:#999;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+        <div style="margin-top:32px;padding-top:20px;border-top:1px solid #eee">
+          <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#bbb">Conditions générales — ${order.brand_name}</p>
+          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
         </div>` : ''}
-        <div style="background:#f5f5f5;padding:16px 32px;text-align:center;font-size:11px;color:#aaa">
-          ${showroomName} — Document généré automatiquement
-        </div>
-      </div>
-    `,
+      `
+    }),
     attachments: [attachment]
   });
 
@@ -1711,29 +1764,29 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   await resend.emails.send({
     from: fromFormatted,
     to: [copyTo],
-    subject: `[BDC À VALIDER] ${order.client_name} — ${order.brand_name} — ${totalStr}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222">
-        <div style="background:#0a0a0a;padding:24px 32px;text-align:center">
-          <span style="color:#CCEB3C;font-size:18px;font-weight:700;letter-spacing:2px">NOUVELLE PROPOSITION DE COMMANDE</span>
-        </div>
-        <div style="padding:32px">
-          <table style="width:100%;border-collapse:collapse;font-size:14px">
-            <tr><td style="padding:8px 0;color:#888;width:140px">Client</td><td style="padding:8px 0;font-weight:600">${order.client_name}</td></tr>
-            ${order.client_company ? `<tr><td style="padding:8px 0;color:#888">Société</td><td style="padding:8px 0">${order.client_company}</td></tr>` : ''}
-            <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0"><a href="mailto:${order.client_email}">${order.client_email}</a></td></tr>
-            ${order.client_phone ? `<tr><td style="padding:8px 0;color:#888">Téléphone</td><td style="padding:8px 0">${order.client_phone}</td></tr>` : ''}
-            <tr><td style="padding:8px 0;color:#888">Marque</td><td style="padding:8px 0;font-weight:600">${order.brand_name}</td></tr>
-            <tr><td style="padding:8px 0;color:#888">Total HT</td><td style="padding:8px 0;font-weight:700;font-size:18px;color:#1a7a1a">${totalStr}</td></tr>
-            <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0">${dateStr}</td></tr>
-          </table>
-          <div style="background:#fff3f3;border-left:4px solid #e74c3c;padding:14px 18px;margin:20px 0;border-radius:2px;font-size:14px">
-            ⏳ <strong>En attente de votre contre-signature</strong> pour validation définitive.
-          </div>
-          <p style="font-size:13px;color:#888">Le bon de commande signé par l'acheteur est en pièce jointe.</p>
-        </div>
-      </div>
-    `,
+    subject: `[BDC] ${order.client_name} — ${order.brand_name} — ${totalStr}`,
+    html: emailLayout({
+      showroomName,
+      brandName: order.brand_name,
+      brandLogo: order.brand_logo || '',
+      content: `
+        <p style="font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:#0a0a0a;text-transform:uppercase;margin-bottom:20px">Nouvelle proposition de commande</p>
+        ${emailInfoBox([
+          ['Client', order.client_name],
+          ...(order.client_company ? [['Société', order.client_company]] : []),
+          ['Email', `<a href="mailto:${order.client_email}" style="color:#0a0a0a">${order.client_email}</a>`],
+          ...(order.client_phone ? [['Téléphone', order.client_phone]] : []),
+          ['Marque', order.brand_name],
+          ['Date', dateStr],
+          ['Total HT', `<span style="font-size:18px;color:#1a7a1a">${totalStr}</span>`],
+        ])}
+        <table cellpadding="0" cellspacing="0" style="width:100%;background:#fff3f3;border-left:3px solid #e74c3c;border-radius:0 4px 4px 0;margin:20px 0">
+          <tr><td style="padding:14px 18px;font-size:13px;color:#555">
+            En attente de votre <strong>contre-signature</strong> pour validation définitive. Le BDC signé par l'acheteur est en pièce jointe.
+          </td></tr>
+        </table>
+      `
+    }),
     attachments: [attachment]
   });
 }
