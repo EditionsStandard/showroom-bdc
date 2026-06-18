@@ -393,7 +393,7 @@ app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','d
   res.json({ ok: true, deleted: r.rowCount });
 });
 
-app.post('/api/upload-image', requireAuth, upload.single('image'), async (req, res) => {
+app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const slug = `img-${Date.now()}`;
