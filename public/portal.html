@@ -1058,6 +1058,16 @@ document.addEventListener('keydown', e => {
 });
 
 init();
+
+// bfcache guard: when browser restores page from back/forward cache,
+// JS doesn't re-run — but pageshow fires with persisted=true. Re-check session.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    fetch('/api/portal/me').then(r => {
+      if (r.status === 401) window.location.replace('/editions-showroom-b2b-portail');
+    }).catch(() => window.location.replace('/editions-showroom-b2b-portail'));
+  }
+});
 </script>
 </body>
 </html>
