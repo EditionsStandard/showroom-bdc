@@ -114,7 +114,8 @@ async function confirmAppointment() {
   if (!selectedDate || !selectedTime) { msg.innerHTML = '<div class="msg error">Choisissez un créneau.</div>'; return; }
   if (!client_name || !client_email) { msg.innerHTML = '<div class="msg error">Nom et email requis.</div>'; return; }
 
-  document.getElementById('btn-confirm').disabled = true;
+  const btn = document.getElementById('btn-confirm');
+  btn.disabled = true;
   try {
     const r = await fetch('/api/public/appointments', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -123,7 +124,6 @@ async function confirmAppointment() {
 
     if (r.error) {
       msg.innerHTML = `<div class="msg error">${r.error}</div>`;
-      document.getElementById('btn-confirm').disabled = false;
       return;
     }
 
@@ -132,7 +132,8 @@ async function confirmAppointment() {
     document.getElementById('success-detail').textContent = `${client_name}, votre rendez-vous est confirmé le ${selectedDate} à ${selectedTime}.`;
   } catch(e) {
     msg.innerHTML = '<div class="msg error">Erreur, réessayez.</div>';
-    document.getElementById('btn-confirm').disabled = false;
+  } finally {
+    btn.disabled = false;
   }
 }
 

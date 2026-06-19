@@ -59,9 +59,9 @@ async function init() {
     );
   `).catch(() => {});
 
-  await pool.query(`
-    UPDATE products SET collection_name = 'SS27' WHERE collection_name IS NULL OR collection_name = ''
-  `).catch(() => {});
+  // One-time backfill: only runs if there are products without collection_name AND no named collections yet
+  // Disabled to avoid overwriting products created without a collection on every restart
+  // await pool.query(`UPDATE products SET collection_name = 'SS27' WHERE collection_name IS NULL OR collection_name = ''`).catch(() => {});
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS brand_invite_links (

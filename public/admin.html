@@ -620,7 +620,7 @@
       </label>
     </div>
     <div style="margin-bottom:16px">
-      <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : reference (ou ref/référence), description (ou désignation), color (ou couleur), category (ou catégorie/type), composition, sizes (ou tailles), price (ou prix), price_retail (ou retail_price/retail), image_url<br>Photos — nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
+      <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : <strong>reference</strong> (ref, sku) · <strong>description</strong> · <strong>color</strong> (couleur, coloris) · <strong>category</strong> (type) · <strong>composition</strong> · <strong>sizes</strong> (tailles) · <strong>price</strong> (prix, prix_ht, prix_ws, prix_achat) · <strong>price_retail</strong> (pvc, pvr, rrp, retail, prix_retail, prix_conseille) · <strong>image_url</strong> · <strong>collection_name</strong> (collection) — Les accents et majuscules sont ignorés.<br>Photos — nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
     </div>
     <div id="bulk-photos-result" style="display:none;margin-bottom:12px"></div>
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
@@ -2273,19 +2273,22 @@ async function importCSV(input) {
     // Auto-detect separator (tab, ; or ,)
     const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
 
-    const header = parseCSVLine(lines[0], sep).map(h => h.trim().toLowerCase().replace(/\s+/g,'_'));
+    const normalizeHeader = h => h.trim().toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove accents
+      .replace(/\s+/g, '_');
+    const header = parseCSVLine(lines[0], sep).map(normalizeHeader);
     const idx = {
       collection_name: header.findIndex(h => h === 'collection_name' || h === 'collection') !== -1
         ? header.findIndex(h => h === 'collection_name' || h === 'collection')
         : header.findIndex(h => h === 'season'),
-      reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'référence' || h === 'sku'),
-      description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'désignation' || h === 'product_name'),
-      color: header.findIndex(h => h === 'color' || h === 'couleur' || h === 'finish'),
-      category: header.findIndex(h => h === 'category' || h === 'catégorie' || h === 'type'),
-      composition: header.findIndex(h => h === 'composition'),
+      reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'sku'),
+      description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'product_name'),
+      color: header.findIndex(h => h === 'color' || h === 'couleur' || h === 'finish' || h === 'coloris'),
+      category: header.findIndex(h => h === 'category' || h === 'categorie' || h === 'type'),
+      composition: header.findIndex(h => h === 'composition' || h === 'matiere' || h === 'matieres'),
       sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille' || h === 'size'),
-      price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht' || h === 'wholesale_price_eur' || h === 'wholesale_price'),
-      price_retail: header.findIndex(h => h === 'price_retail' || h === 'retail_price' || h === 'retail' || h === 'prix_retail' || h === 'prix_public' || h === 'retail_price_eur'),
+      price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht' || h === 'wholesale_price_eur' || h === 'wholesale_price' || h === 'prix_ws' || h === 'prix_achat'),
+      price_retail: header.findIndex(h => h === 'price_retail' || h === 'retail_price' || h === 'retail' || h === 'prix_retail' || h === 'prix_public' || h === 'retail_price_eur' || h === 'pvc' || h === 'pvr' || h === 'rrp' || h === 'prix_conseille' || h === 'prix_de_vente_conseille' || h === 'prix_retail_conseille'),
       image_url: header.findIndex(h => h === 'image_url' || h === 'image' || h === 'photo' || h === 'image_file')
     };
 

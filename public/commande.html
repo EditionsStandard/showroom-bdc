@@ -598,7 +598,7 @@
       <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px" data-i18n="success_contact_label">Votre contact</div>
       <div id="success-agent-name" style="font-weight:700;color:var(--white);margin-bottom:2px"></div>
       <div id="success-agent-title" style="font-size:10px;color:var(--muted)"></div>
-      <a id="success-agent-phone" href="#" style="display:none;font-size:12px;color:var(--accent);margin-top:4px;text-decoration:none;display:block"></a>
+      <a id="success-agent-phone" href="#" style="display:none;font-size:12px;color:var(--accent);margin-top:4px;text-decoration:none"></a>
     </div>
 
     <a id="success-buyer-space-link" href="#" style="display:block;font-size:11px;color:var(--soft);letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px;margin-bottom:20px" data-i18n="success_buyer_space">Voir l'historique de mes commandes</a>
@@ -889,7 +889,7 @@ async function init() {
 
     // Landing page
     document.getElementById('landing-brand-name').textContent = brandName;
-    document.getElementById('landing-showroom-label').textContent = (agentData.showroom || 'Showroom') + ' — Showroom';
+    document.getElementById('landing-showroom-label').textContent = agentData.showroom || 'Showroom';
     const logoSrc = data.brand.logo || data.brand.logo_url || '';
     if (logoSrc) {
       document.getElementById('landing-brand-logo').innerHTML = '<img src="' + esc(logoSrc) + '" style="height:40px;max-width:120px;object-fit:contain;margin-bottom:8px">';
@@ -1535,7 +1535,8 @@ function renderSignaturePage() {
 function getPos(e) {
   const r = sigCanvas.getBoundingClientRect();
   const scaleX = sigCanvas.width / r.width;
-  return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) };
+  const scaleY = sigCanvas.height / r.height;
+  return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
 }
 
 function hideHint() {

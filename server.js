@@ -421,6 +421,14 @@ app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// bulk MUST be declared before the catch-all /:brandId/products route
+app.delete('/api/brands/:brandId/products/bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'IDs requis' });
+  await pool.query('DELETE FROM products WHERE id = ANY($1) AND brand_id=$2', [ids, req.params.brandId]);
+  res.json({ ok: true, deleted: ids.length });
+});
+
 app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query('DELETE FROM products WHERE brand_id=$1', [req.params.brandId]);
   res.json({ ok: true, deleted: r.rowCount });
@@ -446,13 +454,6 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
     await pool.query('UPDATE products SET active=$1 WHERE id=$2', [active ? 1 : 0, req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/brands/:brandId/products/bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { ids } = req.body;
-  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'IDs requis' });
-  await pool.query('DELETE FROM products WHERE id = ANY($1) AND brand_id=$2', [ids, req.params.brandId]);
-  res.json({ ok: true, deleted: ids.length });
 });
 
 app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
@@ -770,12 +771,12 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
   }
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   const seasons = await pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC', [req.params.brandId]);
-  const agentName  = await getSetting('agent_name');
-  const agentTitle = await getSetting('agent_title');
-  const agentPhone = await getSetting('agent_phone');
-  const showroomName = await getSetting('showroom_name');
+  const [agentName, agentTitle, agentPhone, showroomName, currenciesRaw] = await Promise.all([
+    getSetting('agent_name'), getSetting('agent_title'), getSetting('agent_phone'),
+    getSetting('showroom_name'), getSetting('currencies_json'),
+  ]);
   let currencies = [];
-  try { currencies = JSON.parse(await getSetting('currencies_json') || '[]'); } catch(e) {}
+  try { currencies = JSON.parse(currenciesRaw || '[]'); } catch(e) {}
   res.json({ brand: b.rows[0], products: p.rows, seasons: seasons.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
@@ -1404,8 +1405,14 @@ app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
     );
     if (!r.rows[0]) return res.json({ error: 'Lien invalide ou expiré.' });
     const hash = await bcrypt.hash(password, 10);
-    await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, r.rows[0].buyer_id]);
-    await pool.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [token]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, r.rows[0].buyer_id]);
+      await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [token]);
+      await client.query('COMMIT');
+    } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
+    finally { client.release(); }
     res.json({ ok: true });
   } catch (e) { res.json({ error: 'Erreur serveur.' }); }
 });
@@ -2147,8 +2154,8 @@ function emailBtn(url, label) {
 function emailInfoBox(rows) {
   return `<table cellpadding="0" cellspacing="0" style="width:100%;background:#f7f7f5;border-radius:4px;padding:0;margin:20px 0">
     <tr><td style="padding:16px 20px">
-      ${rows.map(([label, value]) => `
-        <p style="margin:0 0 10px;font-size:13px"><span style="color:#888;display:inline-block;min-width:120px">${escHtml(label)}</span><strong style="color:#0a0a0a">${escHtml(String(value||''))}</strong></p>
+      ${rows.map(([label, value, raw]) => `
+        <p style="margin:0 0 10px;font-size:13px"><span style="color:#888;display:inline-block;min-width:120px">${escHtml(label)}</span><strong style="color:#0a0a0a">${raw ? String(value||'') : escHtml(String(value||''))}</strong></p>
       `).join('')}
     </td></tr>
   </table>`;
@@ -2156,9 +2163,9 @@ function emailInfoBox(rows) {
 
 async function sendOrderEmails(orderId, pdfBuffer) {
   const resendKey = process.env.RESEND_API_KEY;
-  const [showroomEmail, showroomName, agentName, fromAddress] = await Promise.all([
+  const [showroomEmail, showroomName, agentName, fromAddress, globalCgv] = await Promise.all([
     getSetting('showroom_email'), getSetting('showroom_name'),
-    getSetting('agent_name'), getSetting('smtp_from')
+    getSetting('agent_name'), getSetting('smtp_from'), getSetting('cgv_text'),
   ]);
   if (!resendKey) { console.log('RESEND_API_KEY non configurée'); return; }
 
@@ -2175,7 +2182,6 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${orderId.slice(0,8).toUpperCase()}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
   const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-  const globalCgv = await getSetting('cgv_text');
   const cgvText = order.brand_cgv || globalCgv;
 
   const { Resend } = require('resend');
@@ -2238,11 +2244,11 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         ${emailInfoBox([
           ['Client', order.client_name],
           ...(order.client_company ? [['Société', order.client_company]] : []),
-          ['Email', `<a href="mailto:${order.client_email}" style="color:#0a0a0a">${order.client_email}</a>`],
+          ['Email', `<a href="mailto:${escHtml(order.client_email)}" style="color:#0a0a0a">${escHtml(order.client_email)}</a>`, true],
           ...(order.client_phone ? [['Téléphone', order.client_phone]] : []),
           ['Marque', order.brand_name],
           ['Date', dateStr],
-          ['Total HT', `<span style="font-size:18px;color:#1a7a1a">${totalStr}</span>`],
+          ['Total HT', `<span style="font-size:18px;color:#1a7a1a">${escHtml(totalStr)}</span>`, true],
         ])}
         <table cellpadding="0" cellspacing="0" style="width:100%;background:#fff3f3;border-left:3px solid #e74c3c;border-radius:0 4px 4px 0;margin:20px 0">
           <tr><td style="padding:14px 18px;font-size:13px;color:#555">
