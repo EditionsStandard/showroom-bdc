@@ -40,6 +40,16 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS selection_shares (
+      token TEXT PRIMARY KEY,
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      items_json TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP NOT NULL
+    );
+  `).catch(() => {});
+
+  await pool.query(`
     UPDATE products SET collection_name = 'SS27' WHERE collection_name IS NULL OR collection_name = ''
   `).catch(() => {});
 

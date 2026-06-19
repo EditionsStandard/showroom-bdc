@@ -1000,7 +1000,7 @@ app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
   const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
   const lines = await pool.query(
-    'SELECT ol.quantity, ol.unit_price, ol.size, p.reference, p.color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
+    'SELECT ol.product_id, ol.quantity, ol.unit_price, ol.size, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
     [req.params.id]
   );
   res.json(lines.rows);
@@ -1015,6 +1015,125 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
     res.send(pdf);
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Email sélection ──────────────────────────────────────────────────
+app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
+  try {
+    const { to, message, items } = req.body;
+    if (!to || !items?.length) return res.status(400).json({ error: 'Données manquantes' });
+    const buyer = req.session.buyerPortal;
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return res.status(500).json({ error: 'Email non configuré' });
+
+    // Reuse selection-pdf generation logic inline
+    const showroomName = await getSetting('showroom_name') || 'Showroom';
+    const fromAddress = await getSetting('smtp_from') || 'showroom@editionsstandard.com';
+    const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const byBrand = {};
+    items.forEach(l => { (byBrand[l.brand_id] = byBrand[l.brand_id] || { name: l.brand_name, lines: [] }).lines.push(l); });
+    const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
+
+    const pdf = await new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks = [];
+      doc.on('data', c => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      const hTop = 50;
+      doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, 50, hTop + 2, { lineBreak: false });
+      doc.fontSize(9).fillColor('#888').font('Helvetica').text('Sélection acheteur — NON CONTRACTUEL', 50, hTop + 24, { lineBreak: false });
+      doc.fontSize(8).fillColor('#aaa').text(dateStr, 50, hTop + 36, { lineBreak: false });
+      doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      const infoY = hTop + 64;
+      doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('ACHETEUR', 50, infoY);
+      doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(buyer.name || '', 50, infoY + 12);
+      doc.fontSize(9).fillColor('#555').font('Helvetica').text(buyer.email || '', 50, infoY + 26);
+      let rowY = infoY + 60;
+      const col = { ref: 50, desc: 145, color: 295, size: 345, qty: 390, total: 455 };
+      const colW = { ref: 90, desc: 145, color: 45, size: 40, qty: 30, total: 90 };
+      Object.values(byBrand).forEach(({ name: brandName, lines }) => {
+        if (rowY > 720) { doc.addPage(); rowY = 50; }
+        doc.rect(50, rowY, 495, 20).fillColor('#0a0a0a').fill();
+        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold').text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
+        rowY += 26;
+        doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+        ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','TOTAL HT'].forEach((h, i) => {
+          const cs = [col.ref, col.desc, col.color, col.size, col.qty, col.total];
+          const cw = [colW.ref, colW.desc, colW.color, colW.size, colW.qty, colW.total];
+          doc.text(h, cs[i], rowY, { width: cw[i], align: i >= 4 ? 'right' : 'left' });
+        });
+        doc.moveTo(50, rowY + 12).lineTo(545, rowY + 12).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+        rowY += 18;
+        lines.forEach((l, i) => {
+          if (rowY > 750) { doc.addPage(); rowY = 50; }
+          const lineTotal = (l.qty * parseFloat(l.price || 0)).toFixed(2);
+          if (i % 2 === 0) doc.rect(50, rowY - 2, 495, 16).fillColor('#f7f7f7').fill();
+          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(l.reference || '', col.ref, rowY, { width: colW.ref });
+          doc.fillColor('#333').font('Helvetica').text((l.description||'').slice(0,55), col.desc, rowY, { width: colW.desc });
+          doc.fillColor('#555').text(l.color||'—', col.color, rowY, { width: colW.color }).text(l.size||'—', col.size, rowY, { width: colW.size });
+          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(String(l.qty), col.qty, rowY, { width: colW.qty, align: 'right' });
+          doc.fillColor('#333').font('Helvetica').text(`${lineTotal} €`, col.total, rowY, { width: colW.total, align: 'right' });
+          if (l.note) { rowY += 16; doc.fontSize(7).fillColor('#888').text(`↳ ${l.note}`, col.desc, rowY, { width: 350 }); doc.fontSize(7); }
+          rowY += 16;
+        });
+        const brandTotal = lines.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
+        rowY += 4;
+        doc.fontSize(8).fillColor('#555').font('Helvetica').text(`Sous-total ${brandName}`, col.ref, rowY, { width: 320 });
+        doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(`${brandTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+        rowY += 26;
+      });
+      if (rowY > 700) { doc.addPage(); rowY = 50; }
+      doc.rect(380, rowY, 165, 24).fillColor('#0a0a0a').fill();
+      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold').text('TOTAL HT', 390, rowY + 6, { width: 80 }).text(`${grandTotal.toFixed(2)} €`, 390, rowY + 6, { width: 145, align: 'right' });
+      rowY += 36;
+      doc.rect(50, rowY, 495, 36).fillColor('#fffde7').fill();
+      doc.fontSize(8).fillColor('#b8860b').font('Helvetica-Bold').text('⚠ DOCUMENT NON CONTRACTUEL', 60, rowY + 6, { width: 475, align: 'center' });
+      doc.fontSize(7.5).fillColor('#b8860b').font('Helvetica').text('Cette sélection ne constitue pas une commande ferme.', 60, rowY + 18, { width: 475, align: 'center' });
+      doc.end();
+    });
+
+    const { Resend } = require('resend');
+    const resend = new Resend(resendKey);
+    await resend.emails.send({
+      from: `${showroomName} <${fromAddress}>`,
+      to: [to],
+      subject: `Sélection B2B — ${showroomName} — ${dateStr}`,
+      html: `<p>Bonjour,</p>${message ? `<p>${message.replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${buyer.name}</strong> (${buyer.email}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>`,
+      attachments: [{ filename: `Selection-${dateStr}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Partage sélection ────────────────────────────────────────────────
+app.post('/api/portal/share', requireBuyerAuth, async (req, res) => {
+  try {
+    const items = req.body.items || [];
+    if (!items.length) return res.status(400).json({ error: 'Sélection vide' });
+    const token = require('crypto').randomBytes(12).toString('hex');
+    const expires = new Date(Date.now() + 7 * 24 * 3600 * 1000); // 7 days
+    await pool.query(
+      'INSERT INTO selection_shares (token, buyer_id, items_json, expires_at) VALUES ($1,$2,$3,$4)',
+      [token, req.session.buyerPortal.id, JSON.stringify(items), expires]
+    );
+    res.json({ token });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/share/:token', async (req, res) => {
+  const r = await pool.query('SELECT * FROM selection_shares WHERE token=$1 AND expires_at > NOW()', [req.params.token]);
+  if (!r.rows[0]) return res.status(404).send('<h2>Lien expiré ou invalide.</h2>');
+  const items = JSON.parse(r.rows[0].items_json || '[]');
+  const showroomName = await getSetting('showroom_name') || 'Showroom';
+  const byBrand = {};
+  items.forEach(l => { (byBrand[l.brand_name||'?'] = byBrand[l.brand_name||'?'] || []).push(l); });
+  const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price||0), 0);
+  const rows = Object.entries(byBrand).map(([brand, lines]) =>
+    `<h3 style="margin:24px 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #eee;padding-bottom:6px">${brand}</h3>` +
+    lines.map(l => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px"><span><strong>${l.reference}</strong>${l.color?' · '+l.color:''}${l.size?' · '+l.size:''}</span><span>× ${l.qty} — ${(l.qty*parseFloat(l.price||0)).toFixed(2)} €</span></div>`).join('')
+  ).join('');
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sélection — ${showroomName}</title><style>body{font-family:'Helvetica Neue',sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#111}.header{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}.tag{display:inline-block;background:#fffde7;border:1px solid #d4a017;color:#8a6500;font-size:11px;padding:3px 10px;border-radius:12px;margin-bottom:16px}.total{background:#111;color:#fff;padding:14px 18px;margin-top:24px;font-weight:700;display:flex;justify-content:space-between;font-size:15px}</style></head><body><div class="header"><h1 style="font-size:22px;margin:0 0 4px">${showroomName}</h1><p style="color:#888;font-size:12px;margin:0">Sélection partagée — lecture seule</p></div><span class="tag">NON CONTRACTUEL</span>${rows}<div class="total"><span>TOTAL HT</span><span>${grandTotal.toFixed(2)} €</span></div><p style="color:#aaa;font-size:11px;margin-top:24px;text-align:center">Ce document est non contractuel. La commande doit être validée sur le portail.</p></body></html>`);
 });
 
 app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
