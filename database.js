@@ -29,6 +29,16 @@ async function init() {
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT DEFAULT '';
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS lookbook_url TEXT DEFAULT '';
+    ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS note TEXT DEFAULT '';
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_stats (
+      product_id TEXT PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+      views INTEGER DEFAULT 0,
+      cart_adds INTEGER DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `).catch(() => {});
 
   await pool.query(`

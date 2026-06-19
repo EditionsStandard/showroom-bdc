@@ -809,8 +809,8 @@ async function createOrder({ brand_id, client_name, client_email, client_company
 
   for (const line of resolvedLines) {
     await pool.query(
-      'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0]
+      'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
     );
   }
 
@@ -1149,6 +1149,46 @@ app.post('/api/portal/cart', requireBuyerAuth, async (req, res) => {
     [req.session.buyerPortal.id, cartJson]
   );
   res.json({ ok: true });
+});
+
+app.post('/api/portal/stats/view/:productId', requireBuyerAuth, async (req, res) => {
+  try {
+    await pool.query(`
+      INSERT INTO product_stats (product_id, views, cart_adds)
+      VALUES ($1, 1, 0)
+      ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()
+    `, [req.params.productId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/portal/stats/cart/:productId', requireBuyerAuth, async (req, res) => {
+  try {
+    await pool.query(`
+      INSERT INTO product_stats (product_id, views, cart_adds)
+      VALUES ($1, 0, 1)
+      ON CONFLICT (product_id) DO UPDATE SET cart_adds = product_stats.cart_adds + 1, updated_at = NOW()
+    `, [req.params.productId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/product-stats', async (req, res) => {
+  if (!req.session.admin) return res.status(401).json({ error: 'Non autorisé' });
+  try {
+    const r = await pool.query(`
+      SELECT p.id, p.reference, p.description, p.color, p.price, b.name as brand_name,
+             COALESCE(ps.views, 0) as views,
+             COALESCE(ps.cart_adds, 0) as cart_adds
+      FROM products p
+      JOIN brands b ON p.brand_id = b.id
+      LEFT JOIN product_stats ps ON ps.product_id = p.id
+      WHERE p.active = 1
+      ORDER BY COALESCE(ps.views, 0) DESC
+      LIMIT 100
+    `);
+    res.json(r.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
@@ -1833,7 +1873,7 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.description as product_name, p.color
+    SELECT ol.*, p.reference, p.description as product_name, p.color, ol.note
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
@@ -1941,7 +1981,14 @@ async function generateOrderPDF(orderId) {
       doc.fillColor('#0a0a0a').font('Helvetica-Bold')
         .text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
 
-      rowY += rowH;
+      if (line.note) {
+        rowY += rowH - 4;
+        doc.fontSize(7.5).fillColor('#888').font('Helvetica-Oblique')
+          .text(`Note : ${line.note}`, col.ref + 4, rowY, { width: 490 });
+        rowY += doc.heightOfString(`Note : ${line.note}`, { width: 490 }) + 6;
+      } else {
+        rowY += rowH;
+      }
     });
 
     // ── Total ──

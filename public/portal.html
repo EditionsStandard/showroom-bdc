@@ -1243,7 +1243,9 @@ function changeQty(productId, size, delta) {
     if (!pImgs.length && p.image_url) pImgs = [p.image_url];
     cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: p.color, size, qty: 0, price: p.price, image_url: pImgs[0] || '' };
   }
+  const wasZero = cart[key].qty === 0;
   cart[key].qty = Math.max(0, cart[key].qty + delta);
+  if (wasZero && cart[key].qty > 0) fetch(`/api/portal/stats/cart/${productId}`, { method: 'POST' }).catch(() => {});
   if (cart[key].qty === 0) delete cart[key];
   const elId = `qd_${productId}_${size.replace(/[^a-zA-Z0-9]/g,'_')}`;
   const el = document.getElementById(elId);
@@ -1399,7 +1401,7 @@ async function submitCheckout() {
   if (!Object.keys(cart).length) { msg.innerHTML = `<div class="msg error">${t('err_empty')}</div>`; return; }
 
   document.getElementById('btn-confirm-order').disabled = true;
-  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty }));
+  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
   const buyer_signature = sigCanvas.toDataURL('image/jpeg', 0.7);
 
   try {
@@ -1777,6 +1779,7 @@ let drawerImgIdx = 0;
 function openProductDrawer(productId) {
   const p = currentProducts.find(x => x.id === productId);
   if (!p) return;
+  fetch(`/api/portal/stats/view/${productId}`, { method: 'POST' }).catch(() => {});
   drawerProduct = p;
   drawerImgIdx = 0;
   let imgs = [];
