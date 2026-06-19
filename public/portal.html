@@ -95,6 +95,15 @@
   .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.6; }
   .product-meta { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 6px; }
   .product-price { font-size: 16px; color: var(--accent); margin-top: 10px; font-weight: 700; font-family: var(--dot), monospace; }
+  .price-block { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+  .price-ws { font-size: 15px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
+  .price-retail-tag { font-size: 11px; font-family: 'Inter', sans-serif; color: var(--muted); }
+  .price-retail-val { font-size: 12px; font-family: 'Inter', sans-serif; color: var(--soft); }
+  .price-margin { font-size: 11px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 3px; padding: 1px 5px; font-weight: 700; }
+  .drawer-price-block { margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  .drawer-price-ws { font-size: 20px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
+  .drawer-price-retail { font-size: 13px; font-family: 'Inter', sans-serif; color: var(--muted); }
+  .drawer-price-margin { font-size: 12px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 4px; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
   .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .qty-btn { width: 32px; height: 32px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 16px; border-radius: 4px; }
   .qty-display { min-width: 28px; text-align: center; font-size: 15px; font-weight: 700; }
@@ -681,7 +690,7 @@ function applyLang() {
         <div class="drawer-ref" id="drawer-ref" style="margin-bottom:0"></div>
         <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
       </div>
-      <div class="drawer-price" id="drawer-price"></div>
+      <div id="drawer-price"></div>
       <div id="drawer-color" class="drawer-meta"></div>
       <div id="drawer-composition" class="drawer-meta"></div>
       <div class="drawer-desc" id="drawer-desc"></div>
@@ -760,7 +769,13 @@ document.getElementById('cgv-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCgvModal();
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeCgvModal();
+  if (e.key !== 'Escape') return;
+  // Priority order: carousel > drawer > gmodals > cgv
+  if (document.getElementById('img-modal')?.classList.contains('open')) { closeCarousel(); return; }
+  if (document.getElementById('product-drawer')?.classList.contains('open')) { closeProductDrawer(); return; }
+  const openGModal = document.querySelector('.gmodal-overlay.open');
+  if (openGModal) { openGModal.classList.remove('open'); return; }
+  closeCgvModal();
 });
 
 function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
@@ -772,6 +787,29 @@ document.addEventListener('click', e => {
 function fmtPrice(amountEur) {
   const converted = parseFloat(amountEur || 0) * (selectedCurrency.rate || 1);
   return converted.toFixed(2) + ' ' + selectedCurrency.symbol;
+}
+
+function calcMargin(ws, retail) {
+  const w = parseFloat(ws || 0), r = parseFloat(retail || 0);
+  if (!w || !r || r <= w) return null;
+  return Math.round((1 - w / r) * 100);
+}
+
+function priceBlockHtml(ws, retail, compact = false) {
+  const margin = calcMargin(ws, retail);
+  const marginBadge = margin ? `<span class="price-margin">−${margin}%</span>` : '';
+  if (compact) {
+    const retailLine = retail > 0 ? `<span class="price-retail-val">PVC ${fmtPrice(retail)}</span>` : '';
+    return `<div class="price-block">
+      <span class="price-ws">${fmtPrice(ws)}</span>
+      ${retailLine}${marginBadge}
+    </div>`;
+  }
+  const retailLine = retail > 0 ? `<span class="drawer-price-retail">PVC conseillé : ${fmtPrice(retail)}</span>` : '';
+  return `<div class="drawer-price-block">
+    <span class="drawer-price-ws">${fmtPrice(ws)}</span>
+    ${retailLine}${marginBadge}
+  </div>`;
 }
 
 function changeCurrency(code) {
@@ -845,7 +883,7 @@ async function handleQrParams() {
   if (!cart[key]) {
     let qImgs = []; try { qImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!qImgs.length && p.image_url) qImgs = [p.image_url];
-    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: p.id, reference: p.reference, description: p.description, color: p.color, size: sz, qty: 0, price: p.price, image_url: qImgs[0] || '' };
+    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: p.id, reference: p.reference, description: p.description, color: p.color, size: sz, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: qImgs[0] || '' };
   }
   cart[key].qty += 1;
   saveCart();
@@ -1238,7 +1276,7 @@ function renderProductsPage() {
         <div class="product-ref" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" title="Voir la fiche produit">${esc(p.reference)}</div>
         <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer">${esc(sentenceCase(p.description))}</div>
         <div class="product-meta">${esc(p.color||'')}</div>
-        <div class="product-price">${fmtPrice(p.price)}</div>
+        ${priceBlockHtml(p.price, p.price_retail, true)}
         ${qtyHtml}
       </div>
     </div>`;
@@ -1263,7 +1301,7 @@ function changeQty(productId, size, delta) {
   if (!cart[key]) {
     let pImgs = []; try { pImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!pImgs.length && p.image_url) pImgs = [p.image_url];
-    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: p.color, size, qty: 0, price: p.price, image_url: pImgs[0] || '' };
+    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: p.color, size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: pImgs[0] || '' };
   }
   const wasZero = cart[key].qty === 0;
   cart[key].qty = Math.max(0, cart[key].qty + delta);
@@ -1344,8 +1382,9 @@ let moqBlocked = false;
             <textarea class="cart-line-note" rows="1" placeholder="Note (optionnel)…" oninput="setCartNote('${noteKey}',this.value)">${esc(l.note||'')}</textarea>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:12px;font-family:'Inter',sans-serif;color:var(--muted)">× ${l.qty}</div>
+            <div style="font-size:11px;font-family:'Inter',sans-serif;color:var(--muted)">× ${l.qty} · ${fmtPrice(parseFloat(l.price||0))}</div>
             <div style="font-size:13px;font-weight:700;font-family:var(--dot),monospace;color:var(--accent);margin-top:2px">${fmtPrice(l.qty * parseFloat(l.price||0))}</div>
+            ${l.price_retail > 0 ? `<div style="font-size:10px;font-family:'Inter',sans-serif;color:var(--muted);margin-top:1px">PVC ${fmtPrice(l.price_retail)}</div>` : ''}
           </div>
         </div>
         </div>`;
@@ -1514,7 +1553,7 @@ async function toggleOrderLines(orderId) {
 // ── Modaux génériques ─────────────────────────────────
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.gmodal-overlay.open').forEach(m => m.classList.remove('open')); } });
+// Escape handling consolidated in the single listener above
 
 // ── Mode présentation ─────────────────────────────────
 function togglePresentation() {
@@ -1828,7 +1867,7 @@ async function runGlobalSearch(q) {
             <div class="global-result-desc">${esc(sentenceCase(p.description||''))}</div>
             <div class="global-result-brand">${esc(p.brand_name||'')} ${p.color ? '· ' + esc(p.color) : ''}</div>
           </div>
-          <div class="global-result-price">${fmtPrice(p.price)}</div>
+          <div class="global-result-price">${priceBlockHtml(p.price, p.price_retail, true)}</div>
         </div>`;
       }).join('');
   } catch(e) { resultsEl.innerHTML = `<p class="msg error">${t('err_retry')}</p>`; }
@@ -1893,7 +1932,7 @@ function openProductDrawer(productId) {
 
   document.getElementById('drawer-brand-name').textContent = currentBrand?.name || '';
   document.getElementById('drawer-ref').textContent = p.reference || '';
-  document.getElementById('drawer-price').textContent = fmtPrice(p.price);
+  document.getElementById('drawer-price').innerHTML = priceBlockHtml(p.price, p.price_retail, false);
   document.getElementById('drawer-color').textContent = p.color ? `Coloris : ${p.color}` : '';
   document.getElementById('drawer-composition').textContent = p.composition ? `Composition : ${p.composition}` : '';
   document.getElementById('drawer-desc').textContent = sentenceCase(p.description || '');
@@ -1983,7 +2022,6 @@ function drawerRefreshQty() {
 
 document.addEventListener('keydown', e => {
   if (document.getElementById('product-drawer').classList.contains('open')) {
-    if (e.key === 'Escape') closeProductDrawer();
     if (e.key === 'ArrowRight') drawerNav(1);
     if (e.key === 'ArrowLeft') drawerNav(-1);
   }
@@ -2008,7 +2046,6 @@ document.addEventListener('keydown', e => {
   if (!document.getElementById('img-modal').classList.contains('open')) return;
   if (e.key === 'ArrowRight') carouselGo(1);
   if (e.key === 'ArrowLeft') carouselGo(-1);
-  if (e.key === 'Escape') closeCarousel();
 });
 
 init();
