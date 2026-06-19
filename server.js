@@ -615,18 +615,39 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
   };
 
   // Group incoming files by matched product, preserving existing images
+  // Build a reference lookup (uppercase) → product list (may have multiple colors)
+  const refIndex = new Map();
+  for (const p of prods.rows) {
+    const key = p.reference.toUpperCase();
+    if (!refIndex.has(key)) refIndex.set(key, []);
+    refIndex.get(key).push(p);
+  }
+
   const pending = new Map(); // productId -> { images: [...], rank: [...] }
   for (const file of req.files) {
     const name = path.basename(file.originalname, path.extname(file.originalname));
     const parts = name.split('_');
-    const ref = parts[0].trim().toUpperCase();
-    const colorHint = parts.slice(1).join('_').trim().toLowerCase();
 
-    const product = prods.rows.find(p => p.reference.toUpperCase() === ref);
+    // Try longest prefix first → shortest to find the best matching reference
+    let product = null;
+    let colorHint = '';
+    for (let len = parts.length; len >= 1; len--) {
+      const candidate = parts.slice(0, len).join('_').toUpperCase();
+      const matches = refIndex.get(candidate);
+      if (!matches) continue;
+      colorHint = parts.slice(len).join('_').trim().toLowerCase();
+      // If multiple products share the same reference (different colors), pick by color hint
+      if (matches.length === 1) { product = matches[0]; break; }
+      const byColor = matches.find(p => p.color && colorHint.includes(p.color.toLowerCase()));
+      product = byColor || matches[0];
+      break;
+    }
+
     if (!product) {
-      results.push({ file: file.originalname, status: 'not_found', ref });
+      results.push({ file: file.originalname, status: 'not_found', ref: parts[0].toUpperCase() });
       continue;
     }
+    const ref = product.reference;
 
     if (!pending.has(product.id)) {
       let existing = [];
