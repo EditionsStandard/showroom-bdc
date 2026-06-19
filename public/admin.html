@@ -603,7 +603,7 @@
     <table id="products-table">
       <thead><tr>
         <th style="width:28px"><input type="checkbox" id="select-all-products" onchange="toggleSelectAll(this)" style="width:auto"></th>
-        <th data-t="th_collection">Collection</th><th data-t="th_ref">Référence</th><th data-t="th_description">Désignation</th><th data-t="th_color">Couleur</th><th data-t="th_category">Catégorie</th><th data-t="th_sizes">Tailles</th><th data-t="th_price_ht">Prix HT</th><th data-t="th_image">Image</th><th></th>
+        <th data-t="th_collection">Collection</th><th data-t="th_ref">Référence</th><th data-t="th_description">Désignation</th><th data-t="th_color">Couleur</th><th data-t="th_category">Catégorie</th><th data-t="th_sizes">Tailles</th><th data-t="th_price_ht">Prix WS HT</th><th data-t="th_price_retail">Prix retail</th><th data-t="th_image">Image</th><th></th>
       </tr></thead>
       <tbody id="products-body"></tbody>
     </table>
@@ -889,7 +889,7 @@ const TRANSLATIONS = {
     th_date: 'Date', th_client: 'Client', th_brand: 'Marque', th_total: 'Total',
     th_actions: 'Actions', th_ref: 'Réf.', th_total_ht: 'Total HT', th_status: 'Statut',
     th_collection: 'Collection', th_description: 'Désignation', th_color: 'Couleur',
-    th_category: 'Catégorie', th_sizes: 'Tailles', th_price_ht: 'Prix HT', th_image: 'Image',
+    th_category: 'Catégorie', th_sizes: 'Tailles', th_price_ht: 'Prix WS HT', th_price_retail: 'Prix retail', th_image: 'Image',
     th_name: 'Nom', th_email: 'Email', th_role: 'Rôle', th_company: 'Société', th_phone: 'Téléphone',
     th_time: 'Heure', th_contact: 'Contact', th_note: 'Note',
     th_size: 'Taille', th_qty: 'Qté', th_unit_price: 'P.U. HT',
@@ -1024,7 +1024,7 @@ const TRANSLATIONS = {
     th_date: 'Date', th_client: 'Client', th_brand: 'Brand', th_total: 'Total',
     th_actions: 'Actions', th_ref: 'Ref.', th_total_ht: 'Total', th_status: 'Status',
     th_collection: 'Collection', th_description: 'Description', th_color: 'Color',
-    th_category: 'Category', th_sizes: 'Sizes', th_price_ht: 'Price', th_image: 'Image',
+    th_category: 'Category', th_sizes: 'Sizes', th_price_ht: 'WS Price', th_price_retail: 'Retail price', th_image: 'Image',
     th_name: 'Name', th_email: 'Email', th_role: 'Role', th_company: 'Company', th_phone: 'Phone',
     th_time: 'Time', th_contact: 'Contact', th_note: 'Note',
     th_size: 'Size', th_qty: 'Qty', th_unit_price: 'Unit price',
@@ -1901,6 +1901,7 @@ function renderProductsTable(products) {
       <td>${p.category||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td>${Number(p.price).toFixed(2)} €</td>
+      <td>${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '—'}</td>
       <td>${imgThumb}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})' title="Modifier">✏️</button>
