@@ -577,6 +577,7 @@ async function handleQrParams() {
   if (!brandId) return;
   history.replaceState({}, '', '/portal');
   await openBrand(brandId);
+  if (!currentBrand) return;
   if (!addId) return;
   const p = currentProducts.find(x => x.id === addId);
   if (!p) return;

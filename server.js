@@ -834,7 +834,9 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
     const next = (req.body.next || '').replace(/[^a-zA-Z0-9?=&%_\-/]/g, '');
     return res.redirect(next && next.startsWith('/portal') ? next : '/portal');
   }
-  res.redirect('/editions-showroom-b2b-portail?error=1');
+  const failNext = req.body.next && req.body.next.startsWith('/portal')
+    ? '&next=' + encodeURIComponent(req.body.next) : '';
+  res.redirect('/editions-showroom-b2b-portail?error=1' + failNext);
 });
 
 app.get('/portal-logout', (req, res) => {
