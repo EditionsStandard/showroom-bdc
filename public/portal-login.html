@@ -182,15 +182,20 @@ async function sendReset() {
   if (!email) { msg.innerHTML = `<div class="alert alert-error">${t('email_required')}</div>`; return; }
   btn.disabled = true;
   btn.textContent = '…';
-  const r = await fetch('/api/portal/forgot-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email })
-  }).then(r => r.json());
-  btn.disabled = false;
-  btn.textContent = t('send_reset_btn');
-  // Toujours afficher succès (ne pas révéler si l'email existe)
-  msg.innerHTML = `<div class="alert alert-success">${t('reset_success')}</div>`;
+  try {
+    await fetch('/api/portal/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    // Toujours afficher succès (ne pas révéler si l'email existe)
+    msg.innerHTML = `<div class="alert alert-success">${t('reset_success')}</div>`;
+  } catch(e) {
+    msg.innerHTML = `<div class="alert alert-error">Erreur réseau, réessayez.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('send_reset_btn');
+  }
 }
 
 async function submitReset() {
@@ -202,16 +207,21 @@ async function submitReset() {
   if (pw !== pw2) { msg.innerHTML = `<div class="alert alert-error">${t('pw_mismatch')}</div>`; return; }
   btn.disabled = true;
   btn.textContent = '…';
-  const r = await fetch('/api/portal/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: resetToken, password: pw })
-  }).then(r => r.json());
-  btn.disabled = false;
-  btn.textContent = t('save_btn');
-  if (r.error) { msg.innerHTML = `<div class="alert alert-error">${r.error}</div>`; return; }
-  msg.innerHTML = `<div class="alert alert-success">${t('pw_updated')}</div>`;
-  setTimeout(() => { window.location = '/editions-showroom-b2b-portail'; }, 1500);
+  try {
+    const r = await fetch('/api/portal/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetToken, password: pw })
+    }).then(r => r.json());
+    if (r.error) { msg.innerHTML = `<div class="alert alert-error">${r.error}</div>`; return; }
+    msg.innerHTML = `<div class="alert alert-success">${t('pw_updated')}</div>`;
+    setTimeout(() => { window.location = '/editions-showroom-b2b-portail'; }, 1500);
+  } catch(e) {
+    msg.innerHTML = `<div class="alert alert-error">Erreur réseau, réessayez.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('save_btn');
+  }
 }
 </script>
 </body>

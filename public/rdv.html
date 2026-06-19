@@ -72,8 +72,14 @@ const brandId = window.location.pathname.split('/').pop();
 let selectedDate = null, selectedTime = null;
 
 async function loadSlots() {
-  const data = await fetch(`/api/public/brands/${brandId}/slots`).then(r => r.json());
   const container = document.getElementById('slots-container');
+  let data;
+  try {
+    data = await fetch(`/api/public/brands/${brandId}/slots`).then(r => r.json());
+  } catch(e) {
+    container.innerHTML = '<p class="msg error">Erreur de chargement. Veuillez recharger la page.</p>';
+    return;
+  }
   if (!data.slots || !data.slots.length) {
     container.innerHTML = '<p class="msg">Aucun créneau disponible pour le moment.</p>';
     return;

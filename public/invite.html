@@ -205,18 +205,23 @@ async function submitForm() {
   btn.disabled = true;
   btn.textContent = t('creating');
 
-  const r = await fetch(`/api/invite/${token}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, company, email, password })
-  });
-  const data = await r.json();
-
-  if (!r.ok) { showErr(data.error || t('err_server')); btn.disabled = false; btn.textContent = t('submit_btn'); return; }
-
-  document.getElementById('form-section').style.display = 'none';
-  document.getElementById('success-section').style.display = 'block';
-  setTimeout(() => location.href = '/portal', 3000);
+  try {
+    const r = await fetch(`/api/invite/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, company, email, password })
+    });
+    const data = await r.json();
+    if (!r.ok) { showErr(data.error || t('err_server')); return; }
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('success-section').style.display = 'block';
+    setTimeout(() => location.href = '/portal', 3000);
+  } catch(e) {
+    showErr(t('err_server'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('submit_btn');
+  }
 }
 
 function showErr(msg) {

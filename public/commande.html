@@ -850,7 +850,7 @@ async function init() {
       document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center"><div><p style="font-size:14px;color:var(--muted);line-height:1.6">' + (data.message || 'Ce showroom est temporairement indisponible.') + '</p></div></div>';
       return;
     }
-    if (data.error) { document.getElementById('products-container').innerHTML = '<div class="loader">' + T('no_brand') + '</div>'; return; }
+    if (data.error) { document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center"><p style="color:var(--muted)">' + T('no_brand') + '</p></div>'; return; }
     productsData = data.products;
     brandCgvText = data.brand.cgv_text || '';
     brandName = data.brand.name;
@@ -1597,7 +1597,8 @@ async function submitOrder() {
     if (data.ok) {
       showSuccess(body.client_email, false, data.order_id);
     } else {
-      alert(data.error || T('err_order'));
+      const errEl = document.getElementById('order-warning');
+      if (errEl) errEl.innerHTML = '<span style="color:#e74c3c">⚠ ' + (data.error || T('err_order')) + '</span>';
       btn.disabled = false;
       btn.textContent = T('btn_sign');
     }

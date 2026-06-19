@@ -16,6 +16,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 const { pool, init } = require('./database');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -148,7 +150,6 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (email) {
-    const bcrypt = require('bcryptjs');
     const r = await pool.query('SELECT * FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
     const user = r.rows[0];
     if (user && await bcrypt.compare(password || '', user.password_hash)) {
@@ -158,7 +159,6 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     return res.redirect('/admin/login?error=1');
   }
 
-  const bcrypt = require('bcryptjs');
   const adminPassword = await getSetting('admin_password');
   let valid = false;
   if (adminPassword.startsWith('$2')) {
@@ -201,7 +201,6 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
   if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
 
-  const bcrypt = require('bcryptjs');
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
   try {
@@ -217,15 +216,16 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
 });
 
 app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
-  const { name, email, role, brand_id, password } = req.body;
-  if (password) {
-    const bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
-    await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, email, role, brand_id || null, hash, req.params.id]);
-  } else {
-    await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, email, role, brand_id || null, req.params.id]);
-  }
-  res.json({ ok: true });
+  try {
+    const { name, email, role, brand_id, password } = req.body;
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, email, role, brand_id || null, hash, req.params.id]);
+    } else {
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, email, role, brand_id || null, req.params.id]);
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
@@ -244,7 +244,6 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
   const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json'];
-  const bcrypt = require('bcryptjs');
   for (let [key, value] of Object.entries(req.body)) {
     if (!allowed.includes(key)) continue;
     if (key === 'admin_password' && value && !value.startsWith('$2')) {
@@ -275,15 +274,19 @@ app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
 });
 
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text, lookbook_url } = req.body;
-  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7, about_text=$8, lookbook_url=$9 WHERE id=$10',
-    [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', req.params.id]);
-  res.json({ ok: true });
+  try {
+    const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text, lookbook_url } = req.body;
+    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7, about_text=$8, lookbook_url=$9 WHERE id=$10',
+      [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
-  await pool.query('DELETE FROM brands WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    await pool.query('DELETE FROM brands WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
@@ -399,19 +402,23 @@ async function checkProductBrandScope(req, res) {
 }
 
 app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
-  if (!await checkProductBrandScope(req, res)) return;
-  const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id } = req.body;
-  await pool.query(
-    'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14 WHERE id=$15',
-    [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
-  );
-  res.json({ ok: true });
+  try {
+    if (!await checkProductBrandScope(req, res)) return;
+    const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id } = req.body;
+    await pool.query(
+      'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14 WHERE id=$15',
+      [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
-  if (!await checkProductBrandScope(req, res)) return;
-  await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    if (!await checkProductBrandScope(req, res)) return;
+    await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
@@ -433,10 +440,12 @@ app.post('/api/products/:id/duplicate', requireRole('owner','agent','designer'),
 });
 
 app.put('/api/products/:id/active', requireRole('owner','agent','designer'), async (req, res) => {
-  if (!await checkProductBrandScope(req, res)) return;
-  const { active } = req.body;
-  await pool.query('UPDATE products SET active=$1 WHERE id=$2', [active ? 1 : 0, req.params.id]);
-  res.json({ ok: true });
+  try {
+    if (!await checkProductBrandScope(req, res)) return;
+    const { active } = req.body;
+    await pool.query('UPDATE products SET active=$1 WHERE id=$2', [active ? 1 : 0, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/brands/:brandId/products/bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
@@ -499,21 +508,25 @@ app.post('/api/brands/:brandId/seasons', requireBrandScope('owner','agent','desi
 });
 
 app.put('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
-  const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
-  if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
-  if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
-  const { name, active } = req.body;
-  await pool.query('UPDATE seasons SET name=$1, active=$2 WHERE id=$3', [name, active!==undefined?active:1, req.params.id]);
-  res.json({ ok: true });
+  try {
+    const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
+    if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
+    if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    const { name, active } = req.body;
+    await pool.query('UPDATE seasons SET name=$1, active=$2 WHERE id=$3', [name, active!==undefined?active:1, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
-  const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
-  if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
-  if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
-  await pool.query('UPDATE products SET season_id=NULL WHERE season_id=$1', [req.params.id]);
-  await pool.query('DELETE FROM seasons WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
+    if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
+    if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    await pool.query('UPDATE products SET season_id=NULL WHERE season_id=$1', [req.params.id]);
+    await pool.query('DELETE FROM seasons WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ==================== LINESHEET PDF ====================
@@ -545,7 +558,10 @@ app.get('/api/public/brands/:brandId/slots', async (req, res) => {
   }
   const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
   const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
-  const bookedSet = new Set(booked.rows.map(b => `${b.slot_date.toISOString().slice(0,10)}_${b.slot_time}`));
+  const bookedSet = new Set(booked.rows.map(b => {
+    const d = b.slot_date instanceof Date ? b.slot_date.toISOString().slice(0,10) : String(b.slot_date).slice(0,10);
+    return `${d}_${b.slot_time}`;
+  }));
   const slots = days.map(date => ({
     date,
     times: times.filter(t => !bookedSet.has(`${date}_${t}`))
@@ -625,8 +641,8 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
     const indexed = entry.images.map((img, i) => ({ img, rank: entry.ranks[i], i }));
     indexed.sort((a, b) => {
       if (a.rank === -1 && b.rank === -1) return a.i - b.i;
-      if (a.rank === -1) return -1;
-      if (b.rank === -1) return 1;
+      if (a.rank === -1) return 1;   // old images after new
+      if (b.rank === -1) return -1;  // new images first
       return a.rank - b.rank || a.i - b.i;
     });
     const sortedImages = indexed.map(x => x.img);
@@ -665,16 +681,20 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
 });
 
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
-  const { status } = req.body;
-  if (!['confirmed','validated','cancelled'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
-  await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
-  res.json({ ok: true });
+  try {
+    const { status } = req.body;
+    if (!['confirmed','validated','cancelled'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
+    await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
-  await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
-  await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
+    await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, res) => {
@@ -836,9 +856,14 @@ app.post('/api/public/orders', async (req, res) => {
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
   }
-  const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
-  if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
-  res.json({ ok: true, order_id: result.order_id });
+  try {
+    const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
+    if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
+    res.json({ ok: true, order_id: result.order_id });
+  } catch(e) {
+    console.error('createOrder error:', e.message);
+    res.status(500).json({ error: 'Erreur serveur lors de la création de la commande.' });
+  }
 });
 
 // ==================== BUYER PORTAL (email + password, multi-brand) ====================
@@ -855,7 +880,6 @@ app.get('/editions-showroom-b2b-portail', (req, res) => res.sendFile(path.join(_
 
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const bcrypt = require('bcryptjs');
   const r = await pool.query('SELECT * FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
   if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
@@ -897,7 +921,6 @@ app.post('/api/portal/change-password', requireBuyerAuth, async (req, res) => {
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
   if (newPassword.length < 6) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
 
-  const bcrypt = require('bcryptjs');
   const r = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
   const buyer = r.rows[0];
   if (!buyer || !await bcrypt.compare(currentPassword, buyer.password_hash)) {
@@ -1180,8 +1203,7 @@ app.post('/api/portal/stats/cart/:productId', requireBuyerAuth, async (req, res)
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/product-stats', async (req, res) => {
-  if (!req.session.admin) return res.status(401).json({ error: 'Non autorisé' });
+app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT p.id, p.reference, p.description, p.color, p.price, b.name as brand_name,
@@ -1339,7 +1361,6 @@ app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
     const b = await pool.query('SELECT id, name FROM buyers WHERE email=$1', [email.toLowerCase().trim()]);
     if (!b.rows[0]) return;
     const buyer = b.rows[0];
-    const crypto = require('crypto');
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await pool.query('DELETE FROM buyer_password_resets WHERE buyer_id=$1', [buyer.id]);
@@ -1353,7 +1374,7 @@ app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
     const resend = new Resend(resendKey);
     const showroomName = await getSetting('showroom_name');
     const fromAddress = await getSetting('smtp_from');
-    const resetUrl = `${getBaseUrl(req)}/portal-login?token=${token}`;
+    const resetUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail?token=${token}`;
     await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
@@ -1382,7 +1403,6 @@ app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
       [token]
     );
     if (!r.rows[0]) return res.json({ error: 'Lien invalide ou expiré.' });
-    const bcrypt = require('bcryptjs');
     const hash = await bcrypt.hash(password, 10);
     await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, r.rows[0].buyer_id]);
     await pool.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [token]);
@@ -1399,7 +1419,6 @@ app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { email, password, name, company, phone, country } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  const bcrypt = require('bcryptjs');
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
   const cleanEmail = email.toLowerCase().trim();
@@ -1448,20 +1467,23 @@ async function sendBuyerWelcomeEmail({ email, password, name, req }) {
 }
 
 app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
-  const { name, company, email, phone, country, password } = req.body;
-  if (password) {
-    const bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
-    await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5,password_hash=$6 WHERE id=$7', [name, company, email, phone, country, hash, req.params.id]);
-  } else {
-    await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5 WHERE id=$6', [name, company, email, phone, country, req.params.id]);
-  }
-  res.json({ ok: true });
+  try {
+    const { name, company, email, phone, country, password } = req.body;
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5,password_hash=$6 WHERE id=$7', [name, company, email, phone, country, hash, req.params.id]);
+    } else {
+      await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5 WHERE id=$6', [name, company, email, phone, country, req.params.id]);
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
-  await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ==================== BRAND INVITE LINKS ====================
@@ -1473,7 +1495,6 @@ app.get('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'), 
 });
 
 app.post('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'), async (req, res) => {
-  const crypto = require('crypto');
   const token = crypto.randomBytes(24).toString('hex');
   await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [req.params.brandId]);
   await pool.query('INSERT INTO brand_invite_links (token, brand_id, active) VALUES ($1,$2,1)', [token, req.params.brandId]);
@@ -1481,9 +1502,11 @@ app.post('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'),
 });
 
 app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','agent'), async (req, res) => {
-  const { active } = req.body;
-  await pool.query('UPDATE brand_invite_links SET active=$1 WHERE brand_id=$2', [active ? 1 : 0, req.params.brandId]);
-  res.json({ ok: true });
+  try {
+    const { active } = req.body;
+    await pool.query('UPDATE brand_invite_links SET active=$1 WHERE brand_id=$2', [active ? 1 : 0, req.params.brandId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
@@ -1513,7 +1536,6 @@ app.post('/api/invite/:token', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Nom requis.' });
 
   const cleanEmail = email.toLowerCase().trim();
-  const bcrypt = require('bcryptjs');
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
   try {
@@ -1521,7 +1543,7 @@ app.post('/api/invite/:token', async (req, res) => {
       'INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
       [id, cleanEmail, hash, name.trim(), (company||'').trim()]
     );
-    req.session.buyerPortal = { id, email: cleanEmail, name: name.trim() };
+    req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
     res.json({ ok: true });
     sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
   } catch (err) {

@@ -885,7 +885,12 @@ async function init() {
   document.getElementById('dd-name').textContent = me.name || '';
   document.getElementById('dd-email').textContent = me.email || '';
   document.getElementById('dd-company').textContent = me.company || '';
-  allBrands = await fetch('/api/portal/brands').then(r => r.json());
+  try {
+    allBrands = await fetch('/api/portal/brands').then(r => r.json());
+  } catch(e) {
+    document.getElementById('brand-grid').innerHTML = '<p class="msg" style="color:var(--muted)">Erreur de chargement. Rechargez la page.</p>';
+    return;
+  }
   applyLang();
   renderBrandPicker();
   updateCartBar();
@@ -911,7 +916,7 @@ function showView(view) {
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
   document.getElementById('nav-profile').classList.toggle('active', view === 'account');
-  document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).length) ? 'flex' : (view === 'cart' ? 'none' : document.getElementById('cart-bar').style.display);
+  document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).some(k => cart[k].qty > 0)) ? 'flex' : 'none';
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
@@ -936,17 +941,21 @@ async function saveProfile() {
   const country = document.getElementById('prof-country').value.trim();
   const msg = document.getElementById('prof-msg');
   if (!name) { msg.innerHTML = `<span style="color:#e74c3c">${t('prof_name_required')}</span>`; return; }
-  const r = await fetch('/api/portal/update-profile', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, company, phone, country })
-  }).then(r => r.json());
-  if (r.error) { msg.innerHTML = `<span style="color:#e74c3c">${r.error}</span>`; return; }
-  me = { ...me, name, company, phone, country };
-  document.getElementById('user-name').textContent = name;
-  document.getElementById('user-avatar').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  document.getElementById('dd-name').textContent = name;
-  document.getElementById('dd-company').textContent = company;
-  msg.innerHTML = `<span style="color:var(--accent)">${t('prof_saved')}</span>`;
+  try {
+    const r = await fetch('/api/portal/update-profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, company, phone, country })
+    }).then(r => r.json());
+    if (r.error) { msg.innerHTML = `<span style="color:#e74c3c">${r.error}</span>`; return; }
+    me = { ...me, name, company, phone, country };
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-avatar').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('dd-name').textContent = name;
+    document.getElementById('dd-company').textContent = company;
+    msg.innerHTML = `<span style="color:var(--accent)">${t('prof_saved')}</span>`;
+  } catch(e) {
+    msg.innerHTML = `<span style="color:#e74c3c">Erreur réseau, réessayez.</span>`;
+  }
 }
 
 async function changePassword() {
@@ -954,14 +963,18 @@ async function changePassword() {
   const newPassword = document.getElementById('pw-new').value;
   const msg = document.getElementById('pw-msg');
   if (!currentPassword || !newPassword) { msg.innerHTML = `<div class="msg error">${t('pw_fields_required')}</div>`; return; }
-  const r = await fetch('/api/portal/change-password', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentPassword, newPassword })
-  }).then(r => r.json());
-  if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
-  document.getElementById('pw-current').value = '';
-  document.getElementById('pw-new').value = '';
-  msg.innerHTML = `<div class="msg">${t('pw_saved')}</div>`;
+  try {
+    const r = await fetch('/api/portal/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword })
+    }).then(r => r.json());
+    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value = '';
+    msg.innerHTML = `<div class="msg">${t('pw_saved')}</div>`;
+  } catch(e) {
+    msg.innerHTML = `<div class="msg error">Erreur réseau, réessayez.</div>`;
+  }
 }
 
 function renderBrandSkeletons(n = 6) {
@@ -1451,8 +1464,9 @@ async function submitCheckout() {
       })
     }).then(r => r.json());
 
-    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; document.getElementById('btn-confirm-order').disabled = false; return; }
+    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; btnConfirm.disabled = false; btnConfirm.textContent = origBtnText; return; }
 
+    btnConfirm.textContent = origBtnText;
     Object.keys(cart).forEach(k => delete cart[k]);
     saveCart();
     document.getElementById('view-cart').style.display = 'none';
@@ -1734,7 +1748,7 @@ async function renderFavs() {
         ${b.products.map(p => {
           let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
           if (!imgs.length && p.image_url) imgs = [p.image_url];
-          return `<div style="background:var(--dark);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}');setTimeout(()=>openProductDrawer('${p.id}'),600)">
+          return `<div style="background:var(--dark);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
             ${imgs[0] ? `<img src="${esc(imgs[0])}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
