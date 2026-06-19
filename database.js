@@ -113,8 +113,19 @@ async function init() {
       slot_date DATE NOT NULL,
       slot_time TEXT NOT NULL,
       notes TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (brand_id, slot_date, slot_time)
     );
+  `).catch(() => {});
+
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'appointments_brand_slot_unique'
+      ) THEN
+        ALTER TABLE appointments ADD CONSTRAINT appointments_brand_slot_unique UNIQUE (brand_id, slot_date, slot_time);
+      END IF;
+    END $$;
   `).catch(() => {});
 
   await pool.query(`

@@ -1010,7 +1010,7 @@ async function openBrand(brandId) {
   container.style.display = 'block';
   container.innerHTML = `<div style="height:40px"></div><div class="products-grid" id="products-list">${Array.from({length:8},()=>`<div class="skel-product"><div class="skel-product-img skeleton"></div><div class="skel-product-info"><div class="skel-product-ref skeleton"></div><div class="skel-product-desc skeleton"></div><div class="skel-product-price skeleton"></div></div></div>`).join('')}</div>`;
   const data = await fetch(`/api/portal/brands/${brandId}/products`).then(r => r.json());
-  if (data.error) { alert(data.error); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
+  if (data.error) { showToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
   currentBrand = data.brand;
   currentProducts = data.products;
   container.innerHTML = '';
@@ -1164,6 +1164,7 @@ function applyProductFilters() {
 }
 
 function closeBrand() {
+  if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
   document.getElementById('brand-picker').style.display = 'block';
   document.getElementById('brand-products').style.display = 'none';
   currentBrand = null;
@@ -1416,7 +1417,7 @@ async function exportSelectionPdf() {
     a.click();
     URL.revokeObjectURL(url);
   } catch(e) {
-    alert('Erreur lors de la génération du PDF.');
+    showToast('Erreur lors de la génération du PDF.', 4000);
   } finally {
     btn.textContent = '📄 Exporter';
     btn.disabled = false;
@@ -1431,7 +1432,10 @@ async function submitCheckout() {
   if (sigEmpty) { msg.innerHTML = `<div class="msg error">${t('err_sig')}</div>`; return; }
   if (!Object.keys(cart).length) { msg.innerHTML = `<div class="msg error">${t('err_empty')}</div>`; return; }
 
-  document.getElementById('btn-confirm-order').disabled = true;
+  const btnConfirm = document.getElementById('btn-confirm-order');
+  btnConfirm.disabled = true;
+  const origBtnText = btnConfirm.textContent;
+  btnConfirm.textContent = '⏳ Envoi en cours…';
   const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
   const buyer_signature = sigCanvas.toDataURL('image/jpeg', 0.7);
 
@@ -1457,7 +1461,8 @@ async function submitCheckout() {
     document.getElementById('success-detail').innerHTML = t('success_msg', esc(brandNames));
   } catch(e) {
     msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
-    document.getElementById('btn-confirm-order').disabled = false;
+    btnConfirm.disabled = false;
+    btnConfirm.textContent = origBtnText;
   }
 }
 

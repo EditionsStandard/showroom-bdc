@@ -75,6 +75,10 @@ app.use(session({
 }));
 
 // Helpers
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 async function getSetting(key) {
   const r = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
   return r.rows[0]?.value || '';
@@ -554,13 +558,16 @@ app.post('/api/public/appointments', async (req, res) => {
   if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
     return res.status(400).json({ error: 'Données incomplètes' });
   }
-  const existing = await pool.query('SELECT 1 FROM appointments WHERE brand_id=$1 AND slot_date=$2 AND slot_time=$3', [brand_id, slot_date, slot_time]);
-  if (existing.rows[0]) return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
   const id = uuidv4();
-  await pool.query(
-    'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [id, brand_id, client_name, client_email, client_phone||'', slot_date, slot_time, notes||'']
-  );
+  try {
+    await pool.query(
+      'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, brand_id, client_name, client_email, client_phone||'', slot_date, slot_time, notes||'']
+    );
+  } catch(e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
+    throw e;
+  }
   res.json({ ok: true, id });
 });
 
@@ -607,7 +614,7 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
         transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto' }]
       });
       imageData = uploaded.secure_url;
-    } catch(e) { /* keep base64 on cloudinary error */ }
+    } catch(e) { console.error('Cloudinary upload error:', e.message); /* keep original value on error */ }
     entry.images.push(imageData);
     entry.ranks.push(viewRank(colorHint));
     results.push({ file: file.originalname, status: 'ok', ref, color: colorHint || product.color });
@@ -786,12 +793,10 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   }
 
   // Resolve product prices server-side (never trust client-submitted prices)
-  const resolvedLines = [];
-  for (const line of validLines) {
-    const p = await pool.query('SELECT * FROM products WHERE id=$1', [line.product_id]);
-    if (!p.rows[0]) continue;
-    resolvedLines.push({ ...line, product: p.rows[0] });
-  }
+  const productIds = validLines.map(l => l.product_id);
+  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1)', [productIds]);
+  const productMap = Object.fromEntries(productRows.rows.map(r => [r.id, r]));
+  const resolvedLines = validLines.map(line => ({ ...line, product: productMap[line.product_id] })).filter(l => l.product);
 
   const totalQty = resolvedLines.reduce((s, l) => s + l.quantity, 0);
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * parseFloat(l.product.price || 0), 0);
@@ -932,12 +937,14 @@ async function checkMoq(brand_id, lines) {
   const moqAmount = parseFloat(b.rows[0].moq_amount) || 0;
   if (!moqQty && !moqAmount) return null;
 
+  const ids = validLines.map(l => l.product_id);
+  const priceRows = await pool.query('SELECT id, price FROM products WHERE id = ANY($1)', [ids]);
+  const priceMap = Object.fromEntries(priceRows.rows.map(r => [r.id, r.price]));
   let totalQty = 0, totalAmount = 0;
   for (const line of validLines) {
-    const p = await pool.query('SELECT price FROM products WHERE id=$1', [line.product_id]);
-    if (!p.rows[0]) continue;
+    if (!(line.product_id in priceMap)) continue;
     totalQty += line.quantity;
-    totalAmount += line.quantity * parseFloat(p.rows[0].price || 0);
+    totalAmount += line.quantity * parseFloat(priceMap[line.product_id] || 0);
   }
   if (moqQty > 0 && totalQty < moqQty) return `Minimum ${moqQty} pièces requis (sélection actuelle : ${totalQty}).`;
   if (moqAmount > 0 && totalAmount < moqAmount) return `Montant minimum de ${moqAmount.toFixed(2)} € HT requis (sélection actuelle : ${totalAmount.toFixed(2)} €).`;
@@ -1130,8 +1137,8 @@ app.get('/share/:token', async (req, res) => {
   items.forEach(l => { (byBrand[l.brand_name||'?'] = byBrand[l.brand_name||'?'] || []).push(l); });
   const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price||0), 0);
   const rows = Object.entries(byBrand).map(([brand, lines]) =>
-    `<h3 style="margin:24px 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #eee;padding-bottom:6px">${brand}</h3>` +
-    lines.map(l => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px"><span><strong>${l.reference}</strong>${l.color?' · '+l.color:''}${l.size?' · '+l.size:''}</span><span>× ${l.qty} — ${(l.qty*parseFloat(l.price||0)).toFixed(2)} €</span></div>`).join('')
+    `<h3 style="margin:24px 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #eee;padding-bottom:6px">${escHtml(brand)}</h3>` +
+    lines.map(l => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px"><span><strong>${escHtml(l.reference)}</strong>${l.color?' · '+escHtml(l.color):''}${l.size?' · '+escHtml(l.size):''}</span><span>× ${escHtml(String(l.qty))} — ${(l.qty*parseFloat(l.price||0)).toFixed(2)} €</span></div>`).join('')
   ).join('');
   res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sélection — ${showroomName}</title><style>body{font-family:'Helvetica Neue',sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#111}.header{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}.tag{display:inline-block;background:#fffde7;border:1px solid #d4a017;color:#8a6500;font-size:11px;padding:3px 10px;border-radius:12px;margin-bottom:16px}.total{background:#111;color:#fff;padding:14px 18px;margin-top:24px;font-weight:700;display:flex;justify-content:space-between;font-size:15px}</style></head><body><div class="header"><h1 style="font-size:22px;margin:0 0 4px">${showroomName}</h1><p style="color:#888;font-size:12px;margin:0">Sélection partagée — lecture seule</p></div><span class="tag">NON CONTRACTUEL</span>${rows}<div class="total"><span>TOTAL HT</span><span>${grandTotal.toFixed(2)} €</span></div><p style="color:#aaa;font-size:11px;margin-top:24px;text-align:center">Ce document est non contractuel. La commande doit être validée sur le portail.</p></body></html>`);
 });
@@ -1879,10 +1886,10 @@ async function generateOrderPDF(orderId) {
   `, [orderId]);
   const lines = lRes.rows;
 
-  const showroomName = await getSetting('showroom_name');
-  const agentName    = await getSetting('agent_name');
-  const agentTitle   = await getSetting('agent_title');
-  const globalCgv    = await getSetting('cgv_text');
+  const [showroomName, agentName, agentTitle, globalCgv] = await Promise.all([
+    getSetting('showroom_name'), getSetting('agent_name'),
+    getSetting('agent_title'), getSetting('cgv_text')
+  ]);
   const cgvText      = order.brand_cgv || globalCgv;
 
   // Convert SVG logo to PNG buffer
@@ -2068,7 +2075,7 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
       <img src="${brandLogo}" alt="${brandName}" style="max-height:56px;max-width:180px;object-fit:contain">
     </div>` : brandName ? `
     <div style="background:#fff;padding:16px 32px;text-align:center;border-bottom:1px solid #eee">
-      <span style="font-family:'Courier New',Courier,monospace;font-size:16px;font-weight:700;letter-spacing:2px;color:#0a0a0a">${brandName.toUpperCase()}</span>
+      <span style="font-family:'Courier New',Courier,monospace;font-size:16px;font-weight:700;letter-spacing:2px;color:#0a0a0a">${escHtml(brandName.toUpperCase())}</span>
     </div>` : '';
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -2084,7 +2091,7 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
         <img src="${LOGO_URL}" alt="${showroomName}" width="36" height="36" style="border-radius:6px;vertical-align:middle">
       </td>
       <td style="text-align:right;vertical-align:middle">
-        <span style="font-family:'Courier New',Courier,monospace;color:${accentColor};font-size:13px;font-weight:700;letter-spacing:3px">${showroomName.toUpperCase()}</span>
+        <span style="font-family:'Courier New',Courier,monospace;color:${accentColor};font-size:13px;font-weight:700;letter-spacing:3px">${escHtml(showroomName.toUpperCase())}</span>
       </td>
     </tr></table>
   </td></tr>
@@ -2119,7 +2126,7 @@ function emailInfoBox(rows) {
   return `<table cellpadding="0" cellspacing="0" style="width:100%;background:#f7f7f5;border-radius:4px;padding:0;margin:20px 0">
     <tr><td style="padding:16px 20px">
       ${rows.map(([label, value]) => `
-        <p style="margin:0 0 10px;font-size:13px"><span style="color:#888;display:inline-block;min-width:120px">${label}</span><strong style="color:#0a0a0a">${value}</strong></p>
+        <p style="margin:0 0 10px;font-size:13px"><span style="color:#888;display:inline-block;min-width:120px">${escHtml(label)}</span><strong style="color:#0a0a0a">${escHtml(String(value||''))}</strong></p>
       `).join('')}
     </td></tr>
   </table>`;
