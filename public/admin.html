@@ -543,6 +543,18 @@
       </div>
     </div>
 
+    <!-- Lookbook PDF -->
+    <div class="form-group" style="margin-top:8px">
+      <label>Lookbook PDF <span style="color:#555;font-weight:400;font-size:11px">(affiché en bouton de téléchargement sur la fiche marque)</span></label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('brand-lookbook-file').click()">📄 Choisir un PDF</button>
+        <input type="file" id="brand-lookbook-file" accept="application/pdf" style="display:none" onchange="uploadLookbook(this)">
+        <span id="brand-lookbook-status" style="font-size:12px;color:#888"></span>
+        <button type="button" class="btn btn-danger btn-sm" id="brand-lookbook-clear" onclick="clearLookbook()" style="display:none">✕ Supprimer</button>
+      </div>
+      <input type="hidden" id="brand-lookbook">
+    </div>
+
     <!-- CGV par marque -->
     <div class="form-group" style="margin-top:8px">
       <label>Conditions générales de vente <span style="color:#555;font-weight:400;font-size:11px">(spécifiques à cette marque — optionnel)</span></label>
@@ -1468,6 +1480,35 @@ async function handleBrandImg(input, hiddenId, previewId) {
   input.value = '';
 }
 
+async function uploadLookbook(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('brand-lookbook-status');
+  status.textContent = 'Envoi en cours…';
+  status.style.color = '#888';
+  const fd = new FormData();
+  fd.append('pdf', file);
+  const r = await fetch('/api/upload-pdf', { method: 'POST', body: fd });
+  const data = await r.json();
+  if (data.url) {
+    document.getElementById('brand-lookbook').value = data.url;
+    status.textContent = '✓ ' + file.name;
+    status.style.color = 'var(--accent)';
+    document.getElementById('brand-lookbook-clear').style.display = '';
+  } else {
+    status.textContent = 'Erreur : ' + (data.error || 'échec upload');
+    status.style.color = '#e74c3c';
+  }
+  input.value = '';
+}
+
+function clearLookbook() {
+  document.getElementById('brand-lookbook').value = '';
+  document.getElementById('brand-lookbook-status').textContent = '';
+  document.getElementById('brand-lookbook-clear').style.display = 'none';
+  document.getElementById('brand-lookbook-file').value = '';
+}
+
 function clearBrandImg(hiddenId, previewId, clearBtnId) {
   document.getElementById(hiddenId).value = '';
   const thumb = document.getElementById(hiddenId + '-thumb');
@@ -1485,6 +1526,9 @@ function resetBrandModal() {
   document.getElementById('brand-about').value = '';
   document.getElementById('brand-moq-qty').value = '';
   document.getElementById('brand-moq-amount').value = '';
+  document.getElementById('brand-lookbook').value = '';
+  document.getElementById('brand-lookbook-status').textContent = '';
+  document.getElementById('brand-lookbook-clear').style.display = 'none';
   ['brand-logo', 'brand-cover'].forEach(id => {
     const thumb = document.getElementById(id + '-thumb');
     if (thumb) thumb.src = '';
@@ -1493,6 +1537,7 @@ function resetBrandModal() {
   });
   document.getElementById('brand-logo-file').value = '';
   document.getElementById('brand-cover-file').value = '';
+  document.getElementById('brand-lookbook-file').value = '';
 }
 
 function openBrandModal() {
@@ -1524,6 +1569,13 @@ function editBrand(b) {
   document.getElementById('brand-about').value = b.about_text || '';
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
+  if (b.lookbook_url) {
+    document.getElementById('brand-lookbook').value = b.lookbook_url;
+    const fname = b.lookbook_url.split('/').pop().split('?')[0];
+    document.getElementById('brand-lookbook-status').textContent = '✓ ' + fname;
+    document.getElementById('brand-lookbook-status').style.color = 'var(--accent)';
+    document.getElementById('brand-lookbook-clear').style.display = '';
+  }
   document.getElementById('modal-brand-title').textContent = t('js_edit_brand_title');
   openModal('modal-brand');
 }
@@ -1540,7 +1592,8 @@ async function saveBrand() {
     cgv_text: document.getElementById('brand-cgv').value.trim(),
     about_text: document.getElementById('brand-about').value.trim(),
     moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
-    moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0
+    moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0,
+    lookbook_url: document.getElementById('brand-lookbook').value
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';

@@ -751,6 +751,9 @@ async function openBrand(brandId) {
   if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(t('moq_amount', Number(currentBrand.moq_amount).toFixed(2)));
   const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
   const aboutHtml = currentBrand.about_text ? `<p class="brand-banner-about">${esc(currentBrand.about_text)}</p>` : '';
+  const lookbookHtml = currentBrand.lookbook_url
+    ? `<a href="${esc(currentBrand.lookbook_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius:4px;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
+    : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}">` : '';
 
@@ -761,6 +764,7 @@ async function openBrand(brandId) {
         <h2 class="section-title" style="margin-bottom:10px">${esc(currentBrand.name)}</h2>
         ${aboutHtml}
         ${moqHtml}
+        ${lookbookHtml}
         ${cgvHtml}
       </div>
     </div>

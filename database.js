@@ -28,6 +28,7 @@ async function init() {
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_price_id TEXT DEFAULT '';
     ALTER TABLE brands ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT DEFAULT '';
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS lookbook_url TEXT DEFAULT '';
   `).catch(() => {});
 
   await pool.query(`

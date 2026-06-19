@@ -262,18 +262,18 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 });
 
 app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text } = req.body;
+  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text, lookbook_url } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount,about_text) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'']);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,cgv_text,moq_qty,moq_amount,about_text,lookbook_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+    [id, name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'']);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text } = req.body;
-  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7, about_text=$8 WHERE id=$9',
-    [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', req.params.id]);
+  const { name, logo_url, logo, cover_image, cgv_text, moq_qty, moq_amount, about_text, lookbook_url } = req.body;
+  await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, cgv_text=$5, moq_qty=$6, moq_amount=$7, about_text=$8, lookbook_url=$9 WHERE id=$10',
+    [name, logo_url||'', logo||'', cover_image||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', req.params.id]);
   res.json({ ok: true });
 });
 
@@ -450,6 +450,23 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.si
       folder: 'showroom/uploads',
       public_id: slug,
       transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto' }]
+    });
+    res.json({ url: result.secure_url });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+const uploadPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+app.post('/api/upload-pdf', requireRole('owner','agent'), uploadPdf.single('pdf'), async (req, res) => {
+  try {
+    if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Fichier PDF requis' });
+    const base64 = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
+    const slug = `lookbook-${Date.now()}`;
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: 'showroom/lookbooks',
+      public_id: slug,
+      resource_type: 'raw'
     });
     res.json({ url: result.secure_url });
   } catch(e) {
@@ -691,7 +708,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/public/brands', async (req, res) => {
-  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
+  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, lookbook_url FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
   res.json(r.rows);
 });
 
@@ -896,12 +913,12 @@ app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
 });
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
-  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, cgv_text, moq_qty, moq_amount FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
+  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, cgv_text, moq_qty, moq_amount, lookbook_url FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
   res.json(r.rows);
 });
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
-  const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, about_text, cgv_text, moq_qty, moq_amount, subscription_status FROM brands WHERE id=$1", [req.params.brandId]);
+  const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url FROM brands WHERE id=$1", [req.params.brandId]);
   if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   res.json({ brand: b.rows[0], products: p.rows });
