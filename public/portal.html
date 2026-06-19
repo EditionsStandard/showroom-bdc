@@ -670,7 +670,7 @@ function applyLang() {
   </div>
   <div class="drawer-body">
     <div class="drawer-gallery" id="drawer-gallery">
-      <img id="drawer-img-main" class="drawer-gallery-main" src="" alt="">
+      <img id="drawer-img-main" class="drawer-gallery-main" src="" alt="" onclick="openCarousel(drawerImgs,drawerImgIdx)" style="cursor:zoom-in">
       <button class="drawer-gallery-nav drawer-gallery-prev" id="drawer-prev" onclick="drawerNav(-1)">‹</button>
       <button class="drawer-gallery-nav drawer-gallery-next" id="drawer-next" onclick="drawerNav(1)">›</button>
       <div class="drawer-gallery-dots" id="drawer-dots"></div>
@@ -712,6 +712,7 @@ let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
 const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
 let favorites = new Set(); // product IDs
+let recentlyViewed = []; // [{id, brand_id, reference, description, color, price, image_url}]
 let ordersData = []; // cached for re-sort
 let globalSearchResults = []; // cached cross-brand results
 
@@ -869,6 +870,7 @@ async function handleQrParams() {
 
 async function init() {
   loadFavs();
+  loadRecentlyViewed();
   renderBrandSkeletons();
   const meRes = await fetch('/api/portal/me');
   if (meRes.status === 401) { window.location.replace('/editions-showroom-b2b-portail'); return; }
@@ -1061,11 +1063,16 @@ async function openBrand(brandId) {
     </div>
     <div id="collection-filters" class="collection-filters"></div>
     <div id="category-filters" class="collection-filters"></div>
+    <div id="recently-viewed-section" style="display:none;padding:12px 0 0"></div>
     <div id="products-list" class="products-grid"></div>`;
-  activeCollections = new Set(['__all__']);
-  activeCategories = new Set(['__all__']);
+  const hadSavedFilters = restoreFilters(brandId);
+  if (!hadSavedFilters) {
+    activeCollections = new Set(['__all__']);
+    activeCategories = new Set(['__all__']);
+  }
   buildCollectionFilters(currentProducts);
   buildCategoryFilters(currentProducts);
+  renderRecentlyViewed();
   applyProductFilters();
 }
 
@@ -1153,6 +1160,7 @@ function applyProductFilters() {
     return (a.reference||'').localeCompare(b.reference||''); // default: ref A-Z
   });
   renderProductsList(filtered);
+  if (currentBrand) saveFilters(currentBrand.id);
 }
 
 function closeBrand() {
@@ -1277,12 +1285,35 @@ let moqBlocked = false;
     const moqQty = parseInt(brand?.moq_qty) || 0;
     const moqAmount = parseFloat(brand?.moq_amount) || 0;
     let moqWarnHtml = '';
-    if ((moqQty > 0 && brandQty < moqQty) || (moqAmount > 0 && brandTotal < moqAmount)) {
-      moqBlocked = true;
-      const parts = [];
-      if (moqQty > 0 && brandQty < moqQty) parts.push(t('moq_warn_qty', moqQty, brandQty));
-      if (moqAmount > 0 && brandTotal < moqAmount) parts.push(t('moq_warn_amt', moqAmount.toFixed(2), brandTotal.toFixed(2)));
-      moqWarnHtml = `<div class="msg error" style="margin-top:8px">⚠ ${esc(lines[0].brand_name)} : ${parts.join(' — ')}</div>`;
+    if (moqQty > 0 || moqAmount > 0) {
+      const bars = [];
+      if (moqQty > 0) {
+        const pct = Math.min(100, Math.round(brandQty / moqQty * 100));
+        const ok = brandQty >= moqQty;
+        if (!ok) moqBlocked = true;
+        bars.push(`<div style="margin-top:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
+            <span>Minimum pièces</span><span>${brandQty} / ${moqQty}</span>
+          </div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${ok?'var(--accent)':'#e55'};border-radius:2px;transition:width .3s"></div>
+          </div>
+        </div>`);
+      }
+      if (moqAmount > 0) {
+        const pct = Math.min(100, Math.round(brandTotal / moqAmount * 100));
+        const ok = brandTotal >= moqAmount;
+        if (!ok) moqBlocked = true;
+        bars.push(`<div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
+            <span>Minimum montant</span><span>${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)}</span>
+          </div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${ok?'var(--accent)':'#e55'};border-radius:2px;transition:width .3s"></div>
+          </div>
+        </div>`);
+      }
+      moqWarnHtml = bars.join('');
     }
     return `<div style="margin-bottom:24px">
       <div style="font-family:var(--dot),monospace;font-size:13px;color:var(--accent);margin-bottom:10px;letter-spacing:.04em">${esc(lines[0].brand_name)}</div>
@@ -1612,6 +1643,59 @@ function toggleFav(productId) {
 function saveFavs() { try { localStorage.setItem('portal_favs', JSON.stringify([...favorites])); } catch(e) {} }
 function loadFavs() { try { const d = localStorage.getItem('portal_favs'); if (d) favorites = new Set(JSON.parse(d)); } catch(e) {} }
 
+function trackRecentlyViewed(p) {
+  if (!p) return;
+  recentlyViewed = recentlyViewed.filter(x => x.id !== p.id);
+  recentlyViewed.unshift({ id: p.id, brand_id: p.brand_id || currentBrand?.id, brand_name: currentBrand?.name || '', reference: p.reference, description: p.description, color: p.color, price: p.price, image_url: p.image_url });
+  if (recentlyViewed.length > 12) recentlyViewed = recentlyViewed.slice(0, 12);
+  try { localStorage.setItem('portal_recently_viewed', JSON.stringify(recentlyViewed)); } catch(e) {}
+  renderRecentlyViewed();
+}
+function loadRecentlyViewed() {
+  try { const d = localStorage.getItem('portal_recently_viewed'); if (d) recentlyViewed = JSON.parse(d); } catch(e) {}
+}
+function renderRecentlyViewed() {
+  const el = document.getElementById('recently-viewed-section');
+  if (!el) return;
+  const items = recentlyViewed.filter(x => x.brand_id === currentBrand?.id);
+  if (!items.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">Récemment vus</div>
+  <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+    ${items.map(p => `<div onclick="openProductDrawer('${p.id}')" style="flex-shrink:0;cursor:pointer;width:80px">
+      <div style="width:80px;height:100px;background:#fff;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
+        ${p.image_url ? `<img src="${esc(p.image_url)}" style="width:100%;height:100%;object-fit:contain" loading="lazy">` : `<div style="width:100%;height:100%;background:var(--mid)"></div>`}
+      </div>
+      <div style="font-size:10px;font-family:var(--dot),monospace;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(p.reference)}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function saveFilters(brandId) {
+  try {
+    localStorage.setItem('portal_filters_' + brandId, JSON.stringify({
+      collections: [...activeCollections],
+      categories: [...activeCategories],
+      sort: document.getElementById('sort-select')?.value || '',
+      priceMin: document.getElementById('price-min')?.value || '',
+      priceMax: document.getElementById('price-max')?.value || ''
+    }));
+  } catch(e) {}
+}
+function restoreFilters(brandId) {
+  try {
+    const d = localStorage.getItem('portal_filters_' + brandId);
+    if (!d) return false;
+    const f = JSON.parse(d);
+    activeCollections = new Set(f.collections || ['__all__']);
+    activeCategories = new Set(f.categories || ['__all__']);
+    if (f.sort && document.getElementById('sort-select')) document.getElementById('sort-select').value = f.sort;
+    if (f.priceMin && document.getElementById('price-min')) document.getElementById('price-min').value = f.priceMin;
+    if (f.priceMax && document.getElementById('price-max')) document.getElementById('price-max').value = f.priceMax;
+    return true;
+  } catch(e) { return false; }
+}
+
 async function renderFavs() {
   const el = document.getElementById('favs-list');
   if (!favorites.size) { el.innerHTML = `<p class="msg" style="color:var(--muted)">Aucun favori pour l'instant. Cliquez sur ♡ sur un produit.</p>`; return; }
@@ -1780,6 +1864,7 @@ function openProductDrawer(productId) {
   const p = currentProducts.find(x => x.id === productId);
   if (!p) return;
   fetch(`/api/portal/stats/view/${productId}`, { method: 'POST' }).catch(() => {});
+  trackRecentlyViewed(p);
   drawerProduct = p;
   drawerImgIdx = 0;
   let imgs = [];
