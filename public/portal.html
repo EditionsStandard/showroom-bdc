@@ -217,6 +217,10 @@ const TRANSLATIONS = {
   fr: {
     nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_logout: '⏻ Déconnexion',
+    all_collections: 'Toutes collections', all_categories: 'Toutes catégories',
+    cgv_section_title: 'Conditions générales de vente',
+    prof_name_required: 'Nom requis.', prof_saved: 'Profil mis à jour ✓',
+    pw_fields_required: 'Tous les champs sont requis.', pw_saved: 'Mot de passe mis à jour ✓',
     back_catalog: '← Retour au catalogue', back_brands: '← Toutes les marques',
     cart_title: 'Ma sélection', cart_btn: 'Voir ma sélection →',
     ck_name: 'Nom complet *', ck_company: 'Société', ck_phone: 'Téléphone', ck_country: 'Pays',
@@ -247,6 +251,10 @@ const TRANSLATIONS = {
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_logout: '⏻ Log out',
+    all_collections: 'All collections', all_categories: 'All categories',
+    cgv_section_title: 'Terms & Conditions',
+    prof_name_required: 'Name required.', prof_saved: 'Profile updated ✓',
+    pw_fields_required: 'All fields are required.', pw_saved: 'Password updated ✓',
     back_catalog: '← Back to catalogue', back_brands: '← All brands',
     cart_title: 'My selection', cart_btn: 'View my selection →',
     ck_name: 'Full name *', ck_company: 'Company', ck_phone: 'Phone', ck_country: 'Country',
@@ -661,6 +669,7 @@ function showView(view) {
   document.getElementById('view-success').style.display = 'none';
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
+  document.getElementById('nav-profile').classList.toggle('active', view === 'account');
   document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).length) ? 'flex' : (view === 'cart' ? 'none' : document.getElementById('cart-bar').style.display);
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
@@ -684,7 +693,7 @@ async function saveProfile() {
   const phone = document.getElementById('prof-phone').value.trim();
   const country = document.getElementById('prof-country').value.trim();
   const msg = document.getElementById('prof-msg');
-  if (!name) { msg.innerHTML = '<span style="color:#e74c3c">Le nom est requis.</span>'; return; }
+  if (!name) { msg.innerHTML = `<span style="color:#e74c3c">${t('prof_name_required')}</span>`; return; }
   const r = await fetch('/api/portal/update-profile', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, company, phone, country })
@@ -695,14 +704,14 @@ async function saveProfile() {
   document.getElementById('user-avatar').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('dd-name').textContent = name;
   document.getElementById('dd-company').textContent = company;
-  msg.innerHTML = '<span style="color:var(--accent)">Profil mis à jour ✓</span>';
+  msg.innerHTML = `<span style="color:var(--accent)">${t('prof_saved')}</span>`;
 }
 
 async function changePassword() {
   const currentPassword = document.getElementById('pw-current').value;
   const newPassword = document.getElementById('pw-new').value;
   const msg = document.getElementById('pw-msg');
-  if (!currentPassword || !newPassword) { msg.innerHTML = '<div class="msg error">Tous les champs sont requis.</div>'; return; }
+  if (!currentPassword || !newPassword) { msg.innerHTML = `<div class="msg error">${t('pw_fields_required')}</div>`; return; }
   const r = await fetch('/api/portal/change-password', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentPassword, newPassword })
@@ -710,7 +719,7 @@ async function changePassword() {
   if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
   document.getElementById('pw-current').value = '';
   document.getElementById('pw-new').value = '';
-  msg.innerHTML = '<div class="msg">Mot de passe mis à jour ✓</div>';
+  msg.innerHTML = `<div class="msg">${t('pw_saved')}</div>`;
 }
 
 function renderBrandPicker() {
@@ -747,7 +756,7 @@ async function openBrand(brandId) {
   if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(t('moq_amount', Number(currentBrand.moq_amount).toFixed(2)));
   const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
   const aboutHtml = currentBrand.about_text ? `<p class="brand-banner-about">${esc(currentBrand.about_text)}</p>` : '';
-  const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">Conditions générales de vente <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
+  const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}">` : '';
 
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
@@ -782,7 +791,7 @@ function buildCollectionFilters(products) {
   if (collections.length <= 2) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = collections.map(c =>
-    `<button class="col-filter${c === activeCollection ? ' active' : ''}" data-col="${esc(c)}">${c === '__all__' ? 'Toutes collections' : esc(c)}</button>`
+    `<button class="col-filter${c === activeCollection ? ' active' : ''}" data-col="${esc(c)}">${c === '__all__' ? t('all_collections') : esc(c)}</button>`
   ).join('');
   bar.onclick = e => {
     const btn = e.target.closest('.col-filter');
@@ -799,7 +808,7 @@ function buildCategoryFilters(products) {
   if (categories.length <= 2) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = categories.map(c =>
-    `<button class="col-filter${c === activeCategory ? ' active' : ''}" data-cat="${esc(c)}">${c === '__all__' ? 'Toutes catégories' : esc(c)}</button>`
+    `<button class="col-filter${c === activeCategory ? ' active' : ''}" data-cat="${esc(c)}">${c === '__all__' ? t('all_categories') : esc(c)}</button>`
   ).join('');
   bar.onclick = e => {
     const btn = e.target.closest('.col-filter');
@@ -975,7 +984,8 @@ function initSigCanvas() {
   const getPos = e => {
     const r = sigCanvas.getBoundingClientRect();
     const scaleX = sigCanvas.width / r.width;
-    return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleX };
+    const scaleY = sigCanvas.height / r.height;
+    return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
   };
   sigCanvas.onmousedown = e => { sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
   sigCanvas.onmousemove = e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); sigEmpty = false; };
@@ -1040,7 +1050,7 @@ async function loadOrders() {
     <div class="order-card">
       <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
       <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
-      <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${Number(o.total||0).toFixed(2)} €</div>
+      <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
       <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px">
