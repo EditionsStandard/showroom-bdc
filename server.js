@@ -413,6 +413,20 @@ app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.patch('/api/products/:id/prices', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    if (!await checkProductBrandScope(req, res)) return;
+    const fields = [];
+    const vals = [];
+    if (req.body.price !== undefined)        { fields.push(`price=$${vals.push(parseFloat(req.body.price)||0)}`); }
+    if (req.body.price_retail !== undefined) { fields.push(`price_retail=$${vals.push(parseFloat(req.body.price_retail)||0)}`); }
+    if (!fields.length) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+    vals.push(req.params.id);
+    await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
   try {
     if (!await checkProductBrandScope(req, res)) return;

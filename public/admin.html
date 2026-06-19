@@ -1193,6 +1193,7 @@ function esc(s) {
 }
 
 let currentBrandId = null;
+let currentBrandName = '';
 
 // Navigation
 document.querySelectorAll('nav a').forEach(a => {
@@ -1811,6 +1812,7 @@ async function printAllProductQR() {
 // Products
 async function loadProducts(brandId, brandName) {
   currentBrandId = brandId;
+  currentBrandName = brandName;
   document.getElementById('modal-products-title').textContent = brandName;
   document.getElementById('add-product-form').style.display = 'none';
   openModal('modal-products');
@@ -1900,8 +1902,8 @@ function renderProductsTable(products) {
       <td>${p.color||'—'}</td>
       <td>${p.category||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
-      <td>${Number(p.price).toFixed(2)} €</td>
-      <td>${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '—'}</td>
+      <td class="price-cell" onclick="inlineEditPrice('${p.id}','price',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap">${Number(p.price).toFixed(2)} €</td>
+      <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '— (cliquer)'}</td>
       <td>${imgThumb}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})' title="Modifier">✏️</button>
@@ -1918,6 +1920,45 @@ function renderProductsTable(products) {
 function toggleSelectAll(cb) {
   document.querySelectorAll('.product-checkbox').forEach(c => c.checked = cb.checked);
   updateBulkBar();
+}
+
+function inlineEditPrice(productId, field, cell) {
+  if (cell.querySelector('input')) return; // already editing
+  const current = parseFloat(cell.textContent) || 0;
+  const label = field === 'price_retail' ? 'Prix retail conseillé' : 'Prix wholesale HT';
+  cell.innerHTML = `<input type="number" step="0.01" min="0" value="${current.toFixed(2)}"
+    style="width:80px;background:var(--dark,#111);border:1px solid var(--accent,#CCEB3C);border-radius:3px;color:inherit;font-size:12px;padding:3px 6px;font-family:inherit"
+    onclick="event.stopPropagation()"
+    onkeydown="if(event.key==='Enter')event.target.blur();if(event.key==='Escape'){loadProducts(currentBrandId,currentBrandName);}"
+    onblur="saveInlinePrice('${productId}','${field}',this,event.target.closest('td'))">`;
+  cell.querySelector('input').focus();
+  cell.querySelector('input').select();
+}
+
+async function saveInlinePrice(productId, field, input, cell) {
+  const val = parseFloat(input.value) || 0;
+  try {
+    const r = await fetch(`/api/products/${productId}/prices`, { method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: val })
+    });
+    if (!r.ok) throw new Error();
+    // Update display
+    if (field === 'price_retail') {
+      cell.style.color = val > 0 ? '' : '#555';
+      cell.textContent = val > 0 ? val.toFixed(2) + ' €' : '— (cliquer)';
+    } else {
+      cell.textContent = val.toFixed(2) + ' €';
+    }
+    cell.title = 'Cliquer pour modifier';
+    cell.onclick = () => inlineEditPrice(productId, field, cell);
+    // Update the local cache
+    const p = productsCache.find(p => p.id === productId);
+    if (p) p[field] = val;
+  } catch(e) {
+    cell.textContent = 'Erreur';
+    setTimeout(() => loadProducts(currentBrandId, currentBrandName), 1000);
+  }
 }
 
 function updateBulkBar() {
