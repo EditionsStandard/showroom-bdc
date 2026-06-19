@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Editions Standard B2B Showroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,7 +62,7 @@
   .brand-cover-ph { width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
   .brand-info { padding: 18px 20px; }
   .brand-name { font-family: var(--dot), monospace; font-size: 19px; }
-  .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Inter', sans-serif; letter-spacing: .06em; }
+  .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Inter', sans-serif; letter-spacing: .06em; min-height: 44px; padding: 10px 0; display: inline-flex; align-items: center; }
   .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
   .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
   .brand-banner-cover { width: 100%; height: 260px; object-fit: cover; display: block; }
@@ -134,6 +134,7 @@
   .msg { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 4px; margin-top: 14px; }
   .msg.error { color: var(--accent); }
   .product-img { cursor: zoom-in; }
+  .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 10px; pointer-events: none; letter-spacing: .04em; }
   .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
   .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; }
@@ -157,34 +158,47 @@
 
   /* ── Responsive: mobile ── */
   @media (max-width: 640px) {
-    .header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; row-gap: 8px; }
+    /* Header : masquer la nav texte, garder uniquement logo + user-menu */
+    .header { padding: 12px 16px; }
+    .header .nav { display: none; }
     .header-left img { width: 30px; height: 30px; }
-    .header h1 { font-size: 18px; }
-    .header .nav { gap: 10px; font-size: 12px; flex-wrap: wrap; row-gap: 6px; }
-    .header .nav a.nav-home { padding-left: 10px; border-left: none; }
-    #currency-select { padding: 4px 8px; font-size: 11px; }
-    .wrap { padding: 18px 14px 90px; }
-    h2.section-title { font-size: 21px; margin-bottom: 16px; }
-    .brand-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-    .brand-cover, .brand-cover-ph { height: 130px; }
-    .brand-info { padding: 12px 14px; }
-    .brand-name { font-size: 15px; }
-    .products-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-    .product-img { height: 190px; }
-    .product-img-2 { height: 190px; }
-    .product-info { padding: 12px 14px; }
-    .product-ref { font-size: 14px; }
-    .product-desc { font-size: 12px; }
-    .qty-btn { width: 30px; height: 30px; }
-    .brand-banner-cover { height: 150px; }
-    .brand-banner-info { padding: 16px 18px; }
+    .header h1 { font-size: 17px; }
+    /* Remettre le sélecteur devise visible sous le header si actif */
+    #currency-select { display: none !important; }
+    .wrap { padding: 16px 14px 100px; }
+    h2.section-title { font-size: 20px; margin-bottom: 14px; }
+    .brand-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .brand-cover, .brand-cover-ph { height: 120px; }
+    .brand-info { padding: 10px 12px; }
+    .brand-name { font-size: 13px; }
+    .products-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .product-img { height: 200px; }
+    .product-img-2 { height: 200px; }
+    .product-info { padding: 10px 12px; }
+    .product-ref { font-size: 13px; }
+    .product-desc { font-size: 11px; line-height: 1.5; }
+    .product-price { font-size: 14px; }
+    .qty-row { gap: 8px; margin-top: 10px; }
+    .qty-btn { width: 40px; height: 40px; font-size: 20px; border-radius: 6px; }
+    .brand-banner-cover { height: 140px; }
+    .brand-banner-info { padding: 14px 16px; }
     .search-bar { max-width: 100%; }
     .cart-bar { padding: 12px 16px; }
     .cart-bar strong { font-size: 16px; }
-    .cart-bar button { padding: 10px 16px; font-size: 11px; }
+    .cart-bar button { padding: 12px 18px; font-size: 12px; }
     .orders-grid { grid-template-columns: 1fr; }
-    #sig-canvas { height: 120px; }
+    #sig-canvas { height: 130px; }
     .img-nav { width: 44px; height: 64px; font-size: 30px; }
+    .checkout-layout { gap: 24px; }
+    .btn-confirm { max-width: 100%; }
+    .cgv-modal { max-height: 90vh; }
+  }
+
+  /* Très petits écrans : 1 colonne produits */
+  @media (max-width: 380px) {
+    .products-grid { grid-template-columns: 1fr; }
+    .brand-grid { grid-template-columns: 1fr; }
+    .product-img { height: 260px; }
   }
 </style>
 <script>
@@ -352,6 +366,8 @@ function applyLang() {
       <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
       <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
+      <div class="dropdown-sep"></div>
+      <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
       <div class="dropdown-sep"></div>
       <a id="dd-logout" class="dropdown-item danger" href="/portal-logout">⏻ Déconnexion</a>
     </div>
@@ -830,10 +846,14 @@ function renderProductsList(products) {
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];
     const imgsJson = esc(JSON.stringify(imgs));
+    const imgBadge = imgs.length > 1
+      ? `<span class="img-count-badge">${imgs.length} 📷</span>`
+      : '';
     const img = imgs[0]
       ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
           <img class="product-img product-img-1" src="${esc(imgs[0])}" alt="${esc(p.reference)}">
           ${imgs[1] ? `<img class="product-img-2" src="${esc(imgs[1])}" alt="">` : ''}
+          ${imgBadge}
          </div>`
       : `<div class="product-img"></div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
