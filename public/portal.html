@@ -150,6 +150,55 @@
   .img-dot.active { background: var(--accent); }
   .img-counter { color: var(--muted); font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
 
+  /* ── Badge nouveau ── */
+  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 10px; font-family: 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: 5; }
+
+  /* ── Sort toolbar ── */
+  .sort-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .sort-bar select { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; color: var(--soft); font-size: 12px; padding: 7px 12px; font-family: 'Space Mono', monospace; cursor: pointer; outline: none; transition: border-color .15s; }
+  .sort-bar select:focus { border-color: var(--accent); }
+  .price-range { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; }
+  .price-range input { width: 80px; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; color: var(--white); font-size: 12px; padding: 7px 10px; font-family: 'Inter', sans-serif; outline: none; }
+  .price-range input:focus { border-color: var(--accent); }
+  .view-toggle { display: flex; gap: 4px; margin-left: auto; }
+  .view-toggle button { background: none; border: 1px solid var(--border); border-radius: 4px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); transition: border-color .15s, color .15s; font-size: 16px; }
+  .view-toggle button.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── List view ── */
+  #products-list.list-view { grid-template-columns: 1fr !important; }
+  #products-list.list-view .product-card { display: flex; flex-direction: row; }
+  #products-list.list-view .product-img-wrap { width: 130px; min-width: 130px; height: 140px; flex-shrink: 0; }
+  #products-list.list-view .product-img { height: 140px; }
+  #products-list.list-view .product-img-2 { height: 140px; }
+  #products-list.list-view .product-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  #products-list.list-view .qty-row { flex-wrap: wrap; }
+  @media (max-width: 640px) { .view-toggle { display: none; } .price-range { display: none; } }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%) translateY(10px); background: var(--dark); border: 1px solid var(--accent); color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 20px; border-radius: 4px; z-index: 1000; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Global search ── */
+  .global-search-wrap { margin-bottom: 24px; max-width: 480px; position: relative; }
+  .global-search-wrap input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px 12px 42px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
+  .global-search-wrap input:focus { border-color: var(--accent); }
+  .global-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; pointer-events: none; }
+  .global-search-results { margin-top: 16px; }
+  .global-result-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s; }
+  .global-result-item:hover { border-color: var(--accent); }
+  .global-result-img { width: 48px; height: 56px; object-fit: contain; background: #fff; border-radius: 4px; flex-shrink: 0; }
+  .global-result-info { flex: 1; min-width: 0; }
+  .global-result-ref { font-family: var(--dot), monospace; font-size: 14px; }
+  .global-result-desc { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .global-result-brand { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .global-result-price { font-family: var(--dot), monospace; font-size: 14px; color: var(--accent); flex-shrink: 0; }
+
+  /* ── Favoris ── */
+  .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: background .15s; z-index: 5; }
+  .fav-btn:hover { background: rgba(0,0,0,.85); }
+  .fav-btn.active { color: #ff5c5c; }
+  #view-favs { display: none; }
+
   /* ── Skeleton loaders ── */
   @keyframes shimmer { from { background-position: -600px 0; } to { background-position: 600px 0; } }
   .skeleton { background: linear-gradient(90deg, var(--mid) 25%, var(--border) 50%, var(--mid) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; border-radius: 4px; }
@@ -422,6 +471,7 @@ function applyLang() {
       <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
+      <button class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
       <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
       <div class="dropdown-sep"></div>
       <a id="dd-logout" class="dropdown-item danger" href="/portal-logout">⏻ Déconnexion</a>
@@ -465,8 +515,24 @@ function applyLang() {
   </div>
 
   <div id="view-orders" style="display:none">
-    <h2 class="section-title">Mes commandes</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+      <h2 class="section-title" style="margin-bottom:0">Mes commandes</h2>
+      <select id="orders-sort" onchange="applySortOrders()" style="background:var(--dark);border:1px solid var(--border);border-radius:4px;color:var(--soft);font-size:12px;padding:7px 12px;font-family:'Space Mono',monospace;cursor:pointer;outline:none">
+        <option value="date-desc">Date ↓</option>
+        <option value="date-asc">Date ↑</option>
+        <option value="amount-desc">Montant ↓</option>
+        <option value="amount-asc">Montant ↑</option>
+        <option value="brand">Marque A–Z</option>
+        <option value="status">Statut</option>
+      </select>
+    </div>
     <div id="orders-list" class="loader">Chargement…</div>
+  </div>
+
+  <div id="view-favs" style="display:none">
+    <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
+    <h2 class="section-title">Mes favoris</h2>
+    <div id="favs-list"></div>
   </div>
 
   <div id="view-account" style="display:none;max-width:680px">
@@ -503,6 +569,9 @@ function applyLang() {
     <button id="success-back-btn" class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
   </div>
 </div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <!-- CGV Modal -->
 <div class="cgv-modal-overlay" id="cgv-modal">
@@ -543,7 +612,10 @@ function applyLang() {
     </div>
     <div id="drawer-thumbs" class="drawer-thumbs"></div>
     <div class="drawer-info">
-      <div class="drawer-ref" id="drawer-ref"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div class="drawer-ref" id="drawer-ref" style="margin-bottom:0"></div>
+        <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
+      </div>
       <div class="drawer-price" id="drawer-price"></div>
       <div id="drawer-color" class="drawer-meta"></div>
       <div id="drawer-composition" class="drawer-meta"></div>
@@ -574,6 +646,9 @@ let CART_KEY = 'portal_cart';
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
 const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
+let favorites = new Set(); // product IDs
+let ordersData = []; // cached for re-sort
+let globalSearchResults = []; // cached cross-brand results
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -640,14 +715,29 @@ function changeCurrency(code) {
   updateCartBar();
 }
 
+let cartSyncTimer;
 function saveCart() {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  clearTimeout(cartSyncTimer);
+  cartSyncTimer = setTimeout(() => {
+    fetch('/api/portal/cart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) }).catch(() => {});
+  }, 1200);
 }
 
 function restoreCart() {
   try {
     const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
     Object.entries(saved).forEach(([k, v]) => { if (v.qty > 0) cart[k] = v; });
+  } catch(e) {}
+}
+
+async function syncCartFromServer() {
+  try {
+    const serverCart = await fetch('/api/portal/cart').then(r => r.json());
+    // Merge: server wins for items not in local, local wins for items already present
+    Object.entries(serverCart).forEach(([k, v]) => { if (v.qty > 0 && !cart[k]) cart[k] = v; });
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    updateCartBar();
   } catch(e) {}
 }
 
@@ -713,12 +803,14 @@ async function handleQrParams() {
 }
 
 async function init() {
+  loadFavs();
   renderBrandSkeletons();
   const meRes = await fetch('/api/portal/me');
   if (meRes.status === 401) { window.location.replace('/editions-showroom-b2b-portail'); return; }
   me = await meRes.json();
   CART_KEY = 'portal_cart_' + (me.email || 'default');
   restoreCart();
+  syncCartFromServer();
   // Populate user menu
   const initials = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = initials;
@@ -745,10 +837,9 @@ async function init() {
 }
 
 function showView(view) {
-  document.getElementById('view-catalog').style.display = view === 'catalog' ? 'block' : 'none';
-  document.getElementById('view-cart').style.display = view === 'cart' ? 'block' : 'none';
-  document.getElementById('view-orders').style.display = view === 'orders' ? 'block' : 'none';
-  document.getElementById('view-account').style.display = view === 'account' ? 'block' : 'none';
+  ['catalog','cart','orders','account','favs'].forEach(v => {
+    document.getElementById('view-' + v).style.display = v === view ? 'block' : 'none';
+  });
   document.getElementById('view-success').style.display = 'none';
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
@@ -758,6 +849,7 @@ function showView(view) {
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
   if (view === 'account') fillProfileForm();
+  if (view === 'favs') renderFavs();
 }
 
 function fillProfileForm() {
@@ -833,7 +925,12 @@ function renderBrandPicker() {
         ${t('welcome_brands', allBrands.length)}
       </div>
     </div>
-    <div class="brand-grid">` +
+    <div class="global-search-wrap">
+      <span class="global-search-icon">🔍</span>
+      <input type="text" id="global-search-input" placeholder="${currentLang==='fr'?'Rechercher un produit dans tous les catalogues…':'Search across all brand catalogs…'}" oninput="onGlobalSearch(this.value)">
+    </div>
+    <div id="global-search-results" class="global-search-results"></div>
+    <div id="brand-grid-inner" class="brand-grid">` +
     allBrands.map(b => {
       const cover = b.cover_image ? `<img class="brand-cover" src="${esc(b.cover_image)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
       return `<div class="brand-card" onclick="openBrand('${b.id}')">${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
@@ -873,8 +970,28 @@ async function openBrand(brandId) {
         ${cgvHtml}
       </div>
     </div>
-    <div class="search-bar">
-      <input id="product-search" type="text" placeholder="${t('search_ph')}" oninput="applyProductFilters()">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="search-bar" style="margin-bottom:0;flex:1;min-width:200px;max-width:360px">
+        <input id="product-search" type="text" placeholder="${t('search_ph')}" oninput="applyProductFilters()">
+      </div>
+      <div class="view-toggle">
+        <button id="vt-grid" class="active" title="Grille" onclick="setProductView('grid')">⊞</button>
+        <button id="vt-list" title="Liste" onclick="setProductView('list')">☰</button>
+      </div>
+    </div>
+    <div class="sort-bar">
+      <select id="product-sort" onchange="applyProductFilters()">
+        <option value="ref">Réf. A–Z</option>
+        <option value="price-asc">Prix ↑</option>
+        <option value="price-desc">Prix ↓</option>
+        <option value="newest">Nouveautés</option>
+      </select>
+      <div class="price-range">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em">Prix</span>
+        <input id="price-min" type="number" placeholder="Min" min="0" oninput="applyProductFilters()">
+        <span>–</span>
+        <input id="price-max" type="number" placeholder="Max" min="0" oninput="applyProductFilters()">
+      </div>
     </div>
     <div id="collection-filters" class="collection-filters"></div>
     <div id="category-filters" class="collection-filters"></div>
@@ -935,22 +1052,27 @@ function buildCategoryFilters(products) {
 
 function applyProductFilters() {
   const q = (document.getElementById('product-search')?.value || '').toLowerCase();
+  const minP = parseFloat(document.getElementById('price-min')?.value) || 0;
+  const maxP = parseFloat(document.getElementById('price-max')?.value) || Infinity;
+  const sortVal = document.getElementById('product-sort')?.value || 'ref';
   let filtered = currentProducts;
-  if (activeCollection && activeCollection !== '__all__') {
-    filtered = filtered.filter(p => p.collection_name === activeCollection);
-  }
-  if (activeCategory && activeCategory !== '__all__') {
-    filtered = filtered.filter(p => p.category === activeCategory);
-  }
-  if (q) {
-    filtered = filtered.filter(p =>
-      (p.reference||'').toLowerCase().includes(q) ||
-      (p.description||'').toLowerCase().includes(q) ||
-      (p.color||'').toLowerCase().includes(q) ||
-      (p.collection_name||'').toLowerCase().includes(q) ||
-      (p.category||'').toLowerCase().includes(q)
-    );
-  }
+  if (activeCollection && activeCollection !== '__all__') filtered = filtered.filter(p => p.collection_name === activeCollection);
+  if (activeCategory && activeCategory !== '__all__') filtered = filtered.filter(p => p.category === activeCategory);
+  if (q) filtered = filtered.filter(p =>
+    (p.reference||'').toLowerCase().includes(q) ||
+    (p.description||'').toLowerCase().includes(q) ||
+    (p.color||'').toLowerCase().includes(q) ||
+    (p.collection_name||'').toLowerCase().includes(q) ||
+    (p.category||'').toLowerCase().includes(q)
+  );
+  if (minP > 0) filtered = filtered.filter(p => parseFloat(p.price||0) >= minP);
+  if (maxP < Infinity) filtered = filtered.filter(p => parseFloat(p.price||0) <= maxP);
+  filtered = filtered.slice().sort((a, b) => {
+    if (sortVal === 'price-asc') return parseFloat(a.price||0) - parseFloat(b.price||0);
+    if (sortVal === 'price-desc') return parseFloat(b.price||0) - parseFloat(a.price||0);
+    if (sortVal === 'newest') return new Date(b.created_at||0) - new Date(a.created_at||0);
+    return (a.reference||'').localeCompare(b.reference||''); // default: ref A-Z
+  });
   renderProductsList(filtered);
 }
 
@@ -960,25 +1082,31 @@ function closeBrand() {
   currentBrand = null;
 }
 
+let productViewMode = 'grid'; // 'grid' | 'list'
+
 function renderProductsList(products) {
   const list = products || currentProducts;
   const el = document.getElementById('products-list');
   if (!list.length) { el.innerHTML = `<p class="msg">${t('search_no_result')}</p>`; return; }
+  el.classList.toggle('list-view', productViewMode === 'list');
+  const nowMs = Date.now();
   el.innerHTML = list.map(p => {
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];
     const imgsJson = esc(JSON.stringify(imgs));
-    const imgBadge = imgs.length > 1
-      ? `<span class="img-count-badge">${imgs.length} 📷</span>`
-      : '';
+    const imgBadge = imgs.length > 1 ? `<span class="img-count-badge">${imgs.length} 📷</span>` : '';
+    const isNew = p.created_at && (nowMs - new Date(p.created_at).getTime()) < 30 * 24 * 3600 * 1000;
+    const isFav = favorites.has(p.id);
+    const badgeNew = isNew ? `<span class="badge-new">NEW</span>` : '';
+    const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="Ajouter aux favoris">${isFav?'♥':'♡'}</button>`;
     const img = imgs[0]
       ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
           <img class="product-img product-img-1" src="${esc(imgs[0])}" alt="${esc(p.reference)}" loading="lazy">
           ${imgs[1] ? `<img class="product-img-2" src="${esc(imgs[1])}" alt="" loading="lazy">` : ''}
-          ${imgBadge}
+          ${imgBadge}${badgeNew}${favBtn}
          </div>`
-      : `<div class="product-img"></div>`;
+      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${badgeNew}${favBtn}</div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
     const qtyHtml = sizes.length ? sizes.map(sz => {
@@ -1194,24 +1322,12 @@ async function submitCheckout() {
 }
 
 async function loadOrders() {
-  const data = await fetch('/api/portal/orders').then(r => r.json());
   const list = document.getElementById('orders-list');
+  list.innerHTML = `<p class="msg" style="color:var(--muted)">Chargement…</p>`;
+  const data = await fetch('/api/portal/orders').then(r => r.json());
   if (!data.length) { list.innerHTML = `<p class="msg">${t('orders_empty')}</p>`; return; }
-  const statusLabel = { confirmed: t('status_confirmed'), validated: t('status_validated'), cancelled: t('status_cancelled') };
-  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
-  list.className = 'orders-grid';
-  list.innerHTML = data.map(o => `
-    <div class="order-card">
-      <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
-      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
-      <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
-      <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
-      <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
-      <div style="display:flex;gap:14px;align-items:center;margin-top:10px">
-        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
-        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">${t('orders_pdf')}</a>
-      </div>
-    </div>`).join('');
+  ordersData = data;
+  applySortOrders();
 }
 
 async function toggleOrderLines(orderId) {
@@ -1234,6 +1350,166 @@ async function toggleOrderLines(orderId) {
       <span style="color:var(--white)">${Number(l.quantity * l.unit_price).toFixed(2)} €</span>
     </div>`).join('');
   btn.textContent = t('orders_hide');
+}
+
+// ── Toast ──────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, duration = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ── Copy ref ──────────────────────────────────────────
+function copyRef(ref) {
+  navigator.clipboard?.writeText(ref).then(() => showToast('✓ Référence copiée : ' + ref)).catch(() => showToast(ref));
+}
+
+// ── Vue liste / grille ────────────────────────────────
+function setProductView(mode) {
+  productViewMode = mode;
+  document.getElementById('vt-grid')?.classList.toggle('active', mode === 'grid');
+  document.getElementById('vt-list')?.classList.toggle('active', mode === 'list');
+  applyProductFilters();
+}
+
+// ── Favoris ───────────────────────────────────────────
+function toggleFav(productId) {
+  if (favorites.has(productId)) {
+    favorites.delete(productId);
+  } else {
+    favorites.add(productId);
+    showToast('♥ Ajouté aux favoris');
+  }
+  saveFavs();
+  // Refresh the heart button on the card without full re-render
+  const card = document.querySelector(`.product-card[data-pid="${productId}"] .fav-btn`);
+  if (card) { card.textContent = favorites.has(productId) ? '♥' : '♡'; card.classList.toggle('active', favorites.has(productId)); }
+  // If favs view open, refresh
+  if (document.getElementById('view-favs').style.display !== 'none') renderFavs();
+}
+
+function saveFavs() { try { localStorage.setItem('portal_favs', JSON.stringify([...favorites])); } catch(e) {} }
+function loadFavs() { try { const d = localStorage.getItem('portal_favs'); if (d) favorites = new Set(JSON.parse(d)); } catch(e) {} }
+
+async function renderFavs() {
+  const el = document.getElementById('favs-list');
+  if (!favorites.size) { el.innerHTML = `<p class="msg" style="color:var(--muted)">Aucun favori pour l'instant. Cliquez sur ♡ sur un produit.</p>`; return; }
+  el.innerHTML = `<p class="msg" style="color:var(--muted);margin-bottom:16px">Retrouvez ici les produits mis en favoris depuis n'importe quelle marque.</p>`;
+  // Group favorites by brand
+  const byBrand = {};
+  allBrands.forEach(b => { byBrand[b.id] = { name: b.name, products: [] }; });
+  // Fetch favorites products — try to use already-loaded products first
+  const favIds = [...favorites];
+  let found = [];
+  if (currentProducts.length) {
+    found = currentProducts.filter(p => favorites.has(p.id));
+  }
+  const loadedIds = new Set(found.map(p => p.id));
+  const missing = favIds.filter(id => !loadedIds.has(id));
+  if (missing.length) {
+    try {
+      const r = await fetch('/api/portal/favorites/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: missing })
+      });
+      if (r.ok) { const extra = await r.json(); found = found.concat(extra); }
+    } catch(e) {}
+  }
+  found.forEach(p => { if (byBrand[p.brand_id]) byBrand[p.brand_id].products.push(p); });
+  const html = Object.entries(byBrand).filter(([,b]) => b.products.length).map(([brandId, b]) =>
+    `<div style="margin-bottom:28px">
+      <div style="font-family:var(--dot),monospace;font-size:14px;color:var(--accent);margin-bottom:12px;letter-spacing:.04em">${esc(b.name)}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px">
+        ${b.products.map(p => {
+          let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
+          if (!imgs.length && p.image_url) imgs = [p.image_url];
+          return `<div style="background:var(--dark);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}');setTimeout(()=>openProductDrawer('${p.id}'),600)">
+            ${imgs[0] ? `<img src="${esc(imgs[0])}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
+            <div style="padding:12px 14px">
+              <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
+              <div style="font-size:12px;color:var(--soft);font-family:\'Inter\',sans-serif;margin-top:3px">${esc(p.color||'')}</div>
+              <div style="font-size:14px;color:var(--accent);font-family:var(--dot),monospace;margin-top:6px">${fmtPrice(p.price)}</div>
+              <button onclick="event.stopPropagation();toggleFav('${p.id}')" style="background:none;border:none;color:#ff5c5c;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">♥ Retirer</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`
+  ).join('');
+  el.innerHTML += html || `<p class="msg" style="color:var(--muted)">Produits non disponibles.</p>`;
+}
+
+// ── Tri commandes ─────────────────────────────────────
+function applySortOrders() {
+  if (!ordersData.length) return;
+  const sort = document.getElementById('orders-sort')?.value || 'date-desc';
+  const sorted = ordersData.slice().sort((a, b) => {
+    if (sort === 'date-desc') return new Date(b.created_at) - new Date(a.created_at);
+    if (sort === 'date-asc') return new Date(a.created_at) - new Date(b.created_at);
+    if (sort === 'amount-desc') return parseFloat(b.total||0) - parseFloat(a.total||0);
+    if (sort === 'amount-asc') return parseFloat(a.total||0) - parseFloat(b.total||0);
+    if (sort === 'brand') return (a.brand_name||'').localeCompare(b.brand_name||'');
+    if (sort === 'status') return (a.status||'').localeCompare(b.status||'');
+    return 0;
+  });
+  renderOrdersList(sorted);
+}
+
+function renderOrdersList(data) {
+  const list = document.getElementById('orders-list');
+  const statusLabel = { confirmed: t('status_confirmed'), validated: t('status_validated'), cancelled: t('status_cancelled') };
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  list.className = 'orders-grid';
+  list.innerHTML = data.map(o => `
+    <div class="order-card">
+      <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
+      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
+      <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
+      <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:10px">
+        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
+        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">${t('orders_pdf')}</a>
+      </div>
+    </div>`).join('');
+}
+
+// ── Recherche globale cross-marques ───────────────────
+let globalSearchTimer;
+function onGlobalSearch(val) {
+  clearTimeout(globalSearchTimer);
+  const resultsEl = document.getElementById('global-search-results');
+  if (!val.trim()) { if (resultsEl) resultsEl.innerHTML = ''; return; }
+  globalSearchTimer = setTimeout(() => runGlobalSearch(val.trim()), 280);
+}
+
+async function runGlobalSearch(q) {
+  const resultsEl = document.getElementById('global-search-results');
+  if (!resultsEl) return;
+  resultsEl.innerHTML = `<p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);padding:8px 0">Recherche…</p>`;
+  try {
+    const r = await fetch(`/api/portal/search?q=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    if (!data.length) { resultsEl.innerHTML = `<p class="msg" style="color:var(--muted)">${t('search_no_result')}</p>`; return; }
+    resultsEl.innerHTML = `<div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">${data.length} résultat${data.length>1?'s':''}</div>` +
+      data.map(p => {
+        let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
+        if (!imgs.length && p.image_url) imgs = [p.image_url];
+        return `<div class="global-result-item" onclick="openBrand('${p.brand_id}');setTimeout(()=>openProductDrawer('${p.id}'),600)">
+          ${imgs[0] ? `<img class="global-result-img" src="${esc(imgs[0])}" loading="lazy">` : '<div class="global-result-img" style="background:var(--mid)"></div>'}
+          <div class="global-result-info">
+            <div class="global-result-ref">${esc(p.reference)}</div>
+            <div class="global-result-desc">${esc(sentenceCase(p.description||''))}</div>
+            <div class="global-result-brand">${esc(p.brand_name||'')} ${p.color ? '· ' + esc(p.color) : ''}</div>
+          </div>
+          <div class="global-result-price">${fmtPrice(p.price)}</div>
+        </div>`;
+      }).join('');
+  } catch(e) { resultsEl.innerHTML = `<p class="msg error">${t('err_retry')}</p>`; }
 }
 
 // ── Carousel lightbox ─────────────────────────────────

@@ -1017,6 +1017,54 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query('SELECT cart_json FROM buyer_carts WHERE buyer_id=$1', [req.session.buyerPortal.id]);
+  res.json(r.rows[0] ? JSON.parse(r.rows[0].cart_json || '{}') : {});
+});
+
+app.post('/api/portal/cart', requireBuyerAuth, async (req, res) => {
+  const cartJson = JSON.stringify(req.body.cart || {});
+  await pool.query(
+    `INSERT INTO buyer_carts (buyer_id, cart_json, updated_at) VALUES ($1,$2,NOW())
+     ON CONFLICT (buyer_id) DO UPDATE SET cart_json=$2, updated_at=NOW()`,
+    [req.session.buyerPortal.id, cartJson]
+  );
+  res.json({ ok: true });
+});
+
+app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q || q.length < 2) return res.json([]);
+  try {
+    const like = `%${q}%`;
+    const r = await pool.query(`
+      SELECT p.id, p.reference, p.description, p.color, p.price, p.images, p.image_url, p.brand_id,
+             b.name as brand_name
+      FROM products p
+      JOIN brands b ON p.brand_id = b.id
+      WHERE p.active = 1
+        AND b.subscription_status != 'inactive'
+        AND (p.reference ILIKE $1 OR p.description ILIKE $1 OR p.color ILIKE $1)
+      ORDER BY p.reference
+      LIMIT 40
+    `, [like]);
+    res.json(r.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) => {
+  const ids = (req.body.ids || []).slice(0, 100);
+  if (!ids.length) return res.json([]);
+  try {
+    const r = await pool.query(
+      `SELECT p.id, p.reference, p.description, p.color, p.price, p.images, p.image_url, p.brand_id
+       FROM products p WHERE p.id = ANY($1) AND p.active = 1`,
+      [ids]
+    );
+    res.json(r.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
   try {
     const items = req.body.items || [];
