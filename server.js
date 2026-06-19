@@ -129,6 +129,13 @@ const loginLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+const emailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 5,
+  message: { error: 'Trop de demandes. Réessayez dans 1 heure.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // ==================== ADMIN ROUTES ====================
 
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
@@ -994,7 +1001,7 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
 });
 
 // Forgot / reset password (public endpoints — no auth required)
-app.post('/api/portal/forgot-password', async (req, res) => {
+app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
   const { email } = req.body || {};
   res.json({ ok: true }); // always succeed — don't reveal if email exists
   if (!email) return;
@@ -1035,7 +1042,7 @@ app.post('/api/portal/forgot-password', async (req, res) => {
   } catch (e) { console.error('forgot-password error:', e.message); }
 });
 
-app.post('/api/portal/reset-password', async (req, res) => {
+app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
   const { token, password } = req.body || {};
   if (!token || !password || password.length < 6)
     return res.json({ error: 'Données invalides.' });

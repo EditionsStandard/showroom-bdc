@@ -981,7 +981,7 @@ async function submitCheckout() {
 
   document.getElementById('btn-confirm-order').disabled = true;
   const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty }));
-  const buyer_signature = sigCanvas.toDataURL('image/png');
+  const buyer_signature = sigCanvas.toDataURL('image/jpeg', 0.7);
 
   try {
     const r = await fetch('/api/portal/checkout', {
