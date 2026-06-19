@@ -202,14 +202,9 @@
   }
 </style>
 <script>
-// Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash
 (function() {
-  function getTheme() {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
-    const h = new Date().getHours();
-    return (h >= 7 && h < 19) ? 'light' : 'dark';
-  }
-  document.documentElement.setAttribute('data-theme', getTheme());
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 })();
 
 // ── Translations ──────────────────────────────────────

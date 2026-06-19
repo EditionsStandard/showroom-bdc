@@ -254,9 +254,8 @@
   function getTheme() {
     const saved = localStorage.getItem('es-theme');
     if (saved) return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
-    const h = new Date().getHours();
-    return (h >= 7 && h < 19) ? 'light' : 'dark';
+    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return dark ? 'dark' : 'light';
   }
   function applyTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
