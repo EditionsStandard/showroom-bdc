@@ -1981,13 +1981,11 @@ async function generateOrderPDF(orderId) {
       doc.fillColor('#0a0a0a').font('Helvetica-Bold')
         .text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
 
+      rowY += rowH;
       if (line.note) {
-        rowY += rowH - 4;
         doc.fontSize(7.5).fillColor('#888').font('Helvetica-Oblique')
           .text(`Note : ${line.note}`, col.ref + 4, rowY, { width: 490 });
-        rowY += doc.heightOfString(`Note : ${line.note}`, { width: 490 }) + 6;
-      } else {
-        rowY += rowH;
+        rowY += doc.heightOfString(`Note : ${line.note}`, { width: 490 }) + 4;
       }
     });
 
