@@ -1676,7 +1676,7 @@ function saveFilters(brandId) {
     localStorage.setItem('portal_filters_' + brandId, JSON.stringify({
       collections: [...activeCollections],
       categories: [...activeCategories],
-      sort: document.getElementById('sort-select')?.value || '',
+      sort: document.getElementById('product-sort')?.value || '',
       priceMin: document.getElementById('price-min')?.value || '',
       priceMax: document.getElementById('price-max')?.value || ''
     }));
@@ -1689,7 +1689,7 @@ function restoreFilters(brandId) {
     const f = JSON.parse(d);
     activeCollections = new Set(f.collections || ['__all__']);
     activeCategories = new Set(f.categories || ['__all__']);
-    if (f.sort && document.getElementById('sort-select')) document.getElementById('sort-select').value = f.sort;
+    if (f.sort && document.getElementById('product-sort')) document.getElementById('product-sort').value = f.sort;
     if (f.priceMin && document.getElementById('price-min')) document.getElementById('price-min').value = f.priceMin;
     if (f.priceMax && document.getElementById('price-max')) document.getElementById('price-max').value = f.priceMax;
     return true;
