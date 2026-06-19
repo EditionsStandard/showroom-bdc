@@ -1017,6 +1017,105 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
+  try {
+    const items = req.body.items || [];
+    if (!items.length) return res.status(400).json({ error: 'Sélection vide' });
+    const buyer = req.session.buyerPortal;
+    const showroomName = await getSetting('showroom_name') || 'Showroom';
+    const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Group by brand
+    const byBrand = {};
+    items.forEach(l => { (byBrand[l.brand_id] = byBrand[l.brand_id] || { name: l.brand_name, lines: [] }).lines.push(l); });
+    const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
+
+    const pdf = await new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks = [];
+      doc.on('data', c => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const hTop = 50;
+      doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, 50, hTop + 2, { lineBreak: false });
+      doc.fontSize(9).fillColor('#888').font('Helvetica').text('Sélection acheteur — NON CONTRACTUEL', 50, hTop + 24, { lineBreak: false });
+      doc.fontSize(8).fillColor('#aaa').text(dateStr, 50, hTop + 36, { lineBreak: false });
+      doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+      const infoY = hTop + 64;
+      doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('ACHETEUR', 50, infoY);
+      doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(buyer.name || '', 50, infoY + 12);
+      doc.fontSize(9).fillColor('#555').font('Helvetica').text(buyer.email || '', 50, infoY + 26);
+      if (buyer.company) doc.text(buyer.company, 50, infoY + 38);
+
+      let rowY = infoY + 70;
+      const col = { ref: 50, desc: 145, color: 295, size: 345, qty: 390, total: 455 };
+      const colW = { ref: 90, desc: 145, color: 45, size: 40, qty: 30, total: 90 };
+
+      Object.values(byBrand).forEach(({ name: brandName, lines }) => {
+        if (rowY > 720) { doc.addPage(); rowY = 50; }
+        doc.rect(50, rowY, 495, 20).fillColor('#0a0a0a').fill();
+        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold').text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
+        rowY += 26;
+
+        doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+        doc.text('RÉFÉRENCE', col.ref, rowY, { width: colW.ref });
+        doc.text('DÉSIGNATION', col.desc, rowY, { width: colW.desc });
+        doc.text('COULEUR', col.color, rowY, { width: colW.color });
+        doc.text('TAILLE', col.size, rowY, { width: colW.size });
+        doc.text('QTÉ', col.qty, rowY, { width: colW.qty, align: 'right' });
+        doc.text('TOTAL HT', col.total, rowY, { width: colW.total, align: 'right' });
+        doc.moveTo(50, rowY + 12).lineTo(545, rowY + 12).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+        rowY += 18;
+
+        lines.forEach((l, i) => {
+          if (rowY > 750) { doc.addPage(); rowY = 50; }
+          const lineTotal = (l.qty * parseFloat(l.price || 0)).toFixed(2);
+          const descText = (l.description || '').slice(0, 55);
+          if (i % 2 === 0) doc.rect(50, rowY - 2, 495, 16).fillColor('#f7f7f7').fill();
+          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(l.reference || '', col.ref, rowY, { width: colW.ref });
+          doc.fillColor('#333').font('Helvetica').text(descText, col.desc, rowY, { width: colW.desc });
+          doc.fillColor('#555')
+            .text(l.color || '—', col.color, rowY, { width: colW.color })
+            .text(l.size || '—', col.size, rowY, { width: colW.size });
+          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(String(l.qty), col.qty, rowY, { width: colW.qty, align: 'right' });
+          doc.fillColor('#333').font('Helvetica').text(`${lineTotal} €`, col.total, rowY, { width: colW.total, align: 'right' });
+          rowY += 16;
+        });
+
+        const brandTotal = lines.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
+        doc.moveTo(380, rowY + 2).lineTo(545, rowY + 2).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+        rowY += 6;
+        doc.fontSize(8).fillColor('#555').font('Helvetica').text(`Sous-total ${brandName}`, col.ref, rowY, { width: 320 });
+        doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(`${brandTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+        rowY += 26;
+      });
+
+      if (rowY > 700) { doc.addPage(); rowY = 50; }
+      doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor('#333').lineWidth(1).stroke();
+      rowY += 10;
+      doc.rect(380, rowY, 165, 24).fillColor('#0a0a0a').fill();
+      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+        .text('TOTAL HT', 390, rowY + 6, { width: 80 })
+        .text(`${grandTotal.toFixed(2)} €`, 390, rowY + 6, { width: 145, align: 'right' });
+      rowY += 36;
+
+      doc.rect(50, rowY, 495, 36).fillColor('#fffde7').fill();
+      doc.fontSize(8).fillColor('#b8860b').font('Helvetica-Bold')
+        .text('⚠ DOCUMENT NON CONTRACTUEL', 60, rowY + 6, { width: 475, align: 'center' });
+      doc.fontSize(7.5).fillColor('#b8860b').font('Helvetica')
+        .text('Cette sélection ne constitue pas une commande ferme. Elle doit être validée et signée sur le portail.', 60, rowY + 18, { width: 475, align: 'center' });
+
+      doc.end();
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Selection-${Date.now()}.pdf"`);
+    res.send(pdf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Forgot / reset password (public endpoints — no auth required)
 app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
   const { email } = req.body || {};
