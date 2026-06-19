@@ -59,7 +59,8 @@
   <!-- Vue : connexion -->
   <div class="view active" id="view-login">
     <div id="login-error" style="display:none" class="alert alert-error" data-t="login_error">Email ou mot de passe incorrect.</div>
-    <form method="POST" action="/editions-showroom-b2b-portail">
+    <form method="POST" action="/editions-showroom-b2b-portail" id="login-form">
+      <input type="hidden" name="next" id="next-field" value="">
       <div class="field"><label data-t="email_label">Email</label><input type="email" name="email" autofocus data-tp="email_placeholder"></div>
       <div class="field"><label data-t="password_label">Mot de passe</label><input type="password" name="password" data-tp="password_placeholder"></div>
       <button class="btn" type="submit" data-t="login_btn">Connexion</button>
@@ -163,6 +164,12 @@ function showView(name) {
 // Afficher l'erreur de login si ?error dans l'URL
 if (location.search.includes('error')) {
   document.getElementById('login-error').style.display = 'block';
+}
+
+// Préserver le ?next= pour la redirection post-login (scan QR)
+const nextParam = new URLSearchParams(location.search).get('next');
+if (nextParam && nextParam.startsWith('/portal')) {
+  document.getElementById('next-field').value = nextParam;
 }
 
 // Si ?token= dans l'URL → vue de réinitialisation

@@ -278,7 +278,7 @@ app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
 app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
-  const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
+  const url = `${getBaseUrl(req)}/portal?brand=${req.params.id}`;
   const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
   res.json({ qr, url });
 });
@@ -342,7 +342,7 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('ow
   const { brandId, productId } = req.params;
   const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
-  const url = `${getBaseUrl(req)}/commande/${brandId}?product=${productId}`;
+  const url = `${getBaseUrl(req)}/portal?brand=${brandId}&add=${productId}`;
   const qr = await QRCode.toDataURL(url, { width: 400, margin: 2 });
   res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
 });
@@ -353,7 +353,7 @@ app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent','d
   const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
   const base = getBaseUrl(req);
   const items = await Promise.all(prods.rows.map(async p => {
-    const url = `${base}/commande/${req.params.brandId}?product=${p.id}`;
+    const url = `${base}/portal?brand=${req.params.brandId}&add=${p.id}`;
     const qr = await QRCode.toDataURL(url, { width: 300, margin: 1 });
     return { qr, url, reference: p.reference, collection: p.collection_name, color: p.color, price: p.price, price_retail: p.price_retail };
   }));
@@ -831,7 +831,8 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const buyer = r.rows[0];
   if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
     req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
-    return res.redirect('/portal');
+    const next = (req.body.next || '').replace(/[^a-zA-Z0-9?=&%_\-/]/g, '');
+    return res.redirect(next && next.startsWith('/portal') ? next : '/portal');
   }
   res.redirect('/editions-showroom-b2b-portail?error=1');
 });
@@ -840,7 +841,12 @@ app.get('/portal-logout', (req, res) => {
   req.session.destroy(() => res.redirect('/editions-showroom-b2b-portail'));
 });
 app.get('/portal', (req, res) => {
-  if (!req.session?.buyerPortal) return res.redirect('/editions-showroom-b2b-portail');
+  if (!req.session?.buyerPortal) {
+    const next = req.query.brand || req.query.add
+      ? '?next=' + encodeURIComponent(req.originalUrl)
+      : '';
+    return res.redirect('/editions-showroom-b2b-portail' + next);
+  }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');

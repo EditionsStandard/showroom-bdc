@@ -210,7 +210,7 @@ const TRANSLATIONS = {
     sig_label: 'Signature', sig_clear: 'Effacer',
     btn_confirm: 'Valider ma sélection',
     orders_title: 'Mes commandes', orders_loading: 'Chargement…', orders_empty: 'Aucune commande pour le moment.',
-    orders_see_detail: 'Voir le détail', orders_hide: 'Masquer', orders_pdf: '📄 PDF',
+    orders_see_detail: 'Voir le détail', orders_hide: 'Masquer', orders_pdf: '📄 PDF', orders_no_items: 'Aucun article.',
     status_confirmed: 'Reçue', status_validated: 'Validée', status_cancelled: 'Annulée',
     account_title: 'Mon profil', account_info: 'Informations personnelles', account_save: 'Enregistrer les modifications',
     account_pw: 'Changer le mot de passe', pw_current: 'Mot de passe actuel', pw_new: 'Nouveau mot de passe', pw_btn: 'Changer le mot de passe',
@@ -220,10 +220,13 @@ const TRANSLATIONS = {
     success_msg: (brands) => `Votre sélection a été transmise pour : <strong>${brands}</strong>.<br><br>Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`,
     welcome_sub: 'Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> marque${n>1?'s':''} disponible${n>1?'s':''}`,
-    search_ph: 'Rechercher une référence…',
+    search_ph: 'Rechercher une référence…', search_no_result: 'Aucune référence ne correspond.',
     cgv_modal_title: (brand) => `${brand} — Conditions générales de vente`,
     cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
     moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
+    moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
+    moq_warn_amt: (min, cur) => `minimum ${min} € HT (actuellement ${cur} €)`,
+    cart_subtotal: 'Sous-total :', cart_empty: 'Votre sélection est vide.',
     err_name: 'Nom requis.', err_cgv: 'Veuillez accepter les CGV.', err_sig: 'Signature requise.', err_empty: 'Sélection vide.', err_retry: 'Erreur, réessayez.',
     lang_btn: 'EN',
   },
@@ -237,7 +240,7 @@ const TRANSLATIONS = {
     sig_label: 'Signature', sig_clear: 'Clear',
     btn_confirm: 'Confirm my selection',
     orders_title: 'My orders', orders_loading: 'Loading…', orders_empty: 'No orders yet.',
-    orders_see_detail: 'View details', orders_hide: 'Hide', orders_pdf: '📄 PDF',
+    orders_see_detail: 'View details', orders_hide: 'Hide', orders_pdf: '📄 PDF', orders_no_items: 'No items.',
     status_confirmed: 'Received', status_validated: 'Validated', status_cancelled: 'Cancelled',
     account_title: 'My profile', account_info: 'Personal information', account_save: 'Save changes',
     account_pw: 'Change password', pw_current: 'Current password', pw_new: 'New password', pw_btn: 'Change password',
@@ -247,10 +250,13 @@ const TRANSLATIONS = {
     success_msg: (brands) => `Your selection has been sent for: <strong>${brands}</strong>.<br><br>You will receive a confirmation email for each brand. Please allow <strong>7 days</strong> to receive the final version, dated and signed by both parties.`,
     welcome_sub: 'Select a brand to browse its collection, add items and place your order.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> brand${n>1?'s':''} available`,
-    search_ph: 'Search by reference…',
+    search_ph: 'Search by reference…', search_no_result: 'No matching references.',
     cgv_modal_title: (brand) => `${brand} — Terms & Conditions`,
     cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
     moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
+    moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
+    moq_warn_amt: (min, cur) => `minimum ${min} € excl. tax (currently ${cur} €)`,
+    cart_subtotal: 'Subtotal:', cart_empty: 'Your selection is empty.',
     err_name: 'Name required.', err_cgv: 'Please accept the terms and conditions.', err_sig: 'Signature required.', err_empty: 'Selection is empty.', err_retry: 'Error, please try again.',
     lang_btn: 'FR',
   }
@@ -447,6 +453,8 @@ function applyLang() {
   <div class="img-counter" id="img-counter"></div>
 </div>
 
+<div id="qr-toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);font-family:'Space Mono',monospace;font-size:13px;font-weight:700;padding:12px 22px;border-radius:6px;z-index:200;letter-spacing:.04em;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s"></div>
+
 <div class="cart-bar" id="cart-bar" style="display:none">
   <div>
     <strong id="cart-total">0,00 €</strong>
@@ -550,6 +558,53 @@ function sentenceCase(s) {
   return s.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w)/g, c => c.toUpperCase());
 }
 
+function showQrToast(msg) {
+  const el = document.getElementById('qr-toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+  clearTimeout(el._tid);
+  el._tid = setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => { el.style.display = 'none'; }, 300);
+  }, 3000);
+}
+
+async function handleQrParams() {
+  const params = new URLSearchParams(location.search);
+  const brandId = params.get('brand');
+  const addId = params.get('add');
+  if (!brandId) return;
+  history.replaceState({}, '', '/portal');
+  await openBrand(brandId);
+  if (!addId) return;
+  const p = currentProducts.find(x => x.id === addId);
+  if (!p) return;
+  const sizes = (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+  const sz = sizes[0] || '';
+  const key = currentBrand.id + '|' + p.id + '|' + sz;
+  if (!cart[key]) cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: p.id, reference: p.reference, description: p.description, color: p.color, size: sz, qty: 0, price: p.price };
+  cart[key].qty += 1;
+  saveCart();
+  updateCartBar();
+  // Refresh displayed qty on the card
+  const elId = `qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const qdEl = document.getElementById(elId);
+  if (qdEl) { qdEl.textContent = cart[key].qty; qdEl.classList.add('active'); }
+  const label = currentLang === 'en' ? `${p.reference} added to selection ✓` : `${p.reference} ajouté à la sélection ✓`;
+  showQrToast(label);
+  // Scroll to product card and flash it
+  setTimeout(() => {
+    const el = document.querySelector(`.product-card[data-pid="${p.id}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.transition = 'box-shadow .3s';
+      el.style.boxShadow = '0 0 0 3px var(--accent)';
+      setTimeout(() => { el.style.boxShadow = ''; }, 2500);
+    }
+  }, 200);
+}
+
 async function init() {
   const meRes = await fetch('/api/portal/me');
   if (meRes.status === 401) { window.location.replace('/editions-showroom-b2b-portail'); return; }
@@ -567,6 +622,7 @@ async function init() {
   applyLang();
   renderBrandPicker();
   updateCartBar();
+  handleQrParams();
 
   const currencies = await fetch('/api/portal/currencies').then(r => r.json());
   if (currencies && currencies.length) {
@@ -670,8 +726,8 @@ async function openBrand(brandId) {
   container.style.display = 'block';
 
   const moqParts = [];
-  if (parseInt(currentBrand.moq_qty) > 0) moqParts.push(`Minimum ${currentBrand.moq_qty} pièces`);
-  if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(`Minimum ${Number(currentBrand.moq_amount).toFixed(2)} € HT`);
+  if (parseInt(currentBrand.moq_qty) > 0) moqParts.push(t('moq_pieces', currentBrand.moq_qty));
+  if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(t('moq_amount', Number(currentBrand.moq_amount).toFixed(2)));
   const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
   const aboutHtml = currentBrand.about_text ? `<p class="brand-banner-about">${esc(currentBrand.about_text)}</p>` : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">Conditions générales de vente <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
@@ -767,7 +823,7 @@ function closeBrand() {
 function renderProductsList(products) {
   const list = products || currentProducts;
   const el = document.getElementById('products-list');
-  if (!list.length) { el.innerHTML = '<p class="msg">Aucune référence ne correspond.</p>'; return; }
+  if (!list.length) { el.innerHTML = `<p class="msg">${t('search_no_result')}</p>`; return; }
   el.innerHTML = list.map(p => {
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
@@ -794,7 +850,7 @@ function renderProductsList(products) {
         <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
         <button class="qty-btn" onclick="changeQty('${p.id}','',1)">+</button></div>`;
     })();
-    return `<div class="product-card">
+    return `<div class="product-card" data-pid="${p.id}">
       ${img}
       <div class="product-info">
         <div class="product-ref">${esc(p.reference)}</div>
@@ -846,8 +902,8 @@ let moqBlocked = false;
     if ((moqQty > 0 && brandQty < moqQty) || (moqAmount > 0 && brandTotal < moqAmount)) {
       moqBlocked = true;
       const parts = [];
-      if (moqQty > 0 && brandQty < moqQty) parts.push(`minimum ${moqQty} pièces (actuellement ${brandQty})`);
-      if (moqAmount > 0 && brandTotal < moqAmount) parts.push(`minimum ${moqAmount.toFixed(2)} € HT (actuellement ${brandTotal.toFixed(2)} €)`);
+      if (moqQty > 0 && brandQty < moqQty) parts.push(t('moq_warn_qty', moqQty, brandQty));
+      if (moqAmount > 0 && brandTotal < moqAmount) parts.push(t('moq_warn_amt', moqAmount.toFixed(2), brandTotal.toFixed(2)));
       moqWarnHtml = `<div class="msg error" style="margin-top:8px">⚠ ${esc(lines[0].brand_name)} : ${parts.join(' — ')}</div>`;
     }
     return `<div style="margin-bottom:20px">
@@ -856,12 +912,12 @@ let moqBlocked = false;
         <span>${esc(l.reference)} ${l.size ? '— ' + esc(l.size) : ''} × ${l.qty}</span>
         <span>${fmtPrice(l.qty * parseFloat(l.price||0))}</span>
       </div>`).join('')}
-      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:6px">Sous-total : ${fmtPrice(brandTotal)}</div>
+      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:6px">${t('cart_subtotal')} ${fmtPrice(brandTotal)}</div>
       ${moqWarnHtml}
     </div>`;
   }).join('');
 
-  document.getElementById('cart-lines').innerHTML = linesHtml || '<p class="msg">Votre sélection est vide.</p>';
+  document.getElementById('cart-lines').innerHTML = linesHtml || `<p class="msg">${t('cart_empty')}</p>`;
   document.getElementById('btn-confirm-order').disabled = moqBlocked;
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
@@ -955,7 +1011,7 @@ async function submitCheckout() {
 async function loadOrders() {
   const data = await fetch('/api/portal/orders').then(r => r.json());
   const list = document.getElementById('orders-list');
-  if (!data.length) { list.innerHTML = '<p class="msg">Aucune commande pour le moment.</p>'; return; }
+  if (!data.length) { list.innerHTML = `<p class="msg">${t('orders_empty')}</p>`; return; }
   const statusLabel = { confirmed: t('status_confirmed'), validated: t('status_validated'), cancelled: t('status_cancelled') };
   const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
   list.className = 'orders-grid';
@@ -986,7 +1042,7 @@ async function toggleOrderLines(orderId) {
   el.style.display = 'block';
   const lines = await fetch('/api/portal/orders/' + orderId + '/lines').then(r => r.json());
   el.dataset.loaded = '1';
-  if (!lines.length) { el.innerHTML = `<span style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted)">${currentLang==='en'?'No items.':'Aucun article.'}</span>`; btn.textContent = t('orders_hide'); return; }
+  if (!lines.length) { el.innerHTML = `<span style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted)">${t('orders_no_items')}</span>`; btn.textContent = t('orders_hide'); return; }
   el.innerHTML = lines.map(l => `
     <div style="display:flex;justify-content:space-between;font-family:'Inter',sans-serif;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
       <span style="color:var(--soft)">${esc(l.reference)}${l.size ? ' — ' + esc(l.size) : ''} × ${l.quantity}</span>

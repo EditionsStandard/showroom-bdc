@@ -1591,7 +1591,7 @@ async function setSubscriptionStatus(status) {
   });
   closeModal('modal-billing');
   loadBrands();
-  toast('Statut mis à jour');
+  toast(t('js_status_updated'));
 }
 
 async function cancelBrandSubscription() {
@@ -1600,7 +1600,7 @@ async function cancelBrandSubscription() {
   if (r.error) { alert(r.error); return; }
   closeModal('modal-billing');
   loadBrands();
-  toast('Accès désactivé');
+  toast(t('js_link_deactivated'));
 }
 
 // ── Invite Link ────────────────────────────────────────
