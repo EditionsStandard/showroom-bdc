@@ -796,19 +796,17 @@ function calcMargin(ws, retail) {
 }
 
 function priceBlockHtml(ws, retail, compact = false) {
-  const margin = calcMargin(ws, retail);
-  const marginBadge = margin ? `<span class="price-margin">−${margin}%</span>` : '';
   if (compact) {
     const retailLine = retail > 0 ? `<span class="price-retail-val">PVC ${fmtPrice(retail)}</span>` : '';
     return `<div class="price-block">
       <span class="price-ws">${fmtPrice(ws)}</span>
-      ${retailLine}${marginBadge}
+      ${retailLine}
     </div>`;
   }
   const retailLine = retail > 0 ? `<span class="drawer-price-retail">PVC conseillé : ${fmtPrice(retail)}</span>` : '';
   return `<div class="drawer-price-block">
     <span class="drawer-price-ws">${fmtPrice(ws)}</span>
-    ${retailLine}${marginBadge}
+    ${retailLine}
   </div>`;
 }
 
