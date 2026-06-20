@@ -2341,11 +2341,11 @@ async function importCSV(input) {
         ? header.findIndex(h => h === 'collection_name' || h === 'collection')
         : header.findIndex(h => h === 'season'),
       reference: header.findIndex(h => h === 'reference' || h === 'ref' || h === 'sku'),
-      description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'product_name'),
+      description: header.findIndex(h => h === 'description' || h === 'designation' || h === 'product_name' || h === 'nom' || h === 'nom_produit' || h === 'name'),
       color: header.findIndex(h => h === 'color' || h === 'couleur' || h === 'finish' || h === 'coloris'),
       category: header.findIndex(h => h === 'category' || h === 'categorie' || h === 'type'),
       composition: header.findIndex(h => h === 'composition' || h === 'matiere' || h === 'matieres'),
-      sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille' || h === 'size'),
+      sizes: header.findIndex(h => h === 'sizes' || h === 'tailles' || h === 'taille' || h === 'size' || h === 'sizes_available' || h === 'tailles_disponibles'),
       price: header.findIndex(h => h === 'price' || h === 'prix' || h === 'prix_ht' || h === 'wholesale_price_eur' || h === 'wholesale_price' || h === 'prix_ws' || h === 'prix_achat'),
       price_retail: header.findIndex(h => h === 'price_retail' || h === 'retail_price' || h === 'retail' || h === 'prix_retail' || h === 'prix_public' || h === 'retail_price_eur' || h === 'pvc' || h === 'pvr' || h === 'rrp' || h === 'prix_conseille' || h === 'prix_de_vente_conseille' || h === 'prix_retail_conseille'),
       image_url: header.findIndex(h => h === 'image_url' || h === 'image' || h === 'photo' || h === 'image_file')
@@ -2370,7 +2370,7 @@ async function importCSV(input) {
         description: idx.description >= 0 ? cols[idx.description]?.trim() || '' : '',
         color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',
         category: idx.category >= 0 ? cols[idx.category]?.trim() || '' : '',
-        sizes: idx.sizes >= 0 ? cols[idx.sizes]?.trim() || '' : '',
+        sizes: idx.sizes >= 0 ? (cols[idx.sizes]?.trim() || '').replace(/\s*-\s*/g, ',').replace(/,+/g, ',').replace(/^,|,$/g, '') : '',
         price: idx.price >= 0 ? parseFloat((cols[idx.price]||'0').replace(',','.')) || 0 : 0,
         price_retail: idx.price_retail >= 0 ? parseFloat((cols[idx.price_retail]||'0').replace(',','.')) || 0 : 0,
         image_url: idx.image_url >= 0 ? cols[idx.image_url]?.trim() || '' : ''
