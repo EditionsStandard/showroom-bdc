@@ -1447,7 +1447,7 @@ async function loadBrands() {
     const coverHtml = b.cover_image
       ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius:8px 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
-    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,about_text:b.about_text||''}).replace(/'/g,"&#39;");
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,about_text:b.about_text||''}).replace(/'/g,"&#39;");
     const subBadge = {
       active: `<span class="badge" style="background:#1f3d1f;color:#5ec95e">${t('status_active_label')}</span>`,
       trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
