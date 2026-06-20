@@ -383,6 +383,19 @@ app.get('/api/brands/:brandId/products', requireBrandScope('owner','agent','desi
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
+  // Upsert: update existing product with same reference in this brand
+  const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [req.params.brandId, reference]);
+  if (existing.rows[0]) {
+    const eid = existing.rows[0].id;
+    const fields = [], vals = [];
+    const set = (col, val) => { if (val !== undefined && val !== null && val !== '') { fields.push(`${col}=$${vals.push(val)}`); } };
+    set('description', description); set('color', color); set('sizes', sizes);
+    set('price', price > 0 ? price : undefined); set('price_retail', price_retail > 0 ? price_retail : undefined);
+    set('image_url', image_url); set('collection_name', collection_name);
+    set('category', category); set('composition', composition);
+    if (fields.length) { vals.push(eid); await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals); }
+    return res.json({ id: eid, updated: true });
+  }
   const id = uuidv4();
   await pool.query(
     'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
