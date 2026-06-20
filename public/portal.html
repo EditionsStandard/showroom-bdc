@@ -691,6 +691,7 @@ function applyLang() {
         <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
       </div>
       <div id="drawer-price"></div>
+      <div id="drawer-collection" class="drawer-meta" style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)"></div>
       <div id="drawer-color" class="drawer-meta"></div>
       <div id="drawer-composition" class="drawer-meta"></div>
       <div class="drawer-desc" id="drawer-desc"></div>
@@ -1273,7 +1274,7 @@ function renderProductsPage() {
       <div class="product-info">
         <div class="product-ref" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" title="Voir la fiche produit">${esc(p.reference)}</div>
         <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer">${esc(sentenceCase(p.description))}</div>
-        <div class="product-meta">${esc(p.color||'')}</div>
+        ${p.color ? `<div class="product-meta">${esc(p.color)}</div>` : ''}
         ${priceBlockHtml(p.price, p.price_retail, true)}
         ${qtyHtml}
       </div>
@@ -1702,7 +1703,9 @@ function loadFavs() { try { const d = localStorage.getItem('portal_favs'); if (d
 function trackRecentlyViewed(p) {
   if (!p) return;
   recentlyViewed = recentlyViewed.filter(x => x.id !== p.id);
-  recentlyViewed.unshift({ id: p.id, brand_id: p.brand_id || currentBrand?.id, brand_name: currentBrand?.name || '', reference: p.reference, description: p.description, color: p.color, price: p.price, image_url: p.image_url });
+  let rvImgs = []; try { rvImgs = JSON.parse(p.images||'[]'); } catch(e) {}
+  const rvImg = rvImgs[0] || p.image_url || '';
+  recentlyViewed.unshift({ id: p.id, brand_id: p.brand_id || currentBrand?.id, brand_name: currentBrand?.name || '', reference: p.reference, description: p.description, color: p.color, price: p.price, price_retail: p.price_retail||0, image_url: rvImg });
   if (recentlyViewed.length > 12) recentlyViewed = recentlyViewed.slice(0, 12);
   try { localStorage.setItem('portal_recently_viewed', JSON.stringify(recentlyViewed)); } catch(e) {}
   renderRecentlyViewed();
@@ -1789,8 +1792,9 @@ async function renderFavs() {
             ${imgs[0] ? `<img src="${esc(imgs[0])}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
-              <div style="font-size:12px;color:var(--soft);font-family:\'Inter\',sans-serif;margin-top:3px">${esc(p.color||'')}</div>
-              <div style="font-size:14px;color:var(--accent);font-family:var(--dot),monospace;margin-top:6px">${fmtPrice(p.price)}</div>
+              ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
+              ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;margin-top:2px">${esc(p.color)}</div>` : ''}
+              <div style="margin-top:6px">${priceBlockHtml(p.price, p.price_retail, true)}</div>
               <button onclick="event.stopPropagation();toggleFav('${p.id}')" style="background:none;border:none;color:#ff5c5c;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">♥ Retirer</button>
             </div>
           </div>`;
@@ -1931,6 +1935,7 @@ function openProductDrawer(productId) {
   document.getElementById('drawer-brand-name').textContent = currentBrand?.name || '';
   document.getElementById('drawer-ref').textContent = p.reference || '';
   document.getElementById('drawer-price').innerHTML = priceBlockHtml(p.price, p.price_retail, false);
+  document.getElementById('drawer-collection').textContent = p.collection_name || '';
   document.getElementById('drawer-color').textContent = p.color ? `Coloris : ${p.color}` : '';
   document.getElementById('drawer-composition').textContent = p.composition ? `Composition : ${p.composition}` : '';
   document.getElementById('drawer-desc').textContent = sentenceCase(p.description || '');

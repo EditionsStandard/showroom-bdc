@@ -1295,7 +1295,7 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   try {
     const like = `%${q}%`;
     const r = await pool.query(`
-      SELECT p.id, p.reference, p.description, p.color, p.price, p.images, p.image_url, p.brand_id,
+      SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id,
              b.name as brand_name
       FROM products p
       JOIN brands b ON p.brand_id = b.id
@@ -1314,7 +1314,7 @@ app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) =>
   if (!ids.length) return res.json([]);
   try {
     const r = await pool.query(
-      `SELECT p.id, p.reference, p.description, p.color, p.price, p.images, p.image_url, p.brand_id
+      `SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id
        FROM products p WHERE p.id = ANY($1) AND p.active = 1`,
       [ids]
     );
