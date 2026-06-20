@@ -602,6 +602,39 @@ app.post('/api/public/appointments', async (req, res) => {
   res.json({ ok: true, id });
 });
 
+app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  const { brandId } = req.params;
+  const prods = await pool.query('SELECT id, description, color, category, composition FROM products WHERE brand_id=$1', [brandId]);
+  // Patterns: "Category: Top." / "Color: Black." / "Material: Cotton 100%." / "Matière: ..."
+  const extract = (text, ...keys) => {
+    for (const k of keys) {
+      const m = text.match(new RegExp(k + '\\s*:\\s*([^.]+)\\.?', 'i'));
+      if (m) return m[1].trim();
+    }
+    return null;
+  };
+  let updated = 0;
+  for (const p of prods.rows) {
+    const desc = p.description || '';
+    const newCategory   = (!p.category   || p.category   === '') ? extract(desc, 'Category', 'Catégorie', 'Type') : null;
+    const newColor      = (!p.color      || p.color      === '') ? extract(desc, 'Color', 'Couleur', 'Coloris', 'Finish') : null;
+    const newCompo      = (!p.composition|| p.composition=== '') ? extract(desc, 'Material', 'Matière', 'Composition', 'Fabric') : null;
+    if (!newCategory && !newColor && !newCompo) continue;
+    // Strip extracted info from description to avoid duplication
+    let cleanDesc = desc;
+    if (newCategory) cleanDesc = cleanDesc.replace(new RegExp('[. ]*Category\\s*:\\s*' + newCategory.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\.?', 'i'), '').trim();
+    if (newColor)    cleanDesc = cleanDesc.replace(new RegExp('[. ]*Colo(?:r|ur|ris)\\s*:\\s*' + newColor.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\.?', 'i'), '').trim();
+    if (newCompo)    cleanDesc = cleanDesc.replace(new RegExp('[. ]*(?:Material|Mati[eè]re|Composition|Fabric)\\s*:\\s*' + newCompo.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\.?', 'i'), '').trim();
+    cleanDesc = cleanDesc.replace(/\s{2,}/g, ' ').replace(/\.\s*\./g, '.').trim();
+    await pool.query(
+      'UPDATE products SET category=COALESCE(NULLIF($1,\'\'),category), color=COALESCE(NULLIF($2,\'\'),color), composition=COALESCE(NULLIF($3,\'\'),composition), description=$4 WHERE id=$5',
+      [newCategory||'', newColor||'', newCompo||'', cleanDesc, p.id]
+    );
+    updated++;
+  }
+  res.json({ ok: true, total: prods.rows.length, updated });
+});
+
 app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), upload.array('photos', 200), async (req, res) => {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);

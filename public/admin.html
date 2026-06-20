@@ -618,12 +618,14 @@
         🖼️ Import photos en lot
         <input type="file" id="bulk-photos-input" accept="image/*" multiple style="display:none" onchange="importBulkPhotos(this)">
       </label>
+      <button class="btn btn-secondary btn-sm" onclick="repairProductFields()" title="Extrait category/color/composition depuis la description si ces champs sont vides">🔧 Réparer les champs</button>
     </div>
     <div style="margin-bottom:16px">
       <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : <strong>reference</strong> (ref, sku) · <strong>description</strong> · <strong>color</strong> (couleur, coloris) · <strong>category</strong> (type) · <strong>composition</strong> · <strong>sizes</strong> (tailles) · <strong>price</strong> (prix, prix_ht, prix_ws, prix_achat) · <strong>price_retail</strong> (pvc, pvr, rrp, retail, prix_retail, prix_conseille) · <strong>image_url</strong> · <strong>collection_name</strong> (collection) — Les accents et majuscules sont ignorés.<br>Photos — nommer <code>REFERENCE_COULEUR.jpg</code> ou <code>REFERENCE.jpg</code></span>
     </div>
     <div id="bulk-photos-result" style="display:none;margin-bottom:12px"></div>
     <div id="csv-import-result" style="display:none;margin-bottom:12px"></div>
+    <div id="repair-result" style="display:none;margin-bottom:12px"></div>
 
     <div id="add-product-form" style="display:none">
       <h3 id="product-form-title" data-t="product_form_title_new">Nouvelle référence</h3>
@@ -1933,6 +1935,22 @@ function inlineEditPrice(productId, field, cell) {
     onblur="saveInlinePrice('${productId}','${field}',this,event.target.closest('td'))">`;
   cell.querySelector('input').focus();
   cell.querySelector('input').select();
+}
+
+async function repairProductFields() {
+  const resultDiv = document.getElementById('repair-result');
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = '<span style="color:#aaa;font-size:13px">Analyse en cours…</span>';
+  try {
+    const r = await fetch(`/api/brands/${currentBrandId}/repair-fields`, { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Erreur serveur');
+    resultDiv.innerHTML = `<span style="color:#2ecc71;font-size:13px">✅ ${data.updated} produit(s) corrigé(s) sur ${data.total}</span>`;
+    refreshProducts();
+    setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:#e74c3c;font-size:13px">❌ ${e.message}</span>`;
+  }
 }
 
 async function saveInlinePrice(productId, field, input, cell) {
