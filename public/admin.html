@@ -509,9 +509,25 @@
       <input type="hidden" id="brand-logo">
     </div>
 
-    <!-- Image d'accueil -->
+    <!-- Vignette (grille marques) -->
     <div class="form-group">
-      <label>Image d'accueil <span style="color:#555;font-weight:400;font-size:11px">(bannière affichée sur la page de commande)</span></label>
+      <label>Vignette <span style="color:#555;font-weight:400;font-size:11px">(image affichée dans la grille de sélection des marques)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          🖼️ Choisir image
+          <input type="file" id="brand-thumbnail-file" accept="image/*" style="display:none" onchange="handleBrandImg(this,'brand-thumbnail','brand-thumbnail-preview')">
+        </label>
+        <button class="btn btn-danger btn-sm" id="brand-thumbnail-clear" onclick="clearBrandImg('brand-thumbnail','brand-thumbnail-preview','brand-thumbnail-clear')" style="display:none">✕ Supprimer</button>
+      </div>
+      <div id="brand-thumbnail-preview" style="display:none;margin-top:6px">
+        <img id="brand-thumbnail-thumb" src="" style="max-height:100px;width:200px;object-fit:cover;border-radius:8px;border:1px solid #333">
+      </div>
+      <input type="hidden" id="brand-thumbnail">
+    </div>
+
+    <!-- Image de couverture (fiche marque) -->
+    <div class="form-group">
+      <label>Image de couverture <span style="color:#555;font-weight:400;font-size:11px">(bannière en haut de la fiche marque avec les produits)</span></label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
           🖼️ Choisir image
@@ -1525,6 +1541,7 @@ function resetBrandModal() {
   document.getElementById('brand-name').value = '';
   document.getElementById('brand-logo').value = '';
   document.getElementById('brand-cover').value = '';
+  document.getElementById('brand-thumbnail').value = '';
   document.getElementById('brand-cgv').value = '';
   document.getElementById('brand-about').value = '';
   document.getElementById('brand-moq-qty').value = '';
@@ -1532,14 +1549,17 @@ function resetBrandModal() {
   document.getElementById('brand-lookbook').value = '';
   document.getElementById('brand-lookbook-status').textContent = '';
   document.getElementById('brand-lookbook-clear').style.display = 'none';
-  ['brand-logo', 'brand-cover'].forEach(id => {
+  ['brand-logo', 'brand-cover', 'brand-thumbnail'].forEach(id => {
     const thumb = document.getElementById(id + '-thumb');
     if (thumb) thumb.src = '';
-    document.getElementById(id + '-preview').style.display = 'none';
-    document.getElementById(id + '-clear').style.display = 'none';
+    const preview = document.getElementById(id + '-preview');
+    if (preview) preview.style.display = 'none';
+    const clear = document.getElementById(id + '-clear');
+    if (clear) clear.style.display = 'none';
   });
   document.getElementById('brand-logo-file').value = '';
   document.getElementById('brand-cover-file').value = '';
+  document.getElementById('brand-thumbnail-file').value = '';
   document.getElementById('brand-lookbook-file').value = '';
 }
 
@@ -1560,6 +1580,13 @@ function editBrand(b) {
     document.getElementById('brand-logo-thumb').src = logoSrc;
     document.getElementById('brand-logo-preview').style.display = 'block';
     document.getElementById('brand-logo-clear').style.display = '';
+  }
+  // thumbnail
+  if (b.thumbnail) {
+    document.getElementById('brand-thumbnail').value = b.thumbnail;
+    document.getElementById('brand-thumbnail-thumb').src = b.thumbnail;
+    document.getElementById('brand-thumbnail-preview').style.display = 'block';
+    document.getElementById('brand-thumbnail-clear').style.display = '';
   }
   // cover
   if (b.cover_image) {
@@ -1591,6 +1618,7 @@ async function saveBrand() {
     name,
     logo_url: '',
     logo: document.getElementById('brand-logo').value,
+    thumbnail: document.getElementById('brand-thumbnail').value,
     cover_image: document.getElementById('brand-cover').value,
     cgv_text: document.getElementById('brand-cgv').value.trim(),
     about_text: document.getElementById('brand-about').value.trim(),

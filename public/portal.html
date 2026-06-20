@@ -1089,7 +1089,8 @@ function renderBrandPicker() {
     <div id="global-search-results" class="global-search-results"></div>
     <div id="brand-grid-inner" class="brand-grid">` +
     allBrands.map(b => {
-      const cover = b.cover_image ? `<img class="brand-cover" src="${esc(b.cover_image)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
+      const coverSrc = b.thumbnail || b.cover_image || '';
+      const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
       return `<div class="brand-card" onclick="openBrand('${b.id}')">${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
     }).join('') + '</div>';
 }
