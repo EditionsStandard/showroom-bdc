@@ -309,6 +309,7 @@
     <a data-section="staff" id="nav-staff" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
     <a data-section="stats" id="nav-stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
+    <a data-section="agenda" id="nav-agenda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
@@ -358,6 +359,13 @@
         <div class="num" id="stat-online"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;box-shadow:0 0 6px #4caf50;margin-right:4px;vertical-align:middle"></span><span id="stat-online-num">—</span></div>
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="margin:0">CA mensuel</h3>
+        <span id="chart-total" style="font-size:12px;color:#888"></span>
+      </div>
+      <div id="revenue-chart" style="display:flex;align-items:flex-end;gap:6px;height:80px;padding:0 4px"></div>
     </div>
     <div class="card">
       <h3 data-t="recent_orders">Dernières commandes</h3>
@@ -528,6 +536,29 @@
   </div>
 
   <!-- STATS -->
+  <div id="agenda" class="section">
+    <h1>Agenda — Rendez-vous</h1>
+    <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <select id="agenda-filter-brand" onchange="filterAgenda()" style="padding:6px 12px;font-size:13px;min-width:180px">
+        <option value="">Toutes les marques</option>
+      </select>
+      <select id="agenda-filter-status" onchange="filterAgenda()" style="padding:6px 12px;font-size:13px">
+        <option value="">Tous</option>
+        <option value="upcoming">À venir</option>
+        <option value="past">Passés</option>
+      </select>
+      <span id="agenda-count" style="font-size:12px;color:#555;margin-left:auto"></span>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table style="margin:0">
+        <thead><tr>
+          <th>Date</th><th>Heure</th><th>Marque</th><th>Client</th><th>Contact</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="agenda-body"><tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Chargement…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="stats" class="section">
     <h1>Statistiques produits</h1>
     <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -1331,6 +1362,7 @@ document.querySelectorAll('nav a').forEach(a => {
     if (a.dataset.section === 'staff') loadStaff();
     if (a.dataset.section === 'buyers') loadBuyers();
     if (a.dataset.section === 'stats') loadProductStats();
+    if (a.dataset.section === 'agenda') loadAgenda();
   });
 });
 
@@ -1435,6 +1467,47 @@ async function saveEditStaff() {
 
 let _buyersPresenceTimer = null;
 
+// ── Agenda ───────────────────────────────────────────────────────────
+let _allAgenda = [];
+async function loadAgenda() {
+  const data = await fetch('/api/admin/appointments').then(r => r.json()).catch(() => []);
+  _allAgenda = data;
+  const brands = [...new Set(data.map(a => a.brand_name))].sort();
+  const sel = document.getElementById('agenda-filter-brand');
+  sel.innerHTML = `<option value="">Toutes les marques</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+  filterAgenda();
+}
+function filterAgenda() {
+  const brand = document.getElementById('agenda-filter-brand').value;
+  const status = document.getElementById('agenda-filter-status').value;
+  const now = new Date();
+  let list = _allAgenda;
+  if (brand) list = list.filter(a => a.brand_name === brand);
+  if (status === 'upcoming') list = list.filter(a => new Date(a.slot_date + 'T' + a.slot_time) >= now);
+  if (status === 'past') list = list.filter(a => new Date(a.slot_date + 'T' + a.slot_time) < now);
+  document.getElementById('agenda-count').textContent = `${list.length} rendez-vous`;
+  document.getElementById('agenda-body').innerHTML = list.length ? list.map(a => {
+    const dt = new Date(a.slot_date + 'T' + a.slot_time);
+    const past = dt < now;
+    const dateStr = dt.toLocaleDateString('fr-FR', {weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+    return `<tr style="opacity:${past?'.5':'1'}">
+      <td>${dateStr}</td>
+      <td><strong>${a.slot_time}</strong></td>
+      <td style="font-size:12px">${esc(a.brand_name||'')}</td>
+      <td><strong>${esc(a.client_name||'')}</strong></td>
+      <td style="font-size:12px"><a href="mailto:${esc(a.client_email)}" style="color:#CCEB3C">${esc(a.client_email)}</a>${a.client_phone?`<br>${esc(a.client_phone)}`:''}
+      </td>
+      <td style="font-size:11px;color:#888">${esc(a.notes||'—')}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteAppt('${a.id}')">✕</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Aucun rendez-vous</td></tr>`;
+}
+async function deleteAppt(id) {
+  if (!confirm('Supprimer ce rendez-vous ?')) return;
+  const r = await fetch('/api/admin/appointments/' + id, { method: 'DELETE' });
+  if (r.ok) { _allAgenda = _allAgenda.filter(a => a.id !== id); filterAgenda(); toast('RDV supprimé'); }
+}
+
 async function loadBuyers() {
   const [stats, onlineIds] = await Promise.all([
     fetch('/api/buyers/stats').then(r => r.json()),
@@ -1461,6 +1534,7 @@ async function loadBuyers() {
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
         <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
+        <button class="btn btn-sm" style="background:#0a1a2a;color:#60a5fa;border:1px solid #60a5fa33" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;
@@ -1628,6 +1702,14 @@ document.addEventListener('click', e => {
     document.getElementById('global-search-dropdown').style.display = 'none';
 });
 
+// ── Magic link accès direct ──────────────────────────────────────────
+async function sendMagicLink(buyerId, name) {
+  if (!confirm(`Envoyer un lien de connexion direct à ${name} ?`)) return;
+  const r = await fetch('/api/admin/buyers/' + buyerId + '/send-access', { method: 'POST' });
+  if (r.ok) toast('🔗 Lien envoyé à ' + name);
+  else toast('Erreur envoi lien', true);
+}
+
 // ── Relance acheteur ─────────────────────────────────────────────────
 let _relanceBuyerId = null;
 function openRelance(id, name, email, orderCount) {
@@ -1695,6 +1777,35 @@ async function loadDashboard() {
   document.getElementById('stat-total').textContent = total.toFixed(2) + ' €';
   document.getElementById('stat-buyers').textContent = buyers.length;
   document.getElementById('stat-online-num').textContent = onlineIds.length;
+
+  // Graphique CA mensuel (6 derniers mois)
+  const months = {};
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    months[key] = 0;
+  }
+  orders.forEach(o => {
+    const key = o.created_at ? o.created_at.slice(0,7) : null;
+    if (key && months[key] !== undefined) months[key] += parseFloat(o.total)||0;
+  });
+  const vals = Object.values(months);
+  const keys = Object.keys(months);
+  const maxV = Math.max(...vals, 1);
+  const chart = document.getElementById('revenue-chart');
+  chart.innerHTML = keys.map((k, i) => {
+    const h = Math.round((vals[i] / maxV) * 72) + 8;
+    const isThis = i === 5;
+    const label = k.slice(5); // MM
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" title="${vals[i].toFixed(0)} €">
+      <span style="font-size:9px;color:${isThis?'#CCEB3C':'#555'}">${vals[i]>0?vals[i].toFixed(0)+'€':''}</span>
+      <div style="width:100%;height:${h}px;background:${isThis?'#CCEB3C':'#2a2a2a'};border-radius:4px 4px 0 0;transition:height .3s"></div>
+      <span style="font-size:9px;color:#555">${label}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('chart-total').textContent = `6 mois · ${vals.reduce((a,b)=>a+b,0).toFixed(0)} € CA`;
+
   const tbody = document.getElementById('recent-orders-body');
   const recent = orders.slice(0, 10);
   tbody.innerHTML = recent.map(o => `

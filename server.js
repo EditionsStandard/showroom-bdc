@@ -887,10 +887,73 @@ app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, 
   res.json({ order: oRes.rows[0], lines: lRes.rows });
 });
 
-app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req, res) => {
-  const { admin_notes } = req.body;
-  await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
+// ── Agenda global ────────────────────────────────────────────────────
+app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res) => {
+  const r = await pool.query(`
+    SELECT a.*, b.name AS brand_name
+    FROM appointments a
+    JOIN brands b ON b.id = a.brand_id
+    ORDER BY a.slot_date DESC, a.slot_time DESC
+  `);
+  res.json(r.rows);
+});
+
+app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (req, res) => {
+  await pool.query('DELETE FROM appointments WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
+});
+
+// ── Magic link accès direct portail ──────────────────────────────────
+app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
+    if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
+    const buyer = b.rows[0];
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return res.status(503).json({ error: 'Email non configuré' });
+    const token = require('crypto').randomUUID();
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await pool.query(`CREATE TABLE IF NOT EXISTS buyer_access_tokens (
+      token TEXT PRIMARY KEY, buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL, used BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query('INSERT INTO buyer_access_tokens (token, buyer_id, expires_at) VALUES ($1,$2,$3)', [token, buyer.id, expires]);
+    const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+    const link = `${getBaseUrl(req)}/portal/access?token=${token}`;
+    const { Resend } = require('resend');
+    const resend = new Resend(resendKey);
+    const isEn = buyer.lang === 'en';
+    await resend.emails.send({
+      from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [buyer.email],
+      subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
+      html: emailLayout({ showroomName, content: `
+        <p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p>
+        <p>${isEn ? 'Click below to access the showroom — no password needed.' : 'Cliquez ci-dessous pour accéder au showroom, sans mot de passe.'}</p>
+        ${emailBtn(link, isEn ? 'ACCESS SHOWROOM →' : 'ACCÉDER AU SHOWROOM →')}
+        <p style="font-size:12px;color:#888;margin-top:20px">${isEn ? 'This link expires in 24 hours.' : 'Ce lien est valable 24 heures.'}</p>
+      ` })
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/portal/access', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect('/portal');
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS buyer_access_tokens (
+      token TEXT PRIMARY KEY, buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL, used BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    const r = await pool.query('SELECT * FROM buyer_access_tokens WHERE token=$1 AND used=false AND expires_at > NOW()', [token]);
+    if (!r.rows[0]) return res.redirect('/portal?error=link_expired');
+    const buyer = await pool.query('SELECT * FROM buyers WHERE id=$1', [r.rows[0].buyer_id]);
+    if (!buyer.rows[0]) return res.redirect('/portal');
+    await pool.query('UPDATE buyer_access_tokens SET used=true WHERE token=$1', [token]);
+    req.session.buyerPortal = { id: buyer.rows[0].id, email: buyer.rows[0].email, name: buyer.rows[0].name };
+    res.redirect('/portal');
+  } catch(e) { res.redirect('/portal'); }
 });
 
 app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res) => {
