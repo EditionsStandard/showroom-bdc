@@ -6,33 +6,85 @@ const pool = new Pool({
 });
 
 async function init() {
+  // Tables créées dans l'ordre des dépendances (clés étrangères) :
+  // d'abord les tables de base, puis celles qui les référencent, puis les colonnes ALTER.
+
+  // 1) Tables de base
   await pool.query(`
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS thumbnail TEXT DEFAULT '';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS collection_name TEXT DEFAULT '';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS composition TEXT DEFAULT '';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS variants TEXT DEFAULT '[]';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0;
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo TEXT DEFAULT '';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS cover_image TEXT DEFAULT '';
-    ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_signature TEXT DEFAULT '';
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS cgv_accepted INTEGER DEFAULT 0;
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS cgv_text TEXT DEFAULT '';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_qty INTEGER DEFAULT 0;
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_amount NUMERIC DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_country TEXT DEFAULT '';
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT DEFAULT '';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT DEFAULT '';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_price_id TEXT DEFAULT '';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT '';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT DEFAULT '';
-    ALTER TABLE brands ADD COLUMN IF NOT EXISTS lookbook_url TEXT DEFAULT '';
-    ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS note TEXT DEFAULT '';
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `).catch(() => {});
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS brands (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      logo_url TEXT DEFAULT '',
+      logo TEXT DEFAULT '',
+      cover_image TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS buyers (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT DEFAULT '',
+      company TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      country TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      reference TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      color TEXT DEFAULT '',
+      sizes TEXT DEFAULT '',
+      price NUMERIC DEFAULT 0,
+      image_url TEXT DEFAULT '',
+      collection_name TEXT DEFAULT '',
+      composition TEXT DEFAULT '',
+      active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id),
+      client_name TEXT NOT NULL,
+      client_email TEXT NOT NULL,
+      client_company TEXT DEFAULT '',
+      client_phone TEXT DEFAULT '',
+      status TEXT DEFAULT 'draft',
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_lines (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      size TEXT DEFAULT '',
+      quantity INTEGER NOT NULL,
+      unit_price NUMERIC NOT NULL,
+      price_retail NUMERIC DEFAULT 0
+    );
+  `).catch(() => {});
+
+  // 2) Tables dépendantes (référencent brands/products/orders/buyers)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS product_stats (
       product_id TEXT PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
@@ -60,10 +112,6 @@ async function init() {
     );
   `).catch(() => {});
 
-  // One-time backfill: only runs if there are products without collection_name AND no named collections yet
-  // Disabled to avoid overwriting products created without a collection on every restart
-  // await pool.query(`UPDATE products SET collection_name = 'SS27' WHERE collection_name IS NULL OR collection_name = ''`).catch(() => {});
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS brand_invite_links (
       token TEXT PRIMARY KEY,
@@ -74,23 +122,6 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS buyers (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      name TEXT DEFAULT '',
-      company TEXT DEFAULT '',
-      phone TEXT DEFAULT '',
-      country TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `).catch(() => {});
-
-  await pool.query(`
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_id TEXT REFERENCES buyers(id) ON DELETE SET NULL;
-  `).catch(() => {});
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS seasons (
       id TEXT PRIMARY KEY,
       brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -98,10 +129,6 @@ async function init() {
       active INTEGER DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-  `).catch(() => {});
-
-  await pool.query(`
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS season_id TEXT REFERENCES seasons(id) ON DELETE SET NULL;
   `).catch(() => {});
 
   await pool.query(`
@@ -153,12 +180,6 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
-    ALTER TABLE buyers ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;
-    ALTER TABLE buyers ADD COLUMN IF NOT EXISTS lang TEXT DEFAULT 'fr';
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT '';
-  `).catch(() => {});
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS buyer_password_resets (
       token TEXT PRIMARY KEY,
       buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
@@ -169,57 +190,56 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS brands (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      logo_url TEXT DEFAULT '',
-      logo TEXT DEFAULT '',
-      cover_image TEXT DEFAULT '',
+    CREATE TABLE IF NOT EXISTS buyer_access_tokens (
+      token TEXT PRIMARY KEY,
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `).catch(() => {});
 
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
-      reference TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      color TEXT DEFAULT '',
-      sizes TEXT DEFAULT '',
-      price NUMERIC DEFAULT 0,
-      image_url TEXT DEFAULT '',
-      collection_name TEXT DEFAULT '',
-      composition TEXT DEFAULT '',
-      active INTEGER DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
+  // Colonnes additionnelles — exécutées APRÈS les CREATE TABLE pour qu'elles
+  // s'appliquent dès le 1er démarrage sur une base fraîche.
+  // Chaque ALTER est exécuté SÉPARÉMENT : en PG, un bloc multi-statements est
+  // une seule transaction, donc un seul échec annulerait toutes les autres colonnes.
+  const alters = [
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS thumbnail TEXT DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS collection_name TEXT DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS composition TEXT DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]'",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS variants TEXT DEFAULT '[]'",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS cover_image TEXT DEFAULT ''",
+    "ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_signature TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cgv_accepted INTEGER DEFAULT 0",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS cgv_text TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_qty INTEGER DEFAULT 0",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_amount NUMERIC DEFAULT 0",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_country TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed'",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial'",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_price_id TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS lookbook_url TEXT DEFAULT ''",
+    "ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS note TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_id TEXT REFERENCES buyers(id) ON DELETE SET NULL",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS season_id TEXT REFERENCES seasons(id) ON DELETE SET NULL",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS lang TEXT DEFAULT 'fr'",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT ''",
+  ];
+  for (const sql of alters) {
+    await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
+  }
 
-    CREATE TABLE IF NOT EXISTS orders (
-      id TEXT PRIMARY KEY,
-      brand_id TEXT NOT NULL REFERENCES brands(id),
-      client_name TEXT NOT NULL,
-      client_email TEXT NOT NULL,
-      client_company TEXT DEFAULT '',
-      client_phone TEXT DEFAULT '',
-      status TEXT DEFAULT 'draft',
-      notes TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS order_lines (
-      id TEXT PRIMARY KEY,
-      order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-      product_id TEXT NOT NULL REFERENCES products(id),
-      size TEXT DEFAULT '',
-      quantity INTEGER NOT NULL,
-      unit_price NUMERIC NOT NULL,
-      price_retail NUMERIC DEFAULT 0
-    );
-  `);
+  // Backfill: brands existantes sans statut → 'trial' (évite qu'elles soient masquées du portail)
+  await pool.query("UPDATE brands SET subscription_status = 'trial' WHERE subscription_status IS NULL").catch(() => {});
 
   const defaults = {
     showroom_name: 'Editions Standard',
@@ -245,16 +265,6 @@ async function init() {
   }
 
   // Nettoyage des tokens expirés
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS buyer_access_tokens (
-      token TEXT PRIMARY KEY,
-      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
-      expires_at TIMESTAMP NOT NULL,
-      used BOOLEAN DEFAULT false,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `).catch(() => {});
-
   await pool.query(`
     DELETE FROM buyer_magic_links WHERE expires_at < NOW() - INTERVAL '7 days';
     DELETE FROM buyer_password_resets WHERE expires_at < NOW() - INTERVAL '7 days';

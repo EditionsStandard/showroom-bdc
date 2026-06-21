@@ -1279,8 +1279,8 @@ app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   try {
-    // subscription_status != 'inactive' exclut NULL en PG — on utilise IS DISTINCT FROM
-    const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, created_at FROM brands WHERE subscription_status IS DISTINCT FROM 'inactive' ORDER BY name");
+    // != 'inactive' exclut les NULL en PG — on inclut explicitement les NULL
+    const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
     res.json(r.rows);
   } catch(e) { console.error('portal brands:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
