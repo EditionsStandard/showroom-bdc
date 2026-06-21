@@ -765,9 +765,96 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     const { status } = req.body;
-    if (!['confirmed','validated','cancelled'].includes(status)) return res.status(400).json({ error: 'Statut invalide' });
+    const validStatuses = ['confirmed','validated','in_production','shipped','cancelled'];
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
     await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
+    // Notify buyer on meaningful transitions
+    if (['validated','in_production','shipped'].includes(status)) {
+      sendOrderStatusEmail(req.params.id, status).catch(e => console.error('status email error:', e.message));
+    }
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+async function sendOrderStatusEmail(orderId, status) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+  const [showroomName, agentName, fromAddress] = await Promise.all([
+    getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
+  ]);
+  const oRes = await pool.query(`
+    SELECT o.*, b.name as brand_name, b.logo as brand_logo, SUM(ol.quantity * ol.unit_price) as order_total
+    FROM orders o JOIN brands b ON o.brand_id=b.id
+    LEFT JOIN order_lines ol ON ol.order_id=o.id
+    WHERE o.id=$1 GROUP BY o.id, b.name, b.logo
+  `, [orderId]);
+  const order = oRes.rows[0];
+  if (!order) return;
+  const { Resend } = require('resend');
+  const resend = new Resend(resendKey);
+  const fromField = fromAddress || 'showroom@editionsstandard.com';
+  const statusMessages = {
+    validated:     { fr: 'Votre commande a été <strong>validée</strong> par la marque.', en: 'Your order has been <strong>validated</strong> by the brand.' },
+    in_production: { fr: 'Votre commande est <strong>en production</strong>.', en: 'Your order is <strong>in production</strong>.' },
+    shipped:       { fr: 'Votre commande a été <strong>expédiée</strong>.', en: 'Your order has been <strong>shipped</strong>.' }
+  };
+  const msg = statusMessages[status]?.fr || '';
+  const statusLabels = { validated: 'Validée ✓', in_production: 'En production', shipped: 'Expédiée 🚚' };
+  await resend.emails.send({
+    from: `${showroomName} <${fromField}>`,
+    to: [order.client_email],
+    subject: `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}`,
+    html: emailLayout({ showroomName, brandName: order.brand_name, brandLogo: order.brand_logo || '', content: `
+      <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
+      <p>${msg}</p>
+      <p style="margin-top:12px;font-size:13px;color:#555">Marque : <strong>${escHtml(order.brand_name)}</strong> · Référence : <code>${orderId.slice(0,8).toUpperCase()}</code></p>
+      <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
+    ` })
+  });
+}
+
+app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT o.id, o.created_at, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country,
+             o.status, b.name as brand_name,
+             ol.size, ol.quantity, ol.unit_price, ol.price_retail,
+             p.reference, p.description, p.color
+      FROM orders o
+      JOIN brands b ON o.brand_id=b.id
+      JOIN order_lines ol ON ol.order_id=o.id
+      JOIN products p ON ol.product_id=p.id
+      ORDER BY o.created_at DESC, o.id, p.reference
+    `);
+    const headers = ['Date','Référence commande','Client','Email','Société','Téléphone','Pays','Statut','Marque','Référence produit','Description','Couleur','Taille','Quantité','Prix HT','Prix PVC'];
+    const rows = r.rows.map(row => [
+      new Date(row.created_at).toLocaleDateString('fr-FR'),
+      row.id.slice(0,8).toUpperCase(),
+      row.client_name, row.client_email, row.client_company, row.client_phone, row.client_country,
+      row.status, row.brand_name, row.reference, row.description, row.color,
+      row.size, row.quantity, row.unit_price, row.price_retail
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="commandes-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send('﻿' + csv); // BOM for Excel
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT b.id, b.email, b.name, b.company, b.last_seen_at,
+             COUNT(DISTINCT o.id) as order_count,
+             COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
+             COUNT(DISTINCT o.brand_id) as brands_count
+      FROM buyers b
+      LEFT JOIN orders o ON o.buyer_id = b.id
+      LEFT JOIN order_lines ol ON ol.order_id = o.id
+      GROUP BY b.id
+      ORDER BY total_amount DESC
+    `);
+    res.json(r.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
