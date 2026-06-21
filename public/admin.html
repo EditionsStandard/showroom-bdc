@@ -263,6 +263,8 @@
     if (btn) btn.textContent = (t === 'light'
       ? (currentLang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
       : (currentLang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode'));
+    const btnMob = document.getElementById('theme-toggle-mob');
+    if (btnMob) btnMob.textContent = t === 'light' ? '🌙' : '☀️';
   }
   window.toggleTheme = function() {
     const cur = document.documentElement.getAttribute('data-theme') || 'dark';
@@ -310,6 +312,10 @@
 
 <div class="main">
   <div class="topbar">
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#aaa;cursor:pointer">☀️</button>
+      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#CCEB3C;cursor:pointer">EN</button>
+    </div>
     <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
@@ -1182,14 +1188,18 @@ function applyLang() {
   document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
   const btn = document.getElementById('lang-toggle');
   if (btn) btn.textContent = '🌐 ' + (currentLang === 'fr' ? 'EN' : 'FR');
+  const btnMob = document.getElementById('lang-toggle-mob');
+  if (btnMob) btnMob.textContent = currentLang === 'fr' ? 'EN' : 'FR';
   // Update theme toggle text to match lang
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
     themeBtn.textContent = cur === 'light'
       ? (currentLang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
       : (currentLang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode');
   }
+  const themeBtnMob = document.getElementById('theme-toggle-mob');
+  if (themeBtnMob) themeBtnMob.textContent = cur === 'light' ? '🌙' : '☀️';
 }
 
 function toggleLang() {
