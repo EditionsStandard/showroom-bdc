@@ -1092,9 +1092,16 @@ async function init() {
   document.getElementById('dd-email').textContent = me.email || '';
   document.getElementById('dd-company').textContent = me.company || '';
   try {
-    allBrands = await fetch('/api/portal/brands').then(r => r.json());
+    const brandsRes = await fetch('/api/portal/brands');
+    const brandsData = await brandsRes.json();
+    // Si l'API retourne une erreur JSON ou pas un tableau → on sécurise
+    allBrands = Array.isArray(brandsData) ? brandsData : [];
+    if (!Array.isArray(brandsData)) {
+      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${brandsData.error || 'Erreur de chargement'}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
+      return;
+    }
   } catch(e) {
-    document.getElementById('brand-grid').innerHTML = '<p class="msg" style="color:var(--muted)">Erreur de chargement. Rechargez la page.</p>';
+    document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Erreur réseau. Vérifiez votre connexion.</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
     return;
   }
   applyLang();
