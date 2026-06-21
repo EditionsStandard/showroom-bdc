@@ -262,6 +262,17 @@ async function init() {
 
   await pool.query(`
     DELETE FROM buyer_access_tokens WHERE expires_at < NOW() - INTERVAL '7 days';
+    DELETE FROM selection_shares WHERE expires_at < NOW() - INTERVAL '7 days';
+  `).catch(() => {});
+
+  // Index pour les performances
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id);
+    CREATE INDEX IF NOT EXISTS idx_products_active ON products(active);
+    CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON orders(buyer_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_brand_id ON orders(brand_id);
+    CREATE INDEX IF NOT EXISTS idx_order_lines_order_id ON order_lines(order_id);
+    CREATE INDEX IF NOT EXISTS idx_appointments_brand_id ON appointments(brand_id);
   `).catch(() => {});
 }
 

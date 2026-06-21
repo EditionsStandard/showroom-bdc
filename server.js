@@ -1,4 +1,5 @@
 const express = require('express');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
@@ -8,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
 const multer = require('multer');
+const { Resend } = require('resend');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 const cloudinary = require('cloudinary').v2;
 cloudinary.config({
@@ -22,6 +24,7 @@ const crypto = require('crypto');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const app = express();
+app.use(helmet({ contentSecurityPolicy: false })); // CSP off car inline scripts dans admin/portal
 app.set('trust proxy', 1); // Railway runs behind a proxy — required for secure cookies
 const PORT = process.env.PORT || 3000;
 
@@ -484,6 +487,7 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
 });
 
 app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
+  if (!req.file || !req.file.mimetype.startsWith('image/')) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp…)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const slug = `img-${Date.now()}`;
@@ -792,7 +796,6 @@ async function sendOrderStatusEmail(orderId, status) {
   `, [orderId]);
   const order = oRes.rows[0];
   if (!order) return;
-  const { Resend } = require('resend');
   const resend = new Resend(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
   const isEn = order.buyer_lang === 'en';
@@ -911,7 +914,7 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
     const buyer = b.rows[0];
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(503).json({ error: 'Email non configuré' });
-    const token = require('crypto').randomUUID();
+    const token = crypto.randomUUID();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await pool.query(`CREATE TABLE IF NOT EXISTS buyer_access_tokens (
       token TEXT PRIMARY KEY, buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
@@ -920,7 +923,6 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
     await pool.query('INSERT INTO buyer_access_tokens (token, buyer_id, expires_at) VALUES ($1,$2,$3)', [token, buyer.id, expires]);
     const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
     const link = `${getBaseUrl(req)}/portal/access?token=${token}`;
-    const { Resend } = require('resend');
     const resend = new Resend(resendKey);
     const isEn = buyer.lang === 'en';
     await resend.emails.send({
@@ -1073,17 +1075,26 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (moqAmount > 0 && totalAmount < moqAmount) return { error: `Montant minimum de ${moqAmount.toFixed(2)} € HT requis pour cette marque (sélection actuelle : ${totalAmount.toFixed(2)} €).` };
 
   const orderId = uuidv4();
-  await pool.query(
-    `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11)`,
-    [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null]
-  );
-
-  for (const line of resolvedLines) {
-    await pool.query(
-      'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query('BEGIN');
+    await dbClient.query(
+      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11)`,
+      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null]
     );
+    for (const line of resolvedLines) {
+      await dbClient.query(
+        'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
+      );
+    }
+    await dbClient.query('COMMIT');
+  } catch(e) {
+    await dbClient.query('ROLLBACK');
+    return { error: 'Erreur lors de la création de la commande' };
+  } finally {
+    dbClient.release();
   }
 
   try {
@@ -1098,7 +1109,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   return { order_id: orderId, total: orderTotal };
 }
 
-app.post('/api/public/orders', async (req, res) => {
+app.post('/api/public/orders', emailLimiter, async (req, res) => {
   const { brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted } = req.body;
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
@@ -1370,13 +1381,12 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
       doc.end();
     });
 
-    const { Resend } = require('resend');
     const resend = new Resend(resendKey);
     await resend.emails.send({
       from: `${showroomName} <${fromAddress}>`,
       to: [to],
       subject: `Sélection B2B — ${showroomName} — ${dateStr}`,
-      html: `<p>Bonjour,</p>${message ? `<p>${message.replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${buyer.name}</strong> (${buyer.email}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>`,
+      html: `<p>Bonjour,</p>${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${escHtml(buyer.name)}</strong> (${escHtml(buyer.email)}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>`,
       attachments: [{ filename: `Selection-${dateStr}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
     });
     res.json({ ok: true });
@@ -1388,7 +1398,7 @@ app.post('/api/portal/share', requireBuyerAuth, async (req, res) => {
   try {
     const items = req.body.items || [];
     if (!items.length) return res.status(400).json({ error: 'Sélection vide' });
-    const token = require('crypto').randomBytes(12).toString('hex');
+    const token = crypto.randomBytes(12).toString('hex');
     const expires = new Date(Date.now() + 7 * 24 * 3600 * 1000); // 7 days
     await pool.query(
       'INSERT INTO selection_shares (token, buyer_id, items_json, expires_at) VALUES ($1,$2,$3,$4)',
@@ -1617,7 +1627,6 @@ app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
     );
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return;
-    const { Resend } = require('resend');
     const resend = new Resend(resendKey);
     const showroomName = await getSetting('showroom_name');
     const fromAddress = await getSetting('smtp_from');
@@ -1699,7 +1708,6 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
     const [showroomName, agentName, fromAddress] = await Promise.all([
       getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
     ]);
-    const { Resend } = require('resend');
     const resend = new Resend(resendKey);
     const { message } = req.body;
     const isEn = buyer.lang === 'en';
@@ -1713,7 +1721,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
           ? 'Your showroom selections are waiting for you. Don\'t hesitate to browse the collections and place your order.'
           : 'Vos sélections showroom vous attendent. N\'hésitez pas à parcourir les collections et passer commande.'}</p>`}
         <p style="margin-top:24px">
-          <a href="https://showroom.editionsstandard.com/portal" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 28px;border-radius:4px;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">
+          <a href="${getBaseUrl(req)}/portal" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 28px;border-radius:4px;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">
             ${isEn ? 'ACCESS SHOWROOM →' : 'ACCÉDER AU SHOWROOM →'}
           </a>
         </p>
@@ -1766,7 +1774,7 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { brand_id, slot_date, slot_time, notes } = req.body;
   if (!brand_id || !slot_date || !slot_time) return res.status(400).json({ error: 'Données incomplètes' });
-  const id = require('crypto').randomUUID();
+  const id = crypto.randomUUID();
   try {
     await pool.query(
       'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
@@ -1801,7 +1809,6 @@ app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
 async function sendBuyerWelcomeEmail({ email, password, name, req }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email de bienvenue acheteur non envoyé'); return; }
-  const { Resend } = require('resend');
   const resend = new Resend(resendKey);
   const showroomName = await getSetting('showroom_name');
   const fromAddress = await getSetting('smtp_from');
@@ -1933,7 +1940,6 @@ app.post('/api/buyer/request-link', async (req, res) => {
 
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
-      const { Resend } = require('resend');
       const resend = new Resend(resendKey);
       const fromAddress = await getSetting('smtp_from');
       const showroomName = await getSetting('showroom_name');
@@ -2540,7 +2546,6 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const cgvText = order.brand_cgv || globalCgv;
 
-  const { Resend } = require('resend');
   const resend = new Resend(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
   const fromFormatted = `${showroomName} <${fromField}>`;
