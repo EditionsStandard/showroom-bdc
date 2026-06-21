@@ -773,10 +773,16 @@
         <button class="btn btn-sm" id="invite-toggle-btn" onclick="toggleInviteLink()" data-t="btn_deactivate">Désactiver</button>
       </div>
 
-      <div style="border-top:1px solid #252525;padding-top:14px;display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" onclick="generateInviteLink()" style="font-size:12px" data-t="btn_regenerate_link">🔄 Régénérer un nouveau lien</button>
+      <div style="border-top:1px solid #252525;padding-top:14px">
+        <div id="invite-regen-confirm" style="display:none;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px">
+          <p style="font-size:12px;color:#aaa;margin-bottom:10px" data-t="invite_regenerate_note">Régénérer invalide l'ancien lien immédiatement.</p>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-danger btn-sm" onclick="confirmRegenerate()" data-t="btn_confirm_regen">✓ Confirmer</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('invite-regen-confirm').style.display='none'">Annuler</button>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="askRegenerate()" style="font-size:12px" data-t="btn_regenerate_link">🔄 Régénérer un nouveau lien</button>
       </div>
-      <p style="font-size:11px;color:#555;margin-top:8px" data-t="invite_regenerate_note">Régénérer invalide l'ancien lien immédiatement.</p>
     </div>
 
     <div class="modal-footer">
@@ -1715,11 +1721,22 @@ async function refreshInviteLink() {
   toggleBtn.className = inviteActive ? 'btn btn-danger btn-sm' : 'btn btn-green btn-sm';
 }
 
+function askRegenerate() {
+  document.getElementById('invite-regen-confirm').style.display = 'block';
+}
+
+async function confirmRegenerate() {
+  document.getElementById('invite-regen-confirm').style.display = 'none';
+  await doGenerateInviteLink();
+}
+
 async function generateInviteLink() {
-  if (document.getElementById('invite-has-link').style.display !== 'none') {
-    if (!confirm(t('confirm_regenerate_link'))) return;
-  }
-  await fetch(`/api/brands/${inviteBrandId}/invite-link`, { method: 'POST' });
+  await doGenerateInviteLink();
+}
+
+async function doGenerateInviteLink() {
+  const r = await fetch(`/api/brands/${inviteBrandId}/invite-link`, { method: 'POST' });
+  if (!r.ok) { toast('Erreur lors de la génération', true); return; }
   await refreshInviteLink();
   toast(t('js_link_generated'));
 }
