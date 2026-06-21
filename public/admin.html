@@ -319,6 +319,11 @@
 
 <div class="main">
   <div class="topbar">
+    <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:360px;position:relative">
+      <input id="global-search-input" type="text" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
+        style="width:100%;padding:7px 14px;border-radius:20px;border:1px solid #333;background:#0f0f0f;color:#fff;font-size:12px;font-family:inherit;outline:none">
+      <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1a1a1a;border:1px solid #333;border-radius:8px;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
+    </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#aaa;cursor:pointer">☀️</button>
       <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#CCEB3C;cursor:pointer">EN</button>
@@ -904,8 +909,15 @@
 
     <!-- Notes -->
     <div id="mo-notes-wrap" style="display:none;margin-bottom:14px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Notes</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Notes acheteur</div>
       <div id="mo-notes" style="font-size:13px;color:#aaa;background:#0a0a0a;padding:12px;border-radius:8px;line-height:1.6"></div>
+    </div>
+
+    <!-- Notes internes admin -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🔒 Notes internes (admin uniquement)</div>
+      <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
+      <button class="btn btn-sm" style="margin-top:6px;background:#222;color:#aaa" onclick="saveAdminNotes()">💾 Sauvegarder note</button>
     </div>
 
     <div class="modal-footer">
@@ -936,6 +948,22 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-staff')" data-t="btn_cancel">Annuler</button>
       <button class="btn" onclick="saveEditStaff()" data-t="btn_save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal relance acheteur -->
+<div class="modal-overlay" id="modal-relance">
+  <div class="modal" style="max-width:480px">
+    <h3 style="margin-bottom:4px">📨 Relance acheteur</h3>
+    <p id="relance-subtitle" style="font-size:12px;color:#888;margin-bottom:16px"></p>
+    <div class="form-group">
+      <label style="font-size:11px;font-weight:600;letter-spacing:.5px;color:#666;text-transform:uppercase">Message personnalisé <span style="color:#555;font-weight:400">(optionnel)</span></label>
+      <textarea id="relance-message" rows="4" placeholder="Laissez vide pour utiliser le message standard…" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-relance')">Annuler</button>
+      <button class="btn" onclick="sendRelance()" style="background:#CCEB3C;color:#111;font-weight:700">📧 Envoyer</button>
     </div>
   </div>
 </div>
@@ -1430,8 +1458,9 @@ async function loadBuyers() {
       <td style="text-align:center;color:${b.order_count > 0 ? '#CCEB3C' : '#555'}">${b.order_count > 0 ? `<strong>${b.order_count}</strong>` : '—'}</td>
       <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
       <td style="font-size:11px;color:#666">${lastSeen}</td>
-      <td style="display:flex;gap:6px">
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;
@@ -1547,6 +1576,106 @@ function toast(msg, err) {
   t.textContent = msg;
   t.className = 'show' + (err ? ' error' : '');
   setTimeout(() => t.className = '', 3000);
+}
+
+// ── Recherche globale ────────────────────────────────────────────────
+let _globalSearchTimeout;
+function globalSearch(q) {
+  clearTimeout(_globalSearchTimeout);
+  const dd = document.getElementById('global-search-dropdown');
+  if (!q.trim()) { dd.style.display = 'none'; return; }
+  _globalSearchTimeout = setTimeout(async () => {
+    const [orders, buyers] = await Promise.all([
+      fetch('/api/orders').then(r => r.json()).catch(() => []),
+      fetch('/api/buyers').then(r => r.json()).catch(() => [])
+    ]);
+    const ql = q.toLowerCase();
+    const orderMatches = (orders.orders || orders).filter(o =>
+      (o.client_name||'').toLowerCase().includes(ql) ||
+      (o.client_email||'').toLowerCase().includes(ql) ||
+      (o.client_company||'').toLowerCase().includes(ql)
+    ).slice(0,5);
+    const buyerMatches = buyers.filter(b =>
+      (b.name||'').toLowerCase().includes(ql) ||
+      (b.email||'').toLowerCase().includes(ql) ||
+      (b.company||'').toLowerCase().includes(ql)
+    ).slice(0,4);
+    if (!orderMatches.length && !buyerMatches.length) {
+      dd.innerHTML = `<div style="padding:14px;color:#555;font-size:12px;text-align:center">Aucun résultat</div>`;
+      dd.style.display = 'block'; return;
+    }
+    let html = '';
+    if (orderMatches.length) {
+      html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Commandes</div>`;
+      html += orderMatches.map(o => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>openOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+        <span style="font-size:18px">📋</span>
+        <div><div style="font-size:13px;color:#eee">${esc(o.client_name||'')} — ${esc(o.client_company||'')}</div><div style="font-size:11px;color:#666">${esc(o.client_email||'')} · <span class="badge badge-${o.status}">${o.status}</span></div></div>
+      </div>`).join('');
+    }
+    if (buyerMatches.length) {
+      html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Acheteurs</div>`;
+      html += buyerMatches.map(b => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('buyers')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+        <span style="font-size:18px">👤</span>
+        <div><div style="font-size:13px;color:#eee">${esc(b.name||b.email)}</div><div style="font-size:11px;color:#666">${esc(b.company||'')} · ${esc(b.email)}</div></div>
+      </div>`).join('');
+    }
+    dd.innerHTML = html;
+    dd.style.display = 'block';
+  }, 250);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#global-search-input') && !e.target.closest('#global-search-dropdown'))
+    document.getElementById('global-search-dropdown').style.display = 'none';
+});
+
+// ── Relance acheteur ─────────────────────────────────────────────────
+let _relanceBuyerId = null;
+function openRelance(id, name, email, orderCount) {
+  _relanceBuyerId = id;
+  document.getElementById('relance-subtitle').textContent =
+    `${name || email} <${email}>${orderCount > 0 ? ` · ${orderCount} commande(s)` : ' · aucune commande'}`;
+  document.getElementById('relance-message').value = '';
+  openModal('modal-relance');
+}
+async function sendRelance() {
+  if (!_relanceBuyerId) return;
+  const msg = document.getElementById('relance-message').value.trim();
+  const r = await fetch('/api/admin/buyers/' + _relanceBuyerId + '/relance', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ message: msg })
+  });
+  closeModal('modal-relance');
+  if (r.ok) toast('Email de relance envoyé ✓');
+  else toast('Erreur envoi relance', true);
+}
+
+// ── Push notifications nouvelles commandes ───────────────────────────
+let _lastOrderCount = null;
+let _pushPollTimer = null;
+async function initOrderPush() {
+  if (_pushPollTimer) return;
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+  const r = await fetch('/api/orders').then(x => x.json()).catch(() => null);
+  if (r) _lastOrderCount = (r.orders || r).length;
+  _pushPollTimer = setInterval(checkNewOrders, 45000);
+}
+async function checkNewOrders() {
+  const r = await fetch('/api/orders').then(x => x.json()).catch(() => null);
+  if (!r) return;
+  const orders = r.orders || r;
+  const count = orders.length;
+  if (_lastOrderCount !== null && count > _lastOrderCount) {
+    const n = count - _lastOrderCount;
+    const newest = orders[0];
+    const msg = `${n} nouvelle${n>1?'s':''} commande${n>1?'s':''} — ${newest?.client_name || ''}`;
+    toast('🛎 ' + msg);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Showroom — Nouvelle commande', { body: msg, icon: '/favicon.ico' });
+    }
+  }
+  _lastOrderCount = count;
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -2736,9 +2865,21 @@ async function viewOrder(id) {
     notesWrap.style.display = 'none';
   }
 
+  document.getElementById('mo-admin-notes').value = o.admin_notes || '';
+
   document.getElementById('mo-pdf-link').href = '/api/orders/' + id + '/pdf';
 
   openModal('modal-order');
+}
+
+async function saveAdminNotes() {
+  if (!_currentOrderId) return;
+  const notes = document.getElementById('mo-admin-notes').value;
+  const r = await fetch('/api/orders/' + _currentOrderId + '/admin-notes', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ admin_notes: notes })
+  });
+  if (r.ok) toast('Note sauvegardée');
 }
 
 async function changeOrderStatus() {
@@ -2868,6 +3009,7 @@ async function saveSettings() {
 // Init
 loadDashboard();
 applyLang();
+initOrderPush();
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(o => {

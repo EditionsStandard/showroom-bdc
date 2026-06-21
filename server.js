@@ -783,32 +783,41 @@ async function sendOrderStatusEmail(orderId, status) {
     getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
   ]);
   const oRes = await pool.query(`
-    SELECT o.*, b.name as brand_name, b.logo as brand_logo, SUM(ol.quantity * ol.unit_price) as order_total
+    SELECT o.*, b.name as brand_name, b.logo as brand_logo, SUM(ol.quantity * ol.unit_price) as order_total,
+           by2.lang as buyer_lang
     FROM orders o JOIN brands b ON o.brand_id=b.id
     LEFT JOIN order_lines ol ON ol.order_id=o.id
-    WHERE o.id=$1 GROUP BY o.id, b.name, b.logo
+    LEFT JOIN buyers by2 ON by2.id=o.buyer_id
+    WHERE o.id=$1 GROUP BY o.id, b.name, b.logo, by2.lang
   `, [orderId]);
   const order = oRes.rows[0];
   if (!order) return;
   const { Resend } = require('resend');
   const resend = new Resend(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
+  const isEn = order.buyer_lang === 'en';
   const statusMessages = {
     validated:     { fr: 'Votre commande a été <strong>validée</strong> par la marque.', en: 'Your order has been <strong>validated</strong> by the brand.' },
     in_production: { fr: 'Votre commande est <strong>en production</strong>.', en: 'Your order is <strong>in production</strong>.' },
     shipped:       { fr: 'Votre commande a été <strong>expédiée</strong>.', en: 'Your order has been <strong>shipped</strong>.' }
   };
-  const msg = statusMessages[status]?.fr || '';
-  const statusLabels = { validated: 'Validée ✓', in_production: 'En production', shipped: 'Expédiée 🚚' };
+  const msg = statusMessages[status]?.[isEn ? 'en' : 'fr'] || '';
+  const statusLabels = {
+    validated: isEn ? 'Validated ✓' : 'Validée ✓',
+    in_production: isEn ? 'In production' : 'En production',
+    shipped: isEn ? 'Shipped 🚚' : 'Expédiée 🚚'
+  };
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [order.client_email],
-    subject: `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}`,
+    subject: isEn
+      ? `Order update — ${order.brand_name} — ${statusLabels[status]}`
+      : `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}`,
     html: emailLayout({ showroomName, brandName: order.brand_name, brandLogo: order.brand_logo || '', content: `
-      <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
+      <p>${isEn ? 'Hello' : 'Bonjour'} <strong>${escHtml(order.client_name)}</strong>,</p>
       <p>${msg}</p>
-      <p style="margin-top:12px;font-size:13px;color:#555">Marque : <strong>${escHtml(order.brand_name)}</strong> · Référence : <code>${orderId.slice(0,8).toUpperCase()}</code></p>
-      <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
+      <p style="margin-top:12px;font-size:13px;color:#555">${isEn ? 'Brand' : 'Marque'} : <strong>${escHtml(order.brand_name)}</strong> · ${isEn ? 'Reference' : 'Référence'} : <code>${orderId.slice(0,8).toUpperCase()}</code></p>
+      <p style="margin-top:28px">${isEn ? 'Best regards' : 'Cordialement'},<br><strong>${escHtml(agentName || showroomName)}</strong></p>
     ` })
   });
 }
@@ -876,6 +885,12 @@ app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, 
     SELECT ol.*, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1
   `, [req.params.id]);
   res.json({ order: oRes.rows[0], lines: lRes.rows });
+});
+
+app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req, res) => {
+  const { admin_notes } = req.body;
+  await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
+  res.json({ ok: true });
 });
 
 app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res) => {
@@ -1110,7 +1125,7 @@ app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
 });
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
-  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
+  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, created_at FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
   res.json(r.rows);
 });
 
@@ -1597,8 +1612,108 @@ app.get('/api/buyers/presence', requireRole('owner','agent'), async (req, res) =
 });
 
 app.post('/api/portal/ping', requireBuyerAuth, async (req, res) => {
-  await pool.query('UPDATE buyers SET last_seen_at = NOW() WHERE id = $1', [req.session.buyerPortal.id]);
+  const { lang } = req.body;
+  await pool.query('UPDATE buyers SET last_seen_at = NOW()' + (lang ? ', lang=$2' : '') + ' WHERE id = $1',
+    lang ? [req.session.buyerPortal.id, lang] : [req.session.buyerPortal.id]);
   res.json({ ok: true });
+});
+
+app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { admin_notes } = req.body;
+    await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
+    if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
+    const buyer = b.rows[0];
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return res.status(503).json({ error: 'Email non configuré' });
+    const [showroomName, agentName, fromAddress] = await Promise.all([
+      getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
+    ]);
+    const { Resend } = require('resend');
+    const resend = new Resend(resendKey);
+    const { message } = req.body;
+    const isEn = buyer.lang === 'en';
+    await resend.emails.send({
+      from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [buyer.email],
+      subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
+      html: emailLayout({ showroomName, content: `
+        <p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p>
+        ${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : `<p>${isEn
+          ? 'Your showroom selections are waiting for you. Don\'t hesitate to browse the collections and place your order.'
+          : 'Vos sélections showroom vous attendent. N\'hésitez pas à parcourir les collections et passer commande.'}</p>`}
+        <p style="margin-top:24px">
+          <a href="https://showroom.editionsstandard.com/portal" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 28px;border-radius:4px;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">
+            ${isEn ? 'ACCESS SHOWROOM →' : 'ACCÉDER AU SHOWROOM →'}
+          </a>
+        </p>
+        <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
+      ` })
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json({ orders: [], buyers: [] });
+  const like = `%${q}%`;
+  const [orders, buyers] = await Promise.all([
+    pool.query(`SELECT o.id, o.client_name, o.client_email, o.client_company, o.status, b.name as brand_name,
+      SUM(ol.quantity*ol.unit_price) as total, o.created_at
+      FROM orders o JOIN brands b ON o.brand_id=b.id LEFT JOIN order_lines ol ON ol.order_id=o.id
+      WHERE o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1
+      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 10`, [like]),
+    pool.query(`SELECT id, name, email, company FROM buyers
+      WHERE name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1 LIMIT 8`, [like])
+  ]);
+  res.json({ orders: orders.rows, buyers: buyers.rows });
+});
+
+app.get('/api/portal/brands/:brandId/slots', requireBuyerAuth, async (req, res) => {
+  const days = [];
+  const now = new Date();
+  for (let i = 1; i <= 21; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+  const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
+  const bookedSet = new Set(booked.rows.map(b => {
+    const d = b.slot_date instanceof Date ? b.slot_date.toISOString().slice(0,10) : String(b.slot_date).slice(0,10);
+    return `${d}_${b.slot_time}`;
+  }));
+  const slots = days.map(date => ({
+    date,
+    times: times.filter(t => !bookedSet.has(`${date}_${t}`))
+  })).filter(d => d.times.length > 0);
+  res.json({ slots });
+});
+
+app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
+  const buyer = req.session.buyerPortal;
+  const { brand_id, slot_date, slot_time, notes } = req.body;
+  if (!brand_id || !slot_date || !slot_time) return res.status(400).json({ error: 'Données incomplètes' });
+  const id = require('crypto').randomUUID();
+  try {
+    await pool.query(
+      'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, brand_id, buyer.name, buyer.email, buyer.phone||'', slot_date, slot_time, notes||'']
+    );
+    res.json({ ok: true, id });
+  } catch(e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {

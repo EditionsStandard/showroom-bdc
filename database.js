@@ -154,6 +154,8 @@ async function init() {
 
   await pool.query(`
     ALTER TABLE buyers ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;
+    ALTER TABLE buyers ADD COLUMN IF NOT EXISTS lang TEXT DEFAULT 'fr';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT '';
   `).catch(() => {});
 
   await pool.query(`

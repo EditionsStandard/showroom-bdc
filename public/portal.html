@@ -379,6 +379,7 @@ const TRANSLATIONS = {
     search_ph: 'Rechercher une référence…', search_no_result: 'Aucune référence ne correspond.',
     cgv_modal_title: (brand) => `${brand} — Conditions générales de vente`,
     cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
+    book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
     moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
     moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € HT (actuellement ${cur} €)`,
@@ -413,6 +414,7 @@ const TRANSLATIONS = {
     search_ph: 'Search by reference…', search_no_result: 'No matching references.',
     cgv_modal_title: (brand) => `${brand} — Terms & Conditions`,
     cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
+    book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
     moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
     moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € excl. tax (currently ${cur} €)`,
@@ -665,6 +667,37 @@ function applyLang() {
   </div>
 </div>
 
+<!-- Modal RDV -->
+<div class="gmodal-overlay" id="modal-appt">
+  <div class="gmodal" style="max-width:440px;width:100%">
+    <h3 id="appt-title" style="margin-bottom:20px;font-family:var(--dot),monospace;letter-spacing:.04em"></h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_date">Date</label>
+        <input type="date" id="appt-date" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_time">Heure</label>
+        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+          ${Array.from({length:19},(_,i)=>{const h=Math.floor(i/2)+9,m=i%2?'30':'00';return `<option value="${String(h).padStart(2,'0')}:${m}">${String(h).padStart(2,'0')}h${m}</option>`}).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_phone">Téléphone</label>
+      <input type="tel" id="appt-phone" placeholder="+33 6 …" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_notes">Message</label>
+      <textarea id="appt-notes" rows="3" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="document.getElementById('modal-appt').classList.remove('open')" style="padding:10px 18px;border-radius:6px;border:1px solid #333;background:transparent;color:#aaa;cursor:pointer;font-size:13px">Annuler</button>
+      <button onclick="submitAppt()" style="padding:10px 22px;border-radius:6px;border:none;background:var(--accent);color:#111;font-weight:700;cursor:pointer;font-size:13px;font-family:var(--dot),monospace;letter-spacing:.04em" data-t="appt_send">Confirmer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Carousel lightbox -->
 <div class="img-modal" id="img-modal">
   <button class="img-close" id="img-close">✕</button>
@@ -735,6 +768,21 @@ let ordersData = []; // cached for re-sort
 let globalSearchResults = []; // cached cross-brand results
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showPortalToast(msg, err) {
+  let el = document.getElementById('portal-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'portal-toast';
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;transition:opacity .3s;pointer-events:none;font-family:var(--dot),monospace;letter-spacing:.04em';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = err ? '#c0392b' : '#CCEB3C';
+  el.style.color = err ? '#fff' : '#111';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.opacity = '0', 3000);
+}
 
 function formatAbout(text) {
   if (!text) return '';
@@ -804,6 +852,31 @@ function openCgvModal(brandId, brandName) {
   document.getElementById('cgv-modal-body').innerHTML = '<div class="cgv-formatted">' + formatCgv(brand?.cgv_text || '') + '</div>';
   document.getElementById('cgv-modal').classList.add('open');
 }
+let _apptBrandId = null;
+function openApptModal(brandId) {
+  _apptBrandId = brandId;
+  document.getElementById('appt-title').textContent = t('appt_title');
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('appt-date').value = today;
+  document.getElementById('appt-phone').value = '';
+  document.getElementById('appt-notes').value = '';
+  document.getElementById('modal-appt').classList.add('open');
+}
+async function submitAppt() {
+  const date = document.getElementById('appt-date').value;
+  const time = document.getElementById('appt-time').value;
+  const phone = document.getElementById('appt-phone').value.trim();
+  const notes = document.getElementById('appt-notes').value.trim();
+  if (!date || !time) { alert('Veuillez choisir une date et une heure.'); return; }
+  const r = await fetch('/api/portal/appointments', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ brand_id: _apptBrandId, slot_date: date, slot_time: time, client_phone: phone, notes })
+  });
+  document.getElementById('modal-appt').classList.remove('open');
+  if (r.ok) showPortalToast(t('appt_success'));
+  else { const e = await r.json().catch(()=>{}); showPortalToast(e?.error || 'Erreur', true); }
+}
+
 function closeCgvModal() {
   document.getElementById('cgv-modal').classList.remove('open');
 }
@@ -1100,7 +1173,9 @@ function renderBrandPicker() {
     allBrands.map(b => {
       const coverSrc = b.thumbnail || b.cover_image || '';
       const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
-      return `<div class="brand-card" onclick="openBrand('${b.id}')">${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
+      const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
+      const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
+      return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
     }).join('') + '</div>';
 }
 
@@ -1133,7 +1208,10 @@ async function openBrand(brandId) {
         <h2 class="section-title" style="margin-bottom:10px">${esc(currentBrand.name)}</h2>
         ${aboutHtml}
         ${moqHtml}
-        ${lookbookHtml}
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${lookbookHtml||cgvHtml?'14px':'0'}">
+          ${lookbookHtml}
+          <button onclick="openApptModal('${currentBrand.id}')" style="display:inline-flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--accent);background:rgba(204,235,60,.08);border:1px solid rgba(204,235,60,.3);border-radius:4px;padding:9px 16px;cursor:pointer;letter-spacing:.04em">📅 ${t('book_appointment')}</button>
+        </div>
         ${cgvHtml}
       </div>
     </div>
