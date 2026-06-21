@@ -1278,15 +1278,20 @@ app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
 });
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
-  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, created_at FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
-  res.json(r.rows);
+  try {
+    // subscription_status != 'inactive' exclut NULL en PG — on utilise IS DISTINCT FROM
+    const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, created_at FROM brands WHERE subscription_status IS DISTINCT FROM 'inactive' ORDER BY name");
+    res.json(r.rows);
+  } catch(e) { console.error('portal brands:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
-  const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url FROM brands WHERE id=$1", [req.params.brandId]);
-  if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
-  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
-  res.json({ brand: b.rows[0], products: p.rows });
+  try {
+    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url FROM brands WHERE id=$1", [req.params.brandId]);
+    if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
+    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
+    res.json({ brand: b.rows[0], products: p.rows });
+  } catch(e) { console.error('portal products:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 async function checkMoq(brand_id, lines) {

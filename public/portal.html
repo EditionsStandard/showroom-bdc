@@ -1270,8 +1270,15 @@ async function openBrand(brandId) {
   const container = document.getElementById('brand-products');
   container.style.display = 'block';
   container.innerHTML = `<div style="height:40px"></div><div class="products-grid" id="products-list">${Array.from({length:8},()=>`<div class="skel-product"><div class="skel-product-img skeleton"></div><div class="skel-product-info"><div class="skel-product-ref skeleton"></div><div class="skel-product-desc skeleton"></div><div class="skel-product-price skeleton"></div></div></div>`).join('')}</div>`;
-  const data = await fetch(`/api/portal/brands/${brandId}/products`).then(r => r.json());
-  if (data.error) { showToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
+  let data;
+  try {
+    const r = await fetch(`/api/portal/brands/${brandId}/products`);
+    data = await r.json();
+  } catch(e) {
+    container.innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Erreur de chargement. Vérifiez votre connexion.</p><button onclick="openBrand('${brandId}')" class="btn-secondary" style="font-size:13px;padding:10px 22px">Réessayer</button></div>`;
+    return;
+  }
+  if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
   currentBrand = data.brand;
   currentProducts = data.products;
   container.innerHTML = '';
@@ -1735,7 +1742,9 @@ async function submitCheckout() {
 async function loadOrders() {
   const list = document.getElementById('orders-list');
   list.innerHTML = `<p class="msg" style="color:var(--muted)">Chargement…</p>`;
-  const data = await fetch('/api/portal/orders').then(r => r.json());
+  let data;
+  try { data = await fetch('/api/portal/orders').then(r => r.json()); }
+  catch(e) { list.innerHTML = `<p class="msg" style="color:var(--soft)">Erreur de chargement. <button onclick="loadOrders()" class="btn-secondary" style="font-size:12px;padding:6px 14px">Réessayer</button></p>`; return; }
   if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${currentLang==='fr'?'Parcourir le catalogue':'Browse catalogue'}</button></div>`; return; }
   ordersData = data;
   applySortOrders();
