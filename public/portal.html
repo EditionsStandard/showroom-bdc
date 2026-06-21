@@ -611,6 +611,30 @@ function applyLang() {
       <button id="account-pw-btn" class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
       <div id="pw-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
+
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px;margin-top:24px">
+      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
+      <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn-secondary" onclick="exportMyData()" style="font-size:13px;padding:8px 16px">⬇ Télécharger mes données</button>
+        <button onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
+      </div>
+      <div id="gdpr-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+    </div>
+  </div>
+
+  <!-- Modal suppression compte -->
+  <div id="modal-delete-account" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:400px;width:90%;margin:auto">
+      <h3 style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:#c0392b;margin-bottom:12px">⚠ Supprimer mon compte</h3>
+      <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.</p>
+      <div class="field" style="margin-bottom:16px"><label>Confirmez avec votre mot de passe</label><input id="delete-account-pw" type="password" placeholder="••••••••"></div>
+      <div style="display:flex;gap:12px">
+        <button onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">Supprimer définitivement</button>
+        <button onclick="closeDeleteAccount()" class="btn-secondary" style="flex:1;padding:10px">Annuler</button>
+      </div>
+      <div id="delete-account-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+    </div>
   </div>
 
   <div id="view-success" style="display:none;text-align:center;padding:60px 20px;max-width:560px;margin:0 auto">
@@ -1121,6 +1145,41 @@ async function saveProfile() {
   } catch(e) {
     msg.innerHTML = `<span style="color:#e74c3c">Erreur réseau, réessayez.</span>`;
   }
+}
+
+async function exportMyData() {
+  try {
+    const res = await fetch('/api/portal/gdpr/export');
+    if (!res.ok) { document.getElementById('gdpr-msg').innerHTML = '<div class="msg error">Erreur lors de l\'export.</div>'; return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mes-donnees-showroom.json'; a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('gdpr-msg').innerHTML = '<div class="msg">Téléchargement démarré.</div>';
+  } catch(e) { document.getElementById('gdpr-msg').innerHTML = '<div class="msg error">Erreur réseau.</div>'; }
+}
+
+function openDeleteAccount() {
+  const m = document.getElementById('modal-delete-account');
+  m.style.display = 'flex';
+  document.getElementById('delete-account-pw').value = '';
+  document.getElementById('delete-account-msg').innerHTML = '';
+}
+function closeDeleteAccount() { document.getElementById('modal-delete-account').style.display = 'none'; }
+
+async function confirmDeleteAccount() {
+  const password = document.getElementById('delete-account-pw').value;
+  const msg = document.getElementById('delete-account-msg');
+  if (!password) { msg.innerHTML = '<div class="msg error">Mot de passe requis.</div>'; return; }
+  try {
+    const r = await fetch('/api/portal/account', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    }).then(r => r.json());
+    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
+    window.location.href = '/editions-showroom-b2b-portail?deleted=1';
+  } catch(e) { msg.innerHTML = '<div class="msg error">Erreur réseau.</div>'; }
 }
 
 async function changePassword() {

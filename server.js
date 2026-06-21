@@ -68,11 +68,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 if (!process.env.SESSION_SECRET) console.warn('⚠️  SESSION_SECRET non défini — utilisez une valeur aléatoire en production');
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
-  secret: process.env.SESSION_SECRET || 'showroom-dev-fallback-not-for-production',
+  secret: process.env.SESSION_SECRET || (() => { if (process.env.NODE_ENV === 'production') { console.error('⚠️  SESSION_SECRET non défini — utiliser une valeur aléatoire en production!'); } return 'showroom-dev-fallback-not-for-production'; })(),
   resave: false,
   saveUninitialized: false,
+  name: 'sid',
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
@@ -154,11 +155,14 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (email) {
-    const r = await pool.query('SELECT * FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
+    const r = await pool.query('SELECT id, email, role, brand_id, name, password_hash FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
     const user = r.rows[0];
     if (user && await bcrypt.compare(password || '', user.password_hash)) {
-      req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
-      return res.redirect('/admin');
+      return req.session.regenerate(err => {
+        if (err) return res.redirect('/admin/login?error=1');
+        req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+        res.redirect('/admin');
+      });
     }
     return res.redirect('/admin/login?error=1');
   }
@@ -176,8 +180,11 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     }
   }
   if (valid) {
-    req.session.admin = true;
-    res.redirect('/admin');
+    req.session.regenerate(err => {
+      if (err) return res.redirect('/admin/login?error=1');
+      req.session.admin = true;
+      res.redirect('/admin');
+    });
   } else {
     res.redirect('/admin/login?error=1');
   }
@@ -766,9 +773,12 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
   const brandFilter = req.userRole === 'designer' ? 'WHERE o.brand_id = $1' : '';
   const params = req.userRole === 'designer' ? [req.userBrandId] : [];
   const r = await pool.query(`
-    SELECT o.*, b.name as brand_name,
-      COUNT(ol.id) as line_count,
-      SUM(ol.quantity * ol.unit_price) as total
+    SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
+           o.client_phone, o.client_country, o.status, o.notes, o.admin_notes,
+           o.cgv_accepted, o.buyer_id, o.created_at,
+           b.name as brand_name,
+           COUNT(ol.id) as line_count,
+           SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
@@ -1155,12 +1165,17 @@ app.get('/editions-showroom-b2b-portail', (req, res) => res.sendFile(path.join(_
 
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const r = await pool.query('SELECT * FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
+  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
   if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
-    req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
-    const next = (req.body.next || '').replace(/[^a-zA-Z0-9?=&%_\-/]/g, '');
-    return res.redirect(next && next.startsWith('/portal') ? next : '/portal');
+    // Régénération de session — anti session fixation
+    req.session.regenerate(err => {
+      if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
+      req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
+      const next = (req.body.next || '').replace(/[^a-zA-Z0-9?=&%_\-/]/g, '');
+      res.redirect(next && next.startsWith('/portal') ? next : '/portal');
+    });
+    return;
   }
   const failNext = req.body.next && req.body.next.startsWith('/portal')
     ? '&next=' + encodeURIComponent(req.body.next) : '';
@@ -1194,9 +1209,9 @@ app.get('/api/portal/currencies', requireBuyerAuth, async (req, res) => {
 app.post('/api/portal/change-password', requireBuyerAuth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
-  if (newPassword.length < 6) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
+  if (newPassword.length < 8) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
 
-  const r = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+  const r = await pool.query('SELECT id, password_hash FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
   const buyer = r.rows[0];
   if (!buyer || !await bcrypt.compare(currentPassword, buyer.password_hash)) {
     return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
@@ -1204,6 +1219,50 @@ app.post('/api/portal/change-password', requireBuyerAuth, async (req, res) => {
   const hash = await bcrypt.hash(newPassword, 10);
   await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyer.id]);
   res.json({ ok: true });
+});
+
+// RGPD — Export des données personnelles (droit d'accès)
+app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const [profile, orders, carts] = await Promise.all([
+      pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang FROM buyers WHERE id=$1', [buyerId]),
+      pool.query(`SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
+                         o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
+                         b.name as brand_name
+                  FROM orders o JOIN brands b ON o.brand_id=b.id
+                  WHERE o.buyer_id=$1 ORDER BY o.created_at DESC`, [buyerId]),
+      pool.query('SELECT cart_json, updated_at FROM buyer_carts WHERE buyer_id=$1', [buyerId])
+    ]);
+    const export_data = {
+      generated_at: new Date().toISOString(),
+      profile: profile.rows[0] || null,
+      orders: orders.rows,
+      cart: carts.rows[0] || null
+    };
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="mes-donnees-showroom.json"');
+    res.json(export_data);
+  } catch(e) { res.status(500).json({ error: 'Erreur lors de l\'export' }); }
+});
+
+// RGPD — Suppression du compte (droit à l'oubli)
+app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer la suppression' });
+    const buyerId = req.session.buyerPortal.id;
+    const r = await pool.query('SELECT id, password_hash FROM buyers WHERE id=$1', [buyerId]);
+    const buyer = r.rows[0];
+    if (!buyer || !await bcrypt.compare(password, buyer.password_hash)) {
+      return res.status(400).json({ error: 'Mot de passe incorrect' });
+    }
+    // Anonymise les commandes existantes (conservation légale) puis supprime le compte
+    await pool.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
+    await pool.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    req.session.destroy(() => {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur lors de la suppression' }); }
 });
 
 app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
@@ -1291,7 +1350,9 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
   const r = await pool.query(`
-    SELECT o.*, b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
+    SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
+           o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
+           b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
@@ -1809,6 +1870,7 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { email, password, name, company, phone, country } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+  if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
   const cleanEmail = email.toLowerCase().trim();
@@ -1859,6 +1921,7 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
     const { name, company, email, phone, country, password } = req.body;
     if (password) {
+      if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
       await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5,password_hash=$6 WHERE id=$7', [name, company, email, phone, country, hash, req.params.id]);
     } else {
