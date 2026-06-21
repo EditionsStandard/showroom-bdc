@@ -243,6 +243,26 @@ async function init() {
       [key, value]
     );
   }
+
+  // Nettoyage des tokens expirés
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS buyer_access_tokens (
+      token TEXT PRIMARY KEY,
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(() => {});
+
+  await pool.query(`
+    DELETE FROM buyer_magic_links WHERE expires_at < NOW() - INTERVAL '7 days';
+    DELETE FROM buyer_password_resets WHERE expires_at < NOW() - INTERVAL '7 days';
+  `).catch(() => {});
+
+  await pool.query(`
+    DELETE FROM buyer_access_tokens WHERE expires_at < NOW() - INTERVAL '7 days';
+  `).catch(() => {});
 }
 
 module.exports = { pool, init };

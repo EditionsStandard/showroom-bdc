@@ -373,6 +373,7 @@ const TRANSLATIONS = {
     prof_name: 'Prénom / Nom *', prof_company: 'Entreprise / Boutique', prof_email: 'Email', prof_phone: 'Téléphone', prof_country: 'Pays',
     ph_name: 'Jean Dupont', ph_company: 'Ma Boutique SARL', ph_phone: '+33 6 00 00 00 00', ph_country: 'France',
     success_title: 'Sélection confirmée', success_back: 'Retour au catalogue',
+    success_title: 'Sélection confirmée', success_subtitle: 'Un email de confirmation a été envoyé.',
     success_msg: (brands) => `Votre sélection a été transmise pour : <strong>${brands}</strong>.<br><br>Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`,
     welcome_sub: 'Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> marque${n>1?'s':''} disponible${n>1?'s':''}`,
@@ -408,6 +409,7 @@ const TRANSLATIONS = {
     prof_name: 'First / Last name *', prof_company: 'Company / Store', prof_email: 'Email', prof_phone: 'Phone', prof_country: 'Country',
     ph_name: 'John Smith', ph_company: 'My Store Ltd', ph_phone: '+44 7700 000000', ph_country: 'United Kingdom',
     success_title: 'Selection confirmed', success_back: 'Back to catalogue',
+    success_title: 'Selection confirmed', success_subtitle: 'A confirmation email has been sent.',
     success_msg: (brands) => `Your selection has been sent for: <strong>${brands}</strong>.<br><br>You will receive a confirmation email for each brand. Please allow <strong>7 days</strong> to receive the final version, dated and signed by both parties.`,
     welcome_sub: 'Select a brand to browse its collection, add items and place your order.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> brand${n>1?'s':''} available`,
@@ -611,11 +613,15 @@ function applyLang() {
     </div>
   </div>
 
-  <div id="view-success" style="display:none;text-align:center;padding:60px 0;max-width:560px;margin:0 auto">
-    <div class="success-check">✓</div>
-    <h2 class="section-title" style="text-align:center">Sélection confirmée</h2>
-    <div id="success-detail" class="msg" style="text-align:left"></div>
-    <button id="success-back-btn" class="btn-confirm" onclick="location.reload()">Retour au catalogue</button>
+  <div id="view-success" style="display:none;text-align:center;padding:60px 20px;max-width:560px;margin:0 auto">
+    <div class="success-check" style="font-size:48px;width:80px;height:80px;border-radius:50%;background:rgba(204,235,60,.12);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;color:var(--accent)">✓</div>
+    <h2 class="section-title" style="text-align:center;margin-bottom:8px" data-t="success_title">Sélection confirmée</h2>
+    <p style="color:var(--soft);font-size:13px;margin-bottom:24px" data-t="success_subtitle">Un email de confirmation a été envoyé.</p>
+    <div id="success-detail" class="msg" style="text-align:left;margin-bottom:32px"></div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn-confirm" onclick="showView('orders')" style="background:transparent;border:1px solid var(--accent);color:var(--accent)">📋 Mes commandes</button>
+      <button class="btn-confirm" onclick="location.reload()">← Retour au catalogue</button>
+    </div>
   </div>
 </div>
 

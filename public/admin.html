@@ -102,6 +102,7 @@
   .badge-in_production { background: #0a1e3a; color: #60a5fa; }
   .badge-shipped       { background: #1a2a10; color: #a3e635; }
   .badge-cancelled     { background: #3a1a1a; color: #e74c3c; }
+  .badge-archived      { background: #1e1e1e; color: #555; }
   .badge-draft { background: #2a2a1a; color: #f39c12; }
 
   /* Toast */
@@ -329,6 +330,10 @@
       <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#aaa;cursor:pointer">☀️</button>
       <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#CCEB3C;cursor:pointer">EN</button>
     </div>
+    <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid #333;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Portail
+    </a>
     <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
@@ -360,12 +365,18 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h3 style="margin:0">CA mensuel</h3>
-        <span id="chart-total" style="font-size:12px;color:#888"></span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card" style="margin-bottom:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="margin:0;font-size:14px">CA mensuel</h3>
+          <span id="chart-total" style="font-size:11px;color:#888"></span>
+        </div>
+        <div id="revenue-chart" style="display:flex;align-items:flex-end;gap:4px;height:72px;padding:0 2px"></div>
       </div>
-      <div id="revenue-chart" style="display:flex;align-items:flex-end;gap:6px;height:80px;padding:0 4px"></div>
+      <div class="card" style="margin-bottom:0">
+        <h3 style="margin:0 0 14px;font-size:14px">CA par marque</h3>
+        <div id="brand-revenue-chart"></div>
+      </div>
     </div>
     <div class="card">
       <h3 data-t="recent_orders">Dernières commandes</h3>
@@ -408,6 +419,7 @@
           <option value="in_production">En production</option>
           <option value="shipped">Expédiée 🚚</option>
           <option value="cancelled" data-t="status_cancelled">Annulée</option>
+          <option value="archived">Archivée</option>
         </select>
         <select id="orders-sort" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
           <option value="date_desc" data-t="sort_date_desc">Date ↓</option>
@@ -921,6 +933,7 @@
         <option value="in_production">⚙️ En production</option>
         <option value="shipped">🚚 Expédiée</option>
         <option value="cancelled" data-t="status_cancelled_icon">🔴 Annulée</option>
+        <option value="archived">📦 Archivée</option>
       </select>
     </div>
 
@@ -1807,7 +1820,7 @@ async function loadDashboard() {
   document.getElementById('chart-total').textContent = `6 mois · ${vals.reduce((a,b)=>a+b,0).toFixed(0)} € CA`;
 
   const tbody = document.getElementById('recent-orders-body');
-  const recent = orders.slice(0, 10);
+  const recent = orders.filter(o => o.status !== 'archived').slice(0, 10);
   tbody.innerHTML = recent.map(o => `
     <tr>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
@@ -1820,6 +1833,26 @@ async function loadDashboard() {
       </td>
     </tr>
   `).join('');
+
+  // CA par marque
+  const byBrand = {};
+  orders.filter(o => o.status !== 'archived').forEach(o => {
+    if (!byBrand[o.brand_name]) byBrand[o.brand_name] = 0;
+    byBrand[o.brand_name] += parseFloat(o.total) || 0;
+  });
+  const sorted = Object.entries(byBrand).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const maxBrand = Math.max(...sorted.map(e=>e[1]),1);
+  const brandChart = document.getElementById('brand-revenue-chart');
+  if (brandChart && sorted.length) {
+    brandChart.innerHTML = sorted.map(([name,val]) => `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:11px;color:#aaa;min-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+        <div style="flex:1;background:#1a1a1a;border-radius:3px;height:6px;overflow:hidden">
+          <div style="width:${Math.round(val/maxBrand*100)}%;height:100%;background:#CCEB3C;border-radius:3px"></div>
+        </div>
+        <div style="font-size:11px;color:#CCEB3C;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
+      </div>`).join('');
+  }
 }
 
 // Brands

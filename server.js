@@ -765,7 +765,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['confirmed','validated','in_production','shipped','cancelled'];
+    const validStatuses = ['confirmed','validated','in_production','shipped','cancelled','archived'];
     if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
     await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
     // Notify buyer on meaningful transitions
