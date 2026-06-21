@@ -498,8 +498,9 @@ function applyLang() {
   document.getElementById('prof-country').placeholder = T.ph_country;
   document.querySelector('label[data-field="pw-current"]').textContent = T.pw_current;
   document.querySelector('label[data-field="pw-new"]').textContent = T.pw_new;
-  // Success
-  document.getElementById('success-back-btn').textContent = T.success_back;
+  // Success (boutons sans id fixe — garde null-safe)
+  const successBack = document.getElementById('success-back-btn');
+  if (successBack) successBack.textContent = T.success_back;
   // Re-render dynamic parts if visible
   if (currentBrand) applyProductFilters();
   if (document.getElementById('brand-picker').style.display !== 'none' && allBrands.length) renderBrandPicker();
@@ -1104,7 +1105,7 @@ async function init() {
     document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Erreur réseau. Vérifiez votre connexion.</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
     return;
   }
-  applyLang();
+  try { applyLang(); } catch(e) { console.error('applyLang:', e); }
   renderBrandPicker();
   updateCartBar();
   handleQrParams();
