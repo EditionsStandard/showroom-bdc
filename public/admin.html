@@ -19,7 +19,8 @@
   nav { flex: 1; padding: 12px 0; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #888; font-size: 13px; text-decoration: none; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
   nav a:hover, nav a.active { color: #fff; background: #1c1c1c; border-left-color: #CCEB3C; }
-  nav a span.icon { font-size: 16px; }
+  nav a svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .6; transition: opacity .15s; }
+  nav a:hover svg, nav a.active svg { opacity: 1; }
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid #252525; }
   .sidebar-footer a { color: #666; font-size: 12px; text-decoration: none; }
   .sidebar-footer a:hover { color: #e74c3c; }
@@ -41,9 +42,12 @@
 
   /* Stats */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; }
-  .stat .num { font-family: 'DotGothic16', monospace; font-size: 30px; font-weight: 400; color: #CCEB3C; }
-  .stat .label { font-size: 12px; color: #888; margin-top: 4px; }
+  .stat { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, #CCEB3C); }
+  .stat-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .stat-icon svg { width: 18px; height: 18px; color: var(--stat-color, #CCEB3C); }
+  .stat .num { font-family: 'DotGothic16', monospace; font-size: 32px; font-weight: 400; color: #fff; line-height: 1; }
+  .stat .label { font-size: 11px; color: #666; margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; }
 
   /* Buttons */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
@@ -296,12 +300,12 @@
     </div>
   </div>
   <nav>
-    <a class="active" data-section="dashboard"><span class="icon">📊</span> <span data-t="nav_dashboard">Tableau de bord</span></a>
-    <a data-section="brands"><span class="icon">🏷️</span> <span data-t="nav_brands">Marques</span></a>
-    <a data-section="orders"><span class="icon">📋</span> <span data-t="nav_orders">Commandes</span></a>
-    <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span> <span data-t="nav_settings">Paramètres</span></a>
-    <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span> <span data-t="nav_staff">Comptes</span></a>
-    <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span> <span data-t="nav_buyers">Acheteurs</span></a>
+    <a class="active" data-section="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span data-t="nav_dashboard">Tableau de bord</span></a>
+    <a data-section="brands"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
+    <a data-section="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
+    <a data-section="settings" id="nav-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="staff" id="nav-staff" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
+    <a data-section="buyers" id="nav-buyers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
@@ -323,9 +327,29 @@
   <div id="dashboard" class="section active">
     <h1 data-t="h1_dashboard">Tableau de bord</h1>
     <div class="stats">
-      <div class="stat"><div class="num" id="stat-brands">—</div><div class="label" data-t="stat_brands">Marques</div></div>
-      <div class="stat"><div class="num" id="stat-orders">—</div><div class="label" data-t="stat_orders">Commandes</div></div>
-      <div class="stat"><div class="num" id="stat-total">—</div><div class="label" data-t="stat_revenue">CA total HT</div></div>
+      <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
+        <div class="num" id="stat-brands">—</div><div class="label" data-t="stat_brands">Marques</div>
+      </div>
+      <div class="stat" style="--stat-color:#60a5fa;--stat-bg:#0a1628">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg></div>
+        <div class="num" id="stat-orders">—</div><div class="label" data-t="stat_orders">Commandes</div>
+      </div>
+      <div class="stat" style="--stat-color:#a78bfa;--stat-bg:#160a28">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+        <div class="num" id="stat-total">—</div><div class="label" data-t="stat_revenue">CA total HT</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div class="stat" style="--stat-color:#34d399;--stat-bg:#062016;margin-bottom:0">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
+        <div class="num" id="stat-buyers">—</div><div class="label" data-t="stat_buyers">Acheteurs</div>
+      </div>
+      <div class="stat" style="--stat-color:#f472b6;--stat-bg:#200a14;margin-bottom:0">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></div>
+        <div class="num" id="stat-online"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;box-shadow:0 0 6px #4caf50;margin-right:4px;vertical-align:middle"></span><span id="stat-online-num">—</span></div>
+        <div class="label" data-t="stat_online">En ligne maintenant</div>
+      </div>
     </div>
     <div class="card">
       <h3 data-t="recent_orders">Dernières commandes</h3>
@@ -1462,14 +1486,18 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 
 // Dashboard
 async function loadDashboard() {
-  const [brands, orders] = await Promise.all([
+  const [brands, orders, buyers, onlineIds] = await Promise.all([
     fetch('/api/brands').then(r => r.json()),
-    fetch('/api/orders').then(r => r.json())
+    fetch('/api/orders').then(r => r.json()),
+    fetch('/api/buyers').then(r => r.json()),
+    fetch('/api/buyers/presence').then(r => r.json()).catch(() => [])
   ]);
   document.getElementById('stat-brands').textContent = brands.length;
   document.getElementById('stat-orders').textContent = orders.length;
   const total = orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   document.getElementById('stat-total').textContent = total.toFixed(2) + ' €';
+  document.getElementById('stat-buyers').textContent = buyers.length;
+  document.getElementById('stat-online-num').textContent = onlineIds.length;
   const tbody = document.getElementById('recent-orders-body');
   const recent = orders.slice(0, 10);
   tbody.innerHTML = recent.map(o => `
