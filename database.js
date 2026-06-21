@@ -153,6 +153,10 @@ async function init() {
   `).catch(() => {});
 
   await pool.query(`
+    ALTER TABLE buyers ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP;
+  `).catch(() => {});
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS buyer_password_resets (
       token TEXT PRIMARY KEY,
       buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,

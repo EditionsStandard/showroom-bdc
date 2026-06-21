@@ -988,6 +988,10 @@ async function init() {
       sel.innerHTML = currenciesData.map(c => `<option value="${c.code}">${c.code} ${c.symbol}</option>`).join('');
     }
   }
+
+  // Heartbeat — signal presence to admin every 30s
+  fetch('/api/portal/ping').catch(() => {});
+  setInterval(() => fetch('/api/portal/ping').catch(() => {}), 30000);
 }
 
 function showView(view) {

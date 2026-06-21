@@ -1500,8 +1500,18 @@ app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
 
 // Admin: manage buyer accounts (owner + agent)
 app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query('SELECT id, email, name, company, phone, country, created_at FROM buyers ORDER BY created_at DESC');
+  const r = await pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at FROM buyers ORDER BY created_at DESC');
   res.json(r.rows);
+});
+
+app.get('/api/buyers/presence', requireRole('owner','agent'), async (req, res) => {
+  const r = await pool.query(`SELECT id, last_seen_at FROM buyers WHERE last_seen_at > NOW() - INTERVAL '90 seconds'`);
+  res.json(r.rows.map(b => b.id));
+});
+
+app.post('/api/portal/ping', requireBuyerAuth, async (req, res) => {
+  await pool.query('UPDATE buyers SET last_seen_at = NOW() WHERE id = $1', [req.session.buyerPortal.id]);
+  res.json({ ok: true });
 });
 
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {

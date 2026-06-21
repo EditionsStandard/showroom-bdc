@@ -484,7 +484,7 @@
     <div class="card">
       <h3 data-t="buyers_existing_title">Comptes acheteurs existants</h3>
       <table id="buyers-table">
-        <thead><tr><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th data-t="lbl_phone">Téléphone</th><th></th></tr></thead>
+        <thead><tr><th></th><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th data-t="lbl_phone">Téléphone</th><th></th></tr></thead>
         <tbody id="buyers-body"></tbody>
       </table>
     </div>
@@ -1236,6 +1236,7 @@ document.querySelectorAll('nav a').forEach(a => {
     document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
     a.classList.add('active');
     document.getElementById(a.dataset.section).classList.add('active');
+    if (a.dataset.section !== 'buyers' && _buyersPresenceTimer) { clearInterval(_buyersPresenceTimer); _buyersPresenceTimer = null; }
     if (a.dataset.section === 'dashboard') loadDashboard();
     if (a.dataset.section === 'brands') loadBrands();
     if (a.dataset.section === 'orders') loadOrders();
@@ -1344,10 +1345,21 @@ async function saveEditStaff() {
   toast(t('js_account_updated'));
 }
 
+let _buyersPresenceTimer = null;
+
 async function loadBuyers() {
-  const buyers = await fetch('/api/buyers').then(r => r.json());
-  document.getElementById('buyers-body').innerHTML = buyers.map(b => `
-    <tr>
+  const [buyers, onlineIds] = await Promise.all([
+    fetch('/api/buyers').then(r => r.json()),
+    fetch('/api/buyers/presence').then(r => r.json()).catch(() => [])
+  ]);
+  const onlineSet = new Set(onlineIds);
+  document.getElementById('buyers-body').innerHTML = buyers.map(b => {
+    const online = onlineSet.has(b.id);
+    const dot = online
+      ? `<span title="En ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;box-shadow:0 0 4px #4caf50"></span>`
+      : `<span title="Hors ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#555"></span>`;
+    return `<tr>
+      <td style="text-align:center;width:24px">${dot}</td>
       <td>${b.name || '—'}</td>
       <td>${b.company || '—'}</td>
       <td>${b.email}</td>
@@ -1356,7 +1368,30 @@ async function loadBuyers() {
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
-    </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
+
+  // Poll presence every 30s while on buyers tab
+  if (_buyersPresenceTimer) clearInterval(_buyersPresenceTimer);
+  _buyersPresenceTimer = setInterval(refreshBuyersPresence, 30000);
+}
+
+async function refreshBuyersPresence() {
+  const onlineIds = await fetch('/api/buyers/presence').then(r => r.json()).catch(() => []);
+  const onlineSet = new Set(onlineIds);
+  document.querySelectorAll('#buyers-body tr').forEach(row => {
+    const dot = row.querySelector('td:first-child span');
+    const deleteBtn = row.querySelector('.btn-danger');
+    if (!dot || !deleteBtn) return;
+    const onclick = deleteBtn.getAttribute('onclick') || '';
+    const match = onclick.match(/'([^']+)'/);
+    if (!match) return;
+    const id = match[1];
+    const online = onlineSet.has(id);
+    dot.style.background = online ? '#4caf50' : '#555';
+    dot.style.boxShadow = online ? '0 0 4px #4caf50' : 'none';
+    dot.title = online ? 'En ligne' : 'Hors ligne';
+  });
 }
 
 async function createBuyer() {
