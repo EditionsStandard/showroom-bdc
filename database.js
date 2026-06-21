@@ -229,7 +229,7 @@ async function init() {
     smtp_user: '',
     smtp_pass: '',
     smtp_from: '',
-    admin_password: 'admin123',
+    admin_password: process.env.ADMIN_PASSWORD || 'admin123',
     agent_name: '',
     agent_title: 'Agent Commercial',
     agent_phone: '',
@@ -263,6 +263,7 @@ async function init() {
   await pool.query(`
     DELETE FROM buyer_access_tokens WHERE expires_at < NOW() - INTERVAL '7 days';
     DELETE FROM selection_shares WHERE expires_at < NOW() - INTERVAL '7 days';
+    DELETE FROM buyer_carts WHERE updated_at < NOW() - INTERVAL '90 days';
   `).catch(() => {});
 
   // Index pour les performances

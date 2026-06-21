@@ -41,12 +41,12 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
   try {
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const brandId = session.metadata?.brand_id;
+      const stripeSession = event.data.object;
+      const brandId = stripeSession.metadata?.brand_id;
       if (brandId) {
         await pool.query(
           'UPDATE brands SET subscription_status=$1, stripe_customer_id=$2, stripe_subscription_id=$3 WHERE id=$4',
-          ['active', session.customer, session.subscription, brandId]
+          ['active', stripeSession.customer, stripeSession.subscription, brandId]
         );
       }
     } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
@@ -121,9 +121,10 @@ function requireBrandScope(...allowed) {
   const roleCheck = requireRole(...allowed);
   return (req, res, next) => {
     roleCheck(req, res, () => {
-      if (req.userRole === 'designer') {
+      // Restrict designer AND agent (when brand_id set) to their own brand
+      if (req.userRole === 'designer' || (req.userRole === 'agent' && req.userBrandId)) {
         const brandParam = req.params.brandId || req.params.id;
-        if (brandParam !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+        if (brandParam && brandParam !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
       }
       next();
     });
@@ -232,8 +233,18 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
 });
 
 app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
-  await pool.query('DELETE FROM admin_users WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    // Prevent deleting the last owner
+    const target = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
+    if (target.rows[0]?.role === 'owner') {
+      const ownerCount = await pool.query("SELECT COUNT(*) FROM admin_users WHERE role='owner'");
+      if (parseInt(ownerCount.rows[0].count) <= 1) {
+        return res.status(400).json({ error: 'Impossible de supprimer le dernier compte owner.' });
+      }
+    }
+    await pool.query('DELETE FROM admin_users WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ==================== API ADMIN ====================
@@ -318,7 +329,7 @@ app.post('/api/brands/:id/checkout-link', requireRole('owner'), async (req, res)
       await pool.query('UPDATE brands SET stripe_customer_id=$1 WHERE id=$2', [customerId, id]);
     }
     const base = getBaseUrl(req);
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
@@ -327,7 +338,7 @@ app.post('/api/brands/:id/checkout-link', requireRole('owner'), async (req, res)
       metadata: { brand_id: id }
     });
     await pool.query('UPDATE brands SET subscription_price_id=$1 WHERE id=$2', [priceId, id]);
-    res.json({ url: session.url });
+    res.json({ url: checkoutSession.url });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -367,7 +378,7 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('ow
 app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
-  const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
+  const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
   const base = getBaseUrl(req);
   const items = await Promise.all(prods.rows.map(async p => {
     const url = `${base}/portal?brand=${req.params.brandId}&add=${p.id}`;
@@ -750,6 +761,8 @@ async function checkOrderBrandScope(req, res) {
 }
 
 app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 500, 2000);
+  const offset = parseInt(req.query.offset) || 0;
   const brandFilter = req.userRole === 'designer' ? 'WHERE o.brand_id = $1' : '';
   const params = req.userRole === 'designer' ? [req.userBrandId] : [];
   const r = await pool.query(`
@@ -762,6 +775,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
     ${brandFilter}
     GROUP BY o.id, b.name
     ORDER BY o.created_at DESC
+    LIMIT ${limit} OFFSET ${offset}
   `, params);
   res.json(r.rows);
 });
@@ -1017,8 +1031,8 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
   if (b.rows[0].subscription_status === 'inactive') {
     return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
   }
-  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
-  const seasons = await pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC', [req.params.brandId]);
+  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
+  const seasons = await pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active != 0 ORDER BY created_at DESC', [req.params.brandId]);
   const [agentName, agentTitle, agentPhone, showroomName, currenciesRaw] = await Promise.all([
     getSetting('agent_name'), getSetting('agent_title'), getSetting('agent_phone'),
     getSetting('showroom_name'), getSetting('currencies_json'),
@@ -1114,6 +1128,9 @@ app.post('/api/public/orders', emailLimiter, async (req, res) => {
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
   }
+  if (typeof client_name !== 'string' || client_name.length > 200) return res.status(400).json({ error: 'Nom invalide' });
+  if (typeof client_email !== 'string' || client_email.length > 200 || !client_email.includes('@')) return res.status(400).json({ error: 'Email invalide' });
+  if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Commande invalide' });
   try {
     const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
     if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
@@ -1206,7 +1223,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
   const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url FROM brands WHERE id=$1", [req.params.brandId]);
   if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
-  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active=1 ORDER BY reference', [req.params.brandId]);
+  const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
   res.json({ brand: b.rows[0], products: p.rows });
 });
 
@@ -1235,8 +1252,9 @@ async function checkMoq(brand_id, lines) {
 app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes } = req.body;
-  if (!lines?.length) return res.status(400).json({ error: 'Sélection vide' });
-  if (!client_name) return res.status(400).json({ error: 'Nom requis' });
+  if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'Sélection vide' });
+  if (lines.length > 500) return res.status(400).json({ error: 'Commande trop volumineuse' });
+  if (!client_name || typeof client_name !== 'string' || client_name.length > 200) return res.status(400).json({ error: 'Nom requis' });
   if (!buyer_signature) return res.status(400).json({ error: 'Signature requise' });
   if (!cgv_accepted) return res.status(400).json({ error: 'Acceptation des CGV requise' });
 
@@ -1430,6 +1448,7 @@ app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
 
 app.post('/api/portal/cart', requireBuyerAuth, async (req, res) => {
   const cartJson = JSON.stringify(req.body.cart || {});
+  if (cartJson.length > 100_000) return res.status(400).json({ error: 'Panier trop volumineux' });
   await pool.query(
     `INSERT INTO buyer_carts (buyer_id, cart_json, updated_at) VALUES ($1,$2,NOW())
      ON CONFLICT (buyer_id) DO UPDATE SET cart_json=$2, updated_at=NOW()`,
@@ -1469,7 +1488,7 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
       FROM products p
       JOIN brands b ON p.brand_id = b.id
       LEFT JOIN product_stats ps ON ps.product_id = p.id
-      WHERE p.active = 1
+      WHERE p.active != 0
       ORDER BY COALESCE(ps.views, 0) DESC
       LIMIT 100
     `);
@@ -1487,7 +1506,7 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
              b.name as brand_name
       FROM products p
       JOIN brands b ON p.brand_id = b.id
-      WHERE p.active = 1
+      WHERE p.active != 0
         AND b.subscription_status != 'inactive'
         AND (p.reference ILIKE $1 OR p.description ILIKE $1 OR p.color ILIKE $1)
       ORDER BY p.reference
@@ -1503,7 +1522,7 @@ app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) =>
   try {
     const r = await pool.query(
       `SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id
-       FROM products p WHERE p.id = ANY($1) AND p.active = 1`,
+       FROM products p WHERE p.id = ANY($1) AND p.active != 0`,
       [ids]
     );
     res.json(r.rows);
@@ -1886,7 +1905,7 @@ app.get('/api/invite/:token', async (req, res) => {
     SELECT bil.*, b.name as brand_name, b.logo as brand_logo
     FROM brand_invite_links bil
     JOIN brands b ON b.id = bil.brand_id
-    WHERE bil.token=$1 AND bil.active=1
+    WHERE bil.token=$1 AND bil.active != 0
   `, [req.params.token]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Lien invalide ou désactivé.' });
   res.json({ brand_name: r.rows[0].brand_name, brand_logo: r.rows[0].brand_logo });
@@ -1897,7 +1916,7 @@ app.post('/api/invite/:token', async (req, res) => {
     SELECT bil.brand_id, b.name as brand_name
     FROM brand_invite_links bil
     JOIN brands b ON b.id = bil.brand_id
-    WHERE bil.token=$1 AND bil.active=1
+    WHERE bil.token=$1 AND bil.active != 0
   `, [req.params.token]);
   if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
 
@@ -2119,7 +2138,7 @@ async function generateLinesheetPDF(brandId, seasonId) {
 
   const showroomName = await getSetting('showroom_name');
 
-  let query = 'SELECT * FROM products WHERE brand_id=$1 AND active=1';
+  let query = 'SELECT * FROM products WHERE brand_id=$1 AND active != 0';
   const params = [brandId];
   if (seasonId) { query += ' AND season_id=$2'; params.push(seasonId); }
   query += ' ORDER BY collection_name, reference';
@@ -2561,7 +2580,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
       brandName: order.brand_name,
       brandLogo: order.brand_logo || '',
       content: `
-        <p>Bonjour <strong>${order.client_name}</strong>,</p>
+        <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
         <p>Nous avons bien reçu votre proposition de commande pour la marque <strong>${order.brand_name}</strong> en date du ${dateStr}.</p>
         <p>Votre proposition de commande signée (total HT : <strong>${totalStr}</strong>) est jointe à cet email en PDF.</p>
 
