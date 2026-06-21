@@ -1122,8 +1122,9 @@ async function init() {
   }
 
   // Heartbeat — signal presence to admin every 30s
-  fetch('/api/portal/ping').catch(() => {});
-  setInterval(() => fetch('/api/portal/ping').catch(() => {}), 30000);
+  const ping = () => fetch('/api/portal/ping', { method: 'POST' }).catch(() => {});
+  ping();
+  setInterval(ping, 30000);
 }
 
 function showView(view) {

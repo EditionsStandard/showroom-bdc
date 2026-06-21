@@ -1,4 +1,4 @@
-const CACHE_NAME = 'showroom-bdc-v2';
+const CACHE_NAME = 'showroom-bdc-v3';
 
 const STATIC_ASSETS = [
   '/logo.svg',
@@ -28,6 +28,9 @@ self.addEventListener('fetch', e => {
 
   // Never intercept POST requests (orders go through the offline queue in the page)
   if (e.request.method !== 'GET') return;
+
+  // Ignorer les schémas non-http (chrome-extension://, etc.) — non cachables
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // API brand/products: Network-first, cache fallback
   if (url.pathname.startsWith('/api/public/brands') || url.pathname === '/api/public/cgv') {
