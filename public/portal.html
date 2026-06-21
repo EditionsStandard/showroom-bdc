@@ -300,6 +300,25 @@
   }
 
   /* ── Responsive: mobile ── */
+  /* ── Mobile bottom nav ── */
+  .mobile-nav { display: none; }
+  @media (max-width: 640px) {
+    .mobile-nav {
+      display: flex; position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--dark); border-top: 1px solid var(--border);
+      z-index: 59; padding: 0 0 env(safe-area-inset-bottom);
+    }
+    .mobile-nav button {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 3px; padding: 10px 4px;
+      background: none; border: none; color: var(--soft); cursor: pointer;
+      font-size: 9px; font-family: 'Inter', sans-serif; letter-spacing: .04em;
+      text-transform: uppercase; transition: color .15s;
+    }
+    .mobile-nav button .mn-icon { font-size: 20px; line-height: 1; }
+    .mobile-nav button.active, .mobile-nav button:active { color: var(--accent); }
+  }
+
   @media (max-width: 640px) {
     /* Header : masquer la nav texte, garder uniquement logo + user-menu */
     .header { padding: 12px 16px; }
@@ -658,7 +677,7 @@ function applyLang() {
 <!-- Modal : Envoyer sélection par email -->
 <div class="gmodal-overlay" id="modal-email-sel">
   <div class="gmodal">
-    <button class="gmodal-close" onclick="closeModal('modal-email-sel')">✕</button>
+    <button class="gmodal-close" onclick="closeModal('modal-email-sel')" aria-label="Fermer">✕</button>
     <div class="gmodal-title">Envoyer la sélection par email</div>
     <div class="field"><label>Email destinataire</label><input id="email-sel-to" type="email" placeholder="acheteur@exemple.com"></div>
     <div class="field"><label>Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;resize:vertical"></textarea></div>
@@ -673,7 +692,7 @@ function applyLang() {
 <!-- Modal : Partager la sélection -->
 <div class="gmodal-overlay" id="modal-share">
   <div class="gmodal">
-    <button class="gmodal-close" onclick="closeModal('modal-share')">✕</button>
+    <button class="gmodal-close" onclick="closeModal('modal-share')" aria-label="Fermer">✕</button>
     <div class="gmodal-title">Partager la sélection</div>
     <p style="font-size:13px;font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
     <div style="display:flex;gap:8px">
@@ -691,7 +710,7 @@ function applyLang() {
   <div class="cgv-modal">
     <div class="cgv-modal-header">
       <h3 id="cgv-modal-title">Conditions générales de vente</h3>
-      <button class="cgv-modal-close" onclick="closeCgvModal()">✕</button>
+      <button class="cgv-modal-close" onclick="closeCgvModal()" aria-label="Fermer les CGV">✕</button>
     </div>
     <div class="cgv-modal-body" id="cgv-modal-body"></div>
   </div>
@@ -730,7 +749,7 @@ function applyLang() {
 
 <!-- Carousel lightbox -->
 <div class="img-modal" id="img-modal">
-  <button class="img-close" id="img-close">✕</button>
+  <button class="img-close" id="img-close" aria-label="Fermer">✕</button>
   <div class="img-modal-main">
     <button class="img-nav img-nav-prev" id="img-prev">‹</button>
     <img id="img-modal-src" src="" alt="">
@@ -745,7 +764,7 @@ function applyLang() {
 <div class="product-drawer" id="product-drawer">
   <div class="drawer-header">
     <span id="drawer-brand-name" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em"></span>
-    <button class="drawer-close" onclick="closeProductDrawer()">✕</button>
+    <button class="drawer-close" onclick="closeProductDrawer()" aria-label="Fermer la fiche produit">✕</button>
   </div>
   <div class="drawer-body">
     <div class="drawer-gallery" id="drawer-gallery">
@@ -920,6 +939,8 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('product-drawer')?.classList.contains('open')) { closeProductDrawer(); return; }
   const openGModal = document.querySelector('.gmodal-overlay.open');
   if (openGModal) { openGModal.classList.remove('open'); return; }
+  const delModal = document.getElementById('modal-delete-account');
+  if (delModal?.style.display === 'flex') { closeDeleteAccount(); return; }
   closeCgvModal();
 });
 
@@ -1715,7 +1736,7 @@ async function loadOrders() {
   const list = document.getElementById('orders-list');
   list.innerHTML = `<p class="msg" style="color:var(--muted)">Chargement…</p>`;
   const data = await fetch('/api/portal/orders').then(r => r.json());
-  if (!data.length) { list.innerHTML = `<p class="msg">${t('orders_empty')}</p>`; return; }
+  if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${currentLang==='fr'?'Parcourir le catalogue':'Browse catalogue'}</button></div>`; return; }
   ordersData = data;
   applySortOrders();
 }
@@ -2255,6 +2276,38 @@ window.addEventListener('pageshow', (e) => {
     }).catch(() => window.location.replace('/editions-showroom-b2b-portail'));
   }
 });
+</script>
+
+<!-- Barre de navigation fixe mobile -->
+<nav class="mobile-nav" aria-label="Navigation principale">
+  <button id="mn-catalog" onclick="showView('catalog')" aria-label="Catalogue">
+    <span class="mn-icon">🏷</span>Catalogue
+  </button>
+  <button id="mn-orders" onclick="showView('orders')" aria-label="Mes commandes">
+    <span class="mn-icon">📋</span>Commandes
+  </button>
+  <button id="mn-favs" onclick="showView('favs')" aria-label="Mes favoris">
+    <span class="mn-icon">♡</span>Favoris
+  </button>
+  <button id="mn-profile" onclick="showView('account')" aria-label="Mon profil">
+    <span class="mn-icon">✏️</span>Profil
+  </button>
+</nav>
+<script>
+// Synchronise le bouton actif de la barre mobile avec la vue affichée
+const _origShowView = typeof showView === 'function' ? showView : null;
+function updateMobileNav(view) {
+  document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
+  const map = { catalog: 'mn-catalog', orders: 'mn-orders', favs: 'mn-favs', account: 'mn-profile' };
+  if (map[view]) document.getElementById(map[view])?.classList.add('active');
+}
+// Patch showView pour synchroniser la barre
+if (typeof showView === 'function') {
+  const _sv = showView;
+  window.showView = function(view) { _sv(view); updateMobileNav(view); };
+}
+// Init état actif au chargement
+updateMobileNav('catalog');
 </script>
 </body>
 </html>

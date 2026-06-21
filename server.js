@@ -36,7 +36,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    return res.status(400).send(`Webhook signature error: ${err.message}`);
+    return res.status(400).send("Webhook signature error");
   }
 
   try {
@@ -64,7 +64,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.get('/index.html', (req, res) => res.redirect('/'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+  etag: true
+}));
 if (!process.env.SESSION_SECRET) console.warn('⚠️  SESSION_SECRET non défini — utilisez une valeur aléatoire en production');
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
@@ -222,7 +225,7 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
     res.json({ id });
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
-    res.status(500).json({ error: err.message });
+    console.error(err); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -236,7 +239,7 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
       await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, email, role, brand_id || null, req.params.id]);
     }
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
@@ -251,7 +254,7 @@ app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
     }
     await pool.query('DELETE FROM admin_users WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ==================== API ADMIN ====================
@@ -300,14 +303,14 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
     await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10 WHERE id=$11',
       [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     await pool.query('DELETE FROM brands WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
@@ -347,7 +350,7 @@ app.post('/api/brands/:id/checkout-link', requireRole('owner'), async (req, res)
     await pool.query('UPDATE brands SET subscription_price_id=$1 WHERE id=$2', [priceId, id]);
     res.json({ url: checkoutSession.url });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -361,7 +364,7 @@ app.post('/api/brands/:id/cancel-subscription', requireRole('owner'), async (req
     await pool.query('UPDATE brands SET subscription_status=$1 WHERE id=$2', ['inactive', req.params.id]);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -444,7 +447,7 @@ app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req
       [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
     );
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.patch('/api/products/:id/prices', requireRole('owner','agent','designer'), async (req, res) => {
@@ -458,7 +461,7 @@ app.patch('/api/products/:id/prices', requireRole('owner','agent','designer'), a
     vals.push(req.params.id);
     await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
@@ -466,7 +469,7 @@ app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (
     if (!await checkProductBrandScope(req, res)) return;
     await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // bulk MUST be declared before the catch-all /:brandId/products route
@@ -501,7 +504,7 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
     const { active } = req.body;
     await pool.query('UPDATE products SET active=$1 WHERE id=$2', [active ? 1 : 0, req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
@@ -516,7 +519,7 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.si
     });
     res.json({ url: result.secure_url });
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    console.error(e); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -533,7 +536,7 @@ app.post('/api/upload-pdf', requireRole('owner','agent'), uploadPdf.single('pdf'
     });
     res.json({ url: result.secure_url });
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    console.error(e); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -565,7 +568,7 @@ app.put('/api/seasons/:id', requireRole('owner','agent','designer'), async (req,
     const { name, active } = req.body;
     await pool.query('UPDATE seasons SET name=$1, active=$2 WHERE id=$3', [name, active!==undefined?active:1, req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.delete('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
@@ -576,7 +579,7 @@ app.delete('/api/seasons/:id', requireRole('owner','agent','designer'), async (r
     await pool.query('UPDATE products SET season_id=NULL WHERE season_id=$1', [req.params.id]);
     await pool.query('DELETE FROM seasons WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ==================== LINESHEET PDF ====================
@@ -587,7 +590,7 @@ app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent',
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="linesheet.pdf"');
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ==================== APPOINTMENTS ====================
@@ -801,7 +804,7 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
       sendOrderStatusEmail(req.params.id, status).catch(e => console.error('status email error:', e.message));
     }
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 async function sendOrderStatusEmail(orderId, status) {
@@ -874,7 +877,7 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="commandes-${new Date().toISOString().slice(0,10)}.csv"`);
     res.send('﻿' + csv); // BOM for Excel
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
@@ -891,7 +894,7 @@ app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
       ORDER BY total_amount DESC
     `);
     res.json(r.rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
@@ -899,7 +902,7 @@ app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => 
     await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
     await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, res) => {
@@ -961,7 +964,7 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
       ` })
     });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/portal/access', async (req, res) => {
@@ -987,7 +990,7 @@ app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res
     const pdf = await generateOrderPDF(req.params.id);
     await sendOrderEmails(req.params.id, pdf);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (req, res) => {
@@ -997,7 +1000,7 @@ app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (r
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="commande-${req.params.id.slice(0,8)}.pdf"`);
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ==================== PUBLIC ====================
@@ -1027,7 +1030,7 @@ app.get('/api/public/orders/:id/pdf', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/public/cgv', async (req, res) => {
@@ -1070,7 +1073,7 @@ app.post('/api/public/selection-pdf', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Selection-${ref}-${brand.name.replace(/\s/g,'-')}.pdf"`);
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
@@ -1381,7 +1384,7 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ── Email sélection ──────────────────────────────────────────────────
@@ -1469,7 +1472,7 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
       attachments: [{ filename: `Selection-${dateStr}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
     });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ── Partage sélection ────────────────────────────────────────────────
@@ -1484,7 +1487,7 @@ app.post('/api/portal/share', requireBuyerAuth, async (req, res) => {
       [token, req.session.buyerPortal.id, JSON.stringify(items), expires]
     );
     res.json({ token });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/share/:token', async (req, res) => {
@@ -1526,7 +1529,7 @@ app.post('/api/portal/stats/view/:productId', requireBuyerAuth, async (req, res)
       ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()
     `, [req.params.productId]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.post('/api/portal/stats/cart/:productId', requireBuyerAuth, async (req, res) => {
@@ -1537,7 +1540,7 @@ app.post('/api/portal/stats/cart/:productId', requireBuyerAuth, async (req, res)
       ON CONFLICT (product_id) DO UPDATE SET cart_adds = product_stats.cart_adds + 1, updated_at = NOW()
     `, [req.params.productId]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, res) => {
@@ -1554,7 +1557,7 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
       LIMIT 100
     `);
     res.json(r.rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
@@ -1574,7 +1577,7 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
       LIMIT 40
     `, [like]);
     res.json(r.rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) => {
@@ -1587,7 +1590,7 @@ app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) =>
       [ids]
     );
     res.json(r.rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
@@ -1686,7 +1689,7 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Selection-${Date.now()}.pdf"`);
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // Forgot / reset password (public endpoints — no auth required)
@@ -1775,7 +1778,7 @@ app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req,
     const { admin_notes } = req.body;
     await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
@@ -1809,7 +1812,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
       ` })
     });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
@@ -1863,7 +1866,7 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
     res.json({ ok: true, id });
   } catch(e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
-    res.status(500).json({ error: e.message });
+    console.error(e); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -1883,7 +1886,7 @@ app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
     sendBuyerWelcomeEmail({ email: cleanEmail, password, name, req }).catch(e => console.error('Buyer welcome email error:', e.message));
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
-    res.status(500).json({ error: err.message });
+    console.error(err); res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -1928,14 +1931,14 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
       await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5 WHERE id=$6', [name, company, email, phone, country, req.params.id]);
     }
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
     await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 // ==================== BRAND INVITE LINKS ====================
@@ -1958,7 +1961,7 @@ app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','ag
     const { active } = req.body;
     await pool.query('UPDATE brand_invite_links SET active=$1 WHERE brand_id=$2', [active ? 1 : 0, req.params.brandId]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
@@ -2085,7 +2088,7 @@ app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
     res.send(pdf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
 app.get('/buyer/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'buyer.html')));
