@@ -1,4 +1,4 @@
-const CACHE_NAME = 'showroom-bdc-v1';
+const CACHE_NAME = 'showroom-bdc-v2';
 
 const STATIC_ASSETS = [
   '/logo.svg',
