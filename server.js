@@ -491,6 +491,32 @@ app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','d
   res.json({ ok: true, deleted: r.rowCount });
 });
 
+// Action groupée sur une collection entière : activer / désactiver / supprimer
+app.post('/api/brands/:brandId/products/collection-bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const { collection, action } = req.body;
+    if (!collection) return res.status(400).json({ error: 'Collection requise' });
+    const brandId = req.params.brandId;
+    if (action === 'activate' || action === 'deactivate') {
+      const active = action === 'activate' ? 1 : 0;
+      const r = await pool.query('UPDATE products SET active=$1 WHERE brand_id=$2 AND collection_name=$3', [active, brandId, collection]);
+      return res.json({ ok: true, count: r.rowCount });
+    }
+    if (action === 'delete') {
+      // Supprime les produits sans commande, désactive ceux référencés par des commandes (FK)
+      const prods = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND collection_name=$2', [brandId, collection]);
+      let deleted = 0, deactivated = 0;
+      for (const p of prods.rows) {
+        const used = await pool.query('SELECT 1 FROM order_lines WHERE product_id=$1 LIMIT 1', [p.id]);
+        if (used.rows.length) { await pool.query('UPDATE products SET active=0 WHERE id=$1', [p.id]); deactivated++; }
+        else { await pool.query('DELETE FROM products WHERE id=$1', [p.id]); deleted++; }
+      }
+      return res.json({ ok: true, deleted, deactivated });
+    }
+    return res.status(400).json({ error: 'Action invalide' });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.post('/api/products/:id/duplicate', requireRole('owner','agent','designer'), async (req, res) => {
   if (!await checkProductBrandScope(req, res)) return;
   const r = await pool.query('SELECT * FROM products WHERE id=$1', [req.params.id]);

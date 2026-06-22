@@ -712,11 +712,18 @@
     </div>
 
     <div class="card" style="padding:14px 16px;margin-bottom:16px;background:#0a0a0a">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888">Saisons</span>
-        <button class="btn btn-secondary btn-sm" onclick="openAddSeason()" data-t="btn_new_season">+ Nouvelle saison</button>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888">Collection</span>
+        <select id="collection-filter" onchange="onCollectionFilterChange()" style="min-width:160px">
+          <option value="">Toutes les collections</option>
+        </select>
+        <div id="collection-bulk-actions" style="display:none;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="color:#444">|</span>
+          <button class="btn btn-secondary btn-sm" onclick="collectionBulk('activate')">👁 Tout activer</button>
+          <button class="btn btn-secondary btn-sm" onclick="collectionBulk('deactivate')">🚫 Tout désactiver</button>
+          <button class="btn btn-danger btn-sm" onclick="collectionBulk('delete')">🗑 Supprimer la collection</button>
+        </div>
       </div>
-      <div id="seasons-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
 
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -764,8 +771,7 @@
       <h3 id="product-form-title" data-t="product_form_title_new">Nouvelle référence</h3>
       <input type="hidden" id="p-id">
       <div class="form-row">
-        <div class="form-group"><label data-t="lbl_collection_name">Nom de collection</label><input id="p-collection" type="text" data-tp="ph_collection"></div>
-        <div class="form-group"><label data-t="lbl_season">Saison</label><select id="p-season-id"><option value="" data-t="opt_none">— Aucune —</option></select></div>
+        <div class="form-group"><label data-t="lbl_collection_name">Nom de collection</label><input id="p-collection" type="text" data-tp="ph_collection" placeholder="ex. SS27, FW27…"></div>
         <div class="form-group"><label data-t="lbl_ref_req">Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
         <div class="form-group"><label data-t="lbl_price_ws">Prix wholesale HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
         <div class="form-group"><label data-t="lbl_price_retail">Prix retail conseillé (€)</label><input id="p-price-retail" type="number" step="0.01" placeholder="0.00"></div>
@@ -2358,47 +2364,44 @@ async function loadProducts(brandId, brandName) {
   document.getElementById('add-product-form').style.display = 'none';
   openModal('modal-products');
   refreshProducts();
-  loadSeasons();
 }
 
-let seasonsCache = [];
-async function loadSeasons() {
-  seasonsCache = await fetch(`/api/brands/${currentBrandId}/seasons`).then(r => r.json());
-  const list = document.getElementById('seasons-list');
-  list.innerHTML = seasonsCache.map(s => `
-    <span class="tag" style="background:${s.active ? '#1f3d1f' : '#2a2a2a'};color:${s.active ? '#5ec95e' : '#888'};padding:5px 10px;display:inline-flex;align-items:center;gap:6px">
-      ${s.name}
-      <a onclick="toggleSeason('${s.id}',${s.active ? 0 : 1})" style="cursor:pointer;color:#aaa" title="${s.active ? 'Désactiver' : 'Activer'}">${s.active ? '👁' : '🚫'}</a>
-      <a onclick="deleteSeason('${s.id}')" style="cursor:pointer;color:#e05e5e">✕</a>
-    </span>`).join('') || '<span style="font-size:12px;color:#666">Aucune saison — toutes les références sont visibles par défaut</span>';
-
-  const sel = document.getElementById('p-season-id');
-  sel.innerHTML = '<option value="">— Aucune —</option>' + seasonsCache.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+// Remplit le filtre de collection depuis les produits chargés
+function populateCollectionFilter() {
+  const sel = document.getElementById('collection-filter');
+  if (!sel) return;
+  const current = sel.value;
+  const cols = [...new Set(productsCache.map(p => p.collection_name).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Toutes les collections</option>' + cols.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (cols.includes(current)) sel.value = current;
+  onCollectionFilterChange();
 }
 
-async function openAddSeason() {
-  const name = prompt('Nom de la saison (ex: SS27, FW27)');
-  if (!name) return;
-  await fetch(`/api/brands/${currentBrandId}/seasons`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
+function onCollectionFilterChange() {
+  const sel = document.getElementById('collection-filter');
+  const actions = document.getElementById('collection-bulk-actions');
+  // Les actions groupées ne s'affichent que si une collection précise est sélectionnée
+  if (actions) actions.style.display = (sel && sel.value) ? 'flex' : 'none';
+  filterProducts();
+}
+
+async function collectionBulk(action) {
+  const collection = document.getElementById('collection-filter').value;
+  if (!collection) return;
+  const labels = { activate: 'activer', deactivate: 'désactiver', delete: 'supprimer' };
+  if (!confirm(`Voulez-vous ${labels[action]} toute la collection « ${collection} » ?`)) return;
+  const r = await fetch(`/api/brands/${currentBrandId}/products/collection-bulk`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collection, action })
   });
-  loadSeasons();
-  toast(t('js_season_created'));
-}
-
-async function toggleSeason(id, active) {
-  await fetch(`/api/seasons/${id}`, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: seasonsCache.find(s => s.id === id).name, active })
-  });
-  loadSeasons();
-}
-
-async function deleteSeason(id) {
-  if (!confirm(t('confirm_delete_season'))) return;
-  await fetch(`/api/seasons/${id}`, { method: 'DELETE' });
-  loadSeasons();
-  toast(t('js_season_deleted'));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || 'Erreur', true); return; }
+  if (action === 'delete') {
+    toast(`${d.deleted} supprimé(s)` + (d.deactivated ? `, ${d.deactivated} désactivé(s) (présents en commande)` : ''));
+  } else {
+    toast(`${d.count} référence(s) ${action === 'activate' ? 'activée(s)' : 'désactivée(s)'}`);
+  }
+  await refreshProducts();
 }
 
 function downloadLinesheet() {
@@ -2409,14 +2412,17 @@ let productsCache = [];
 
 async function refreshProducts() {
   productsCache = await fetch(`/api/brands/${currentBrandId}/products`).then(r => r.json());
-  filterProducts();
+  if (!Array.isArray(productsCache)) productsCache = [];
+  populateCollectionFilter();
 }
 
 function filterProducts() {
   const q = (document.getElementById('products-search')?.value || '').toLowerCase();
   const showInactive = document.getElementById('show-inactive')?.checked;
+  const collection = document.getElementById('collection-filter')?.value || '';
   const filtered = productsCache.filter(p => {
     if (!showInactive && p.active === 0) return false;
+    if (collection && (p.collection_name || '') !== collection) return false;
     if (!q) return true;
     return (p.reference||'').toLowerCase().includes(q)
       || (p.description||'').toLowerCase().includes(q)
@@ -2566,7 +2572,6 @@ function resetProductForm() {
   currentVariants = [];
   document.getElementById('p-id').value = '';
   document.getElementById('p-collection').value = '';
-  document.getElementById('p-season-id').value = '';
   document.getElementById('p-ref').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-color').value = '';
@@ -2601,7 +2606,6 @@ function editProduct(p) {
 
   document.getElementById('p-id').value = p.id;
   document.getElementById('p-collection').value = p.collection_name || '';
-  document.getElementById('p-season-id').value = p.season_id || '';
   document.getElementById('p-ref').value = p.reference || '';
   document.getElementById('p-desc').value = p.description || '';
   document.getElementById('p-color').value = p.color || '';
@@ -2788,7 +2792,6 @@ async function saveProduct() {
   const firstImg = currentVariants.length ? (currentVariants[0].images[0] || '') : (currentImages[0] || '');
   const body = {
     collection_name: document.getElementById('p-collection').value,
-    season_id: document.getElementById('p-season-id').value || null,
     reference,
     description: document.getElementById('p-desc').value,
     color: document.getElementById('p-color').value,
