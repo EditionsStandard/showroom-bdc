@@ -64,6 +64,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.get('/index.html', (req, res) => res.redirect('/'));
+// Favicon → réutilise le logo (évite le 404 /favicon.ico sur chaque page)
+app.get('/favicon.ico', (req, res) => res.redirect(301, '/logo.svg'));
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   etag: true
@@ -2812,6 +2814,23 @@ async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) 
     } catch(e) { console.error('Airtable STORES patch error:', e.message); }
   }
 }
+
+// Gestionnaire d'erreur global Express — capture les exceptions des routes
+// (placé après toutes les routes) pour renvoyer une 500 propre au lieu de planter.
+app.use((err, req, res, next) => {
+  console.error('Erreur non gérée:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Erreur serveur' });
+});
+
+// Filet de sécurité au niveau du process : une erreur asynchrone non capturée
+// ne doit PAS faire planter tout le serveur (sinon site down jusqu'au redémarrage).
+process.on('unhandledRejection', (reason) => {
+  console.error('Promesse rejetée non gérée:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Exception non capturée:', err);
+});
 
 // Start
 init().then(() => {
