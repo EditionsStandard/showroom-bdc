@@ -1397,7 +1397,19 @@ async function initUserRole() {
     document.getElementById('nav-settings').style.display = 'none';
   }
   if (me.role === 'designer') {
+    // Le designer n'a accès qu'à SA marque : on masque les onglets globaux (403)
     document.getElementById('nav-buyers').style.display = 'none';
+    document.getElementById('nav-stats').style.display = 'none';
+    document.getElementById('nav-agenda').style.display = 'none';
+    const dashNav = document.querySelector('nav a[data-section="dashboard"]');
+    if (dashNav) dashNav.style.display = 'none';
+    // L'amener directement sur son espace de travail : Marques
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+    const brandsNav = document.querySelector('nav a[data-section="brands"]');
+    if (brandsNav) brandsNav.classList.add('active');
+    document.getElementById('brands').classList.add('active');
+    loadBrands();
   }
 }
 initUserRole();
@@ -1678,12 +1690,13 @@ function globalSearch(q) {
   const dd = document.getElementById('global-search-dropdown');
   if (!q.trim()) { dd.style.display = 'none'; return; }
   _globalSearchTimeout = setTimeout(async () => {
+    const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : (Array.isArray(d.orders) ? d.orders : [])).catch(() => []);
     const [orders, buyers] = await Promise.all([
-      fetch('/api/orders').then(r => r.json()).catch(() => []),
-      fetch('/api/buyers').then(r => r.json()).catch(() => [])
+      arr(fetch('/api/orders')),
+      arr(fetch('/api/buyers'))
     ]);
     const ql = q.toLowerCase();
-    const orderMatches = (orders.orders || orders).filter(o =>
+    const orderMatches = orders.filter(o =>
       (o.client_name||'').toLowerCase().includes(ql) ||
       (o.client_email||'').toLowerCase().includes(ql) ||
       (o.client_company||'').toLowerCase().includes(ql)
@@ -1784,11 +1797,12 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 
 // Dashboard
 async function loadDashboard() {
+  const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const [brands, orders, buyers, onlineIds] = await Promise.all([
-    fetch('/api/brands').then(r => r.json()),
-    fetch('/api/orders').then(r => r.json()),
-    fetch('/api/buyers').then(r => r.json()),
-    fetch('/api/buyers/presence').then(r => r.json()).catch(() => [])
+    arr(fetch('/api/brands')),
+    arr(fetch('/api/orders')),
+    arr(fetch('/api/buyers')),
+    arr(fetch('/api/buyers/presence'))
   ]);
   document.getElementById('stat-brands').textContent = brands.length;
   document.getElementById('stat-orders').textContent = orders.length;
@@ -1889,7 +1903,7 @@ async function loadBrands() {
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
-        <button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>
+        ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 ${t('label_billing')}</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">${t('btn_delete_text')}</button>` : ''}
       </div>
