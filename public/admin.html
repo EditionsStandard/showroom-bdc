@@ -397,6 +397,7 @@
   <div id="brands" class="section">
     <h1 data-t="h1_brands">Marques & Collections</h1>
     <button class="btn btn-primary" onclick="openBrandModal()" data-t="btn_new_brand">+ Nouvelle marque</button>
+    <button class="btn btn-secondary" id="btn-print-all-qr" onclick="printAllBrandsQR()">🖨️ Imprimer tous les QR (A4)</button>
     <div style="height:20px"></div>
     <div class="brands-grid" id="brands-grid"></div>
   </div>
@@ -2289,6 +2290,40 @@ function printQR() {
     <p style="font-size:12px;color:#888;margin-top:10px">${url}</p>
     <script>window.onload=()=>window.print()<\/script>
   </body></html>`);
+}
+
+// Imprime les QR d'accès de toutes les marques sur une feuille A4 (grille)
+async function printAllBrandsQR() {
+  const btn = document.getElementById('btn-print-all-qr');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Génération…'; }
+  try {
+    const data = await fetch('/api/brands-qrcodes').then(r => r.json());
+    if (!data.items || !data.items.length) { toast('Aucune marque à imprimer', true); return; }
+    const cells = data.items.map(b => `
+      <div class="qr-cell">
+        <div class="qr-name">${esc(b.name)}</div>
+        <img src="${b.qr}" alt="QR ${esc(b.name)}">
+        <div class="qr-url">${esc(b.url)}</div>
+      </div>`).join('');
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>QR d'accès — Marques</title><style>
+      @page { size: A4; margin: 12mm; }
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, Arial, sans-serif; margin: 0; }
+      h1 { text-align: center; font-size: 18px; margin: 0 0 14px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+      .qr-cell { border: 1px solid #ddd; border-radius: 8px; padding: 10px; text-align: center; break-inside: avoid; }
+      .qr-name { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+      .qr-cell img { width: 100%; max-width: 150px; height: auto; }
+      .qr-url { font-size: 8px; color: #888; margin-top: 4px; word-break: break-all; }
+    </style></head><body>
+      <h1>Accès showroom — QR par marque</h1>
+      <div class="grid">${cells}</div>
+      <script>window.onload=()=>window.print()<\/script>
+    </body></html>`);
+    w.document.close();
+  } catch(e) { console.error(e); toast('Erreur lors de la génération', true); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '🖨️ Imprimer tous les QR (A4)'; } }
 }
 
 async function showProductQR(brandId, productId) {

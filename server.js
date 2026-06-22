@@ -321,6 +321,20 @@ app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'),
   res.json({ qr, url });
 });
 
+// QR d'accès de TOUTES les marques (pour impression sur une feuille A4)
+app.get('/api/brands-qrcodes', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query("SELECT id, name, logo, logo_url FROM brands WHERE subscription_status IS NULL OR subscription_status != 'inactive' ORDER BY name");
+    const base = getBaseUrl(req);
+    const items = await Promise.all(r.rows.map(async b => {
+      const url = `${base}/portal?brand=${b.id}`;
+      const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
+      return { id: b.id, name: b.name, logo: b.logo || b.logo_url || '', qr, url };
+    }));
+    res.json({ items });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.post('/api/brands/:id/checkout-link', requireRole('owner'), async (req, res) => {
   const { id } = req.params;
   const { priceId } = req.body;
