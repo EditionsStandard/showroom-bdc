@@ -1386,6 +1386,7 @@ document.querySelectorAll('nav a').forEach(a => {
 });
 
 let currentUserRole = null;
+let currentUserBrandId = null;
 async function initUserRole() {
   const me = await fetch('/api/me').then(r => r.json());
   currentUserRole = me.role;
@@ -1397,26 +1398,15 @@ async function initUserRole() {
     document.getElementById('nav-settings').style.display = 'none';
   }
   if (me.role === 'designer') {
-    // Le designer n'a accès qu'à SA marque : on masque les onglets globaux (403)
+    currentUserBrandId = me.brand_id || null;
+    // Le designer n'a accès qu'à SA marque : on masque les onglets globaux sans données scopables
     document.getElementById('nav-buyers').style.display = 'none';
     document.getElementById('nav-stats').style.display = 'none';
-    document.getElementById('nav-agenda').style.display = 'none';
-    const dashNav = document.querySelector('nav a[data-section="dashboard"]');
-    if (dashNav) dashNav.style.display = 'none';
-    // L'amener directement sur son espace de travail : Marques
-    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
-    const brandsNav = document.querySelector('nav a[data-section="brands"]');
-    if (brandsNav) brandsNav.classList.add('active');
-    document.getElementById('brands').classList.add('active');
-    await loadBrands();
-    // Amélioration : ouvrir directement SA collection (une seule marque → clic superflu)
-    try {
-      const myBrands = await fetch('/api/brands').then(r => r.json());
-      if (Array.isArray(myBrands) && myBrands.length === 1) {
-        loadProducts(myBrands[0].id, myBrands[0].name);
-      }
-    } catch(e) { console.error('auto-open collection:', e); }
+    // L'onglet Agenda devient "Mes RDV" (scopé à sa marque)
+    const agendaLabel = document.querySelector('nav a[data-section="agenda"] span');
+    if (agendaLabel) agendaLabel.textContent = currentLang === 'en' ? 'My appointments' : 'Mes RDV';
+    // Dashboard et Agenda restent visibles mais sont rendus en version scopée (voir loadDashboard / loadAgenda)
+    loadDashboard(); // re-render en version designer (l'appel initial a tourné avant que le rôle soit connu)
   }
 }
 initUserRole();
@@ -1508,11 +1498,18 @@ let _buyersPresenceTimer = null;
 // ── Agenda ───────────────────────────────────────────────────────────
 let _allAgenda = [];
 async function loadAgenda() {
-  const data = await fetch('/api/admin/appointments').then(r => r.json()).catch(() => []);
-  _allAgenda = data;
-  const brands = [...new Set(data.map(a => a.brand_name))].sort();
+  const isDesigner = currentUserRole === 'designer';
+  const url = isDesigner ? `/api/brands/${currentUserBrandId}/appointments` : '/api/admin/appointments';
+  const data = await fetch(url).then(r => r.json()).catch(() => []);
+  _allAgenda = Array.isArray(data) ? data : [];
   const sel = document.getElementById('agenda-filter-brand');
-  sel.innerHTML = `<option value="">Toutes les marques</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+  if (isDesigner) {
+    // Une seule marque : filtre par marque inutile
+    if (sel) sel.style.display = 'none';
+  } else {
+    const brands = [...new Set(_allAgenda.map(a => a.brand_name))].sort();
+    if (sel) sel.innerHTML = `<option value="">Toutes les marques</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+  }
   filterAgenda();
 }
 function filterAgenda() {
@@ -1536,7 +1533,7 @@ function filterAgenda() {
       <td style="font-size:12px"><a href="mailto:${esc(a.client_email)}" style="color:#CCEB3C">${esc(a.client_email)}</a>${a.client_phone?`<br>${esc(a.client_phone)}`:''}
       </td>
       <td style="font-size:11px;color:#888">${esc(a.notes||'—')}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteAppt('${a.id}')">✕</button></td>
+      <td>${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteAppt('${a.id}')">✕</button>` : ''}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Aucun rendez-vous</td></tr>`;
 }
@@ -1804,6 +1801,7 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 
 // Dashboard
 async function loadDashboard() {
+  if (currentUserRole === 'designer') return loadDesignerDashboard();
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const [brands, orders, buyers, onlineIds] = await Promise.all([
     arr(fetch('/api/brands')),
@@ -1880,6 +1878,61 @@ async function loadDashboard() {
         <div style="font-size:11px;color:#CCEB3C;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
       </div>`).join('');
   }
+}
+
+// Dashboard scopé pour le designer (sa marque uniquement)
+async function loadDesignerDashboard() {
+  const dash = document.getElementById('dashboard');
+  const en = currentLang === 'en';
+  const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
+  const [products, orders, appts] = await Promise.all([
+    arr(fetch(`/api/brands/${currentUserBrandId}/products`)),
+    arr(fetch('/api/orders')),
+    arr(fetch(`/api/brands/${currentUserBrandId}/appointments`))
+  ]);
+  const activeProducts = products.filter(p => p.active != 0).length;
+  const liveOrders = orders.filter(o => o.status !== 'archived');
+  const ca = liveOrders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+  const pending = orders.filter(o => o.status === 'confirmed').length;
+  const now = new Date();
+  const upcoming = appts
+    .filter(a => new Date(a.slot_date + 'T' + (a.slot_time || '00:00')) >= now)
+    .sort((a, b) => new Date(a.slot_date + 'T' + a.slot_time) - new Date(b.slot_date + 'T' + b.slot_time))
+    .slice(0, 5);
+  const loc = en ? 'en-GB' : 'fr-FR';
+  const stat = (color, bg, num, label) => `<div class="stat" style="--stat-color:${color};--stat-bg:${bg}"><div class="num">${num}</div><div class="label">${label}</div></div>`;
+  dash.innerHTML = `
+    <h1>${en ? 'My dashboard' : 'Mon tableau de bord'}</h1>
+    <div class="stats">
+      ${stat('#CCEB3C','#1e2a0a', activeProducts, en ? 'Active products' : 'Produits actifs')}
+      ${stat('#60a5fa','#0a1628', orders.length, en ? 'Orders' : 'Commandes')}
+      ${stat('#a78bfa','#160a28', ca.toFixed(0) + ' €', en ? 'Revenue (HT)' : 'CA HT')}
+      ${stat('#34d399','#062016', pending, en ? 'To process' : 'À traiter')}
+    </div>
+    <div class="card">
+      <h3>${en ? 'Upcoming appointments' : 'Prochains rendez-vous'}</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>${en?'Date':'Date'}</th><th>${en?'Time':'Heure'}</th><th>${en?'Client':'Client'}</th><th>Email</th></tr></thead>
+        <tbody>${upcoming.length ? upcoming.map(a => `<tr>
+          <td>${new Date(a.slot_date).toLocaleDateString(loc, {weekday:'short',day:'2-digit',month:'short'})}</td>
+          <td><strong>${esc(a.slot_time||'')}</strong></td>
+          <td>${esc(a.client_name||'')}</td>
+          <td style="font-size:12px"><a href="mailto:${esc(a.client_email||'')}" style="color:#CCEB3C">${esc(a.client_email||'')}</a></td>
+        </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:#555;padding:20px">${en?'No upcoming appointment':'Aucun rendez-vous à venir'}</td></tr>`}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>${en ? 'Recent orders' : 'Dernières commandes'}</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>${en?'Client':'Client'}</th><th>${en?'Total':'Total'}</th><th></th></tr></thead>
+        <tbody>${liveOrders.slice(0,10).map(o => `<tr>
+          <td>${new Date(o.created_at).toLocaleDateString(loc)}</td>
+          <td><strong>${esc(o.client_name||'')}</strong></td>
+          <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
+          <td><a href="/api/orders/${o.id}/pdf" target="_blank" class="btn btn-secondary btn-sm">PDF</a></td>
+        </tr>`).join('') || `<tr><td colspan="4" style="text-align:center;color:#555;padding:20px">${en?'No order yet':'Aucune commande'}</td></tr>`}</tbody>
+      </table></div>
+    </div>`;
 }
 
 // Brands
