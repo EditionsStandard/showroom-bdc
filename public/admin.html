@@ -964,7 +964,7 @@
     </div>
 
     <!-- Notes internes admin -->
-    <div style="margin-bottom:14px">
+    <div id="mo-admin-notes-wrap" style="margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🔒 Notes internes (admin uniquement)</div>
       <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
       <button class="btn btn-sm" style="margin-top:6px;background:#222;color:#aaa" onclick="saveAdminNotes()">💾 Sauvegarder note</button>
@@ -1409,7 +1409,14 @@ async function initUserRole() {
     const brandsNav = document.querySelector('nav a[data-section="brands"]');
     if (brandsNav) brandsNav.classList.add('active');
     document.getElementById('brands').classList.add('active');
-    loadBrands();
+    await loadBrands();
+    // Amélioration : ouvrir directement SA collection (une seule marque → clic superflu)
+    try {
+      const myBrands = await fetch('/api/brands').then(r => r.json());
+      if (Array.isArray(myBrands) && myBrands.length === 1) {
+        loadProducts(myBrands[0].id, myBrands[0].name);
+      }
+    } catch(e) { console.error('auto-open collection:', e); }
   }
 }
 initUserRole();
@@ -2895,7 +2902,18 @@ function parseCSVLine(line, sep = ',') {
 async function deleteProduct(id) {
   if (!confirm(t('confirm_delete_ref'))) return;
   const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
-  await fetch(`/api/products/${id}`, { method: 'DELETE' });
+  const r = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    if (d.used && confirm((d.error || 'Produit utilisé dans des commandes.') + '\n\nVoulez-vous le désactiver (le masquer du catalogue) à la place ?')) {
+      await fetch(`/api/products/${id}/active`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ active: 0 }) });
+      await refreshProducts();
+      toast('Produit désactivé');
+    } else {
+      toast(d.error || 'Suppression impossible', true);
+    }
+    return;
+  }
   await refreshProducts();
   document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
   toast(t('js_ref_deleted'));
@@ -2998,8 +3016,12 @@ async function viewOrder(id) {
 
   const readOnly = currentUserRole === 'designer';
   document.getElementById('mo-status-select').disabled = readOnly;
-  document.querySelector('#modal-order button[onclick="deleteOrderFromModal()"]').style.display = readOnly ? 'none' : '';
+  const delBtn = document.querySelector('#modal-order button[onclick="deleteOrderFromModal()"]');
+  if (delBtn) delBtn.style.display = readOnly ? 'none' : '';
   document.getElementById('mo-resend-btn').style.display = readOnly ? 'none' : '';
+  // Notes internes : réservées owner/agent (PUT admin-notes → 403 pour designer)
+  const notesAdminWrap = document.getElementById('mo-admin-notes-wrap');
+  if (notesAdminWrap) notesAdminWrap.style.display = readOnly ? 'none' : '';
 
   document.getElementById('mo-client').innerHTML =
     `<strong>${o.client_name||''}</strong> — ${o.client_company||''}<br>` +
@@ -3044,6 +3066,7 @@ async function saveAdminNotes() {
     body: JSON.stringify({ admin_notes: notes })
   });
   if (r.ok) toast('Note sauvegardée');
+  else toast('Échec de la sauvegarde', true);
 }
 
 async function changeOrderStatus() {

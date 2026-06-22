@@ -467,6 +467,12 @@ app.patch('/api/products/:id/prices', requireRole('owner','agent','designer'), a
 app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
   try {
     if (!await checkProductBrandScope(req, res)) return;
+    // Un produit présent dans des commandes ne peut pas être supprimé (clé étrangère).
+    // On renvoie un message clair et on propose la désactivation.
+    const used = await pool.query('SELECT 1 FROM order_lines WHERE product_id=$1 LIMIT 1', [req.params.id]);
+    if (used.rows.length) {
+      return res.status(409).json({ error: 'Ce produit figure dans des commandes : il ne peut pas être supprimé. Désactivez-le pour le masquer du catalogue.', used: true });
+    }
     await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
