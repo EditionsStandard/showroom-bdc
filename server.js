@@ -1202,6 +1202,130 @@ app.post('/api/public/orders', emailLimiter, async (req, res) => {
   }
 });
 
+// ==================== SÉLECTION AGENT (préparée en RDV, confirmée par l'acheteur) ====================
+
+// 1) L'agent prépare une sélection pour un acheteur et lui envoie un lien
+app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const { client_name, client_email, client_company, notes, items } = req.body;
+    if (!client_email || !client_email.includes('@')) return res.status(400).json({ error: 'Email acheteur valide requis' });
+    if (!Array.isArray(items) || !items.filter(i => i.quantity > 0).length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
+    const brandId = req.params.brandId;
+    const b = await pool.query('SELECT name FROM brands WHERE id=$1', [brandId]);
+    if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const cleanItems = items.filter(i => i.quantity > 0).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
+    const token = crypto.randomBytes(24).toString('hex');
+    const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
+    await pool.query(
+      `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [token, brandId, client_name||'', client_email.toLowerCase().trim(), client_company||'', JSON.stringify(cleanItems), notes||'', req.session?.staffUser?.email || 'owner', expires]
+    );
+    const url = `${getBaseUrl(req)}/selection/${token}`;
+    sendAgentSelectionEmail({ email: client_email.toLowerCase().trim(), name: client_name, brandName: b.rows[0].name, url, req }).catch(e => console.error('agent-selection email:', e.message));
+    res.json({ ok: true, token, url });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+async function sendAgentSelectionEmail({ email, name, brandName, url, req }) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) { console.log('RESEND_API_KEY non configurée — email sélection agent non envoyé'); return; }
+  const resend = new Resend(resendKey);
+  const showroomName = await getSetting('showroom_name');
+  const fromField = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
+  await resend.emails.send({
+    from: `${showroomName} <${fromField}>`,
+    to: [email],
+    subject: `Votre sélection ${brandName} — à valider`,
+    html: emailLayout({ showroomName, content: `
+      <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
+      <p>Une sélection <strong>${escHtml(brandName)}</strong> a été préparée pour vous lors de notre rendez-vous.</p>
+      <p>Cliquez ci-dessous pour la consulter, créer votre accès et la valider :</p>
+      ${emailBtn(url, 'Voir et valider ma sélection →')}
+      <p style="font-size:13px;color:#888;margin-top:28px">Ce lien est valable 30 jours.</p>
+      <p>Cordialement,<br><strong>${showroomName}</strong></p>
+    ` })
+  });
+}
+
+// 2) L'acheteur ouvre le lien : page de confirmation
+app.get('/selection/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'selection.html')));
+
+// 3) Données de la sélection (publique, via token)
+app.get('/api/selection/:token', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
+    const sel = r.rows[0];
+    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
+    if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    const b = await pool.query('SELECT id, name, logo, logo_url, cgv_text, moq_qty, moq_amount FROM brands WHERE id=$1', [sel.brand_id]);
+    if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const items = JSON.parse(sel.items_json || '[]');
+    const ids = items.map(i => i.product_id);
+    const prods = await pool.query('SELECT id, reference, description, color, price, price_retail, image_url, images FROM products WHERE id = ANY($1)', [ids]);
+    const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
+    const lines = items.map(i => ({ ...i, product: pmap[i.product_id] })).filter(l => l.product);
+    const existingBuyer = await pool.query('SELECT 1 FROM buyers WHERE email=$1', [sel.client_email]);
+    res.json({
+      brand: b.rows[0],
+      client: { name: sel.client_name, email: sel.client_email, company: sel.client_company },
+      notes: sel.notes,
+      lines,
+      account_exists: existingBuyer.rows.length > 0
+    });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// 4) L'acheteur crée son compte (ou se connecte) et valide la commande
+app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
+  try {
+    const { password, signature, cgv_accepted, lines } = req.body;
+    const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
+    const sel = r.rows[0];
+    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
+    if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    if (!signature) return res.status(400).json({ error: 'Signature requise' });
+    if (!cgv_accepted) return res.status(400).json({ error: 'Acceptation des CGV requise' });
+
+    // Compte acheteur : créer ou récupérer
+    const email = sel.client_email;
+    let buyer = (await pool.query('SELECT id, email, name, company, phone, country FROM buyers WHERE email=$1', [email])).rows[0];
+    if (!buyer) {
+      if (!password || password.length < 8) return res.status(400).json({ error: 'Choisissez un mot de passe (8 caractères minimum)' });
+      const hash = await bcrypt.hash(password, 10);
+      const id = uuidv4();
+      await pool.query('INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
+        [id, email, hash, sel.client_name || '', sel.client_company || '']);
+      buyer = { id, email, name: sel.client_name || '', company: sel.client_company || '', phone: '', country: '' };
+    }
+
+    // Lignes : on part de la sélection stockée, en appliquant d'éventuels ajustements de quantité
+    const stored = JSON.parse(sel.items_json || '[]');
+    const adjust = Array.isArray(lines) ? Object.fromEntries(lines.map(l => [l.product_id + '|' + (l.size||''), parseInt(l.quantity) || 0])) : null;
+    const finalLines = stored.map(i => ({
+      product_id: i.product_id, size: i.size || '',
+      quantity: adjust ? (adjust[i.product_id + '|' + (i.size||'')] ?? i.quantity) : i.quantity
+    })).filter(l => l.quantity > 0);
+
+    const result = await createOrder({
+      brand_id: sel.brand_id, client_name: buyer.name || sel.client_name, client_email: email,
+      client_company: buyer.company || sel.client_company, client_phone: buyer.phone, client_country: buyer.country,
+      notes: sel.notes, lines: finalLines, buyer_signature: signature, cgv_accepted: cgv_accepted ? 1 : 0, buyer_id: buyer.id
+    });
+    if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
+
+    await pool.query('UPDATE agent_selections SET used=true WHERE token=$1', [req.params.token]);
+    // Connecte l'acheteur
+    req.session.regenerate(err => {
+      if (err) return res.json({ ok: true, order_id: result.order_id });
+      req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
+      res.json({ ok: true, order_id: result.order_id });
+    });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ==================== BUYER PORTAL (email + password, multi-brand) ====================
 
 function requireBuyerAuth(req, res, next) {

@@ -112,6 +112,23 @@ async function init() {
     );
   `).catch(() => {});
 
+  // Sélections préparées par un agent pour un acheteur (mode "Sélection agent")
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agent_selections (
+      token TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      client_name TEXT DEFAULT '',
+      client_email TEXT NOT NULL,
+      client_company TEXT DEFAULT '',
+      items_json TEXT NOT NULL,
+      notes TEXT DEFAULT '',
+      created_by TEXT DEFAULT '',
+      used BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP NOT NULL
+    );
+  `).catch(() => {});
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS brand_invite_links (
       token TEXT PRIMARY KEY,
@@ -273,6 +290,7 @@ async function init() {
   await pool.query(`
     DELETE FROM buyer_access_tokens WHERE expires_at < NOW() - INTERVAL '7 days';
     DELETE FROM selection_shares WHERE expires_at < NOW() - INTERVAL '7 days';
+    DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
     DELETE FROM buyer_carts WHERE updated_at < NOW() - INTERVAL '90 days';
   `).catch(() => {});
 
