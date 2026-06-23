@@ -86,7 +86,8 @@ function render() {
   }).join('');
 
   const accountField = DATA.account_exists
-    ? `<p style="font-size:13px;color:var(--soft)">Vous avez déjà un compte (${esc(DATA.client.email)}). La commande sera ajoutée à votre espace.</p>`
+    ? `<p style="font-size:13px;color:var(--soft);margin-bottom:8px">Vous avez déjà un compte (${esc(DATA.client.email)}). Saisissez votre mot de passe pour valider.</p>
+       <div class="field"><label>Votre mot de passe</label><input type="password" id="pw" placeholder="••••••••"></div>`
     : `<div class="field"><label>Créez votre mot de passe (8 caractères min.)</label><input type="password" id="pw" placeholder="••••••••"></div>`;
 
   const cgvHtml = b.cgv_text

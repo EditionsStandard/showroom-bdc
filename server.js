@@ -1289,10 +1289,17 @@ app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
     if (!signature) return res.status(400).json({ error: 'Signature requise' });
     if (!cgv_accepted) return res.status(400).json({ error: 'Acceptation des CGV requise' });
 
-    // Compte acheteur : créer ou récupérer
+    // Compte acheteur : créer (nouveau) ou authentifier (existant)
     const email = sel.client_email;
-    let buyer = (await pool.query('SELECT id, email, name, company, phone, country FROM buyers WHERE email=$1', [email])).rows[0];
-    if (!buyer) {
+    const existing = (await pool.query('SELECT id, email, name, company, phone, country, password_hash FROM buyers WHERE email=$1', [email])).rows[0];
+    let buyer;
+    if (existing) {
+      // Compte déjà existant : on exige le mot de passe pour confirmer l'identité
+      if (!password || !await bcrypt.compare(password, existing.password_hash)) {
+        return res.status(401).json({ error: 'Mot de passe incorrect. Saisissez le mot de passe de votre compte acheteur.', account_exists: true });
+      }
+      buyer = { id: existing.id, email: existing.email, name: existing.name, company: existing.company, phone: existing.phone, country: existing.country };
+    } else {
       if (!password || password.length < 8) return res.status(400).json({ error: 'Choisissez un mot de passe (8 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
       const id = uuidv4();
