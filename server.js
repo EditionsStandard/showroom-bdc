@@ -308,6 +308,15 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Mise à jour du lookbook seul (scopé marque — accessible owner/agent/designer)
+app.put('/api/brands/:brandId/lookbook', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const { lookbook_url } = req.body;
+    await pool.query('UPDATE brands SET lookbook_url=$1 WHERE id=$2', [lookbook_url || '', req.params.brandId]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     await pool.query('DELETE FROM brands WHERE id=$1', [req.params.id]);
@@ -572,7 +581,7 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.si
 });
 
 const uploadPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
-app.post('/api/upload-pdf', requireRole('owner','agent'), uploadPdf.single('pdf'), async (req, res) => {
+app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadPdf.single('pdf'), async (req, res) => {
   try {
     if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Fichier PDF requis' });
     const base64 = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
