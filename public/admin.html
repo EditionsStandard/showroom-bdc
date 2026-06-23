@@ -829,8 +829,10 @@
       <div class="qr-url" id="qr-url"></div>
     </div>
     <p style="font-size:12px;color:#666;margin-top:8px" data-t="qr_brand_desc">Scannez ce QR code pour ouvrir le portail acheteur sur cette marque.</p>
-    <div class="modal-footer" style="justify-content:center">
+    <div class="modal-footer" style="justify-content:center;flex-wrap:wrap">
       <button class="btn btn-secondary" onclick="closeModal('modal-qr')" data-t="btn_close">Fermer</button>
+      <button class="btn btn-secondary" onclick="copyShowroomLink()">📋 Copier le lien</button>
+      <button class="btn btn-secondary" onclick="shareShowroomLink()">📤 Partager</button>
       <button class="btn btn-primary" onclick="printQR()" data-t="btn_print">Imprimer</button>
     </div>
   </div>
@@ -1999,6 +2001,7 @@ async function loadBrands() {
       <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
         <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
+        <button class="btn btn-secondary btn-sm" onclick="shareShowroomBrand('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien showroom</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
@@ -2310,6 +2313,30 @@ async function showQR(brandId, brandName) {
   const data = await fetch(`/api/brands/${brandId}/qrcode`).then(r => r.json());
   document.getElementById('qr-img').src = data.qr;
   document.getElementById('qr-url').textContent = data.url;
+  currentShowroomUrl = data.url;
+}
+
+// ── Partage du lien showroom (accès direct à la marque) ─────────────
+let currentShowroomUrl = '';
+function copyShowroomLink() {
+  const url = currentShowroomUrl || document.getElementById('qr-url').textContent;
+  navigator.clipboard.writeText(url).then(() => toast('Lien copié')).catch(() => toast('Copie impossible', true));
+}
+async function shareShowroomLink() {
+  const url = currentShowroomUrl || document.getElementById('qr-url').textContent;
+  await shareOrCopy(url, document.getElementById('qr-brand-name').textContent);
+}
+async function shareShowroomBrand(brandId, brandName) {
+  const url = `${location.origin}/portal?brand=${brandId}`;
+  await shareOrCopy(url, brandName);
+}
+async function shareOrCopy(url, brandName) {
+  if (navigator.share) {
+    try { await navigator.share({ title: `Showroom ${brandName}`, text: `Découvrez la collection ${brandName} :`, url }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(url); toast('Lien copié — collez-le dans votre message'); }
+  catch(e) { prompt('Copiez le lien du showroom :', url); }
 }
 
 function printQR() {
