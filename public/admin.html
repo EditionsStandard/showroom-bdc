@@ -875,7 +875,7 @@
       <input id="agent-sel-search" type="text" placeholder="🔍 Filtrer une référence…" style="flex:1" oninput="renderAgentSelProducts()">
     </div>
     <div class="table-wrap" style="max-height:340px;overflow:auto"><table>
-      <thead><tr><th>Réf.</th><th>Désignation</th><th>Prix HT</th><th style="width:120px">Quantité</th></tr></thead>
+      <thead><tr><th style="width:56px">Photo</th><th>Réf.</th><th>Désignation</th><th>Prix HT</th><th style="width:120px">Quantité</th></tr></thead>
       <tbody id="agent-sel-body"></tbody>
     </table></div>
     <div class="sep"></div>
@@ -2453,8 +2453,13 @@ function renderAgentSelProducts() {
       const k = p.id + '|';
       qtyCell = `<input type="number" min="0" value="${agentSelQty[k]||0}" onchange="agentSelQty['${k}']=parseInt(this.value)||0" style="width:60px">`;
     }
-    return `<tr><td><strong>${esc(p.reference)}</strong></td><td style="font-size:12px;color:#aaa">${esc(p.description||'')}</td><td style="white-space:nowrap">${Number(p.price).toFixed(2)} €</td><td>${qtyCell}</td></tr>`;
-  }).join('') || `<tr><td colspan="4" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
+    let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
+    const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
+    const thumb = src
+      ? `<img src="${src}" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius:4px;background:#fff;cursor:zoom-in">`
+      : `<div style="width:48px;height:62px;background:#222;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#555;font-size:18px">🏷️</div>`;
+    return `<tr><td>${thumb}</td><td><strong>${esc(p.reference)}</strong></td><td style="font-size:12px;color:#aaa">${esc(p.description||'')}</td><td style="white-space:nowrap">${Number(p.price).toFixed(2)} €</td><td>${qtyCell}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
 }
 async function sendAgentSelection() {
   const email = document.getElementById('agent-sel-email').value.trim();
