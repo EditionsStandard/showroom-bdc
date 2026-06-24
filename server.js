@@ -405,7 +405,7 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('ow
   const { brandId, productId } = req.params;
   const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
-  const url = `${getBaseUrl(req)}/portal?brand=${brandId}&add=${productId}`;
+  const url = `${getBaseUrl(req)}/commande/${brandId}?product=${productId}`;
   const qr = await QRCode.toDataURL(url, { width: 400, margin: 2 });
   res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
 });
@@ -416,7 +416,7 @@ app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent','d
   const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
   const base = getBaseUrl(req);
   const items = await Promise.all(prods.rows.map(async p => {
-    const url = `${base}/portal?brand=${req.params.brandId}&add=${p.id}`;
+    const url = `${base}/commande/${req.params.brandId}?product=${p.id}`;
     const qr = await QRCode.toDataURL(url, { width: 300, margin: 1 });
     return { qr, url, reference: p.reference, collection: p.collection_name, color: p.color, price: p.price, price_retail: p.price_retail };
   }));
