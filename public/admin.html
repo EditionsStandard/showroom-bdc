@@ -3063,32 +3063,50 @@ function resizeImageFile(file, max = 1600) {
 }
 
 async function importBulkPhotos(input) {
-  const files = input.files;
+  const files = Array.from(input.files);
   if (!files.length) return;
   const resultDiv = document.getElementById('bulk-photos-result');
   resultDiv.style.display = 'block';
-  resultDiv.innerHTML = `<span style="color:#aaa">Préparation de ${files.length} photo(s)…</span>`;
 
-  const formData = new FormData();
-  for (const f of files) {
-    const prepared = await resizeImageFile(f);
-    formData.append('photos', prepared);
-  }
-  resultDiv.innerHTML = `<span style="color:#aaa">Upload de ${files.length} photo(s)…</span>`;
+  const BATCH = 5; // petits lots → requêtes courtes, évite "upstream error" (timeout/taille proxy)
+  let okCount = 0;
+  const notFound = [];
+  let done = 0;
 
-  try {
-    const res = await fetch(`/api/brands/${currentBrandId}/bulk-photos`, { method: 'POST', body: formData });
-    const data = await res.json();
-    const ok = data.results.filter(r => r.status === 'ok');
-    const nf = data.results.filter(r => r.status === 'not_found');
-    let html = `<strong>${ok.length} photo(s) assignée(s)</strong>`;
-    if (nf.length) html += ` — <span style="color:#e74c3c">${nf.length} référence(s) introuvable(s) : ${nf.map(r => r.ref).join(', ')}</span>`;
-    resultDiv.innerHTML = html;
-    input.value = '';
-    refreshProducts();
-  } catch(e) {
-    resultDiv.innerHTML = `<span style="color:#e74c3c">Erreur : ${e.message}</span>`;
+  for (let i = 0; i < files.length; i += BATCH) {
+    const slice = files.slice(i, i + BATCH);
+    resultDiv.innerHTML = `<span style="color:#aaa">Upload… ${done}/${files.length} photo(s)</span>`;
+    const formData = new FormData();
+    for (const f of slice) {
+      const prepared = await resizeImageFile(f);
+      formData.append('photos', prepared);
+    }
+    try {
+      const res = await fetch(`/api/brands/${currentBrandId}/bulk-photos`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        resultDiv.innerHTML = `<span style="color:#e74c3c">Erreur serveur (${res.status})${txt ? ' : ' + txt.slice(0,60) : ''}. ${okCount} photo(s) déjà assignée(s). Réessayez avec moins de photos à la fois.</span>`;
+        refreshProducts();
+        return;
+      }
+      const data = await res.json();
+      (data.results || []).forEach(r => {
+        if (r.status === 'ok') okCount++;
+        else if (r.status === 'not_found') notFound.push(r.ref);
+      });
+    } catch(e) {
+      resultDiv.innerHTML = `<span style="color:#e74c3c">Erreur réseau après ${okCount} photo(s). Réessayez avec moins de photos à la fois.</span>`;
+      refreshProducts();
+      return;
+    }
+    done += slice.length;
   }
+
+  let html = `<strong>${okCount} photo(s) assignée(s)</strong>`;
+  if (notFound.length) html += ` — <span style="color:#e74c3c">${notFound.length} référence(s) introuvable(s) : ${[...new Set(notFound)].join(', ')}</span>`;
+  resultDiv.innerHTML = html;
+  input.value = '';
+  refreshProducts();
 }
 
 async function importCSV(input) {
