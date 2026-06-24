@@ -327,7 +327,7 @@ app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
 app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const r = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
-  const url = `${getBaseUrl(req)}/portal?brand=${req.params.id}`;
+  const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
   const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
   res.json({ qr, url });
 });
@@ -338,7 +338,7 @@ app.get('/api/brands-qrcodes', requireRole('owner','agent'), async (req, res) =>
     const r = await pool.query("SELECT id, name, logo, logo_url FROM brands WHERE subscription_status IS NULL OR subscription_status != 'inactive' ORDER BY name");
     const base = getBaseUrl(req);
     const items = await Promise.all(r.rows.map(async b => {
-      const url = `${base}/portal?brand=${b.id}`;
+      const url = `${base}/commande/${b.id}`;
       const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
       return { id: b.id, name: b.name, logo: b.logo || b.logo_url || '', qr, url };
     }));

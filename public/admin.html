@@ -2327,7 +2327,7 @@ async function shareShowroomLink() {
   await shareOrCopy(url, document.getElementById('qr-brand-name').textContent);
 }
 async function shareShowroomBrand(brandId, brandName) {
-  const url = `${location.origin}/portal?brand=${brandId}`;
+  const url = `${location.origin}/commande/${brandId}`;
   await shareOrCopy(url, brandName);
 }
 async function shareOrCopy(url, brandName) {
