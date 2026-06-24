@@ -424,10 +424,6 @@
         <div class="landing-agent-phone" id="landing-agent-phone"></div>
       </div>
     </div>
-    <div id="landing-seasons" style="display:none;margin-bottom:16px">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px" data-i18n="season_select_label">Choisir une saison</div>
-      <div id="landing-seasons-list" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-    </div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
       <button id="lang-toggle-0" onclick="toggleLang()" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit">EN</button>
       <button onclick="toggleTheme()" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 11px;cursor:pointer;color:var(--soft);font-size:15px;line-height:1">🌙</button>
@@ -813,8 +809,6 @@ let brandName = '';
 let brandMoqQty = 0;
 let brandMoqAmount = 0;
 let agentData = {};
-let seasonsData = [];
-let selectedSeasonId = '';
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
 const CART_KEY = 'bdc_cart_' + brandId;
@@ -858,21 +852,9 @@ async function init() {
     brandMoqQty = parseInt(data.brand.moq_qty) || 0;
     brandMoqAmount = parseFloat(data.brand.moq_amount) || 0;
     agentData = data.agent || {};
-    seasonsData = data.seasons || [];
     if (data.currencies && data.currencies.length) {
       currenciesData = data.currencies;
       selectedCurrency = currenciesData[0];
-    }
-
-    // Season selector (only if more than one season configured)
-    if (seasonsData.length > 1) {
-      selectedSeasonId = seasonsData[0].id;
-      document.getElementById('landing-seasons').style.display = 'block';
-      document.getElementById('landing-seasons-list').innerHTML = seasonsData.map((s, i) =>
-        '<button class="color-btn' + (i === 0 ? ' active' : '') + '" data-season-id="' + s.id + '" onclick="selectSeason(\'' + s.id + '\')">' + esc(s.name) + '</button>'
-      ).join('');
-    } else if (seasonsData.length === 1) {
-      selectedSeasonId = seasonsData[0].id;
     }
 
     // Currency selector
@@ -956,12 +938,6 @@ function startSession() {
   document.getElementById('steps-bar').style.display = '';
   document.getElementById('cart-bar').style.display = 'flex';
   goToPage(1);
-}
-
-function selectSeason(seasonId) {
-  selectedSeasonId = seasonId;
-  document.querySelectorAll('#landing-seasons-list .color-btn').forEach(b => b.classList.toggle('active', b.dataset.seasonId === seasonId));
-  if (typeof applyFilters === 'function') applyFilters();
 }
 
 function changeCurrency(code) {
@@ -1226,9 +1202,6 @@ function buildCategoryFilters(products) {
 function applyFilters() {
   const q = document.getElementById('search-input').value.toLowerCase();
   let filtered = productsData;
-  if (selectedSeasonId) {
-    filtered = filtered.filter(p => p.season_id === selectedSeasonId);
-  }
   if (activeCollection && activeCollection !== '__all__') {
     filtered = filtered.filter(p => p.collection_name === activeCollection);
   }

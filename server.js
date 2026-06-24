@@ -602,43 +602,6 @@ app.delete('/api/brands/:brandId/products-photos', requireBrandScope('owner','ag
   res.json({ ok: true, cleared: r.rowCount });
 });
 
-// ==================== SEASONS ====================
-
-app.get('/api/brands/:brandId/seasons', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const r = await pool.query('SELECT * FROM seasons WHERE brand_id=$1 ORDER BY created_at DESC', [req.params.brandId]);
-  res.json(r.rows);
-});
-
-app.post('/api/brands/:brandId/seasons', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nom requis' });
-  const id = uuidv4();
-  await pool.query('INSERT INTO seasons (id, brand_id, name) VALUES ($1,$2,$3)', [id, req.params.brandId, name]);
-  res.json({ id, name });
-});
-
-app.put('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
-  try {
-    const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
-    if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
-    if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
-    const { name, active } = req.body;
-    await pool.query('UPDATE seasons SET name=$1, active=$2 WHERE id=$3', [name, active!==undefined?active:1, req.params.id]);
-    res.json({ ok: true });
-  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
-});
-
-app.delete('/api/seasons/:id', requireRole('owner','agent','designer'), async (req, res) => {
-  try {
-    const s = await pool.query('SELECT brand_id FROM seasons WHERE id=$1', [req.params.id]);
-    if (!s.rows[0]) return res.status(404).json({ error: 'Saison introuvable' });
-    if (req.userRole === 'designer' && s.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
-    await pool.query('UPDATE products SET season_id=NULL WHERE season_id=$1', [req.params.id]);
-    await pool.query('DELETE FROM seasons WHERE id=$1', [req.params.id]);
-    res.json({ ok: true });
-  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
-});
-
 // ==================== LINESHEET PDF ====================
 
 app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent','designer'), async (req, res) => {
@@ -1102,14 +1065,13 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
     return res.status(403).json({ error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' });
   }
   const p = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
-  const seasons = await pool.query('SELECT id, name FROM seasons WHERE brand_id=$1 AND active != 0 ORDER BY created_at DESC', [req.params.brandId]);
   const [agentName, agentTitle, agentPhone, showroomName, currenciesRaw] = await Promise.all([
     getSetting('agent_name'), getSetting('agent_title'), getSetting('agent_phone'),
     getSetting('showroom_name'), getSetting('currencies_json'),
   ]);
   let currencies = [];
   try { currencies = JSON.parse(currenciesRaw || '[]'); } catch(e) {}
-  res.json({ brand: b.rows[0], products: p.rows, seasons: seasons.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
+  res.json({ brand: b.rows[0], products: p.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
 app.post('/api/public/selection-pdf', async (req, res) => {
