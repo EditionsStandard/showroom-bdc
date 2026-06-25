@@ -455,6 +455,28 @@
   </div>
 </div>
 
+<!-- Bandeau MODE AGENT (visible seulement si agent/owner connecté) -->
+<div id="agent-bar" style="display:none;background:#10243a;color:#cfe3ff;padding:10px 16px;font-size:13px;display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1d3a5c">
+  <span>👤 <strong>Mode agent</strong> — construis la sélection, puis envoie-la à l'acheteur.</span>
+  <button onclick="openAgentSend()" style="background:#CCEB3C;color:#111;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
+</div>
+
+<!-- Modal envoi sélection agent -->
+<div id="agent-send-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#141414;border:1px solid #262626;border-radius:14px;padding:22px;max-width:420px;width:100%;color:#f5f5f5;font-family:'Inter',sans-serif">
+    <h3 style="margin:0 0 4px;font-size:17px">Envoyer la sélection</h3>
+    <p id="agent-send-count" style="margin:0 0 16px;font-size:13px;color:#bdbdbd"></p>
+    <div style="margin-bottom:10px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Email acheteur *</label><input id="agent-send-email" type="email" placeholder="acheteur@boutique.com" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:8px;padding:10px"></div>
+    <div style="margin-bottom:10px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Nom de la boutique</label><input id="agent-send-company" type="text" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:8px;padding:10px"></div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Nom du contact</label><input id="agent-send-name" type="text" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:8px;padding:10px"></div>
+    <div id="agent-send-result" style="font-size:13px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeAgentSend()" style="flex:1;background:transparent;border:1px solid #333;color:#bbb;border-radius:8px;padding:11px;cursor:pointer;font-family:inherit">Annuler</button>
+      <button id="agent-send-btn" onclick="sendAgentSelectionFromCart()" style="flex:1;background:#CCEB3C;color:#111;border:none;border-radius:8px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer</button>
+    </div>
+  </div>
+</div>
+
 <div class="steps" id="steps-bar" style="display:none">
   <div class="step" id="step1"><span class="step-num">1</span><span data-i18n="step_sel">Sélection</span></div>
   <div class="step" id="step2"><span class="step-num">2</span><span data-i18n="step_infos">Infos</span></div>
@@ -920,6 +942,7 @@ async function init() {
     buildCategoryFilters(productsData);
     restoreCart();
     updateCartBar();
+    detectAgentMode();
 
     // QR deep-link: ?product=ID → auto-start and scroll to product
     const qrProductId = new URLSearchParams(window.location.search).get('product');
@@ -938,6 +961,58 @@ function startSession() {
   document.getElementById('steps-bar').style.display = '';
   document.getElementById('cart-bar').style.display = 'flex';
   goToPage(1);
+}
+
+// ── Mode agent : si un owner/agent/designer est connecté à l'admin ──
+let isAgentMode = false;
+async function detectAgentMode() {
+  try {
+    const me = await fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
+    if (me && me.role) {
+      isAgentMode = true;
+      const bar = document.getElementById('agent-bar');
+      bar.style.display = 'flex';
+    }
+  } catch(e) {}
+}
+function cartToItems() {
+  return Object.values(cart)
+    .filter(c => c.qty > 0)
+    .map(c => ({ product_id: c.product.id, size: c.size || '', quantity: c.qty }));
+}
+function openAgentSend() {
+  const items = cartToItems();
+  if (!items.length) { alert('Ajoute d\'abord des articles à la sélection.'); return; }
+  document.getElementById('agent-send-count').textContent = items.reduce((s,i)=>s+i.quantity,0) + ' pièce(s) sélectionnée(s).';
+  document.getElementById('agent-send-result').innerHTML = '';
+  document.getElementById('agent-send-modal').style.display = 'flex';
+}
+function closeAgentSend() { document.getElementById('agent-send-modal').style.display = 'none'; }
+async function sendAgentSelectionFromCart() {
+  const email = document.getElementById('agent-send-email').value.trim();
+  const res = document.getElementById('agent-send-result');
+  if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email acheteur valide requis.</span>'; return; }
+  const items = cartToItems();
+  if (!items.length) { res.innerHTML = '<span style="color:#e07a7a">Sélection vide.</span>'; return; }
+  const btn = document.getElementById('agent-send-btn');
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const r = await fetch('/api/brands/' + brandId + '/agent-selection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_email: email,
+        client_company: document.getElementById('agent-send-company').value.trim(),
+        client_name: document.getElementById('agent-send-name').value.trim(),
+        items
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { res.innerHTML = '<span style="color:#e07a7a">' + (d.error || 'Erreur') + '</span>'; btn.disabled = false; btn.textContent = 'Envoyer'; return; }
+    res.innerHTML = '<span style="color:#5ec95e">✓ Sélection envoyée à ' + email + '.</span>';
+    btn.textContent = 'Envoyé ✓';
+  } catch(e) {
+    res.innerHTML = '<span style="color:#e07a7a">Erreur réseau.</span>'; btn.disabled = false; btn.textContent = 'Envoyer';
+  }
 }
 
 function changeCurrency(code) {
