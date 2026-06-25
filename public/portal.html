@@ -598,6 +598,7 @@ function applyLang() {
         <option value="status">Statut</option>
       </select>
     </div>
+    <div id="pending-selections"></div>
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 
@@ -1749,7 +1750,27 @@ async function submitCheckout() {
   }
 }
 
+async function loadPendingSelections() {
+  const wrap = document.getElementById('pending-selections');
+  if (!wrap) return;
+  let data = [];
+  try { data = await fetch('/api/portal/pending-selections').then(r => r.json()); } catch(e) { return; }
+  if (!Array.isArray(data) || !data.length) { wrap.innerHTML = ''; return; }
+  const fr = currentLang === 'fr';
+  wrap.innerHTML = `<div style="margin-bottom:20px">
+    <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px">${fr ? 'Sélections à valider' : 'Selections to confirm'}</div>
+    ${data.map(s => `<div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);border-radius:8px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-family:'Inter',sans-serif;font-weight:600;font-size:14px">${esc(s.brand_name)}</div>
+        <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft)">${s.piece_count} ${fr ? 'pièce(s) — préparée pour vous' : 'piece(s) — prepared for you'}</div>
+      </div>
+      <a href="/selection/${s.token}" class="btn-confirm" style="margin:0;width:auto;padding:10px 18px;font-size:12px">${fr ? 'Voir et valider' : 'View & confirm'} →</a>
+    </div>`).join('')}
+  </div>`;
+}
+
 async function loadOrders() {
+  loadPendingSelections();
   const list = document.getElementById('orders-list');
   list.innerHTML = `<p class="msg" style="color:var(--muted)">Chargement…</p>`;
   let data;

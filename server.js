@@ -1521,6 +1521,28 @@ app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
   res.json(r.rows);
 });
 
+// Sélections préparées par un agent pour cet acheteur, en attente de validation
+app.get('/api/portal/pending-selections', requireBuyerAuth, async (req, res) => {
+  try {
+    const email = req.session.buyerPortal.email;
+    const r = await pool.query(`
+      SELECT a.token, a.items_json, a.created_at, a.expires_at, b.name as brand_name
+      FROM agent_selections a JOIN brands b ON a.brand_id = b.id
+      WHERE a.client_email = $1 AND a.used = false
+      ORDER BY a.created_at DESC
+    `, [email]);
+    const now = new Date();
+    const items = r.rows
+      .filter(row => new Date(row.expires_at) > now)
+      .map(row => {
+        let count = 0;
+        try { count = JSON.parse(row.items_json || '[]').reduce((s, i) => s + (parseInt(i.quantity) || 0), 0); } catch(e) {}
+        return { token: row.token, brand_name: row.brand_name, created_at: row.created_at, piece_count: count };
+      });
+    res.json(items);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
   const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
