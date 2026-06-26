@@ -1857,8 +1857,9 @@ let moqBlocked = false;
       ${lines.map((l, li) => {
         const noteKey = Object.keys(cart).find(k => cart[k] === l) || '';
         const safeNoteKey = noteKey.replace(/[^a-zA-Z0-9]/g,'_');
-        return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:12px">
+        return `<div class="swipe-row" data-key="${esc(noteKey)}" style="position:relative;overflow:hidden;border-bottom:1px solid var(--border)">
+          <div class="swipe-delete-bg" style="position:absolute;right:0;top:0;bottom:0;width:80px;background:#e55;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;pointer-events:none">✕</div>
+          <div class="swipe-content" style="padding:10px 0;background:var(--black);position:relative;transition:transform .15s;display:flex;align-items:center;gap:12px">
           ${l.image_url ? `<img src="${esc(l.image_url)}" alt="${esc(l.reference)}" loading="lazy" style="width:52px;height:68px;object-fit:contain;background:#fff;border-radius:4px;flex-shrink:0;border:1px solid var(--border)">` : `<div style="width:52px;height:68px;background:var(--mid);border-radius:4px;flex-shrink:0"></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-family:var(--dot),monospace;font-size:13px;margin-bottom:2px">${esc(l.reference)}</div>
@@ -1882,6 +1883,7 @@ let moqBlocked = false;
 
   document.getElementById('cart-lines').innerHTML = linesHtml || `<p class="msg">${t('cart_empty')}</p>`;
   document.getElementById('btn-confirm-order').disabled = moqBlocked;
+  initSwipeToDelete();
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
     return `<div class="cgv-box" onclick="openCgvModal('${brandId}','${esc(lines[0].brand_name)}')">
@@ -2092,6 +2094,40 @@ function removeCartItem(key) {
   saveCart();
   updateCartBar();
   renderCart();
+}
+
+function initSwipeToDelete() {
+  document.querySelectorAll('.swipe-row').forEach(row => {
+    const content = row.querySelector('.swipe-content');
+    const key = row.dataset.key;
+    let startX = 0, currentX = 0, dragging = false;
+    const THRESHOLD = 80;
+
+    row.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      dragging = true;
+      content.style.transition = 'none';
+    }, { passive: true });
+
+    row.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      currentX = e.touches[0].clientX - startX;
+      if (currentX > 0) currentX = 0; // only swipe left
+      content.style.transform = `translateX(${currentX}px)`;
+    }, { passive: true });
+
+    row.addEventListener('touchend', () => {
+      dragging = false;
+      content.style.transition = 'transform .2s';
+      if (currentX < -THRESHOLD) {
+        content.style.transform = `translateX(-100%)`;
+        setTimeout(() => removeCartItem(key), 200);
+      } else {
+        content.style.transform = 'translateX(0)';
+      }
+      currentX = 0;
+    });
+  });
 }
 function clearCart() {
   if (!confirm(t('confirm_clear') || 'Effacer toute la sélection ?')) return;
