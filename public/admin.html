@@ -367,6 +367,29 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
+    <!-- Carte partage prospection -->
+    <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span style="font-size:18px">📤</span>
+        <h3 style="margin:0;font-size:14px;color:var(--accent)">Partager le showroom</h3>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:2px" onchange="updateShareLinks()">
+          <option value="">Choisir une marque…</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" id="btn-share-public" onclick="copyShareLink('public')" disabled style="opacity:.4">
+          🌐 Lien showroom <span style="font-size:10px;opacity:.7">(sans inscription)</span>
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')" disabled style="opacity:.4">
+          ✉️ Lien invitation <span style="font-size:10px;opacity:.7">(avec inscription)</span>
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('login')" title="Lien de connexion pour acheteurs déjà inscrits">
+          🔑 Lien login portail
+        </button>
+      </div>
+      <div id="share-preview" style="margin-top:10px;font-size:11px;color:#666;font-family:monospace;min-height:16px"></div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="card" style="margin-bottom:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -1885,6 +1908,13 @@ async function loadDashboard() {
   ]);
   document.getElementById('stat-brands').textContent = brands.length;
   document.getElementById('stat-orders').textContent = orders.length;
+
+  // Peupler le sélecteur de marque de la carte Partage
+  const shareSel = document.getElementById('share-brand-select');
+  if (shareSel) {
+    shareSel.innerHTML = '<option value="">Choisir une marque…</option>' +
+      brands.map(b => `<option value="${b.id}" data-token="${b.invite_token||''}">${esc(b.name)}</option>`).join('');
+  }
   const total = orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   document.getElementById('stat-total').textContent = total.toFixed(2) + ' €';
   document.getElementById('stat-buyers').textContent = buyers.length;
@@ -2353,6 +2383,55 @@ async function showQR(brandId, brandName) {
 let currentShowroomUrl = '';
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => toast('Lien copié')).catch(() => toast('Copie impossible', true));
+}
+
+let _shareBrandInviteToken = '';
+
+function updateShareLinks() {
+  const sel = document.getElementById('share-brand-select');
+  const opt = sel.options[sel.selectedIndex];
+  const brandId = sel.value;
+  const preview = document.getElementById('share-preview');
+  const btnPublic = document.getElementById('btn-share-public');
+  const btnInvite = document.getElementById('btn-share-invite');
+  if (!brandId) {
+    btnPublic.disabled = true; btnPublic.style.opacity = '.4';
+    btnInvite.disabled = true; btnInvite.style.opacity = '.4';
+    if (preview) preview.textContent = '';
+    return;
+  }
+  _shareBrandInviteToken = opt.dataset.token || '';
+  btnPublic.disabled = false; btnPublic.style.opacity = '1';
+  btnInvite.disabled = !_shareBrandInviteToken; btnInvite.style.opacity = _shareBrandInviteToken ? '1' : '.4';
+  if (preview) preview.textContent = `${location.origin}/commande/${brandId}`;
+}
+
+async function copyShareLink(type) {
+  const sel = document.getElementById('share-brand-select');
+  const brandId = sel ? sel.value : '';
+  let url = '';
+  if (type === 'login') {
+    url = `${location.origin}/editions-showroom-b2b-portail`;
+  } else if (type === 'public') {
+    if (!brandId) return toast('Sélectionne une marque', true);
+    url = `${location.origin}/commande/${brandId}`;
+  } else if (type === 'invite') {
+    if (!_shareBrandInviteToken) {
+      if (!brandId) return toast('Sélectionne une marque', true);
+      const r = await fetch(`/api/brands/${brandId}/invite-link`, { method: 'POST' }).catch(() => null);
+      if (!r || !r.ok) return toast('Erreur génération lien', true);
+      const d = await r.json();
+      _shareBrandInviteToken = d.token || '';
+      const opt = sel.options[sel.selectedIndex];
+      if (opt) opt.dataset.token = _shareBrandInviteToken;
+      updateShareLinks();
+    }
+    url = `${location.origin}/rejoindre/${_shareBrandInviteToken}`;
+  }
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => toast('Lien copié !')).catch(() => toast('Copie impossible', true));
+  const preview = document.getElementById('share-preview');
+  if (preview) preview.textContent = url;
 }
 
 function copyShowroomLink() {
