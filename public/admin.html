@@ -431,6 +431,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <span id="orders-count" style="font-size:13px;color:#888"></span>
         <a href="/api/orders/export/csv" class="btn btn-secondary btn-sm" style="text-decoration:none" download>⬇ Export CSV</a>
+        <a href="/api/orders/export-csv" class="btn btn-secondary btn-sm" style="text-decoration:none" onclick="window.location='/api/orders/export-csv';return false">↓ CSV Commandes</a>
       </div>
     </div>
 
@@ -478,6 +479,11 @@
           </tr></thead>
           <tbody id="orders-body"></tbody>
         </table></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:0 4px;font-size:12px;color:var(--soft)">
+          <button onclick="changePage('orders',-1)" class="btn btn-secondary btn-sm">← Préc.</button>
+          <span id="orders-page-info">Page 1 / 1</span>
+          <button onclick="changePage('orders',1)" class="btn btn-secondary btn-sm">Suiv. →</button>
+        </div>
       </div>
     </div>
 
@@ -503,7 +509,7 @@
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table style="min-width:780px">
           <thead><tr>
-            <th>Date</th><th>Client</th><th>Email</th><th>Société</th><th>Marque</th><th>Articles</th><th>Statut</th><th>Envoyé par</th><th>Expire le</th><th>Actions</th>
+            <th>Réf.</th><th>Date</th><th>Client</th><th>Email</th><th>Société</th><th>Marque</th><th>Articles</th><th>Statut</th><th>Envoyé par</th><th>Expire le</th><th>Actions</th>
           </tr></thead>
           <tbody id="sel-body"></tbody>
         </table></div>
@@ -580,7 +586,10 @@
   </div>
 
   <div id="buyers" class="section">
-    <h1 data-t="h1_buyers">Acheteurs</h1>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+      <h1 style="margin:0" data-t="h1_buyers">Acheteurs</h1>
+      <a href="/api/buyers/export-csv" class="btn btn-secondary btn-sm" style="text-decoration:none" onclick="window.location='/api/buyers/export-csv';return false">↓ CSV Acheteurs</a>
+    </div>
     <p style="font-size:12px;color:#888;margin-bottom:16px" data-t="buyers_desc">Comptes du portail acheteur multi-marques (<code>/portal</code>). Un acheteur connecté voit toutes les marques actives.</p>
     <div class="card">
       <h3 data-t="buyers_create_title">Créer un compte acheteur</h3>
@@ -604,6 +613,11 @@
         <thead><tr><th style="width:24px"></th><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th>Commandes</th><th>CA total</th><th>Dernière connexion</th><th></th></tr></thead>
         <tbody id="buyers-body"></tbody>
       </table></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:0 4px;font-size:12px;color:var(--soft)">
+        <button onclick="changePage('buyers',-1)" class="btn btn-secondary btn-sm">← Préc.</button>
+        <span id="buyers-page-info">Page 1 / 1</span>
+        <button onclick="changePage('buyers',1)" class="btn btn-secondary btn-sm">Suiv. →</button>
+      </div>
     </div>
   </div>
 
@@ -1731,31 +1745,9 @@ async function loadBuyers() {
     fetch('/api/buyers/presence').then(r => r.json()).catch(() => [])
   ]);
   const onlineSet = new Set(onlineIds);
-  document.getElementById('buyers-body').innerHTML = stats.map(b => {
-    const online = onlineSet.has(b.id);
-    const dot = online
-      ? `<span title="En ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;box-shadow:0 0 4px #4caf50"></span>`
-      : `<span title="Hors ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#333"></span>`;
-    const lastSeen = b.last_seen_at
-      ? new Date(b.last_seen_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
-      : '—';
-    const total = parseFloat(b.total_amount || 0);
-    return `<tr>
-      <td style="text-align:center">${dot}</td>
-      <td>${esc(b.name) || '—'}</td>
-      <td>${esc(b.company) || '—'}</td>
-      <td style="font-size:12px">${esc(b.email)}</td>
-      <td style="text-align:center;color:${b.order_count > 0 ? '#CCEB3C' : '#555'}">${b.order_count > 0 ? `<strong>${b.order_count}</strong>` : '—'}</td>
-      <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
-      <td style="font-size:11px;color:#666">${lastSeen}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
-        <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
-        <button class="btn btn-sm" style="background:#0a1a2a;color:#60a5fa;border:1px solid #60a5fa33" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
-      </td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="8" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
+  _allBuyers = stats.map(b => ({ ...b, _online: onlineSet.has(b.id) }));
+  _buyersPage = 1;
+  renderBuyersPage();
 
   if (_buyersPresenceTimer) clearInterval(_buyersPresenceTimer);
   _buyersPresenceTimer = setInterval(refreshBuyersPresence, 30000);
@@ -3444,6 +3436,81 @@ async function clearAllPhotos() {
 // Orders
 let _allOrders = [];
 let _currentOrderId = null;
+let _ordersPage = 1;
+let _buyersPage = 1;
+let _filteredOrders = [];
+let _allBuyers = [];
+const ORDERS_PER_PAGE = 20;
+const BUYERS_PER_PAGE = 25;
+
+function changePage(type, delta) {
+  if (type === 'orders') {
+    const totalPages = Math.max(1, Math.ceil(_filteredOrders.length / ORDERS_PER_PAGE));
+    _ordersPage = Math.min(Math.max(1, _ordersPage + delta), totalPages);
+    renderOrdersPage();
+  } else if (type === 'buyers') {
+    const totalPages = Math.max(1, Math.ceil(_allBuyers.length / BUYERS_PER_PAGE));
+    _buyersPage = Math.min(Math.max(1, _buyersPage + delta), totalPages);
+    renderBuyersPage();
+  }
+}
+
+function renderOrdersPage() {
+  const totalPages = Math.max(1, Math.ceil(_filteredOrders.length / ORDERS_PER_PAGE));
+  const start = (_ordersPage - 1) * ORDERS_PER_PAGE;
+  const page = _filteredOrders.slice(start, start + ORDERS_PER_PAGE);
+  const tbody = document.getElementById('orders-body');
+  tbody.innerHTML = page.length ? page.map(o => `
+    <tr>
+      <td style="font-size:11px;color:#888;font-family:monospace">${o.order_number || o.id.slice(0,8)}</td>
+      <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
+      <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
+      <td>${o.brand_name||''}</td>
+      <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
+      <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
+        <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">${t('btn_view')}</button>
+        ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>` : ''}
+      </td>
+    </tr>
+  `).join('') : `<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">${t('no_order')}</td></tr>`;
+  const info = document.getElementById('orders-page-info');
+  if (info) info.textContent = `Page ${_ordersPage} / ${totalPages}`;
+}
+
+function renderBuyersPage() {
+  const totalPages = Math.max(1, Math.ceil(_allBuyers.length / BUYERS_PER_PAGE));
+  const start = (_buyersPage - 1) * BUYERS_PER_PAGE;
+  const page = _allBuyers.slice(start, start + BUYERS_PER_PAGE);
+  const tbody = document.getElementById('buyers-body');
+  tbody.innerHTML = page.map(b => {
+    const online = b._online;
+    const dot = online
+      ? `<span title="En ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;box-shadow:0 0 4px #4caf50"></span>`
+      : `<span title="Hors ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#333"></span>`;
+    const lastSeen = b.last_seen_at
+      ? new Date(b.last_seen_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '—';
+    const total = parseFloat(b.total_amount || 0);
+    return `<tr>
+      <td style="text-align:center">${dot}</td>
+      <td>${esc(b.name) || '—'}</td>
+      <td>${esc(b.company) || '—'}</td>
+      <td style="font-size:12px">${esc(b.email)}</td>
+      <td style="text-align:center;color:${b.order_count > 0 ? '#CCEB3C' : '#555'}">${b.order_count > 0 ? `<strong>${b.order_count}</strong>` : '—'}</td>
+      <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
+      <td style="font-size:11px;color:#666">${lastSeen}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
+        <button class="btn btn-sm" style="background:#0a1a2a;color:#60a5fa;border:1px solid #60a5fa33" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
+  const info = document.getElementById('buyers-page-info');
+  if (info) info.textContent = `Page ${_buyersPage} / ${totalPages}`;
+}
 
 function STATUS_LABEL() { return { confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: '⚙️ En production', shipped: '🚚 Expédiée', cancelled: t('status_cancelled_icon') }; }
 const STATUS_BADGE = { confirmed: 'confirmed', validated: 'validated', in_production: 'in_production', shipped: 'shipped', cancelled: 'cancelled' };
@@ -3514,6 +3581,7 @@ function filterSelections() {
     const expDate = new Date(s.expires_at).toLocaleDateString('fr-FR');
     const selUrl = `/selection/${s.token}`;
     return `<tr>
+      <td style="font-family:monospace;font-size:12px;font-weight:700">${esc(s.selection_number||'—')}</td>
       <td style="font-size:11px;color:#888">${new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
       <td><strong>${s.client_name||'—'}</strong></td>
       <td style="font-size:12px">${s.client_email||'—'}</td>
@@ -3528,7 +3596,7 @@ function filterSelections() {
         <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')">📋</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">Aucune sélection</td></tr>`;
+  }).join('') : `<tr><td colspan="11" style="color:#666;text-align:center;padding:20px">Aucune sélection</td></tr>`;
 }
 
 async function loadOrders() {
@@ -3572,28 +3640,15 @@ function filterOrders() {
   // Stats
   const totalRev = list.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   const pending  = list.filter(o => o.status === 'confirmed').length;
-  const _loc = currentLang === 'en' ? 'en-GB' : 'fr-FR';
   document.getElementById('orders-stats').innerHTML =
     `<span><strong>${list.length}</strong> ${t('orders_count_label') instanceof Function ? t('orders_count_label')(list.length) : (TRANSLATIONS[currentLang]?.orders_count_label?.(list.length) || list.length + ' order(s)')}</span>` +
     `<span style="margin-left:18px">${t('orders_revenue_label')} <strong>${totalRev.toFixed(2)} €</strong></span>` +
     `<span style="margin-left:18px;color:#CCEB3C">${pending} ${t('orders_pending_label')}</span>`;
 
-  // Table
-  const tbody = document.getElementById('orders-body');
-  tbody.innerHTML = list.length ? list.map(o => `
-    <tr>
-      <td style="font-size:11px;color:#888;font-family:monospace">${o.order_number || o.id.slice(0,8)}</td>
-      <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
-      <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
-      <td>${o.brand_name||''}</td>
-      <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
-      <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
-        <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">${t('btn_view')}</button>
-        ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>` : ''}
-      </td>
-    </tr>
-  `).join('') : `<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">${t('no_order')}</td></tr>`;
+  // Pagination
+  _filteredOrders = list;
+  _ordersPage = 1;
+  renderOrdersPage();
 }
 
 async function viewOrder(id) {
