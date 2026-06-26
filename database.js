@@ -274,6 +274,7 @@ async function init() {
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS favorites_json TEXT DEFAULT '[]'",
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'sent'",
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS draft_name TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS default_currency TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
@@ -307,7 +308,20 @@ async function init() {
     agent_title: 'Agent Commercial',
     agent_phone: '',
     cgv_text: "La présente proposition de commande ne constitue pas un engagement ferme. Elle ne sera définitive qu'après acceptation écrite de la marque et signature du bon de commande par les deux parties (acheteur et agent/showroom). L'acheteur s'engage à maintenir sa sélection pendant 15 jours ouvrés à compter de la date de signature. Les prix sont indiqués en euros HT. Tout désistement après accord bilatéral pourra faire l'objet de pénalités. Les conditions de paiement et de livraison seront précisées dans le bon de commande définitif signé par les deux parties.",
-    currencies_json: JSON.stringify([{ code: 'EUR', symbol: '€', rate: 1 }, { code: 'USD', symbol: '$', rate: 1.08 }, { code: 'GBP', symbol: '£', rate: 0.86 }])
+    currencies_json: JSON.stringify([
+      { code: 'EUR', symbol: '€', rate: 1 },
+      { code: 'USD', symbol: '$', rate: 1.08 },
+      { code: 'GBP', symbol: '£', rate: 0.86 },
+      { code: 'JPY', symbol: '¥', rate: 160 },
+      { code: 'CHF', symbol: 'Fr', rate: 0.93 },
+      { code: 'CAD', symbol: 'CA$', rate: 1.47 },
+      { code: 'AUD', symbol: 'A$', rate: 1.63 },
+      { code: 'DKK', symbol: 'kr', rate: 7.46 },
+      { code: 'SEK', symbol: 'kr', rate: 11.4 },
+      { code: 'NOK', symbol: 'kr', rate: 11.5 },
+      { code: 'KRW', symbol: '₩', rate: 1450 },
+      { code: 'CNY', symbol: '¥', rate: 7.8 },
+    ])
   };
 
   for (const [key, value] of Object.entries(defaults)) {
@@ -315,6 +329,31 @@ async function init() {
       'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
       [key, value]
     );
+  }
+
+  // Migration: add new currencies to existing installs without overwriting user-defined rates
+  {
+    const existing = await pool.query("SELECT value FROM settings WHERE key='currencies_json'").catch(() => ({ rows: [] }));
+    if (existing.rows[0]) {
+      try {
+        const curr = JSON.parse(existing.rows[0].value);
+        const codes = curr.map(c => c.code);
+        const toAdd = [
+          { code: 'JPY', symbol: '¥', rate: 160 },
+          { code: 'CHF', symbol: 'Fr', rate: 0.93 },
+          { code: 'CAD', symbol: 'CA$', rate: 1.47 },
+          { code: 'AUD', symbol: 'A$', rate: 1.63 },
+          { code: 'DKK', symbol: 'kr', rate: 7.46 },
+          { code: 'SEK', symbol: 'kr', rate: 11.4 },
+          { code: 'NOK', symbol: 'kr', rate: 11.5 },
+          { code: 'KRW', symbol: '₩', rate: 1450 },
+          { code: 'CNY', symbol: '¥', rate: 7.8 },
+        ].filter(c => !codes.includes(c.code));
+        if (toAdd.length) {
+          await pool.query("UPDATE settings SET value=$1 WHERE key='currencies_json'", [JSON.stringify([...curr, ...toAdd])]);
+        }
+      } catch(e) { console.error('currencies migration error:', e.message); }
+    }
   }
 
   // Nettoyage des tokens expirés
