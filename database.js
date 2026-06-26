@@ -261,10 +261,12 @@ async function init() {
       phone TEXT DEFAULT '',
       email TEXT NOT NULL,
       country TEXT DEFAULT '',
+      instagram TEXT DEFAULT '',
       message TEXT DEFAULT '',
       status TEXT DEFAULT 'pending',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS instagram TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

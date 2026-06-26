@@ -1009,6 +1009,16 @@ async function sendAgentSelectionFromCart() {
     if (!r.ok) { res.innerHTML = '<span style="color:#e07a7a">' + (d.error || 'Erreur') + '</span>'; btn.disabled = false; btn.textContent = 'Envoyer'; return; }
     res.innerHTML = '<span style="color:#5ec95e">✓ Sélection envoyée à ' + email + '.</span>';
     btn.textContent = 'Envoyé ✓';
+    // Vider le panier après envoi
+    Object.keys(cart).forEach(k => delete cart[k]);
+    localStorage.removeItem(CART_KEY);
+    updateCartBar();
+    if (typeof applyFilters === 'function') applyFilters(); else renderProducts();
+    // Réinitialiser le formulaire d'envoi
+    document.getElementById('agent-send-email').value = '';
+    document.getElementById('agent-send-name').value = '';
+    document.getElementById('agent-send-company').value = '';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Envoyer'; res.innerHTML = ''; }, 4000);
   } catch(e) {
     res.innerHTML = '<span style="color:#e07a7a">Erreur réseau.</span>'; btn.disabled = false; btn.textContent = 'Envoyer';
   }

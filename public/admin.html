@@ -1688,7 +1688,7 @@ function renderArList() {
     return;
   }
   list.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Message</th>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}</tr></thead>
+    <thead><tr><th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Instagram</th><th>Message</th>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}</tr></thead>
     <tbody>${rows.map(x => {
       const date = new Date(x.created_at).toLocaleDateString('fr-FR');
       const statusBadge = x.status === 'approved'
@@ -1707,6 +1707,7 @@ function renderArList() {
         <td style="font-size:12px">${esc(x.email)}</td>
         <td style="font-size:12px">${esc(x.phone||'—')}</td>
         <td style="font-size:12px">${esc(x.country||'—')}</td>
+        <td style="font-size:12px">${x.instagram ? `<a href="https://instagram.com/${esc(x.instagram.replace('@',''))}" target="_blank" style="color:var(--accent)">${esc(x.instagram)}</a>` : '—'}</td>
         <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.message||'')}">${esc(x.message||'—')}</td>
         ${actions}
       </tr>`;

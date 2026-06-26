@@ -2174,15 +2174,15 @@ app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'publi
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
 app.post('/api/access-request', async (req, res) => {
-  const { name, company, phone, email, country, message } = req.body;
+  const { name, company, phone, email, country, instagram, message } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
   // Vérifier doublon (même email en pending)
   const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
   if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO access_requests (id,name,company,phone,email,country,message) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (message||'').trim()]
+    'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,message) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), (message||'').trim()]
   );
   // Notifier l'admin
   const [showroomName, adminEmail, fromAddress] = await Promise.all([
@@ -2205,6 +2205,7 @@ app.post('/api/access-request', async (req, res) => {
           <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Téléphone</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(phone||'—')}</td></tr>
           <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Email</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(email)}</td></tr>
           <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Pays</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(country||'—')}</td></tr>
+          ${instagram ? `<tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Instagram</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(instagram)}</td></tr>` : ''}
           ${message ? `<tr><td style="padding:8px;color:#888;vertical-align:top">Message</td><td style="padding:8px">${escHtml(message)}</td></tr>` : ''}
         </table>
         ${emailBtn(adminUrl, 'GÉRER LES DEMANDES →')}
