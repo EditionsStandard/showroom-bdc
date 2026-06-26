@@ -561,6 +561,90 @@ app.post('/api/brands/:brandId/products/collection-bulk', requireBrandScope('own
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// ── Import CSV produits ──────────────────────────────────────────────
+const uploadCsv = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+function parseCSVRow(line) {
+  const fields = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuote) {
+      if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') { inQuote = false; }
+      else { cur += ch; }
+    } else {
+      if (ch === '"') { inQuote = true; }
+      else if (ch === ',') { fields.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+  }
+  fields.push(cur);
+  return fields;
+}
+
+app.post('/api/brands/:brandId/products/import-csv', requireRole('owner','agent'), uploadCsv.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Fichier CSV requis' });
+    const brandId = req.params.brandId;
+    const text = req.file.buffer.toString('utf-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return res.status(400).json({ error: 'Fichier vide ou sans données' });
+    // Expected header: reference,description,color,sizes,price,price_retail,collection,composition,category
+    const header = parseCSVRow(lines[0]).map(h => h.trim().toLowerCase());
+    const idx = (col) => header.indexOf(col);
+    let imported = 0, skipped = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVRow(lines[i]);
+      const get = (col) => (row[idx(col)] || '').trim();
+      const reference = get('reference');
+      if (!reference) { skipped++; continue; }
+      const description = get('description');
+      const color = get('color');
+      const sizes = get('sizes');
+      const price = parseFloat(get('price')) || 0;
+      const price_retail = parseFloat(get('price_retail')) || 0;
+      const collection_name = get('collection');
+      const composition = get('composition');
+      const category = get('category');
+      const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [brandId, reference]);
+      if (existing.rows[0]) {
+        await pool.query(
+          'UPDATE products SET description=$1,color=$2,sizes=$3,price=$4,price_retail=$5,collection_name=$6,composition=$7,category=$8 WHERE id=$9',
+          [description, color, sizes, price, price_retail, collection_name, composition, category, existing.rows[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,collection_name,composition,category) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+          [uuidv4(), brandId, reference, description, color, sizes, price, price_retail, collection_name, composition, category]
+        );
+      }
+      imported++;
+    }
+    res.json({ imported, skipped });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── Export CSV produits ──────────────────────────────────────────────
+app.get('/api/brands/:brandId/products/export-csv', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT reference, description, color, sizes, price, price_retail, collection_name, composition, category FROM products WHERE brand_id=$1 ORDER BY reference',
+      [req.params.brandId]
+    );
+    const headers = ['reference','description','color','sizes','price','price_retail','collection','composition','category'];
+    const rows = r.rows.map(p => [
+      p.reference, p.description, p.color, p.sizes,
+      p.price, p.price_retail, p.collection_name, p.composition, p.category
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="produits-${req.params.brandId.slice(0,8)}.csv"`);
+    res.send('﻿' + csv);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.post('/api/products/:id/duplicate', requireRole('owner','agent','designer'), async (req, res) => {
   if (!await checkProductBrandScope(req, res)) return;
   const r = await pool.query('SELECT * FROM products WHERE id=$1', [req.params.id]);
@@ -1399,18 +1483,34 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber, url, req }) {
+async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber, url, req, lang }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email sélection agent non envoyé'); return; }
   const resend = new Resend(resendKey);
   const showroomName = await getSetting('showroom_name');
   const fromField = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
-  const numLabel = selectionNumber ? ` — Réf. ${selectionNumber}` : '';
+  // Lookup buyer lang if not provided
+  if (!lang) {
+    const bLang = await pool.query('SELECT lang FROM buyers WHERE email=$1', [email.toLowerCase().trim()]).catch(() => ({ rows: [] }));
+    lang = bLang.rows[0]?.lang || 'fr';
+  }
+  const isEn = lang === 'en';
+  const numLabel = selectionNumber ? (isEn ? ` — Ref. ${selectionNumber}` : ` — Réf. ${selectionNumber}`) : '';
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
-    subject: `Votre sélection ${brandName}${numLabel} — à valider`,
-    html: emailLayout({ showroomName, content: `
+    subject: isEn
+      ? `Your ${brandName} selection${numLabel} — to confirm`
+      : `Votre sélection ${brandName}${numLabel} — à valider`,
+    html: emailLayout({ showroomName, content: isEn ? `
+      <p>Hello${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
+      <p>A <strong>${escHtml(brandName)}</strong> selection has been prepared for you during our appointment.</p>
+      ${selectionNumber ? `<p style="font-size:13px;color:#888">Reference: <strong>${escHtml(selectionNumber)}</strong></p>` : ''}
+      <p>Click below to view it, create your account, and confirm your order:</p>
+      ${emailBtn(url, 'View and confirm my selection →')}
+      <p style="font-size:13px;color:#888;margin-top:28px">This link is valid for 30 days.</p>
+      <p>Best regards,<br><strong>${showroomName}</strong></p>
+    ` : `
       <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
       <p>Une sélection <strong>${escHtml(brandName)}</strong> a été préparée pour vous lors de notre rendez-vous.</p>
       ${selectionNumber ? `<p style="font-size:13px;color:#888">Référence : <strong>${escHtml(selectionNumber)}</strong></p>` : ''}
@@ -1650,6 +1750,13 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
     const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
+    // Track views for all products in this brand page load
+    for (const prod of p.rows) {
+      pool.query(
+        'INSERT INTO product_stats (product_id, views) VALUES ($1, 1) ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()',
+        [prod.id]
+      ).catch(() => {});
+    }
     const brand = b.rows[0];
     brand.logo = cloudinaryOpt(brand.logo);
     brand.logo_url = cloudinaryOpt(brand.logo_url);
@@ -1954,6 +2061,24 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// ── Statistiques produits par marque ────────────────────────────────
+app.get('/api/brands/:brandId/product-stats', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT p.id, p.reference, p.description, p.color, p.price, p.collection_name,
+             COALESCE(ps.views, 0) as views,
+             COALESCE(ps.cart_adds, 0) as cart_adds,
+             ps.updated_at
+      FROM products p
+      LEFT JOIN product_stats ps ON ps.product_id = p.id
+      WHERE p.brand_id = $1
+      ORDER BY COALESCE(ps.views, 0) DESC
+      LIMIT 50
+    `, [req.params.brandId]);
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json([]);
@@ -2108,13 +2233,23 @@ app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
     const showroomName = await getSetting('showroom_name');
     const fromAddress = await getSetting('smtp_from');
     const resetUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail?token=${token}`;
+    const buyerFull = await pool.query('SELECT lang FROM buyers WHERE id=$1', [buyer.id]);
+    const isEn = buyerFull.rows[0]?.lang === 'en';
     await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
-      subject: `Réinitialisation de mot de passe — ${showroomName}`,
+      subject: isEn
+        ? `Password reset — ${showroomName}`
+        : `Réinitialisation de mot de passe — ${showroomName}`,
       html: emailLayout({
         showroomName,
-        content: `
+        content: isEn ? `
+          <p>Hello${buyer.name ? ' <strong>' + buyer.name + '</strong>' : ''},</p>
+          <p>You requested to reset your password for the <strong>${showroomName}</strong> B2B showroom.</p>
+          ${emailBtn(resetUrl, 'Choose a new password →')}
+          <p style="font-size:13px;color:#888;margin-top:24px">This link is valid for <strong>1 hour</strong>. If you did not make this request, ignore this email.</p>
+          <p>Best regards,<br><strong>${showroomName}</strong></p>
+        ` : `
           <p>Bonjour${buyer.name ? ' <strong>' + buyer.name + '</strong>' : ''},</p>
           <p>Vous avez demandé à réinitialiser votre mot de passe pour le showroom B2B <strong>${showroomName}</strong>.</p>
           ${emailBtn(resetUrl, 'Choisir un nouveau mot de passe →')}
@@ -2151,8 +2286,18 @@ app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
 
 // Admin: manage buyer accounts (owner + agent)
 app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at FROM buyers ORDER BY created_at DESC');
+  const r = await pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, tags, internal_notes FROM buyers ORDER BY created_at DESC');
   res.json(r.rows);
+});
+
+// Tags et notes internes acheteur
+app.patch('/api/buyers/:id/tags-notes', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { tags, internal_notes } = req.body;
+    await pool.query('UPDATE buyers SET tags=$1, internal_notes=$2 WHERE id=$3',
+      [tags || '', internal_notes || '', req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/buyers/presence', requireRole('owner','agent'), async (req, res) => {
@@ -2324,7 +2469,7 @@ app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   }
 });
 
-async function sendBuyerWelcomeEmail({ email, password, name, req }) {
+async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email de bienvenue acheteur non envoyé'); return; }
   const resend = new Resend(resendKey);
@@ -2332,14 +2477,25 @@ async function sendBuyerWelcomeEmail({ email, password, name, req }) {
   const fromAddress = await getSetting('smtp_from');
   const fromField = fromAddress || 'showroom@editionsstandard.com';
   const portalUrl = `${getBaseUrl(req)}/portal-login`;
+  const isEn = lang === 'en';
 
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
-    subject: `Votre accès au showroom — ${showroomName}`,
+    subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès au showroom — ${showroomName}`,
     html: emailLayout({
       showroomName,
-      content: `
+      content: isEn ? `
+        <p>Hello${name ? ' <strong>' + name + '</strong>' : ''},</p>
+        <p>Your B2B showroom access for <strong>${showroomName}</strong> has been created. You can now browse our brands, view collections, and place orders online.</p>
+        ${emailInfoBox([
+          ['Email', email],
+          ['Password', password],
+        ])}
+        ${emailBtn(portalUrl, 'Access showroom →')}
+        <p style="font-size:13px;color:#888;margin-top:28px">Feel free to contact us if you have any questions.</p>
+        <p>Best regards,<br><strong>${showroomName}</strong></p>
+      ` : `
         <p>Bonjour${name ? ' <strong>' + name + '</strong>' : ''},</p>
         <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
         ${emailInfoBox([
@@ -2479,11 +2635,26 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
     const resend = new Resend(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
     const loginUrl = `${req.protocol}://${req.get('host')}/editions-showroom-b2b-portail`;
+    // Fetch buyer lang (just created — default 'fr', can't be 'en' yet unless set elsewhere)
+    const buyerLangRes = await pool.query('SELECT lang FROM buyers WHERE id=$1', [buyerId]);
+    const isEn = buyerLangRes.rows[0]?.lang === 'en';
     await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [req2.email],
-      subject: `Votre accès au showroom ${showroomName} est confirmé`,
-      html: emailLayout({ showroomName, content: `
+      subject: isEn
+        ? `Your showroom access to ${showroomName} is confirmed`
+        : `Votre accès au showroom ${showroomName} est confirmé`,
+      html: emailLayout({ showroomName, content: isEn ? `
+        <p>Hello <strong>${escHtml(req2.name)}</strong>,</p>
+        <p>Your access request to the <strong>${escHtml(showroomName)}</strong> showroom has been approved.</p>
+        <p>Here are your login credentials:</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888;width:120px">Email</td><td style="padding:8px;border-bottom:1px solid #eee"><strong>${escHtml(req2.email)}</strong></td></tr>
+          <tr><td style="padding:8px;color:#888">Password</td><td style="padding:8px"><strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${escHtml(tempPassword)}</strong></td></tr>
+        </table>
+        <p style="font-size:12px;color:#888">You can change your password after your first login.</p>
+        ${emailBtn(loginUrl, 'ACCESS SHOWROOM →')}
+      ` : `
         <p>Bonjour <strong>${escHtml(req2.name)}</strong>,</p>
         <p>Votre demande d'accès au showroom <strong>${escHtml(showroomName)}</strong> a été acceptée.</p>
         <p>Voici vos identifiants de connexion :</p>
@@ -3195,17 +3366,20 @@ async function sendOrderEmails(orderId, pdfBuffer) {
 
   const oRes = await pool.query(`
     SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv, b.logo as brand_logo,
-      SUM(ol.quantity * ol.unit_price) as order_total
+      SUM(ol.quantity * ol.unit_price) as order_total,
+      by2.lang as buyer_lang
     FROM orders o
     JOIN brands b ON o.brand_id=b.id
     LEFT JOIN order_lines ol ON ol.order_id=o.id
+    LEFT JOIN buyers by2 ON by2.id=o.buyer_id
     WHERE o.id=$1
-    GROUP BY o.id, b.name, b.cgv_text, b.logo
+    GROUP BY o.id, b.name, b.cgv_text, b.logo, by2.lang
   `, [orderId]);
   const order = oRes.rows[0];
+  const isEn = order?.buyer_lang === 'en';
   const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${order.order_number || orderId.slice(0,8).toUpperCase()}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
-  const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const dateStr = new Date(order.created_at).toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const cgvText = order.brand_cgv || globalCgv;
 
   const resend = new Resend(resendKey);
@@ -3217,12 +3391,39 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   await resend.emails.send({
     from: fromFormatted,
     to: [order.client_email],
-    subject: `Proposition de commande — ${order.brand_name} — ${showroomName}`,
+    subject: isEn
+      ? `Order proposal — ${order.brand_name} — ${showroomName}`
+      : `Proposition de commande — ${order.brand_name} — ${showroomName}`,
     html: emailLayout({
       showroomName,
       brandName: order.brand_name,
       brandLogo: order.brand_logo || '',
-      content: `
+      content: isEn ? `
+        <p>Hello <strong>${escHtml(order.client_name)}</strong>,</p>
+        <p>We have received your order proposal for <strong>${order.brand_name}</strong> dated ${dateStr}.</p>
+        <p>Your signed order proposal (total ex-VAT: <strong>${totalStr}</strong>) is attached to this email as a PDF.</p>
+
+        <table cellpadding="0" cellspacing="0" style="width:100%;background:#fffbea;border-left:3px solid #d4a017;border-radius:0 4px 4px 0;margin:24px 0">
+          <tr><td style="padding:16px 20px">
+            <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:12px;font-weight:700;color:#8a6500;letter-spacing:1px;text-transform:uppercase">Important — Non-binding proposal</p>
+            <p style="margin:0;font-size:13px;color:#555;line-height:1.7">
+              This proposal is <strong>not a firm commitment</strong>. It will be final after:<br>
+              &bull; Formal acceptance by <strong>${order.brand_name}</strong><br>
+              &bull; Signature of the purchase order by both parties<br><br>
+              Please allow <strong>7 business days</strong> for the final signed version.
+            </p>
+          </td></tr>
+        </table>
+
+        <p style="color:#555;font-size:13px">We will get back to you once confirmed. Feel free to contact us if you have any questions.</p>
+        <p style="margin-top:28px">Best regards,<br><strong>${agentName || showroomName}</strong></p>
+
+        ${cgvText ? `
+        <div style="margin-top:32px;padding-top:20px;border-top:1px solid #eee">
+          <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#bbb">Terms & Conditions — ${order.brand_name}</p>
+          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+        </div>` : ''}
+      ` : `
         <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
         <p>Nous avons bien reçu votre proposition de commande pour la marque <strong>${order.brand_name}</strong> en date du ${dateStr}.</p>
         <p>Votre proposition de commande signée (total HT : <strong>${totalStr}</strong>) est jointe à cet email en PDF.</p>
@@ -3338,6 +3539,26 @@ async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) 
     } catch(e) { console.error('Airtable STORES patch error:', e.message); }
   }
 }
+
+// ==================== SEASONS ====================
+
+app.post('/api/brands/:brandId/seasons/:seasonId/archive', requireBrandScope('owner','agent'), async (req, res) => {
+  try {
+    const { brandId, seasonId } = req.params;
+    await pool.query('UPDATE seasons SET active=0 WHERE id=$1 AND brand_id=$2', [seasonId, brandId]);
+    const r = await pool.query('UPDATE products SET active=0 WHERE season_id=$1 AND brand_id=$2', [seasonId, brandId]);
+    res.json({ ok: true, products_affected: r.rowCount });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/brands/:brandId/seasons/:seasonId/restore', requireBrandScope('owner','agent'), async (req, res) => {
+  try {
+    const { brandId, seasonId } = req.params;
+    await pool.query('UPDATE seasons SET active=1 WHERE id=$1 AND brand_id=$2', [seasonId, brandId]);
+    const r = await pool.query('UPDATE products SET active=1 WHERE season_id=$1 AND brand_id=$2', [seasonId, brandId]);
+    res.json({ ok: true, products_affected: r.rowCount });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 
 app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset-password.html')));
 
