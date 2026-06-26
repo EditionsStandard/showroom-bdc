@@ -879,6 +879,26 @@
       <input type="hidden" id="brand-lookbook">
     </div>
 
+    <!-- Devise par défaut -->
+    <div class="field" style="margin-top:12px">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Devise par défaut</label>
+      <select id="brand-default-currency" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--white);border-radius:2px;padding:8px 10px;font-size:12px;font-family:'Space Mono',monospace">
+        <option value="">Automatique (pays acheteur)</option>
+        <option value="EUR">EUR €</option>
+        <option value="USD">USD $</option>
+        <option value="GBP">GBP £</option>
+        <option value="JPY">JPY ¥</option>
+        <option value="CHF">CHF Fr</option>
+        <option value="CAD">CAD CA$</option>
+        <option value="AUD">AUD A$</option>
+        <option value="DKK">DKK kr</option>
+        <option value="SEK">SEK kr</option>
+        <option value="NOK">NOK kr</option>
+        <option value="KRW">KRW ₩</option>
+        <option value="CNY">CNY ¥</option>
+      </select>
+    </div>
+
     <!-- CGV par marque -->
     <div class="form-group" style="margin-top:8px">
       <label>Conditions générales de vente <span style="color:#555;font-weight:400;font-size:11px">(spécifiques à cette marque — optionnel)</span></label>
@@ -2598,6 +2618,7 @@ function editBrand(b) {
     document.getElementById('brand-lookbook-status').style.color = 'var(--accent)';
     document.getElementById('brand-lookbook-clear').style.display = '';
   }
+  document.getElementById('brand-default-currency').value = b.default_currency || '';
   document.getElementById('modal-brand-title').textContent = t('js_edit_brand_title');
   openModal('modal-brand');
 }
@@ -2616,7 +2637,8 @@ async function saveBrand() {
     about_text: document.getElementById('brand-about').value.trim(),
     moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
     moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0,
-    lookbook_url: document.getElementById('brand-lookbook').value
+    lookbook_url: document.getElementById('brand-lookbook').value,
+    default_currency: document.getElementById('brand-default-currency').value || null
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';

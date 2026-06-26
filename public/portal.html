@@ -762,7 +762,7 @@ function applyLang() {
     <h1>Showroom</h1>
   </div>
   <div class="nav">
-    <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
+    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
@@ -1060,6 +1060,31 @@ function applyLang() {
 <script>
 let me = null;
 let allBrands = [];
+
+const COUNTRY_CURRENCY = {
+  'France':'EUR','Allemagne':'EUR','Italie':'EUR','Espagne':'EUR','Belgique':'EUR',
+  'Pays-Bas':'EUR','Portugal':'EUR','Autriche':'EUR','Grèce':'EUR','Finlande':'EUR',
+  'United Kingdom':'GBP','Royaume-Uni':'GBP',
+  'United States':'USD','États-Unis':'USD',
+  'Japan':'JPY','Japon':'JPY',
+  'Switzerland':'CHF','Suisse':'CHF',
+  'Canada':'CAD',
+  'Australia':'AUD','Australie':'AUD',
+  'China':'CNY','Chine':'CNY',
+  'South Korea':'KRW','Corée du Sud':'KRW',
+  'Denmark':'DKK','Danemark':'DKK',
+  'Sweden':'SEK','Suède':'SEK',
+  'Norway':'NOK','Norvège':'NOK',
+};
+let _currencyManual = false;
+
+function autoSetCurrency(code) {
+  if (_currencyManual || !code) return;
+  const sel = document.getElementById('currency-select');
+  if (!sel) return;
+  const opt = [...sel.options].find(o => o.value === code);
+  if (opt) { sel.value = code; changeCurrency(code); }
+}
 let currentBrand = null;
 let currentProducts = [];
 let CART_KEY = 'portal_cart';
@@ -1337,6 +1362,7 @@ async function init() {
   if (meRes.status === 401) { window.location.replace('/editions-showroom-b2b-portail'); return; }
   me = await meRes.json();
   CART_KEY = 'portal_cart_' + (me.email || 'default');
+  autoSetCurrency(COUNTRY_CURRENCY[me.country] || '');
   restoreCart();
   syncCartFromServer();
   // Populate user menu
@@ -1568,6 +1594,12 @@ async function openBrand(brandId, _fromPop) {
   if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
   currentBrand = data.brand;
   currentProducts = data.products;
+  if (currentBrand.default_currency) {
+    autoSetCurrency(currentBrand.default_currency);
+  } else {
+    _currencyManual = false;
+    autoSetCurrency(COUNTRY_CURRENCY[me?.country] || '');
+  }
   container.innerHTML = '';
 
   const moqParts = [];
@@ -1728,6 +1760,8 @@ function closeBrand(_fromPop) {
   document.getElementById('brand-picker').style.display = 'block';
   document.getElementById('brand-products').style.display = 'none';
   currentBrand = null;
+  _currencyManual = false;
+  autoSetCurrency(COUNTRY_CURRENCY[me?.country] || '');
 }
 
 let productViewMode = 'grid'; // 'grid' | 'list'
