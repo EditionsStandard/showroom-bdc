@@ -274,6 +274,18 @@ async function init() {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
   }
 
+  // Table historique des statuts de commande
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_status_history (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      old_status TEXT DEFAULT '',
+      new_status TEXT NOT NULL,
+      changed_by TEXT DEFAULT '',
+      changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `).catch(() => {});
+
   // Backfill: brands existantes sans statut → 'trial' (évite qu'elles soient masquées du portail)
   await pool.query("UPDATE brands SET subscription_status = 'trial' WHERE subscription_status IS NULL").catch(() => {});
 

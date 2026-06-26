@@ -676,8 +676,72 @@ app.post('/api/public/appointments', publicLimiter, async (req, res) => {
     if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
     throw e;
   }
+  // Send confirmation emails (non-blocking)
+  sendAppointmentConfirmationEmail({ id, brand_id, client_name, client_email, client_phone: client_phone||'', slot_date, slot_time, notes: notes||'' }).catch(e => console.error('RDV email error:', e.message));
   res.json({ ok: true, id });
 });
+
+async function sendAppointmentConfirmationEmail(appt) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+  const [showroomName, fromAddress, agentName, agentPhone, adminEmail] = await Promise.all([
+    getSetting('showroom_name'), getSetting('smtp_from'), getSetting('agent_name'),
+    getSetting('agent_phone'), getSetting('showroom_email')
+  ]);
+  const from = fromAddress || 'showroom@editionsstandard.com';
+  const resend = new Resend(resendKey);
+
+  // Get brand name
+  const brandRes = await pool.query('SELECT name FROM brands WHERE id=$1', [appt.brand_id]);
+  const brandName = brandRes.rows[0]?.name || showroomName;
+
+  const dateStr = appt.slot_date instanceof Date
+    ? appt.slot_date.toLocaleDateString('fr-FR')
+    : String(appt.slot_date).slice(0,10).split('-').reverse().join('/');
+
+  const subject = `Confirmation de votre rendez-vous — ${brandName}`;
+
+  const clientContent = `
+    <p>Bonjour <strong>${escHtml(appt.client_name)}</strong>,</p>
+    <p>Votre rendez-vous a bien été enregistré.</p>
+    <table style="margin:16px 0;font-size:13px;border-collapse:collapse">
+      <tr><td style="padding:4px 12px 4px 0;color:#888">Marque</td><td><strong>${escHtml(brandName)}</strong></td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#888">Date</td><td><strong>${escHtml(dateStr)}</strong></td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#888">Heure</td><td><strong>${escHtml(appt.slot_time)}</strong></td></tr>
+    </table>
+    <p>Notre équipe vous contactera pour confirmer les détails.</p>
+    <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong>${agentPhone ? `<br>${escHtml(agentPhone)}` : ''}</p>
+  `;
+
+  await resend.emails.send({
+    from: `${showroomName} <${from}>`,
+    to: [appt.client_email],
+    subject,
+    html: emailLayout({ showroomName, brandName, content: clientContent })
+  });
+
+  // Admin notification
+  if (adminEmail) {
+    const adminContent = `
+      <p>Nouveau rendez-vous pris en ligne :</p>
+      <table style="margin:16px 0;font-size:13px;border-collapse:collapse">
+        <tr><td style="padding:4px 12px 4px 0;color:#888">Marque</td><td><strong>${escHtml(brandName)}</strong></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888">Date</td><td><strong>${escHtml(dateStr)}</strong></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888">Heure</td><td><strong>${escHtml(appt.slot_time)}</strong></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888">Client</td><td><strong>${escHtml(appt.client_name)}</strong></td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888">Email</td><td><a href="mailto:${escHtml(appt.client_email)}" style="color:#CCEB3C">${escHtml(appt.client_email)}</a></td></tr>
+        ${appt.client_phone ? `<tr><td style="padding:4px 12px 4px 0;color:#888">Téléphone</td><td>${escHtml(appt.client_phone)}</td></tr>` : ''}
+        ${appt.notes ? `<tr><td style="padding:4px 12px 4px 0;color:#888">Notes</td><td>${escHtml(appt.notes)}</td></tr>` : ''}
+      </table>
+    `;
+    await resend.emails.send({
+      from: `${showroomName} <${from}>`,
+      to: [adminEmail],
+      subject: `[RDV] ${appt.client_name} — ${brandName} — ${dateStr} ${appt.slot_time}`,
+      html: emailLayout({ showroomName, brandName, content: adminContent })
+    });
+  }
+}
 
 app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { brandId } = req.params;
@@ -853,15 +917,33 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     const { status } = req.body;
+    const orderId = req.params.id;
     const validStatuses = ['confirmed','validated','in_production','shipped','cancelled','archived'];
     if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
-    await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, req.params.id]);
+    const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
+    const oldStatus = prev.rows[0]?.status || '';
+    await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
+    // Log status change
+    await pool.query(
+      'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
+      [uuidv4(), orderId, oldStatus, status, req.session?.user?.email || req.session?.staffUser?.email || req.session?.admin ? 'admin' : 'system']
+    ).catch(e => console.error('history insert error:', e.message));
     // Notify buyer on meaningful transitions
     if (['validated','in_production','shipped'].includes(status)) {
-      sendOrderStatusEmail(req.params.id, status).catch(e => console.error('status email error:', e.message));
+      sendOrderStatusEmail(orderId, status).catch(e => console.error('status email error:', e.message));
     }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT * FROM order_status_history WHERE order_id=$1 ORDER BY changed_at DESC',
+      [req.params.id]
+    );
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 async function sendOrderStatusEmail(orderId, status) {
@@ -999,6 +1081,29 @@ app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
     `);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { ids, status } = req.body;
+    const validStatuses = ['confirmed','validated','in_production','shipped','cancelled','archived'];
+    if (!status || !validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Aucun identifiant fourni' });
+    const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
+    let updated = 0;
+    for (const orderId of ids) {
+      const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
+      if (!prev.rows[0]) continue;
+      const oldStatus = prev.rows[0].status || '';
+      await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
+      await pool.query(
+        'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
+        [uuidv4(), orderId, oldStatus, status, changedBy]
+      ).catch(e => console.error('bulk history insert error:', e.message));
+      updated++;
+    }
+    res.json({ updated });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
@@ -2106,18 +2211,58 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
 
 app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
   const q = (req.query.q || '').trim();
-  if (q.length < 2) return res.json({ orders: [], buyers: [] });
+  if (q.length < 2) return res.json({ orders: [], buyers: [], selections: [] });
   const like = `%${q}%`;
-  const [orders, buyers] = await Promise.all([
-    pool.query(`SELECT o.id, o.client_name, o.client_email, o.client_company, o.status, b.name as brand_name,
+  const [orders, buyers, selections] = await Promise.all([
+    pool.query(`SELECT o.id, o.order_number, o.client_name, o.client_email, o.client_company, o.status, b.name as brand_name,
       SUM(ol.quantity*ol.unit_price) as total, o.created_at
       FROM orders o JOIN brands b ON o.brand_id=b.id LEFT JOIN order_lines ol ON ol.order_id=o.id
-      WHERE o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1
-      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 10`, [like]),
+      WHERE o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1 OR o.order_number ILIKE $1
+      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 5`, [like]),
     pool.query(`SELECT id, name, email, company FROM buyers
-      WHERE name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1 LIMIT 8`, [like])
+      WHERE name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1 LIMIT 5`, [like]),
+    pool.query(`SELECT id, selection_number, client_name, client_email FROM agent_selections
+      WHERE client_name ILIKE $1 OR client_email ILIKE $1 OR selection_number ILIKE $1
+      ORDER BY created_at DESC LIMIT 5`, [like]).catch(() => ({ rows: [] }))
   ]);
-  res.json({ orders: orders.rows, buyers: buyers.rows });
+  res.json({ orders: orders.rows, buyers: buyers.rows, selections: selections.rows });
+});
+
+app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
+  req.url = req.url.replace('/api/search', '/api/admin/search');
+  res.redirect(307, '/api/admin/search?' + new URLSearchParams({ q: req.query.q || '' }));
+});
+
+app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon') as month,
+             DATE_TRUNC('month', o.created_at) as month_date,
+             COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total
+      FROM orders o
+      LEFT JOIN order_lines ol ON ol.order_id = o.id
+      WHERE o.created_at >= NOW() - INTERVAL '6 months'
+        AND o.status NOT IN ('draft', 'cancelled')
+      GROUP BY DATE_TRUNC('month', o.created_at), TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon')
+      ORDER BY month_date ASC
+    `);
+    // Build a map of existing data
+    const byMonth = {};
+    r.rows.forEach(row => {
+      const key = new Date(row.month_date).toISOString().slice(0, 7);
+      byMonth[key] = { month: row.month, total: parseFloat(row.total) || 0 };
+    });
+    // Fill in all 6 months including those with 0
+    const result = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = d.toLocaleDateString('fr-FR', { month: 'short' });
+      result.push(byMonth[key] || { month: monthName, total: 0 });
+    }
+    res.json(result);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/portal/brands/:brandId/slots', requireBuyerAuth, async (req, res) => {
@@ -2477,6 +2622,13 @@ app.get('/api/buyer/verify', async (req, res) => {
   req.session.buyerEmail = link.email;
   req.session.buyerBrandId = brand_id;
   res.json({ ok: true, email: link.email });
+});
+
+app.get('/api/buyer/brand', async (req, res) => {
+  if (!req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+  const b = await pool.query('SELECT id, name, logo_url, logo, about_text, lookbook_url FROM brands WHERE id=$1', [req.session.buyerBrandId]);
+  if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+  res.json(b.rows[0]);
 });
 
 app.get('/api/buyer/orders', async (req, res) => {
