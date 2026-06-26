@@ -790,6 +790,7 @@ function applyLang() {
         <button id="export-pdf-btn" onclick="exportSelectionPdf()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📄 Exporter</button>
         <button onclick="openModal('modal-email-sel')" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📧 Email</button>
         <button onclick="openShareModal()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">🔗 Partager</button>
+        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
       </div>
     </div>
     <div class="checkout-layout">
@@ -1865,10 +1866,11 @@ let moqBlocked = false;
             ${l.size ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:2px">${esc(l.size)}</div>` : ''}
             <textarea class="cart-line-note" rows="1" placeholder="${t('cart_note_ph')}" oninput="setCartNote('${noteKey}',this.value)">${esc(l.note||'')}</textarea>
           </div>
-          <div style="text-align:right;flex-shrink:0">
+          <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <button onclick="removeCartItem('${noteKey}')" title="${t('remove_item')||'Retirer'}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1;align-self:flex-end">✕</button>
             <div style="font-size:11px;font-family:'Inter',sans-serif;color:var(--muted)">× ${l.qty} · ${fmtPrice(parseFloat(l.price||0))}</div>
-            <div style="font-size:13px;font-weight:700;font-family:var(--dot),monospace;color:var(--accent);margin-top:2px">${fmtPrice(l.qty * parseFloat(l.price||0))}</div>
-            ${l.price_retail > 0 ? `<div style="font-size:10px;font-family:'Inter',sans-serif;color:var(--muted);margin-top:1px">PVC ${fmtPrice(l.price_retail)}</div>` : ''}
+            <div style="font-size:13px;font-weight:700;font-family:var(--dot),monospace;color:var(--accent)">${fmtPrice(l.qty * parseFloat(l.price||0))}</div>
+            ${l.price_retail > 0 ? `<div style="font-size:10px;font-family:'Inter',sans-serif;color:var(--muted)">PVC ${fmtPrice(l.price_retail)}</div>` : ''}
           </div>
         </div>
         </div>`;
@@ -2084,6 +2086,19 @@ function toggleTheme() {
 // ── Notes panier ──────────────────────────────────────
 function setCartNote(cartKey, val) {
   if (cart[cartKey]) { cart[cartKey].note = val; saveCart(); }
+}
+function removeCartItem(key) {
+  delete cart[key];
+  saveCart();
+  updateCartBar();
+  renderCart();
+}
+function clearCart() {
+  if (!confirm(t('confirm_clear') || 'Effacer toute la sélection ?')) return;
+  Object.keys(cart).forEach(k => delete cart[k]);
+  saveCart();
+  updateCartBar();
+  renderCart();
 }
 
 // ── Email sélection ───────────────────────────────────
