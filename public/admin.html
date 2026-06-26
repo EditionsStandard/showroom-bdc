@@ -494,6 +494,19 @@
 
     <!-- VUE COMMANDES -->
     <div id="tab-orders-panel">
+      <!-- Filtres avancés -->
+      <div class="card" style="padding:12px 16px;margin-bottom:12px">
+        <div style="display:flex;gap:8px;margin-bottom:0;flex-wrap:wrap;align-items:center">
+          <input type="date" id="filter-date-from" onchange="applyOrderFilters()" title="Date de début" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <input type="date" id="filter-date-to" onchange="applyOrderFilters()" title="Date de fin" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <select id="filter-country" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+            <option value="">Tous les pays</option>
+          </select>
+          <input type="number" id="filter-amount-min" placeholder="Montant min" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
+          <input type="number" id="filter-amount-max" placeholder="Montant max" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
+          <button onclick="clearOrderFilters()" style="background:none;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#888;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap" title="Effacer les filtres avancés">✕ Effacer</button>
+        </div>
+      </div>
       <!-- Filters -->
       <div class="card" style="padding:16px 20px;margin-bottom:16px">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -2210,30 +2223,60 @@ async function sendRelance() {
 // ── Push notifications nouvelles commandes ───────────────────────────
 let _lastOrderCount = null;
 let _pushPollTimer = null;
+// ── Helpers pour l'API orders (retourne maintenant { rows, total }) ──
+function parseOrdersResponse(r) {
+  if (!r) return { rows: [], total: 0 };
+  if (Array.isArray(r)) return { rows: r, total: r.length };
+  return { rows: r.rows || [], total: r.total || (r.rows || []).length };
+}
+
 async function initOrderPush() {
   if (_pushPollTimer) return;
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
-  const r = await fetch('/api/orders').then(x => x.json()).catch(() => null);
-  if (r) _lastOrderCount = (r.orders || r).length;
-  _pushPollTimer = setInterval(checkNewOrders, 45000);
+  const raw = await fetch('/api/orders?limit=1').then(x => x.json()).catch(() => null);
+  if (raw) _lastOrderCount = parseOrdersResponse(raw).total;
+  _pushPollTimer = setInterval(checkNewOrders, 60000);
 }
+
+let _unreadOrderCount = 0;
+
 async function checkNewOrders() {
-  const r = await fetch('/api/orders').then(x => x.json()).catch(() => null);
-  if (!r) return;
-  const orders = r.orders || r;
-  const count = orders.length;
-  if (_lastOrderCount !== null && count > _lastOrderCount) {
-    const n = count - _lastOrderCount;
-    const newest = orders[0];
-    const msg = `${n} nouvelle${n>1?'s':''} commande${n>1?'s':''} — ${newest?.client_name || ''}`;
-    toast('🛎 ' + msg);
+  const raw = await fetch('/api/orders?limit=1').then(x => x.json()).catch(() => null);
+  if (!raw) return;
+  const { total } = parseOrdersResponse(raw);
+  if (_lastOrderCount !== null && total > _lastOrderCount) {
+    const n = total - _lastOrderCount;
+    _unreadOrderCount += n;
+    const msg = `${n} nouvelle${n>1?'s':''} commande${n>1?'s':''}`;
+    toast('🛒 ' + msg + ' !');
+    // Update nav badge
+    updateOrderNavBadge(_unreadOrderCount);
+    // Update page title
+    document.title = `(${_unreadOrderCount}) Admin — Showroom`;
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('Showroom — Nouvelle commande', { body: msg, icon: '/favicon.ico' });
     }
   }
-  _lastOrderCount = count;
+  _lastOrderCount = total;
+}
+
+function updateOrderNavBadge(count) {
+  let badge = document.getElementById('orders-nav-badge');
+  if (!badge) {
+    const navOrders = document.querySelector('nav a[data-section="orders"]');
+    if (navOrders) {
+      badge = document.createElement('span');
+      badge.id = 'orders-nav-badge';
+      badge.style.cssText = 'background:#CCEB3C;color:#111;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700;display:inline-block';
+      navOrders.appendChild(badge);
+    }
+  }
+  if (badge) {
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline-block'; }
+    else { badge.style.display = 'none'; }
+  }
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -2243,9 +2286,10 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 async function loadDashboard() {
   if (currentUserRole === 'designer') return loadDesignerDashboard();
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
+  const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
   const [brands, orders, buyers, onlineIds] = await Promise.all([
     arr(fetch('/api/brands')),
-    arr(fetch('/api/orders')),
+    arrOrders(fetch('/api/orders')),
     arr(fetch('/api/buyers')),
     arr(fetch('/api/buyers/presence'))
   ]);
@@ -2329,9 +2373,10 @@ async function loadDesignerDashboard() {
   const dash = document.getElementById('dashboard');
   const en = currentLang === 'en';
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
+  const arrOrders2 = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
   const [products, orders, appts] = await Promise.all([
     arr(fetch(`/api/brands/${currentUserBrandId}/products`)),
-    arr(fetch('/api/orders')),
+    arrOrders2(fetch('/api/orders')),
     arr(fetch(`/api/brands/${currentUserBrandId}/appointments`))
   ]);
   const activeProducts = products.filter(p => p.active != 0).length;
@@ -3097,7 +3142,7 @@ function renderProductsTable(products) {
     const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
     const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',season_id:p.season_id||'',reference:p.reference,description:p.description||'',color:p.color||'',category:p.category||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
     const inactive = p.active === 0;
-    return `<tr style="${inactive ? 'opacity:0.45' : ''}">
+    return `<tr class="product-row" draggable="true" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''};cursor:grab">
       <td><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateBulkBar()" style="width:auto"></td>
       <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
@@ -3118,6 +3163,44 @@ function renderProductsTable(products) {
     </tr>`;
   }).join('') || `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">${t('no_ref')}</td></tr>`;
   updateBulkBar();
+  initProductDrag();
+}
+
+function initProductDrag() {
+  const rows = document.querySelectorAll('.product-row');
+  rows.forEach(row => {
+    row.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('productId', row.dataset.id);
+      row.style.opacity = '0.4';
+    });
+    row.addEventListener('dragend', () => { row.style.opacity = row.style.opacity === '0.45' ? '0.45' : '1'; row.style.borderTop = ''; });
+    row.addEventListener('dragover', e => { e.preventDefault(); row.style.borderTop = '2px solid #CCEB3C'; });
+    row.addEventListener('dragleave', () => { row.style.borderTop = ''; });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.borderTop = '';
+      const draggedId = e.dataTransfer.getData('productId');
+      const targetId = row.dataset.id;
+      if (draggedId && targetId && draggedId !== targetId) {
+        saveProductOrder(draggedId, targetId);
+      }
+    });
+  });
+}
+
+async function saveProductOrder(productId, beforeProductId) {
+  await fetch(`/api/brands/${currentBrandId}/products/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, beforeProductId })
+  }).catch(() => {});
+  // Optimistic reorder in the DOM
+  const tbody = document.getElementById('products-body');
+  const draggedRow = tbody.querySelector(`tr[data-id="${productId}"]`);
+  const targetRow = tbody.querySelector(`tr[data-id="${beforeProductId}"]`);
+  if (draggedRow && targetRow) {
+    tbody.insertBefore(draggedRow, targetRow);
+  }
 }
 
 function toggleSelectAll(cb) {
@@ -3867,8 +3950,23 @@ function filterSelections() {
 }
 
 async function loadOrders() {
-  _allOrders = await fetch('/api/orders').then(r => r.json());
+  // Reset unread badge when user visits the orders section
+  _unreadOrderCount = 0;
+  updateOrderNavBadge(0);
+  document.title = 'Admin — Showroom';
+
+  const raw = await fetch('/api/orders').then(r => r.json());
+  _allOrders = parseOrdersResponse(raw).rows;
   document.getElementById('tab-orders-count').textContent = `(${_allOrders.length})`;
+
+  // Populate country filter
+  const countrySel = document.getElementById('filter-country');
+  if (countrySel) {
+    const countries = [...new Set(_allOrders.map(o => o.client_country).filter(Boolean))].sort();
+    const prevVal = countrySel.value;
+    countrySel.innerHTML = '<option value="">Tous les pays</option>' +
+      countries.map(c => `<option value="${c}" ${c === prevVal ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  }
 
   // Populate brand filter
   const brandSel = document.getElementById('orders-filter-brand');
@@ -3877,6 +3975,34 @@ async function loadOrders() {
     brands.map(b => `<option value="${b}">${b}</option>`).join('');
 
   filterOrders();
+}
+
+async function applyOrderFilters() {
+  const dateFrom   = document.getElementById('filter-date-from')?.value || '';
+  const dateTo     = document.getElementById('filter-date-to')?.value || '';
+  const country    = document.getElementById('filter-country')?.value || '';
+  const amountMin  = document.getElementById('filter-amount-min')?.value || '';
+  const amountMax  = document.getElementById('filter-amount-max')?.value || '';
+
+  const params = new URLSearchParams();
+  if (dateFrom)  params.set('dateFrom',  dateFrom);
+  if (dateTo)    params.set('dateTo',    dateTo);
+  if (country)   params.set('country',   country);
+  if (amountMin) params.set('amountMin', amountMin);
+  if (amountMax) params.set('amountMax', amountMax);
+
+  const raw = await fetch('/api/orders?' + params.toString()).then(r => r.json());
+  _allOrders = parseOrdersResponse(raw).rows;
+  document.getElementById('tab-orders-count').textContent = `(${_allOrders.length})`;
+  filterOrders();
+}
+
+function clearOrderFilters() {
+  const ids = ['filter-date-from','filter-date-to','filter-amount-min','filter-amount-max'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const countrySel = document.getElementById('filter-country');
+  if (countrySel) countrySel.value = '';
+  loadOrders();
 }
 
 function filterOrders() {
@@ -4282,6 +4408,37 @@ async function archiveRestoreSeason(seasonId, action) {
     toast('Erreur lors de l\'opération', true);
   }
 }
+
+// ── Session timeout ───────────────────────────────────────────────────
+let _sessionTimer, _warningTimer;
+let _sessionWarningEl = null;
+
+function resetSessionTimer() {
+  clearTimeout(_sessionTimer);
+  clearTimeout(_warningTimer);
+  _warningTimer = setTimeout(showSessionWarning, 25 * 60 * 1000);
+  _sessionTimer = setTimeout(() => { window.location.href = '/admin/login'; }, 30 * 60 * 1000);
+}
+
+function showSessionWarning() {
+  if (_sessionWarningEl) return;
+  _sessionWarningEl = document.createElement('div');
+  _sessionWarningEl.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#1a1a1a;border:1px solid #CCEB3C;border-radius:12px;padding:16px 20px;z-index:9999;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.6)';
+  _sessionWarningEl.innerHTML = `
+    <div style="font-size:13px;color:#e0e0e0;margin-bottom:10px">⏱ Votre session expire dans <strong style="color:#CCEB3C">5 minutes</strong> en raison d'inactivité.</div>
+    <button onclick="dismissSessionWarning()" style="background:#CCEB3C;color:#111;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Rester connecté</button>
+  `;
+  document.body.appendChild(_sessionWarningEl);
+}
+
+function dismissSessionWarning() {
+  if (_sessionWarningEl) { _sessionWarningEl.remove(); _sessionWarningEl = null; }
+  resetSessionTimer();
+}
+
+document.addEventListener('click', resetSessionTimer);
+document.addEventListener('keypress', resetSessionTimer);
+resetSessionTimer();
 
 // Init
 loadDashboard();
