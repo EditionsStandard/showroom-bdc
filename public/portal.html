@@ -1042,7 +1042,7 @@ async function handleQrParams() {
   const brandId = params.get('brand');
   const addId = params.get('add');
   if (!brandId) return;
-  history.replaceState({}, '', '/portal');
+  history.replaceState({ v: 'catalog', brand: null }, '', '/portal');
   await openBrand(brandId);
   if (!currentBrand) return;
   if (!addId) return;
@@ -1110,6 +1110,8 @@ async function init() {
   try { applyLang(); } catch(e) { console.error('applyLang:', e); }
   renderBrandPicker();
   updateCartBar();
+  // État de base de l'historique : "retour" reste dans le portail (catalogue)
+  history.replaceState({ v: 'catalog', brand: null }, '', '/portal');
   handleQrParams();
 
   const currencies = await fetch('/api/portal/currencies').then(r => r.json());
@@ -1129,7 +1131,7 @@ async function init() {
   setInterval(ping, 30000);
 }
 
-function showView(view) {
+function showView(view, _fromPop) {
   ['catalog','cart','orders','account','favs'].forEach(v => {
     document.getElementById('view-' + v).style.display = v === view ? 'block' : 'none';
   });
@@ -1143,7 +1145,25 @@ function showView(view) {
   if (view === 'catalog') updateCartBar();
   if (view === 'account') fillProfileForm();
   if (view === 'favs') renderFavs();
+  if (!_fromPop) pushNav({ v: view, brand: null });
 }
+
+// ── Navigation par historique : le bouton "retour" reste dans le portail ──
+function pushNav(state) {
+  if (window._navRestoring) return;
+  history.pushState(state, '', '/portal');
+}
+window.addEventListener('popstate', (e) => {
+  window._navRestoring = true;
+  const s = e.state || { v: 'catalog', brand: null };
+  if (s.v && s.v !== 'catalog') {
+    showView(s.v, true);
+  } else {
+    showView('catalog', true);
+    if (s.brand) openBrand(s.brand, true); else closeBrand(true);
+  }
+  window._navRestoring = false;
+});
 
 function fillProfileForm() {
   document.getElementById('prof-name').value = me.name || '';
@@ -1276,7 +1296,8 @@ function renderBrandPicker() {
     }).join('') + '</div>';
 }
 
-async function openBrand(brandId) {
+async function openBrand(brandId, _fromPop) {
+  if (!_fromPop) pushNav({ v: 'catalog', brand: brandId });
   document.getElementById('brand-picker').style.display = 'none';
   const container = document.getElementById('brand-products');
   container.style.display = 'block';
@@ -1445,7 +1466,9 @@ function applyProductFilters() {
   if (currentBrand) saveFilters(currentBrand.id);
 }
 
-function closeBrand() {
+function closeBrand(_fromPop) {
+  // Le bouton "← retour aux marques" reflète le bouton retour du navigateur
+  if (!_fromPop && currentBrand) { history.back(); return; }
   if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
   document.getElementById('brand-picker').style.display = 'block';
   document.getElementById('brand-products').style.display = 'none';
@@ -2344,7 +2367,7 @@ function updateMobileNav(view) {
 // Patch showView pour synchroniser la barre
 if (typeof showView === 'function') {
   const _sv = showView;
-  window.showView = function(view) { _sv(view); updateMobileNav(view); };
+  window.showView = function(view, _fromPop) { _sv(view, _fromPop); updateMobileNav(view); };
 }
 // Init état actif au chargement
 updateMobileNav('catalog');
