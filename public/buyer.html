@@ -34,6 +34,8 @@
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
   .order-pdf { display: inline-block; margin-top: 10px; font-size: 11px; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-family: 'Inter', sans-serif; letter-spacing: .02em; }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+  #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+  #lang-btn:hover { border-color:var(--accent); color:var(--white); }
 </style>
 <script>
 (function() {
@@ -46,15 +48,16 @@
 </script>
 </head>
 <body>
+<button id="lang-btn" onclick="toggleLang()">EN</button>
 <div class="wrap" id="app">
   <a href="/" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;text-decoration:none;color:var(--soft);font-size:11px;font-family:'Inter',sans-serif;letter-spacing:.04em">
-    <img src="/logo.svg" style="width:24px;height:24px;border-radius:4px"> ← Accueil
+    <img src="/logo.svg" style="width:24px;height:24px;border-radius:4px"> ← <span id="back-home">Accueil</span>
   </a>
-  <h1>Mon espace commandes</h1>
-  <p class="sub">Consultez l'historique de vos commandes.</p>
+  <h1 id="page-title">Mon espace commandes</h1>
+  <p class="sub" id="page-sub">Consultez l'historique de vos commandes.</p>
   <div id="login-view">
     <div class="field">
-      <label>Votre email</label>
+      <label id="lbl-email">Votre email</label>
       <input id="email-input" type="email" placeholder="vous@exemple.com">
     </div>
     <button class="btn" id="btn-request" onclick="requestLink()">Recevoir mon lien d'accès</button>
@@ -62,11 +65,74 @@
   </div>
   <div id="orders-view" style="display:none">
     <div id="brand-info" style="margin-bottom:20px"></div>
-    <div id="orders-list" class="loader">Chargement…</div>
+    <div id="orders-list" class="loader" id="orders-loading">Chargement…</div>
   </div>
 </div>
 
 <script>
+const TRANSLATIONS = {
+  fr: {
+    back_home: 'Accueil',
+    page_title: 'Mon espace commandes',
+    page_sub: 'Consultez l\'historique de vos commandes.',
+    lbl_email: 'Votre email',
+    email_ph: 'vous@exemple.com',
+    btn_request: 'Recevoir mon lien d\'accès',
+    loading: 'Chargement…',
+    msg_link_sent: 'Si un compte existe pour cet email, un lien vous a été envoyé.',
+    err_retry: 'Erreur, réessayez.',
+    no_orders: 'Aucune commande trouvée.',
+    status_confirmed: 'Reçue',
+    status_validated: 'Validée',
+    status_cancelled: 'Annulée',
+    date_locale: 'fr-FR',
+    pdf_download: '📄 Télécharger le PDF',
+    order_ref: (id) => `Commande #${id}`,
+  },
+  en: {
+    back_home: 'Home',
+    page_title: 'My orders',
+    page_sub: 'View your order history.',
+    lbl_email: 'Your email',
+    email_ph: 'you@example.com',
+    btn_request: 'Receive my access link',
+    loading: 'Loading…',
+    msg_link_sent: 'If an account exists for this email, a link has been sent to you.',
+    err_retry: 'Error, please try again.',
+    no_orders: 'No orders found.',
+    status_confirmed: 'Received',
+    status_validated: 'Validated',
+    status_cancelled: 'Cancelled',
+    date_locale: 'en-GB',
+    pdf_download: '📄 Download PDF',
+    order_ref: (id) => `Order #${id}`,
+  }
+};
+
+let currentLang = localStorage.getItem('portal_lang') || 'fr';
+function t(key, ...args) {
+  const val = (TRANSLATIONS[currentLang] || TRANSLATIONS.fr)[key] || TRANSLATIONS.fr[key] || key;
+  return typeof val === 'function' ? val(...args) : val;
+}
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.getElementById('lang-btn').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+  document.getElementById('back-home').textContent = t('back_home');
+  document.getElementById('page-title').textContent = t('page_title');
+  document.getElementById('page-sub').textContent = t('page_sub');
+  document.getElementById('lbl-email').textContent = t('lbl_email');
+  document.getElementById('email-input').placeholder = t('email_ph');
+  document.getElementById('btn-request').textContent = t('btn_request');
+  const ordersLoading = document.getElementById('orders-list');
+  if (ordersLoading && ordersLoading.classList.contains('loader')) ordersLoading.textContent = t('loading');
+}
+function toggleLang() {
+  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+  localStorage.setItem('portal_lang', currentLang);
+  applyLang();
+}
+applyLang();
+
 const brandId = window.location.pathname.split('/').pop();
 const urlToken = new URLSearchParams(window.location.search).get('token');
 
@@ -81,9 +147,9 @@ async function requestLink() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ brand_id: brandId, email })
     }).then(r => r.json());
-    msg.innerHTML = `<div class="msg">${r.message || 'Si un compte existe pour cet email, un lien vous a été envoyé.'}</div>`;
+    msg.innerHTML = `<div class="msg">${r.message || t('msg_link_sent')}</div>`;
   } catch(e) {
-    msg.innerHTML = `<div class="msg error">Erreur, réessayez.</div>`;
+    msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
   }
   document.getElementById('btn-request').disabled = false;
 }
@@ -118,17 +184,22 @@ async function loadOrders() {
   const data = await fetch('/api/buyer/orders').then(r => r.json());
   const list = document.getElementById('orders-list');
   if (!data.orders || !data.orders.length) {
-    list.innerHTML = '<p style="color:#888;font-size:13px">Aucune commande trouvée.</p>';
+    list.innerHTML = `<p style="color:#888;font-size:13px">${t('no_orders')}</p>`;
     return;
   }
-  const statusLabel = { confirmed: 'Reçue', validated: 'Validée', cancelled: 'Annulée' };
+  const statusLabel = {
+    confirmed: t('status_confirmed'),
+    validated: t('status_validated'),
+    cancelled: t('status_cancelled')
+  };
+  const locale = t('date_locale');
   list.innerHTML = data.orders.map(o => `
     <div class="order-card">
-      <div class="order-ref">Commande #${o.id.slice(0,8).toUpperCase()}</div>
-      <div class="order-date">${new Date(o.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}</div>
+      <div class="order-ref">${t('order_ref', o.id.slice(0,8).toUpperCase())}</div>
+      <div class="order-date">${new Date(o.created_at).toLocaleDateString(locale, { day:'2-digit', month:'long', year:'numeric' })}</div>
       <div class="order-total">${Number(o.total||0).toFixed(2)} €</div>
       <span class="order-status ${o.status}">${statusLabel[o.status] || o.status}</span><br>
-      <a class="order-pdf" href="/api/buyer/orders/${o.id}/pdf" target="_blank">📄 Télécharger le PDF</a>
+      <a class="order-pdf" href="/api/buyer/orders/${o.id}/pdf" target="_blank">${t('pdf_download')}</a>
     </div>
   `).join('');
 }

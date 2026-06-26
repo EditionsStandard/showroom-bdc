@@ -393,20 +393,111 @@ const TRANSLATIONS = {
     prof_name: 'Prénom / Nom *', prof_company: 'Entreprise / Boutique', prof_email: 'Email', prof_phone: 'Téléphone', prof_country: 'Pays',
     ph_name: 'Jean Dupont', ph_company: 'Ma Boutique SARL', ph_phone: '+33 6 00 00 00 00', ph_country: 'France',
     success_title: 'Sélection confirmée', success_back: 'Retour au catalogue',
-    success_title: 'Sélection confirmée', success_subtitle: 'Un email de confirmation a été envoyé.',
+    success_subtitle: 'Un email de confirmation a été envoyé.',
     success_msg: (brands) => `Votre sélection a été transmise pour : <strong>${brands}</strong>.<br><br>Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`,
     welcome_sub: 'Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> marque${n>1?'s':''} disponible${n>1?'s':''}`,
     search_ph: 'Rechercher une référence…', search_no_result: 'Aucune référence ne correspond.',
+    global_search_ph: 'Rechercher un produit dans tous les catalogues…',
     cgv_modal_title: (brand) => `${brand} — Conditions générales de vente`,
     cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
     book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
+    appt_err_datetime: 'Veuillez choisir une date et une heure.',
     moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
     moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € HT (actuellement ${cur} €)`,
+    moq_bar_qty: 'Minimum pièces', moq_bar_amt: 'Minimum montant',
     cart_subtotal: 'Sous-total :', cart_empty: 'Votre sélection est vide.',
+    cart_note_ph: 'Note (optionnel)…',
     err_name: 'Nom requis.', err_cgv: 'Veuillez accepter les CGV.', err_sig: 'Signature requise.', err_empty: 'Sélection vide.', err_retry: 'Erreur, réessayez.',
+    err_network: 'Erreur réseau, réessayez.',
+    err_pw_required: 'Mot de passe requis.',
+    sort_ref: 'Réf. A–Z', sort_price_asc: 'Prix ↑', sort_price_desc: 'Prix ↓', sort_newest: 'Nouveautés',
+    modal_email_title: 'Envoyer la sélection par email',
+    modal_email_to: 'Email destinataire', modal_email_msg: 'Message (optionnel)',
+    modal_email_cancel: 'Annuler', modal_email_send: '📧 Envoyer',
+    modal_email_req: 'Email requis.', modal_email_generating: 'Génération du PDF…',
+    modal_email_empty: 'Panier vide.', modal_email_sent: '✓ Email envoyé !',
+    modal_email_err: 'Erreur réseau.',
+    modal_share_title: 'Partager la sélection',
+    modal_share_desc: 'Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.',
+    modal_share_copy: 'Copier', modal_share_generating: 'Génération…', modal_share_err: 'Erreur — réessayez.',
+    modal_share_copied: '✓ Lien copié !', modal_share_empty: 'Panier vide — rien à partager.',
+    export_generating: '⏳ Génération…', export_btn: '📄 Exporter', export_err: 'Erreur lors de la génération du PDF.',
+    sending: '⏳ Envoi en cours…',
+    orders_loading_msg: 'Chargement…', orders_load_err: 'Erreur de chargement.',
+    orders_retry: 'Réessayer', orders_browse: 'Parcourir le catalogue',
+    favs_title: 'Mes favoris', favs_empty: 'Aucun favori pour l\'instant. Cliquez sur ♡ sur un produit.',
+    favs_intro: 'Retrouvez ici les produits mis en favoris depuis n\'importe quelle marque.',
+    fav_added: '♥ Ajouté aux favoris', fav_remove: '♥ Retirer',
+    recently_viewed: 'Récemment vus',
+    ref_copied: (ref) => `✓ Référence copiée : ${ref}`,
+    reorder_added: (n) => `↺ ${n} produit(s) ajouté(s) au panier`,
+    price_on_request: 'Prix sur demande',
+    retail_label: 'PVC conseillé :',
+    gdpr_title: 'Mes données personnelles',
+    gdpr_desc: 'Conformément au RGPD, vous disposez d\'un droit d\'accès et d\'un droit à l\'effacement de vos données.',
+    gdpr_download: '⬇ Télécharger mes données', gdpr_delete: '🗑 Supprimer mon compte',
+    gdpr_downloading: 'Téléchargement démarré.', gdpr_export_err: 'Erreur lors de l\'export.', gdpr_network_err: 'Erreur réseau.',
+    delete_title: '⚠ Supprimer mon compte',
+    delete_desc: 'Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.',
+    delete_pw_label: 'Confirmez avec votre mot de passe',
+    delete_confirm_btn: 'Supprimer définitivement', delete_cancel_btn: 'Annuler',
+    delete_network_err: 'Erreur réseau.',
+    pending_sel_title: 'Sélections à valider',
+    pending_sel_pieces: (n) => `${n} pièce(s) — préparée pour vous`,
+    pending_sel_cta: 'Voir et valider',
     lang_btn: 'EN',
+    err_generic: 'Erreur',
+    load_err_network: 'Erreur réseau. Vérifiez votre connexion.',
+    load_err_brands: 'Erreur de chargement',
+    btn_reload: 'Recharger',
+    btn_retry: 'Réessayer',
+    load_err_brand: 'Erreur de chargement. Vérifiez votre connexion.',
+    fav_toast_added: '♥ Ajouté aux favoris',
+    share_generating: 'Génération…',
+    share_empty: 'Panier vide — rien à partager.',
+    share_err: 'Erreur — réessayez.',
+    share_copied: '✓ Lien copié !',
+    email_req: 'Email requis.',
+    email_generating: 'Génération du PDF…',
+    email_cart_empty: 'Panier vide.',
+    email_sent_ok: '✓ Email envoyé !',
+    email_err: 'Erreur réseau.',
+    reorder_toast: (n) => `↺ ${n} produit(s) ajouté(s) au panier`,
+    reorder_err: 'Impossible de renouveler — commande introuvable.',
+    reorder_empty: 'Commande vide.',
+    ref_copy_toast: (ref) => `✓ Référence copiée : ${ref}`,
+    sizes_qty: 'Tailles & quantités',
+    qty_label: 'Quantité',
+    coloris_label: (c) => `Coloris : ${c}`,
+    composition_label: (c) => `Composition : ${c}`,
+    greeting_hello: (name) => `Bonjour ${name} 👋`,
+    greeting_welcome: 'Bienvenue',
+    search_searching: 'Recherche…',
+    search_results: (n) => `${n} résultat${n > 1 ? 's' : ''}`,
+    pending_sel_inline: (n, brand) => `${n} pièce(s) — préparée pour vous`,
+    pending_sel_see: 'Voir et valider →',
+    recently_viewed_label: 'Récemment vus',
+    renouveler: 'Renouveler',
+    btn_send_agent: '📨 Envoyer à un acheteur',
+    agent_send_title: 'Envoyer la sélection',
+    agent_email_label: 'Email acheteur *',
+    agent_company_label: 'Nom de la boutique',
+    agent_name_label: 'Nom du contact',
+    agent_cancel: 'Annuler',
+    agent_send_btn: 'Envoyer',
+    agent_sent_ok: (email) => `✓ Sélection envoyée à ${email}.`,
+    agent_err_email: 'Email acheteur valide requis.',
+    agent_err_empty: 'Sélection vide.',
+    agent_sending: 'Envoi…',
+    agent_sent_label: 'Envoyé ✓',
+    agent_err_network: 'Erreur réseau.',
+    agent_items_count: (n) => `${n} pièce(s) sélectionnée(s).`,
+    agent_add_first: 'Ajoute d\'abord des articles à la sélection.',
+    qr_added: (ref) => `${ref} ajouté à la sélection ✓`,
+    theme_light: '☀ Thème clair',
+    theme_dark: '🌙 Thème sombre',
   },
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
@@ -429,20 +520,111 @@ const TRANSLATIONS = {
     prof_name: 'First / Last name *', prof_company: 'Company / Store', prof_email: 'Email', prof_phone: 'Phone', prof_country: 'Country',
     ph_name: 'John Smith', ph_company: 'My Store Ltd', ph_phone: '+44 7700 000000', ph_country: 'United Kingdom',
     success_title: 'Selection confirmed', success_back: 'Back to catalogue',
-    success_title: 'Selection confirmed', success_subtitle: 'A confirmation email has been sent.',
+    success_subtitle: 'A confirmation email has been sent.',
     success_msg: (brands) => `Your selection has been sent for: <strong>${brands}</strong>.<br><br>You will receive a confirmation email for each brand. Please allow <strong>7 days</strong> to receive the final version, dated and signed by both parties.`,
     welcome_sub: 'Select a brand to browse its collection, add items and place your order.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> brand${n>1?'s':''} available`,
     search_ph: 'Search by reference…', search_no_result: 'No matching references.',
+    global_search_ph: 'Search across all brand catalogs…',
     cgv_modal_title: (brand) => `${brand} — Terms & Conditions`,
     cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
     book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
+    appt_err_datetime: 'Please select a date and time.',
     moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
     moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € excl. tax (currently ${cur} €)`,
+    moq_bar_qty: 'Minimum pieces', moq_bar_amt: 'Minimum amount',
     cart_subtotal: 'Subtotal:', cart_empty: 'Your selection is empty.',
+    cart_note_ph: 'Note (optional)…',
     err_name: 'Name required.', err_cgv: 'Please accept the terms and conditions.', err_sig: 'Signature required.', err_empty: 'Selection is empty.', err_retry: 'Error, please try again.',
+    err_network: 'Network error, please try again.',
+    err_pw_required: 'Password required.',
+    sort_ref: 'Ref. A–Z', sort_price_asc: 'Price ↑', sort_price_desc: 'Price ↓', sort_newest: 'New arrivals',
+    modal_email_title: 'Send selection by email',
+    modal_email_to: 'Recipient email', modal_email_msg: 'Message (optional)',
+    modal_email_cancel: 'Cancel', modal_email_send: '📧 Send',
+    modal_email_req: 'Email required.', modal_email_generating: 'Generating PDF…',
+    modal_email_empty: 'Cart is empty.', modal_email_sent: '✓ Email sent!',
+    modal_email_err: 'Network error.',
+    modal_share_title: 'Share selection',
+    modal_share_desc: 'This link allows viewing your selection in read-only mode, without logging in.',
+    modal_share_copy: 'Copy', modal_share_generating: 'Generating…', modal_share_err: 'Error — please try again.',
+    modal_share_copied: '✓ Link copied!', modal_share_empty: 'Cart is empty — nothing to share.',
+    export_generating: '⏳ Generating…', export_btn: '📄 Export', export_err: 'Error generating PDF.',
+    sending: '⏳ Sending…',
+    orders_loading_msg: 'Loading…', orders_load_err: 'Loading error.',
+    orders_retry: 'Retry', orders_browse: 'Browse catalogue',
+    favs_title: 'My favourites', favs_empty: 'No favourites yet. Click ♡ on a product.',
+    favs_intro: 'Find here all products you\'ve favourited across any brand.',
+    fav_added: '♥ Added to favourites', fav_remove: '♥ Remove',
+    recently_viewed: 'Recently viewed',
+    ref_copied: (ref) => `✓ Reference copied: ${ref}`,
+    reorder_added: (n) => `↺ ${n} product(s) added to cart`,
+    price_on_request: 'Price on request',
+    retail_label: 'RRP:',
+    gdpr_title: 'My personal data',
+    gdpr_desc: 'Under GDPR, you have the right to access and the right to erasure of your personal data.',
+    gdpr_download: '⬇ Download my data', gdpr_delete: '🗑 Delete my account',
+    gdpr_downloading: 'Download started.', gdpr_export_err: 'Export error.', gdpr_network_err: 'Network error.',
+    delete_title: '⚠ Delete my account',
+    delete_desc: 'This action is irreversible. Your personal data will be erased. Your orders will be retained in anonymised form for legal compliance.',
+    delete_pw_label: 'Confirm with your password',
+    delete_confirm_btn: 'Delete permanently', delete_cancel_btn: 'Cancel',
+    delete_network_err: 'Network error.',
+    pending_sel_title: 'Selections to confirm',
+    pending_sel_pieces: (n) => `${n} piece(s) — prepared for you`,
+    pending_sel_cta: 'View & confirm',
     lang_btn: 'FR',
+    err_generic: 'Error',
+    load_err_network: 'Network error. Check your connection.',
+    load_err_brands: 'Loading error',
+    btn_reload: 'Reload',
+    btn_retry: 'Retry',
+    load_err_brand: 'Loading error. Check your connection.',
+    fav_toast_added: '♥ Added to favourites',
+    share_generating: 'Generating…',
+    share_empty: 'Cart is empty — nothing to share.',
+    share_err: 'Error — please try again.',
+    share_copied: '✓ Link copied!',
+    email_req: 'Email required.',
+    email_generating: 'Generating PDF…',
+    email_cart_empty: 'Cart is empty.',
+    email_sent_ok: '✓ Email sent!',
+    email_err: 'Network error.',
+    reorder_toast: (n) => `↺ ${n} product(s) added to cart`,
+    reorder_err: 'Cannot reorder — order not found.',
+    reorder_empty: 'Order is empty.',
+    ref_copy_toast: (ref) => `✓ Reference copied: ${ref}`,
+    sizes_qty: 'Sizes & quantities',
+    qty_label: 'Quantity',
+    coloris_label: (c) => `Colour: ${c}`,
+    composition_label: (c) => `Composition: ${c}`,
+    greeting_hello: (name) => `Hello ${name} 👋`,
+    greeting_welcome: 'Welcome',
+    search_searching: 'Searching…',
+    search_results: (n) => `${n} result${n > 1 ? 's' : ''}`,
+    pending_sel_inline: (n, brand) => `${n} piece(s) — prepared for you`,
+    pending_sel_see: 'View & confirm →',
+    recently_viewed_label: 'Recently viewed',
+    renouveler: 'Reorder',
+    btn_send_agent: '📨 Send to buyer',
+    agent_send_title: 'Send selection',
+    agent_email_label: 'Buyer email *',
+    agent_company_label: 'Store name',
+    agent_name_label: 'Contact name',
+    agent_cancel: 'Cancel',
+    agent_send_btn: 'Send',
+    agent_sent_ok: (email) => `✓ Selection sent to ${email}.`,
+    agent_err_email: 'Valid buyer email required.',
+    agent_err_empty: 'Selection is empty.',
+    agent_sending: 'Sending…',
+    agent_sent_label: 'Sent ✓',
+    agent_err_network: 'Network error.',
+    agent_items_count: (n) => `${n} piece(s) selected.`,
+    agent_add_first: 'Add items to the selection first.',
+    qr_added: (ref) => `${ref} added to selection ✓`,
+    theme_light: '☀ Light theme',
+    theme_dark: '🌙 Dark theme',
   }
 };
 let currentLang = localStorage.getItem('portal_lang') || 'fr';
@@ -502,6 +684,53 @@ function applyLang() {
   // Success (boutons sans id fixe — garde null-safe)
   const successBack = document.getElementById('success-back-btn');
   if (successBack) successBack.textContent = T.success_back;
+  // Modals
+  const elEmailTitle = document.getElementById('modal-email-sel-title');
+  if (elEmailTitle) elEmailTitle.textContent = T.modal_email_title;
+  const elEmailToLbl = document.getElementById('modal-email-to-label');
+  if (elEmailToLbl) elEmailToLbl.textContent = T.modal_email_to;
+  const elEmailMsgLbl = document.getElementById('modal-email-msg-label');
+  if (elEmailMsgLbl) elEmailMsgLbl.textContent = T.modal_email_msg;
+  const elEmailCancel = document.getElementById('modal-email-cancel-btn');
+  if (elEmailCancel) elEmailCancel.textContent = T.modal_email_cancel;
+  const elEmailSendBtn = document.getElementById('email-sel-btn');
+  if (elEmailSendBtn) elEmailSendBtn.textContent = T.modal_email_send;
+  const elShareTitle = document.getElementById('modal-share-title');
+  if (elShareTitle) elShareTitle.textContent = T.modal_share_title;
+  const elShareDesc = document.getElementById('modal-share-desc');
+  if (elShareDesc) elShareDesc.textContent = T.modal_share_desc;
+  const elShareCopy = document.getElementById('modal-share-copy-btn');
+  if (elShareCopy) elShareCopy.textContent = T.modal_share_copy;
+  // Delete account modal
+  const elDelTitle = document.getElementById('delete-modal-title');
+  if (elDelTitle) elDelTitle.textContent = T.delete_title;
+  const elDelDesc = document.getElementById('delete-modal-desc');
+  if (elDelDesc) elDelDesc.textContent = T.delete_desc;
+  const elDelPwLbl = document.getElementById('delete-modal-pw-label');
+  if (elDelPwLbl) elDelPwLbl.textContent = T.delete_pw_label;
+  const elDelConfirm = document.getElementById('delete-modal-confirm-btn');
+  if (elDelConfirm) elDelConfirm.textContent = T.delete_confirm_btn;
+  const elDelCancel = document.getElementById('delete-modal-cancel-btn');
+  if (elDelCancel) elDelCancel.textContent = T.delete_cancel_btn;
+  // GDPR section
+  const elGdprTitle = document.getElementById('gdpr-section-title');
+  if (elGdprTitle) elGdprTitle.textContent = T.gdpr_title;
+  const elGdprDesc = document.getElementById('gdpr-section-desc');
+  if (elGdprDesc) elGdprDesc.textContent = T.gdpr_desc;
+  const elGdprDl = document.getElementById('gdpr-download-btn');
+  if (elGdprDl) elGdprDl.textContent = T.gdpr_download;
+  const elGdprDel = document.getElementById('gdpr-delete-btn');
+  if (elGdprDel) elGdprDel.textContent = T.gdpr_delete;
+  // Favs title
+  const elFavsTitle = document.getElementById('favs-section-title');
+  if (elFavsTitle) elFavsTitle.textContent = T.favs_title;
+  // Sort options (inside dynamic content — update if present)
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.dataset.t;
+    if (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key] && typeof TRANSLATIONS[currentLang][key] === 'string') {
+      el.textContent = T[key];
+    }
+  });
   // Re-render dynamic parts if visible
   if (currentBrand) applyProductFilters();
   if (document.getElementById('brand-picker').style.display !== 'none' && allBrands.length) renderBrandPicker();
@@ -604,7 +833,7 @@ function applyLang() {
 
   <div id="view-favs" style="display:none">
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
-    <h2 class="section-title">Mes favoris</h2>
+    <h2 class="section-title" id="favs-section-title">Mes favoris</h2>
     <div id="favs-list"></div>
   </div>
 
@@ -635,11 +864,11 @@ function applyLang() {
     </div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px;margin-top:24px">
-      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
-      <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
+      <h3 id="gdpr-section-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
+      <p id="gdpr-section-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <button class="btn-secondary" onclick="exportMyData()" style="font-size:13px;padding:8px 16px">⬇ Télécharger mes données</button>
-        <button onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
+        <button id="gdpr-download-btn" class="btn-secondary" onclick="exportMyData()" style="font-size:13px;padding:8px 16px">⬇ Télécharger mes données</button>
+        <button id="gdpr-delete-btn" onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
       </div>
       <div id="gdpr-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
@@ -648,12 +877,12 @@ function applyLang() {
   <!-- Modal suppression compte -->
   <div id="modal-delete-account" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center">
     <div style="background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:400px;width:90%;margin:auto">
-      <h3 style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:#c0392b;margin-bottom:12px">⚠ Supprimer mon compte</h3>
-      <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.</p>
-      <div class="field" style="margin-bottom:16px"><label>Confirmez avec votre mot de passe</label><input id="delete-account-pw" type="password" placeholder="••••••••"></div>
+      <h3 id="delete-modal-title" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:#c0392b;margin-bottom:12px">⚠ Supprimer mon compte</h3>
+      <p id="delete-modal-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.</p>
+      <div class="field" style="margin-bottom:16px"><label id="delete-modal-pw-label">Confirmez avec votre mot de passe</label><input id="delete-account-pw" type="password" placeholder="••••••••"></div>
       <div style="display:flex;gap:12px">
-        <button onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">Supprimer définitivement</button>
-        <button onclick="closeDeleteAccount()" class="btn-secondary" style="flex:1;padding:10px">Annuler</button>
+        <button id="delete-modal-confirm-btn" onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">Supprimer définitivement</button>
+        <button id="delete-modal-cancel-btn" onclick="closeDeleteAccount()" class="btn-secondary" style="flex:1;padding:10px">Annuler</button>
       </div>
       <div id="delete-account-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
@@ -681,12 +910,12 @@ function applyLang() {
 <div class="gmodal-overlay" id="modal-email-sel">
   <div class="gmodal">
     <button class="gmodal-close" onclick="closeModal('modal-email-sel')" aria-label="Fermer">✕</button>
-    <div class="gmodal-title">Envoyer la sélection par email</div>
-    <div class="field"><label>Email destinataire</label><input id="email-sel-to" type="email" placeholder="acheteur@exemple.com"></div>
-    <div class="field"><label>Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;resize:vertical"></textarea></div>
+    <div class="gmodal-title" id="modal-email-sel-title">Envoyer la sélection par email</div>
+    <div class="field"><label id="modal-email-to-label">Email destinataire</label><input id="email-sel-to" type="email" placeholder="acheteur@exemple.com"></div>
+    <div class="field"><label id="modal-email-msg-label">Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;resize:vertical"></textarea></div>
     <div id="email-sel-status" style="font-size:12px;font-family:'Inter',sans-serif;min-height:18px;margin-top:4px"></div>
     <div class="gmodal-actions">
-      <button class="gmodal-btn ghost" onclick="closeModal('modal-email-sel')">Annuler</button>
+      <button class="gmodal-btn ghost" id="modal-email-cancel-btn" onclick="closeModal('modal-email-sel')">Annuler</button>
       <button class="gmodal-btn" id="email-sel-btn" onclick="sendSelectionEmail()">📧 Envoyer</button>
     </div>
   </div>
@@ -696,11 +925,11 @@ function applyLang() {
 <div class="gmodal-overlay" id="modal-share">
   <div class="gmodal">
     <button class="gmodal-close" onclick="closeModal('modal-share')" aria-label="Fermer">✕</button>
-    <div class="gmodal-title">Partager la sélection</div>
-    <p style="font-size:13px;font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
+    <div class="gmodal-title" id="modal-share-title">Partager la sélection</div>
+    <p id="modal-share-desc" style="font-size:13px;font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
     <div style="display:flex;gap:8px">
-      <input id="share-link-input" type="text" readonly style="flex:1;background:var(--mid);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Inter',sans-serif;outline:none" value="Génération…">
-      <button onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius:4px;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Mono',monospace;flex-shrink:0">Copier</button>
+      <input id="share-link-input" type="text" readonly style="flex:1;background:var(--mid);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Inter',sans-serif;outline:none" value="">
+      <button id="modal-share-copy-btn" onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius:4px;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Mono',monospace;flex-shrink:0">Copier</button>
     </div>
     <div style="margin-top:16px;text-align:center">
       <div id="share-qr" style="display:inline-block;background:#fff;padding:12px;border-radius:6px"></div>
@@ -919,14 +1148,14 @@ async function submitAppt() {
   const time = document.getElementById('appt-time').value;
   const phone = document.getElementById('appt-phone').value.trim();
   const notes = document.getElementById('appt-notes').value.trim();
-  if (!date || !time) { alert('Veuillez choisir une date et une heure.'); return; }
+  if (!date || !time) { alert(t('appt_err_datetime')); return; }
   const r = await fetch('/api/portal/appointments', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ brand_id: _apptBrandId, slot_date: date, slot_time: time, client_phone: phone, notes })
   });
   document.getElementById('modal-appt').classList.remove('open');
   if (r.ok) showPortalToast(t('appt_success'));
-  else { const e = await r.json().catch(()=>{}); showPortalToast(e?.error || 'Erreur', true); }
+  else { const e = await r.json().catch(()=>{}); showPortalToast(e?.error || t('err_generic'), true); }
 }
 
 function closeCgvModal() {
@@ -966,7 +1195,7 @@ function calcMargin(ws, retail) {
 
 function priceBlockHtml(ws, retail, compact = false) {
   const noPrice = !ws || parseFloat(ws) === 0;
-  const noPriceLabel = currentLang === 'fr' ? 'Prix sur demande' : 'Price on request';
+  const noPriceLabel = t('price_on_request');
   if (compact) {
     if (noPrice) return `<div class="price-block"><span class="price-ws" style="font-size:11px;color:var(--muted)">${noPriceLabel}</span></div>`;
     const retailLine = retail > 0 ? `<span class="price-retail-val">PVC ${fmtPrice(retail)}</span>` : '';
@@ -976,7 +1205,7 @@ function priceBlockHtml(ws, retail, compact = false) {
     </div>`;
   }
   if (noPrice) return `<div class="drawer-price-block"><span class="drawer-price-ws" style="font-size:14px;color:var(--muted)">${noPriceLabel}</span></div>`;
-  const retailLine = retail > 0 ? `<span class="drawer-price-retail">PVC conseillé : ${fmtPrice(retail)}</span>` : '';
+  const retailLine = retail > 0 ? `<span class="drawer-price-retail">${t('retail_label')} ${fmtPrice(retail)}</span>` : '';
   return `<div class="drawer-price-block">
     <span class="drawer-price-ws">${fmtPrice(ws)}</span>
     ${retailLine}
@@ -1063,7 +1292,7 @@ async function handleQrParams() {
   const elId = `qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const qdEl = document.getElementById(elId);
   if (qdEl) { qdEl.textContent = cart[key].qty; qdEl.classList.add('active'); }
-  const label = currentLang === 'en' ? `${p.reference} added to selection ✓` : `${p.reference} ajouté à la sélection ✓`;
+  const label = t('qr_added', p.reference);
   showQrToast(label);
   // Scroll to product card and flash it
   setTimeout(() => {
@@ -1100,12 +1329,12 @@ async function init() {
     // Si l'API retourne une erreur JSON ou pas un tableau → on sécurise
     allBrands = Array.isArray(brandsData) ? brandsData : [];
     if (!Array.isArray(brandsData)) {
-      const _errMsg = esc(brandsData.error || 'Erreur de chargement');
-      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
+      const _errMsg = esc(brandsData.error || t('load_err_brands'));
+      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
       return;
     }
   } catch(e) {
-    document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Erreur réseau. Vérifiez votre connexion.</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
+    document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${t('load_err_network')}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
     return;
   }
   try { applyLang(); } catch(e) { console.error('applyLang:', e); }
@@ -1196,21 +1425,21 @@ async function saveProfile() {
     document.getElementById('dd-company').textContent = company;
     msg.innerHTML = `<span style="color:var(--accent)">${t('prof_saved')}</span>`;
   } catch(e) {
-    msg.innerHTML = `<span style="color:#e74c3c">Erreur réseau, réessayez.</span>`;
+    msg.innerHTML = `<span style="color:#e74c3c">${t('err_network')}</span>`;
   }
 }
 
 async function exportMyData() {
   try {
     const res = await fetch('/api/portal/gdpr/export');
-    if (!res.ok) { document.getElementById('gdpr-msg').innerHTML = '<div class="msg error">Erreur lors de l\'export.</div>'; return; }
+    if (!res.ok) { document.getElementById('gdpr-msg').innerHTML = `<div class="msg error">${t('gdpr_export_err')}</div>`; return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'mes-donnees-showroom.json'; a.click();
     URL.revokeObjectURL(url);
-    document.getElementById('gdpr-msg').innerHTML = '<div class="msg">Téléchargement démarré.</div>';
-  } catch(e) { document.getElementById('gdpr-msg').innerHTML = '<div class="msg error">Erreur réseau.</div>'; }
+    document.getElementById('gdpr-msg').innerHTML = `<div class="msg">${t('gdpr_downloading')}</div>`;
+  } catch(e) { document.getElementById('gdpr-msg').innerHTML = `<div class="msg error">${t('gdpr_network_err')}</div>`; }
 }
 
 function openDeleteAccount() {
@@ -1224,7 +1453,7 @@ function closeDeleteAccount() { document.getElementById('modal-delete-account').
 async function confirmDeleteAccount() {
   const password = document.getElementById('delete-account-pw').value;
   const msg = document.getElementById('delete-account-msg');
-  if (!password) { msg.innerHTML = '<div class="msg error">Mot de passe requis.</div>'; return; }
+  if (!password) { msg.innerHTML = `<div class="msg error">${t('err_pw_required')}</div>`; return; }
   try {
     const r = await fetch('/api/portal/account', {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
@@ -1232,7 +1461,7 @@ async function confirmDeleteAccount() {
     }).then(r => r.json());
     if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
     window.location.href = '/editions-showroom-b2b-portail?deleted=1';
-  } catch(e) { msg.className = 'msg error'; msg.textContent = 'Erreur réseau.'; }
+  } catch(e) { msg.className = 'msg error'; msg.textContent = t('delete_network_err'); }
 }
 
 async function changePassword() {
@@ -1250,7 +1479,7 @@ async function changePassword() {
     document.getElementById('pw-new').value = '';
     msg.className = 'msg'; msg.textContent = t('pw_saved');
   } catch(e) {
-    msg.className = 'msg error'; msg.textContent = 'Erreur réseau, réessayez.';
+    msg.className = 'msg error'; msg.textContent = t('err_network');
   }
 }
 
@@ -1271,7 +1500,7 @@ function renderProductSkeletons(n = 8) {
 
 function renderBrandPicker() {
   const el = document.getElementById('brand-picker');
-  const greeting = me?.name ? (currentLang === 'fr' ? `Bonjour ${me.name.split(' ')[0]} 👋` : `Hello ${me.name.split(' ')[0]} 👋`) : (currentLang === 'fr' ? 'Bienvenue' : 'Welcome');
+  const greeting = me?.name ? t('greeting_hello', me.name.split(' ')[0]) : t('greeting_welcome');
   el.innerHTML = `
     <div style="margin-bottom:28px;padding:20px 24px;background:var(--dark);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
@@ -1284,7 +1513,7 @@ function renderBrandPicker() {
     </div>
     <div class="global-search-wrap">
       <span class="global-search-icon">🔍</span>
-      <input type="text" id="global-search-input" placeholder="${currentLang==='fr'?'Rechercher un produit dans tous les catalogues…':'Search across all brand catalogs…'}" oninput="onGlobalSearch(this.value)">
+      <input type="text" id="global-search-input" placeholder="${t('global_search_ph')}" oninput="onGlobalSearch(this.value)">
     </div>
     <div id="global-search-results" class="global-search-results"></div>
     <div id="brand-grid-inner" class="brand-grid">` +
@@ -1308,7 +1537,7 @@ async function openBrand(brandId, _fromPop) {
     const r = await fetch(`/api/portal/brands/${brandId}/products`);
     data = await r.json();
   } catch(e) {
-    container.innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Erreur de chargement. Vérifiez votre connexion.</p><button onclick="openBrand('${brandId}')" class="btn-secondary" style="font-size:13px;padding:10px 22px">Réessayer</button></div>`;
+    container.innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${t('load_err_brand')}</p><button onclick="openBrand('${brandId}')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_retry')}</button></div>`;
     return;
   }
   if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
@@ -1353,10 +1582,10 @@ async function openBrand(brandId, _fromPop) {
     </div>
     <div class="sort-bar">
       <select id="product-sort" onchange="applyProductFilters()">
-        <option value="ref">Réf. A–Z</option>
-        <option value="price-asc">Prix ↑</option>
-        <option value="price-desc">Prix ↓</option>
-        <option value="newest">Nouveautés</option>
+        <option value="ref" data-t="sort_ref">Réf. A–Z</option>
+        <option value="price-asc" data-t="sort_price_asc">Prix ↑</option>
+        <option value="price-desc" data-t="sort_price_desc">Prix ↓</option>
+        <option value="newest" data-t="sort_newest">Nouveautés</option>
       </select>
       <div class="price-range">
         <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em">Prix</span>
@@ -1600,7 +1829,7 @@ let moqBlocked = false;
         if (!ok) moqBlocked = true;
         bars.push(`<div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
-            <span>Minimum pièces</span><span>${brandQty} / ${moqQty}</span>
+            <span>${t('moq_bar_qty')}</span><span>${brandQty} / ${moqQty}</span>
           </div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${ok?'var(--accent)':'#e55'};border-radius:2px;transition:width .3s"></div>
@@ -1613,7 +1842,7 @@ let moqBlocked = false;
         if (!ok) moqBlocked = true;
         bars.push(`<div style="margin-top:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
-            <span>Minimum montant</span><span>${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)}</span>
+            <span>${t('moq_bar_amt')}</span><span>${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)}</span>
           </div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${ok?'var(--accent)':'#e55'};border-radius:2px;transition:width .3s"></div>
@@ -1634,7 +1863,7 @@ let moqBlocked = false;
             <div style="font-family:var(--dot),monospace;font-size:13px;margin-bottom:2px">${esc(l.reference)}</div>
             ${l.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif">${esc(l.color)}</div>` : ''}
             ${l.size ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:2px">${esc(l.size)}</div>` : ''}
-            <textarea class="cart-line-note" rows="1" placeholder="Note (optionnel)…" oninput="setCartNote('${noteKey}',this.value)">${esc(l.note||'')}</textarea>
+            <textarea class="cart-line-note" rows="1" placeholder="${t('cart_note_ph')}" oninput="setCartNote('${noteKey}',this.value)">${esc(l.note||'')}</textarea>
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:11px;font-family:'Inter',sans-serif;color:var(--muted)">× ${l.qty} · ${fmtPrice(parseFloat(l.price||0))}</div>
@@ -1707,7 +1936,7 @@ async function exportSelectionPdf() {
   const btn = document.getElementById('export-pdf-btn');
   const items = Object.values(cart);
   if (!items.length) return;
-  btn.textContent = '⏳ Génération…';
+  btn.textContent = t('export_generating');
   btn.disabled = true;
   try {
     const r = await fetch('/api/portal/selection-pdf', {
@@ -1715,7 +1944,7 @@ async function exportSelectionPdf() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items })
     });
-    if (!r.ok) throw new Error('Erreur serveur');
+    if (!r.ok) throw new Error('server error');
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1724,9 +1953,9 @@ async function exportSelectionPdf() {
     a.click();
     URL.revokeObjectURL(url);
   } catch(e) {
-    showToast('Erreur lors de la génération du PDF.', 4000);
+    showToast(t('export_err'), 4000);
   } finally {
-    btn.textContent = '📄 Exporter';
+    btn.textContent = t('export_btn');
     btn.disabled = false;
   }
 }
@@ -1742,7 +1971,7 @@ async function submitCheckout() {
   const btnConfirm = document.getElementById('btn-confirm-order');
   btnConfirm.disabled = true;
   const origBtnText = btnConfirm.textContent;
-  btnConfirm.textContent = '⏳ Envoi en cours…';
+  btnConfirm.textContent = t('sending');
   const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
   const buyer_signature = sigCanvas.toDataURL('image/jpeg', 0.7);
 
@@ -1780,15 +2009,14 @@ async function loadPendingSelections() {
   let data = [];
   try { data = await fetch('/api/portal/pending-selections').then(r => r.json()); } catch(e) { return; }
   if (!Array.isArray(data) || !data.length) { wrap.innerHTML = ''; return; }
-  const fr = currentLang === 'fr';
   wrap.innerHTML = `<div style="margin-bottom:20px">
-    <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px">${fr ? 'Sélections à valider' : 'Selections to confirm'}</div>
+    <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px">${t('pending_sel_title')}</div>
     ${data.map(s => `<div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);border-radius:8px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div>
         <div style="font-family:'Inter',sans-serif;font-weight:600;font-size:14px">${esc(s.brand_name)}</div>
-        <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft)">${s.piece_count} ${fr ? 'pièce(s) — préparée pour vous' : 'piece(s) — prepared for you'}</div>
+        <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft)">${t('pending_sel_pieces', s.piece_count)}</div>
       </div>
-      <a href="/selection/${s.token}" class="btn-confirm" style="margin:0;width:auto;padding:10px 18px;font-size:12px">${fr ? 'Voir et valider' : 'View & confirm'} →</a>
+      <a href="/selection/${s.token}" class="btn-confirm" style="margin:0;width:auto;padding:10px 18px;font-size:12px">${t('pending_sel_cta')} →</a>
     </div>`).join('')}
   </div>`;
 }
@@ -1796,11 +2024,11 @@ async function loadPendingSelections() {
 async function loadOrders() {
   loadPendingSelections();
   const list = document.getElementById('orders-list');
-  list.innerHTML = `<p class="msg" style="color:var(--muted)">Chargement…</p>`;
+  list.innerHTML = `<p class="msg" style="color:var(--muted)">${t('orders_loading_msg')}</p>`;
   let data;
   try { data = await fetch('/api/portal/orders').then(r => r.json()); }
-  catch(e) { list.innerHTML = `<p class="msg" style="color:var(--soft)">Erreur de chargement. <button onclick="loadOrders()" class="btn-secondary" style="font-size:12px;padding:6px 14px">Réessayer</button></p>`; return; }
-  if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${currentLang==='fr'?'Parcourir le catalogue':'Browse catalogue'}</button></div>`; return; }
+  catch(e) { list.innerHTML = `<p class="msg" style="color:var(--soft)">${t('orders_load_err')} <button onclick="loadOrders()" class="btn-secondary" style="font-size:12px;padding:6px 14px">${t('orders_retry')}</button></p>`; return; }
+  if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('orders_browse')}</button></div>`; return; }
   ordersData = data;
   applySortOrders();
 }
@@ -1846,7 +2074,7 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('portal_theme_override', next);
   const btn = document.getElementById('dd-theme');
-  if (btn) btn.textContent = next === 'dark' ? '☀ Thème clair' : '🌙 Thème sombre';
+  if (btn) btn.textContent = next === 'dark' ? t('theme_light') : t('theme_dark');
 }
 (function applyThemeOverride() {
   const ov = localStorage.getItem('portal_theme_override');
@@ -1864,12 +2092,12 @@ async function sendSelectionEmail() {
   const msg = document.getElementById('email-sel-msg').value.trim();
   const status = document.getElementById('email-sel-status');
   const btn = document.getElementById('email-sel-btn');
-  if (!to) { status.style.color = '#e74c3c'; status.textContent = 'Email requis.'; return; }
+  if (!to) { status.style.color = '#e74c3c'; status.textContent = t('email_req'); return; }
   btn.disabled = true; btn.textContent = '…';
-  status.style.color = 'var(--muted)'; status.textContent = 'Génération du PDF…';
+  status.style.color = 'var(--muted)'; status.textContent = t('email_generating');
   try {
     const items = Object.values(cart);
-    if (!items.length) { status.textContent = 'Panier vide.'; btn.disabled = false; btn.textContent = '📧 Envoyer'; return; }
+    if (!items.length) { status.textContent = t('email_cart_empty'); btn.disabled = false; btn.textContent = t('modal_email_send'); return; }
     const r = await fetch('/api/portal/selection-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1877,21 +2105,21 @@ async function sendSelectionEmail() {
     });
     const d = await r.json();
     if (d.ok) {
-      status.style.color = 'var(--accent)'; status.textContent = '✓ Email envoyé !';
+      status.style.color = 'var(--accent)'; status.textContent = t('email_sent_ok');
       setTimeout(() => closeModal('modal-email-sel'), 1800);
-    } else { status.style.color = '#e74c3c'; status.textContent = d.error || 'Erreur.'; }
-  } catch(e) { status.style.color = '#e74c3c'; status.textContent = 'Erreur réseau.'; }
-  btn.disabled = false; btn.textContent = '📧 Envoyer';
+    } else { status.style.color = '#e74c3c'; status.textContent = d.error || t('err_generic'); }
+  } catch(e) { status.style.color = '#e74c3c'; status.textContent = t('email_err'); }
+  btn.disabled = false; btn.textContent = t('modal_email_send');
 }
 
 // ── Partage sélection ─────────────────────────────────
 async function openShareModal() {
   const items = Object.values(cart);
-  if (!items.length) { showToast('Panier vide — rien à partager.'); return; }
+  if (!items.length) { showToast(t('share_empty')); return; }
   openModal('modal-share');
   const input = document.getElementById('share-link-input');
   const qrEl = document.getElementById('share-qr');
-  input.value = 'Génération…'; qrEl.innerHTML = '';
+  input.value = t('share_generating'); qrEl.innerHTML = '';
   try {
     const r = await fetch('/api/portal/share', {
       method: 'POST',
@@ -1906,13 +2134,13 @@ async function openShareModal() {
         if (!err) { qrEl.innerHTML = ''; qrEl.appendChild(canvas); }
       });
     }
-  } catch(e) { input.value = 'Erreur — réessayez.'; }
+  } catch(e) { input.value = t('share_err'); }
 }
 
 function copyShareLink() {
   const url = document.getElementById('share-link-input').value;
   if (!url || url === 'Génération…') return;
-  navigator.clipboard?.writeText(url).then(() => showToast('✓ Lien copié !'));
+  navigator.clipboard?.writeText(url).then(() => showToast(t('share_copied')));
 }
 
 // ── Renouveler commande ───────────────────────────────
@@ -1920,9 +2148,9 @@ async function reorderOrder(orderId) {
   const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
   const brandId = card?.dataset.brand;
   const brandName = card?.dataset.brandName || '';
-  if (!brandId) { showToast('Impossible de renouveler — commande introuvable.'); return; }
+  if (!brandId) { showToast(t('reorder_err')); return; }
   const lines = await fetch('/api/portal/orders/' + orderId + '/lines').then(r => r.json());
-  if (!lines.length) { showToast('Commande vide.'); return; }
+  if (!lines.length) { showToast(t('reorder_empty')); return; }
   let added = 0;
   lines.forEach(l => {
     const key = brandId + '|' + l.product_id + '|' + (l.size || '');
@@ -1933,7 +2161,7 @@ async function reorderOrder(orderId) {
     added++;
   });
   saveCart(); updateCartBar();
-  showToast(`↺ ${added} produit(s) ajouté(s) au panier`);
+  showToast(t('reorder_added', added));
 }
 
 // ── Toast ──────────────────────────────────────────────
@@ -1948,7 +2176,7 @@ function showToast(msg, duration = 2200) {
 
 // ── Copy ref ──────────────────────────────────────────
 function copyRef(ref) {
-  navigator.clipboard?.writeText(ref).then(() => showToast('✓ Référence copiée : ' + ref)).catch(() => showToast(ref));
+  navigator.clipboard?.writeText(ref).then(() => showToast(t('ref_copied', ref))).catch(() => showToast(ref));
 }
 
 // ── Vue liste / grille ────────────────────────────────
@@ -1965,7 +2193,7 @@ function toggleFav(productId) {
     favorites.delete(productId);
   } else {
     favorites.add(productId);
-    showToast('♥ Ajouté aux favoris');
+    showToast(t('fav_added'));
   }
   saveFavs();
   // Refresh the heart button on the card without full re-render
@@ -1997,7 +2225,7 @@ function renderRecentlyViewed() {
   const items = recentlyViewed.filter(x => x.brand_id === currentBrand?.id);
   if (!items.length) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">Récemment vus</div>
+  el.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${t('recently_viewed')}</div>
   <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
     ${items.map(p => `<div onclick="openProductDrawer('${p.id}')" style="flex-shrink:0;cursor:pointer;width:80px">
       <div style="width:80px;height:100px;background:#fff;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
@@ -2035,8 +2263,8 @@ function restoreFilters(brandId) {
 
 async function renderFavs() {
   const el = document.getElementById('favs-list');
-  if (!favorites.size) { el.innerHTML = `<p class="msg" style="color:var(--muted)">Aucun favori pour l'instant. Cliquez sur ♡ sur un produit.</p>`; return; }
-  el.innerHTML = `<p class="msg" style="color:var(--muted);margin-bottom:16px">Retrouvez ici les produits mis en favoris depuis n'importe quelle marque.</p>`;
+  if (!favorites.size) { el.innerHTML = `<p class="msg" style="color:var(--muted)">${t('favs_empty')}</p>`; return; }
+  el.innerHTML = `<p class="msg" style="color:var(--muted);margin-bottom:16px">${t('favs_intro')}</p>`;
   // Group favorites by brand
   const byBrand = {};
   allBrands.forEach(b => { byBrand[b.id] = { name: b.name, products: [] }; });
@@ -2114,7 +2342,7 @@ function renderOrdersList(data) {
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">
         <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
         <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">${t('orders_pdf')}</a>
-        <button onclick="reorderOrder('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline">↺ Renouveler</button>
+        <button onclick="reorderOrder('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline">↺ ${t('renouveler')}</button>
       </div>
     </div>`).join('');
 }
@@ -2131,12 +2359,12 @@ function onGlobalSearch(val) {
 async function runGlobalSearch(q) {
   const resultsEl = document.getElementById('global-search-results');
   if (!resultsEl) return;
-  resultsEl.innerHTML = `<p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);padding:8px 0">Recherche…</p>`;
+  resultsEl.innerHTML = `<p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);padding:8px 0">${t('search_searching')}</p>`;
   try {
     const r = await fetch(`/api/portal/search?q=${encodeURIComponent(q)}`);
     const data = await r.json();
     if (!data.length) { resultsEl.innerHTML = `<p class="msg" style="color:var(--muted)">${t('search_no_result')}</p>`; return; }
-    resultsEl.innerHTML = `<div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">${data.length} résultat${data.length>1?'s':''}</div>` +
+    resultsEl.innerHTML = `<div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">${t('search_results', data.length)}</div>` +
       data.map(p => {
         let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
         if (!imgs.length && p.image_url) imgs = [p.image_url];
@@ -2214,8 +2442,8 @@ function openProductDrawer(productId) {
   document.getElementById('drawer-ref').textContent = p.reference || '';
   document.getElementById('drawer-price').innerHTML = priceBlockHtml(p.price, p.price_retail, false);
   document.getElementById('drawer-collection').textContent = p.collection_name || '';
-  document.getElementById('drawer-color').textContent = p.color ? `Coloris : ${p.color}` : '';
-  document.getElementById('drawer-composition').textContent = p.composition ? `Composition : ${p.composition}` : '';
+  document.getElementById('drawer-color').textContent = p.color ? t('coloris_label', p.color) : '';
+  document.getElementById('drawer-composition').textContent = p.composition ? t('composition_label', p.composition) : '';
   document.getElementById('drawer-desc').textContent = sentenceCase(p.description || '');
 
   // Gallery
@@ -2234,7 +2462,7 @@ function openProductDrawer(productId) {
 
   // Qty rows
   const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
-  document.getElementById('drawer-sizes-title').textContent = sizes.length ? 'Tailles & quantités' : 'Quantité';
+  document.getElementById('drawer-sizes-title').textContent = sizes.length ? t('sizes_qty') : t('qty_label');
   const rows = sizes.length ? sizes.map(sz => {
     const k = currentBrand.id + '|' + p.id + '|' + sz;
     const q = cart[k]?.qty || 0;

@@ -714,6 +714,21 @@ const TRANSLATIONS = {
     success_contact_label:'Votre contact',
     email_sent: e => '✓ Un PDF de confirmation a été envoyé à ' + e,
     queued:'📵 Commande enregistrée localement. Elle sera envoyée automatiquement dès reconnexion.',
+    subscription_inactive_msg: 'Ce showroom est temporairement indisponible.',
+    agent_err_empty_cart: 'Ajoute d\'abord des articles à la sélection.',
+    agent_pieces_selected: (n) => `${n} pièce(s) sélectionnée(s).`,
+    agent_err_email: 'Email acheteur valide requis.',
+    agent_err_sel_empty: 'Sélection vide.',
+    err_generic: 'Erreur',
+    agent_send_btn: 'Envoyer',
+    agent_sent: (email) => `✓ Sélection envoyée à ${email}.`,
+    agent_sent_btn: 'Envoyé ✓',
+    agent_err_network: 'Erreur réseau.',
+    ref_added: '✓ Référence ajoutée',
+    ref_add_no_size: '+ Ajouter la référence sans taille',
+    err_pdf_gen: 'Erreur génération PDF',
+    preparing: '⏳ Préparation…',
+    btn_open_mail_label: '✉️ Envoyer par mail avec PDF',
   },
   en: {
     step_sel:'Selection', step_infos:'Info', step_recap:'Summary', step_sig:'Signature',
@@ -780,6 +795,21 @@ const TRANSLATIONS = {
     success_contact_label:'Your contact',
     email_sent: e => '✓ A confirmation PDF has been sent to ' + e,
     queued:'📵 Order saved locally. It will be sent automatically when reconnected.',
+    subscription_inactive_msg: 'This showroom is temporarily unavailable.',
+    agent_err_empty_cart: 'Add items to the selection first.',
+    agent_pieces_selected: (n) => `${n} piece(s) selected.`,
+    agent_err_email: 'Valid buyer email required.',
+    agent_err_sel_empty: 'Selection is empty.',
+    err_generic: 'Error',
+    agent_send_btn: 'Send',
+    agent_sent: (email) => `✓ Selection sent to ${email}.`,
+    agent_sent_btn: 'Sent ✓',
+    agent_err_network: 'Network error.',
+    ref_added: '✓ Reference added',
+    ref_add_no_size: '+ Add reference without size',
+    err_pdf_gen: 'PDF generation error',
+    preparing: '⏳ Preparing…',
+    btn_open_mail_label: '✉️ Send by email with PDF',
   }
 };
 
@@ -863,7 +893,7 @@ async function init() {
     const res = await fetch('/api/public/brands/' + brandId);
     const data = await res.json();
     if (data.error === 'subscription_inactive') {
-      document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center"><div><p style="font-size:14px;color:var(--muted);line-height:1.6">' + (data.message || 'Ce showroom est temporairement indisponible.') + '</p></div></div>';
+      document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center"><div><p style="font-size:14px;color:var(--muted);line-height:1.6">' + (data.message || T('subscription_inactive_msg')) + '</p></div></div>';
       return;
     }
     if (data.error) { document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center"><p style="color:var(--muted)">' + T('no_brand') + '</p></div>'; return; }
@@ -981,8 +1011,8 @@ function cartToItems() {
 }
 function openAgentSend() {
   const items = cartToItems();
-  if (!items.length) { alert('Ajoute d\'abord des articles à la sélection.'); return; }
-  document.getElementById('agent-send-count').textContent = items.reduce((s,i)=>s+i.quantity,0) + ' pièce(s) sélectionnée(s).';
+  if (!items.length) { alert(T('agent_err_empty_cart')); return; }
+  document.getElementById('agent-send-count').textContent = T('agent_pieces_selected', items.reduce((s,i)=>s+i.quantity,0));
   document.getElementById('agent-send-result').innerHTML = '';
   document.getElementById('agent-send-modal').style.display = 'flex';
 }
@@ -990,11 +1020,11 @@ function closeAgentSend() { document.getElementById('agent-send-modal').style.di
 async function sendAgentSelectionFromCart() {
   const email = document.getElementById('agent-send-email').value.trim();
   const res = document.getElementById('agent-send-result');
-  if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email acheteur valide requis.</span>'; return; }
+  if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">' + T('agent_err_email') + '</span>'; return; }
   const items = cartToItems();
-  if (!items.length) { res.innerHTML = '<span style="color:#e07a7a">Sélection vide.</span>'; return; }
+  if (!items.length) { res.innerHTML = '<span style="color:#e07a7a">' + T('agent_err_sel_empty') + '</span>'; return; }
   const btn = document.getElementById('agent-send-btn');
-  btn.disabled = true; btn.textContent = 'Envoi…';
+  btn.disabled = true; btn.textContent = T('sending');
   try {
     const r = await fetch('/api/brands/' + brandId + '/agent-selection', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1006,9 +1036,9 @@ async function sendAgentSelectionFromCart() {
       })
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) { res.textContent = d.error || 'Erreur'; res.style.color = '#e07a7a'; btn.disabled = false; btn.textContent = 'Envoyer'; return; }
-    res.innerHTML = '<span style="color:#5ec95e">✓ Sélection envoyée à ' + esc(email) + '.</span>';
-    btn.textContent = 'Envoyé ✓';
+    if (!r.ok) { res.textContent = d.error || T('err_generic'); res.style.color = '#e07a7a'; btn.disabled = false; btn.textContent = T('agent_send_btn'); return; }
+    res.innerHTML = '<span style="color:#5ec95e">' + T('agent_sent', esc(email)) + '</span>';
+    btn.textContent = T('agent_sent_btn');
     // Vider le panier après envoi
     Object.keys(cart).forEach(k => delete cart[k]);
     sessionStorage.removeItem(CART_KEY);
@@ -1018,9 +1048,9 @@ async function sendAgentSelectionFromCart() {
     document.getElementById('agent-send-email').value = '';
     document.getElementById('agent-send-name').value = '';
     document.getElementById('agent-send-company').value = '';
-    setTimeout(() => { btn.disabled = false; btn.textContent = 'Envoyer'; res.innerHTML = ''; }, 4000);
+    setTimeout(() => { btn.disabled = false; btn.textContent = T('agent_send_btn'); res.innerHTML = ''; }, 4000);
   } catch(e) {
-    res.innerHTML = '<span style="color:#e07a7a">Erreur réseau.</span>'; btn.disabled = false; btn.textContent = 'Envoyer';
+    res.innerHTML = '<span style="color:#e07a7a">' + T('agent_err_network') + '</span>'; btn.disabled = false; btn.textContent = T('agent_send_btn');
   }
 }
 
@@ -1149,7 +1179,7 @@ function renderProducts(products) {
               const color = selectedVariant[p.id] || '';
               const isRef = !!(cart[p.id + '|' + color + '|—']);
               return '<button class="btn-add-ref' + (isRef ? ' active' : '') + '" id="refbtn_' + p.id + '" onclick="toggleRefOnly(\'' + p.id + '\')">'
-                + (isRef ? '✓ Référence ajoutée' : '+ Ajouter la référence sans taille')
+                + (isRef ? T('ref_added') : T('ref_add_no_size'))
                 + '</button>';
             })()
           : '')
@@ -1233,7 +1263,7 @@ function toggleRefOnly(pid) {
   const btn = document.getElementById('refbtn_' + pid);
   if (btn) {
     btn.classList.toggle('active', !isActive);
-    btn.textContent = !isActive ? '✓ Référence ajoutée' : '+ Ajouter la référence sans taille';
+    btn.textContent = !isActive ? T('ref_added') : T('ref_add_no_size');
   }
   saveCart();
   updateCartBar();
@@ -1494,7 +1524,7 @@ async function downloadSelection() {
     const a = document.createElement('a');
     a.href = url; a.download = 'Selection-' + brandName.replace(/\s/g,'-') + '.pdf';
     a.click(); URL.revokeObjectURL(url);
-  } catch(e) { alert('Erreur génération PDF'); }
+  } catch(e) { alert(T('err_pdf_gen')); }
   btn.disabled = false;
 }
 
@@ -1705,7 +1735,7 @@ let _successClientName = null;
 async function shareOrderMail() {
   const btn = document.getElementById('btn-open-mail');
   btn.disabled = true;
-  btn.textContent = '⏳ Préparation…';
+  btn.textContent = T('preparing');
 
   const mailto = buildMailtoLink(_successEmail, _successClientName, _successOrderId);
   const pdfUrl = _successOrderId ? '/api/public/orders/' + _successOrderId + '/pdf' : null;
@@ -1734,7 +1764,7 @@ async function shareOrderMail() {
           text: body ? decodeURIComponent(body) : ''
         });
         btn.disabled = false;
-        btn.textContent = '✉️ Envoyer par mail avec PDF';
+        btn.textContent = T('btn_open_mail_label');
         return;
       }
     }
@@ -1742,7 +1772,7 @@ async function shareOrderMail() {
     if (e.name === 'AbortError') {
       // User cancelled share sheet — that's fine
       btn.disabled = false;
-      btn.textContent = '✉️ Envoyer par mail avec PDF';
+      btn.textContent = T('btn_open_mail_label');
       return;
     }
     // PDF fetch failed or share not supported — fallback below

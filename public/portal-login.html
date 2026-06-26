@@ -106,6 +106,7 @@ const TRANSLATIONS = {
     pw_too_short: 'Le mot de passe doit contenir au moins 6 caractères.',
     pw_mismatch: 'Les mots de passe ne correspondent pas.',
     pw_updated: 'Mot de passe mis à jour. Redirection…',
+    network_error: 'Erreur réseau, réessayez.',
   },
   en: {
     portal_title: 'Buyer Portal',
@@ -127,6 +128,7 @@ const TRANSLATIONS = {
     pw_too_short: 'Password must be at least 6 characters.',
     pw_mismatch: 'Passwords do not match.',
     pw_updated: 'Password updated. Redirecting…',
+    network_error: 'Network error, please try again.',
   }
 };
 
@@ -192,7 +194,7 @@ async function sendReset() {
     // Toujours afficher succès (ne pas révéler si l'email existe)
     msg.innerHTML = `<div class="alert alert-success">${t('reset_success')}</div>`;
   } catch(e) {
-    msg.innerHTML = `<div class="alert alert-error">Erreur réseau, réessayez.</div>`;
+    msg.innerHTML = `<div class="alert alert-error">${t('network_error')}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = t('send_reset_btn');
@@ -218,7 +220,7 @@ async function submitReset() {
     msg.innerHTML = `<div class="alert alert-success">${t('pw_updated')}</div>`;
     setTimeout(() => { window.location = '/editions-showroom-b2b-portail'; }, 1500);
   } catch(e) {
-    msg.innerHTML = `<div class="alert alert-error">Erreur réseau, réessayez.</div>`;
+    msg.innerHTML = `<div class="alert alert-error">${t('network_error')}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = t('save_btn');

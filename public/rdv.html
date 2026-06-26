@@ -31,6 +31,8 @@
   .msg.error { color: var(--accent); }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
   .success-check { width:56px; height:56px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px; color:var(--accent); }
+  #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+  #lang-btn:hover { border-color:var(--accent); color:var(--white); }
 </style>
 <script>
 (function() {
@@ -43,54 +45,123 @@
 </script>
 </head>
 <body>
+<button id="lang-btn" onclick="toggleLang()">EN</button>
 <div class="wrap" id="app">
   <a href="/" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;text-decoration:none;color:var(--soft);font-size:11px;font-family:'Inter',sans-serif;letter-spacing:.04em">
     <img src="/logo.svg" style="width:24px;height:24px;border-radius:4px"> ← Accueil
   </a>
-  <h1>Réserver un rendez-vous</h1>
+  <h1 id="page-title">Réserver un rendez-vous</h1>
   <p class="sub" id="sub-label">Choisissez un créneau disponible</p>
-  <div id="slots-container" class="loader">Chargement des créneaux…</div>
+  <div id="slots-container" class="loader" id="loading-slots">Chargement des créneaux…</div>
 
   <div id="form-section" style="display:none">
-    <div class="field"><label>Nom complet</label><input id="rdv-name" type="text"></div>
-    <div class="field"><label>Email</label><input id="rdv-email" type="email"></div>
-    <div class="field"><label>Téléphone</label><input id="rdv-phone" type="tel"></div>
-    <div class="field"><label>Note (optionnel)</label><textarea id="rdv-notes" rows="3"></textarea></div>
+    <div class="field"><label id="lbl-name">Nom complet</label><input id="rdv-name" type="text"></div>
+    <div class="field"><label id="lbl-email">Email</label><input id="rdv-email" type="email"></div>
+    <div class="field"><label id="lbl-phone">Téléphone</label><input id="rdv-phone" type="tel"></div>
+    <div class="field"><label id="lbl-notes">Note (optionnel)</label><textarea id="rdv-notes" rows="3"></textarea></div>
     <button class="btn" id="btn-confirm" onclick="confirmAppointment()">Confirmer le rendez-vous</button>
     <div id="rdv-msg"></div>
   </div>
 
   <div id="success-view" style="display:none;text-align:center;padding:40px 0">
     <div class="success-check">✓</div>
-    <h1 style="font-size:18px">Rendez-vous confirmé</h1>
+    <h1 id="success-title" style="font-size:18px">Rendez-vous confirmé</h1>
     <p class="msg" id="success-detail" style="text-align:left"></p>
   </div>
 </div>
 
 <script>
+const TRANSLATIONS = {
+  fr: {
+    page_title: 'Réserver un rendez-vous',
+    sub_label: 'Choisissez un créneau disponible',
+    loading_slots: 'Chargement des créneaux…',
+    err_loading: 'Erreur de chargement. Veuillez recharger la page.',
+    no_slots: 'Aucun créneau disponible pour le moment.',
+    day_names: ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'],
+    lbl_name: 'Nom complet',
+    lbl_email: 'Email',
+    lbl_phone: 'Téléphone',
+    lbl_notes: 'Note (optionnel)',
+    btn_confirm: 'Confirmer le rendez-vous',
+    err_pick_slot: 'Choisissez un créneau.',
+    err_name_email: 'Nom et email requis.',
+    success_title: 'Rendez-vous confirmé',
+    success_detail: (name, date, time) => `${name}, votre rendez-vous est confirmé le ${date} à ${time}.`,
+    err_retry: 'Erreur, réessayez.',
+    back_home: '← Accueil',
+  },
+  en: {
+    page_title: 'Book an appointment',
+    sub_label: 'Choose an available slot',
+    loading_slots: 'Loading available slots…',
+    err_loading: 'Loading error. Please reload the page.',
+    no_slots: 'No slots available at the moment.',
+    day_names: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    lbl_name: 'Full name',
+    lbl_email: 'Email',
+    lbl_phone: 'Phone',
+    lbl_notes: 'Note (optional)',
+    btn_confirm: 'Confirm appointment',
+    err_pick_slot: 'Please choose a slot.',
+    err_name_email: 'Name and email are required.',
+    success_title: 'Appointment confirmed',
+    success_detail: (name, date, time) => `${name}, your appointment is confirmed on ${date} at ${time}.`,
+    err_retry: 'Error, please try again.',
+    back_home: '← Home',
+  }
+};
+
+let currentLang = localStorage.getItem('portal_lang') || 'fr';
+function t(key, ...args) {
+  const val = (TRANSLATIONS[currentLang] || TRANSLATIONS.fr)[key] || TRANSLATIONS.fr[key] || key;
+  return typeof val === 'function' ? val(...args) : val;
+}
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.getElementById('lang-btn').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+  document.getElementById('page-title').textContent = t('page_title');
+  document.getElementById('sub-label').textContent = t('sub_label');
+  document.getElementById('lbl-name').textContent = t('lbl_name');
+  document.getElementById('lbl-email').textContent = t('lbl_email');
+  document.getElementById('lbl-phone').textContent = t('lbl_phone');
+  document.getElementById('lbl-notes').textContent = t('lbl_notes');
+  const btn = document.getElementById('btn-confirm');
+  if (btn && !btn.disabled) btn.textContent = t('btn_confirm');
+  const successTitle = document.getElementById('success-title');
+  if (successTitle) successTitle.textContent = t('success_title');
+}
+function toggleLang() {
+  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+  localStorage.setItem('portal_lang', currentLang);
+  applyLang();
+}
+applyLang();
+
 const brandId = window.location.pathname.split('/').pop();
 let selectedDate = null, selectedTime = null;
 
 async function loadSlots() {
   const container = document.getElementById('slots-container');
+  container.textContent = t('loading_slots');
   let data;
   try {
     data = await fetch(`/api/public/brands/${brandId}/slots`).then(r => r.json());
   } catch(e) {
-    container.innerHTML = '<p class="msg error">Erreur de chargement. Veuillez recharger la page.</p>';
+    container.innerHTML = '<p class="msg error">' + t('err_loading') + '</p>';
     return;
   }
   if (!data.slots || !data.slots.length) {
-    container.innerHTML = '<p class="msg">Aucun créneau disponible pour le moment.</p>';
+    container.innerHTML = '<p class="msg">' + t('no_slots') + '</p>';
     return;
   }
-  const dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const dayNames = t('day_names');
   container.innerHTML = data.slots.map(day => {
     const d = new Date(day.date + 'T00:00:00');
     const label = dayNames[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1);
     return `<div class="day-block">
       <div class="day-label">${label}</div>
-      <div class="slots">${day.times.map(t => `<button class="slot-btn" data-date="${day.date}" data-time="${t}" onclick="pickSlot('${day.date}','${t}',this)">${t}</button>`).join('')}</div>
+      <div class="slots">${day.times.map(ti => `<button class="slot-btn" data-date="${day.date}" data-time="${ti}" onclick="pickSlot('${day.date}','${ti}',this)">${ti}</button>`).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -111,8 +182,8 @@ async function confirmAppointment() {
   const notes = document.getElementById('rdv-notes').value.trim();
   const msg = document.getElementById('rdv-msg');
 
-  if (!selectedDate || !selectedTime) { msg.textContent = 'Choisissez un créneau.'; msg.className = 'msg error'; return; }
-  if (!client_name || !client_email) { msg.textContent = 'Nom et email requis.'; msg.className = 'msg error'; return; }
+  if (!selectedDate || !selectedTime) { msg.textContent = t('err_pick_slot'); msg.className = 'msg error'; return; }
+  if (!client_name || !client_email) { msg.textContent = t('err_name_email'); msg.className = 'msg error'; return; }
 
   const btn = document.getElementById('btn-confirm');
   btn.disabled = true;
@@ -128,10 +199,12 @@ async function confirmAppointment() {
     }
 
     document.getElementById('app').querySelectorAll(':scope > div').forEach(el => el.style.display = 'none');
-    document.getElementById('success-view').style.display = 'block';
-    document.getElementById('success-detail').textContent = `${client_name}, votre rendez-vous est confirmé le ${selectedDate} à ${selectedTime}.`;
+    const successView = document.getElementById('success-view');
+    successView.style.display = 'block';
+    document.getElementById('success-title').textContent = t('success_title');
+    document.getElementById('success-detail').textContent = t('success_detail', client_name, selectedDate, selectedTime);
   } catch(e) {
-    msg.innerHTML = '<div class="msg error">Erreur, réessayez.</div>';
+    msg.innerHTML = '<div class="msg error">' + t('err_retry') + '</div>';
   } finally {
     btn.disabled = false;
   }
