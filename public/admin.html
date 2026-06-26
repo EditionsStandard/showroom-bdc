@@ -177,6 +177,57 @@
     .brands-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   }
 
+  /* ── Responsive mobile supplémentaire ── */
+  @media (max-width: 768px) {
+    /* Sidebar: scroll horizontal en bas (déjà géré ci-dessus, renforcement) */
+    nav { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    nav a { min-width: 56px; }
+
+    /* Tables: overflow-x scroll avec wrapper */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap table { min-width: 520px; }
+
+    /* Modals: plein écran */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal {
+      border-radius: 16px 16px 0 0;
+      max-width: 100% !important;
+      width: 100%;
+      max-height: 92vh;
+      padding: 20px 14px 32px;
+    }
+
+    /* Grille stats: 2 colonnes sur mobile, 1 sur très petit */
+    .stats { grid-template-columns: repeat(2, 1fr); }
+
+    /* Brand card: pleine largeur */
+    .brands-grid { grid-template-columns: 1fr; }
+    .brand-card .actions { flex-wrap: wrap; }
+    .brand-card .actions .btn { flex: 1 1 auto; text-align: center; }
+
+    /* Form rows: 1 colonne */
+    .form-row { grid-template-columns: 1fr; }
+
+    /* Topbar: masquer le portail sur mobile */
+    .topbar { flex-wrap: wrap; gap: 8px; }
+
+    /* Cards: padding réduit */
+    .card { padding: 14px 12px; }
+
+    /* Calendrier: cellules plus petites */
+    #cal-grid > div { min-height: 36px; padding: 2px; }
+    #cal-grid > div span:first-child { font-size: 11px; }
+
+    /* Boutons d'actions acheteurs: wrap */
+    #buyers-body td:last-child { flex-wrap: wrap; gap: 4px; }
+  }
+
+  @media (max-width: 480px) {
+    .stats { grid-template-columns: 1fr; }
+    .stat .num { font-size: 20px; }
+    h1 { font-size: 16px; }
+  }
+
   /* ── Theme toggle ── */
   #theme-toggle {
     background: none;
@@ -623,7 +674,7 @@
     <div class="card">
       <h3 data-t="buyers_existing_title">Comptes acheteurs existants</h3>
       <div class="table-wrap"><table id="buyers-table">
-        <thead><tr><th style="width:24px"></th><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th>Commandes</th><th>CA total</th><th>Dernière connexion</th><th></th></tr></thead>
+        <thead><tr><th style="width:24px"></th><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th>Tags</th><th>Commandes</th><th>CA total</th><th>Dernière connexion</th><th></th></tr></thead>
         <tbody id="buyers-body"></tbody>
       </table></div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:0 4px;font-size:12px;color:var(--soft)">
@@ -645,7 +696,7 @@
     <div id="ar-list"></div>
   </div>
 
-  <!-- STATS -->
+  <!-- AGENDA -->
   <div id="agenda" class="section">
     <h1>Agenda — Rendez-vous</h1>
     <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -658,14 +709,49 @@
         <option value="past">Passés</option>
       </select>
       <span id="agenda-count" style="font-size:12px;color:#555;margin-left:auto"></span>
+      <div style="display:flex;gap:6px;margin-left:8px">
+        <button id="agenda-view-list" class="btn btn-primary btn-sm" onclick="switchAgendaView('list')">📋 Liste</button>
+        <button id="agenda-view-cal" class="btn btn-secondary btn-sm" onclick="switchAgendaView('calendar')">📅 Calendrier</button>
+      </div>
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <div class="table-wrap"><table style="margin:0">
-        <thead><tr>
-          <th>Date</th><th>Heure</th><th>Marque</th><th>Client</th><th>Contact</th><th>Notes</th><th></th>
-        </tr></thead>
-        <tbody id="agenda-body"><tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Chargement…</td></tr></tbody>
-      </table></div>
+
+    <!-- Vue liste -->
+    <div id="agenda-list-view">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap"><table style="margin:0">
+          <thead><tr>
+            <th>Date</th><th>Heure</th><th>Marque</th><th>Client</th><th>Contact</th><th>Notes</th><th></th>
+          </tr></thead>
+          <tbody id="agenda-body"><tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Chargement…</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- Vue calendrier -->
+    <div id="agenda-cal-view" style="display:none">
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <button class="btn btn-secondary btn-sm" onclick="prevMonth()">← Préc.</button>
+          <h3 id="cal-header" style="margin:0;font-size:16px"></h3>
+          <button class="btn btn-secondary btn-sm" onclick="nextMonth()">Suiv. →</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">L</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">M</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">M</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">J</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">V</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">S</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#888;padding:4px">D</div>
+        </div>
+        <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
+      </div>
+      <div id="cal-day-detail" style="display:none">
+        <div class="card">
+          <h3 id="cal-day-title" style="font-size:14px;margin-bottom:12px"></h3>
+          <div id="cal-day-appts"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -850,8 +936,10 @@
     </table></div>
     <div class="sep"></div>
     <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="openCsvImportModal()">↑ Importer CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="downloadCSVTemplateNew()">↓ Modèle CSV</button>
       <label class="btn btn-secondary btn-sm" style="cursor:pointer">
-        📥 Importer CSV
+        📥 Importer CSV (ancien)
         <input type="file" id="csv-import-input" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
       </label>
       <a id="csv-template-link" href="#" onclick="downloadCSVTemplate(event)" class="btn btn-secondary btn-sm">📄 Télécharger modèle CSV</a>
@@ -1176,6 +1264,44 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-buyer')" data-t="btn_cancel">Annuler</button>
       <button class="btn" onclick="saveEditBuyer()" data-t="btn_save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CSV IMPORT -->
+<div class="modal-overlay" id="modal-csv-import">
+  <div class="modal" style="max-width:480px">
+    <h3>Importer des produits CSV</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Sélectionnez un fichier CSV. Les colonnes attendues : <code>reference, description, color, sizes, price, price_retail, collection, composition, category</code></p>
+    <div class="form-group">
+      <label>Fichier CSV</label>
+      <input type="file" id="csv-modal-input" accept=".csv,.txt" style="cursor:pointer">
+    </div>
+    <div id="csv-modal-status" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-csv-import')">Annuler</button>
+      <button class="btn btn-primary" onclick="submitCsvImport()">↑ Importer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUYER TAGS & NOTES -->
+<div class="modal-overlay" id="modal-buyer-tags">
+  <div class="modal" style="max-width:460px">
+    <h3>Tags & Notes — <span id="btags-buyer-name"></span></h3>
+    <input type="hidden" id="btags-buyer-id">
+    <div class="form-group">
+      <label>Tags <span style="color:#666;font-weight:400;font-size:11px">(séparés par des virgules)</span></label>
+      <input type="text" id="btags-input" placeholder="vip, paris, boutique…">
+      <div id="btags-preview" style="margin-top:6px;min-height:20px"></div>
+    </div>
+    <div class="form-group">
+      <label>🔒 Notes internes <span style="color:#666;font-weight:400;font-size:11px">(admin uniquement)</span></label>
+      <textarea id="btags-notes" rows="4" placeholder="Remarques internes, contexte, suivi…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-buyer-tags')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBuyerTagsNotes()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1641,6 +1767,93 @@ async function saveEditStaff() {
 let _buyersPresenceTimer = null;
 
 // ── Agenda ───────────────────────────────────────────────────────────
+let _calMonth = new Date().getMonth();
+let _calYear = new Date().getFullYear();
+let _agendaView = 'list';
+
+function switchAgendaView(view) {
+  _agendaView = view;
+  document.getElementById('agenda-list-view').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('agenda-cal-view').style.display = view === 'calendar' ? '' : 'none';
+  document.getElementById('agenda-view-list').className = view === 'list' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  document.getElementById('agenda-view-cal').className = view === 'calendar' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  if (view === 'calendar') renderCalendar(_allAgenda);
+}
+
+function renderCalendar(appointments) {
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  document.getElementById('cal-header').textContent = `${months[_calMonth]} ${_calYear}`;
+  const firstDay = new Date(_calYear, _calMonth, 1);
+  // JS getDay(): 0=Sun … 6=Sat → convert to Mon-first (0=Mon … 6=Sun)
+  let startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+
+  // Build a set of days that have appointments
+  const apptDays = {};
+  appointments.forEach(a => {
+    if (!a.slot_date) return;
+    const [y, m, d] = a.slot_date.split('-').map(Number);
+    if (y === _calYear && m - 1 === _calMonth) {
+      if (!apptDays[d]) apptDays[d] = [];
+      apptDays[d].push(a);
+    }
+  });
+
+  const grid = document.getElementById('cal-grid');
+  let html = '';
+  // empty cells before first day
+  for (let i = 0; i < startOffset; i++) {
+    html += '<div style="min-height:44px"></div>';
+  }
+  const today = new Date();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = today.getFullYear() === _calYear && today.getMonth() === _calMonth && today.getDate() === d;
+    const hasAppts = !!apptDays[d];
+    html += `<div onclick="showCalDay(${d})" style="min-height:44px;padding:4px;border-radius:6px;cursor:pointer;border:1px solid ${isToday ? '#CCEB3C' : '#252525'};background:${isToday ? '#1e2a0a' : '#111'};display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='${isToday ? '#1e2a0a' : '#111'}'">
+      <span style="font-size:12px;font-weight:${isToday ? '700' : '400'};color:${isToday ? '#CCEB3C' : '#ccc'}">${d}</span>
+      ${hasAppts ? `<span style="width:6px;height:6px;border-radius:50%;background:#CCEB3C;display:block"></span>` : ''}
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function showCalDay(day) {
+  const dateKey = `${_calYear}-${String(_calMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  const appts = _allAgenda.filter(a => a.slot_date === dateKey);
+  const detail = document.getElementById('cal-day-detail');
+  const title = document.getElementById('cal-day-title');
+  const body = document.getElementById('cal-day-appts');
+  const fmt = new Date(_calYear, _calMonth, day).toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  title.textContent = fmt.charAt(0).toUpperCase() + fmt.slice(1);
+  if (!appts.length) {
+    body.innerHTML = '<p style="color:#555;font-size:13px">Aucun rendez-vous ce jour.</p>';
+  } else {
+    body.innerHTML = appts.map(a => `<div style="padding:10px 14px;border:1px solid #252525;border-radius:8px;margin-bottom:8px;display:flex;gap:14px;align-items:flex-start">
+      <div style="min-width:48px;font-weight:700;font-size:13px;color:#CCEB3C">${a.slot_time}</div>
+      <div>
+        <div style="font-weight:600;font-size:13px">${esc(a.client_name||'')}</div>
+        <div style="font-size:12px;color:#888">${esc(a.brand_name||'')} · <a href="mailto:${esc(a.client_email)}" style="color:#CCEB3C">${esc(a.client_email)}</a></div>
+        ${a.notes ? `<div style="font-size:11px;color:#666;margin-top:2px">${esc(a.notes)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  }
+  detail.style.display = '';
+}
+
+function prevMonth() {
+  _calMonth--;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  renderCalendar(_allAgenda);
+  document.getElementById('cal-day-detail').style.display = 'none';
+}
+
+function nextMonth() {
+  _calMonth++;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  renderCalendar(_allAgenda);
+  document.getElementById('cal-day-detail').style.display = 'none';
+}
+
 let _allAgenda = [];
 async function loadAgenda() {
   const isDesigner = currentUserRole === 'designer';
@@ -1666,6 +1879,7 @@ function filterAgenda() {
   if (status === 'upcoming') list = list.filter(a => new Date(a.slot_date + 'T' + a.slot_time) >= now);
   if (status === 'past') list = list.filter(a => new Date(a.slot_date + 'T' + a.slot_time) < now);
   document.getElementById('agenda-count').textContent = `${list.length} rendez-vous`;
+  if (_agendaView === 'calendar') { renderCalendar(list); return; }
   document.getElementById('agenda-body').innerHTML = list.length ? list.map(a => {
     const dt = new Date(a.slot_date + 'T' + a.slot_time);
     const past = dt < now;
@@ -2195,6 +2409,7 @@ async function loadBrands() {
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
+        <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${b.name.replace(/'/g,"\\'")}')">📊 Stats</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 ${t('label_billing')}</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">${t('btn_delete_text')}</button>` : ''}
@@ -3547,17 +3762,19 @@ function renderBuyersPage() {
       <td>${esc(b.name) || '—'}</td>
       <td>${esc(b.company) || '—'}</td>
       <td style="font-size:12px">${esc(b.email)}</td>
+      <td style="max-width:140px">${(b.tags||'').split(',').map(t=>t.trim()).filter(Boolean).map(tag=>`<span class="tag" style="background:#1a1a3a;color:#a78bfa;font-size:10px">${esc(tag)}</span>`).join('')||'—'}</td>
       <td style="text-align:center;color:${b.order_count > 0 ? '#CCEB3C' : '#555'}">${b.order_count > 0 ? `<strong>${b.order_count}</strong>` : '—'}</td>
       <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
       <td style="font-size:11px;color:#666">${lastSeen}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" style="background:#1a1a2a;color:#a78bfa;border:1px solid #a78bfa33" onclick="openBuyerTagsNotes(${JSON.stringify(b)})" title="Tags & notes internes">🏷 Tags</button>
         <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
         <button class="btn btn-sm" style="background:#0a1a2a;color:#60a5fa;border:1px solid #60a5fa33" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="8" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
+  }).join('') || `<tr><td colspan="9" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
   const info = document.getElementById('buyers-page-info');
   if (info) info.textContent = `Page ${_buyersPage} / ${totalPages}`;
 }
@@ -3901,6 +4118,169 @@ async function saveSettings() {
   const r = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
   if (r.ok) toast(t('js_settings_saved'));
   else toast(t('js_error'), true);
+}
+
+// ── Feature 2: CSV Import modal ──────────────────────────────────────
+function downloadCSVTemplateNew() {
+  const headers = 'reference,description,color,sizes,price,price_retail,collection,composition,category';
+  const example = 'REF-001,Veste en cuir,Noir,"XS,S,M,L",250.00,490.00,SS27,100% cuir,Veste';
+  const csv = headers + '\n' + example;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'modele-produits.csv';
+  a.click();
+}
+
+function openCsvImportModal() {
+  document.getElementById('csv-modal-input').value = '';
+  const status = document.getElementById('csv-modal-status');
+  status.style.display = 'none';
+  status.textContent = '';
+  openModal('modal-csv-import');
+}
+
+async function submitCsvImport() {
+  const input = document.getElementById('csv-modal-input');
+  const status = document.getElementById('csv-modal-status');
+  if (!input.files || !input.files[0]) {
+    status.style.display = 'block';
+    status.style.background = '#3a1a1a';
+    status.style.color = '#e74c3c';
+    status.textContent = 'Veuillez sélectionner un fichier CSV.';
+    return;
+  }
+  status.style.display = 'block';
+  status.style.background = '#1a1a2a';
+  status.style.color = '#aaa';
+  status.textContent = 'Import en cours…';
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  try {
+    const r = await fetch(`/api/brands/${currentBrandId}/products/import-csv`, { method: 'POST', body: fd });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      status.style.background = '#3a1a1a';
+      status.style.color = '#e74c3c';
+      status.textContent = data.error || `Erreur ${r.status}`;
+      return;
+    }
+    const imported = data.imported ?? data.success ?? '?';
+    const skipped = data.skipped ?? data.errors ?? 0;
+    status.style.background = '#1a3a1a';
+    status.style.color = '#2ecc71';
+    status.textContent = `✅ ${imported} référence(s) importée(s)${skipped ? ` — ${skipped} ignorée(s)` : ''}`;
+    refreshProducts();
+    setTimeout(() => closeModal('modal-csv-import'), 2000);
+  } catch(e) {
+    status.style.background = '#3a1a1a';
+    status.style.color = '#e74c3c';
+    status.textContent = 'Erreur réseau : ' + e.message;
+  }
+}
+
+// ── Feature 3: Tags & Notes acheteurs ────────────────────────────────
+function openBuyerTagsNotes(b) {
+  document.getElementById('btags-buyer-id').value = b.id;
+  document.getElementById('btags-buyer-name').textContent = b.name || b.email;
+  document.getElementById('btags-input').value = (b.tags || '').split(',').map(t => t.trim()).filter(Boolean).join(', ');
+  document.getElementById('btags-notes').value = b.internal_notes || '';
+  renderTagsPreview();
+  openModal('modal-buyer-tags');
+}
+
+function renderTagsPreview() {
+  const val = document.getElementById('btags-input').value;
+  const tags = val.split(',').map(t => t.trim()).filter(Boolean);
+  const colors = ['#1e3a5f','#3a1e5f','#1e3a1e','#3a2a00','#3a1a1a','#1a3a3a'];
+  document.getElementById('btags-preview').innerHTML = tags.map((tag, i) =>
+    `<span class="tag" style="background:${colors[i % colors.length]};color:#ddd;font-size:11px;padding:3px 9px;border-radius:12px;margin:2px">${esc(tag)}</span>`
+  ).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('btags-input');
+  if (inp) inp.addEventListener('input', renderTagsPreview);
+});
+
+async function saveBuyerTagsNotes() {
+  const id = document.getElementById('btags-buyer-id').value;
+  const tags = document.getElementById('btags-input').value.split(',').map(t => t.trim()).filter(Boolean).join(',');
+  const internal_notes = document.getElementById('btags-notes').value;
+  const r = await fetch(`/api/buyers/${id}/tags-notes`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tags, internal_notes })
+  });
+  if (r.ok) {
+    closeModal('modal-buyer-tags');
+    toast('Tags & notes enregistrés');
+    loadBuyers();
+  } else {
+    toast('Erreur lors de la sauvegarde', true);
+  }
+}
+
+// ── Feature 4: Stats produits par marque ─────────────────────────────
+let _brandStatsModal = null;
+async function loadBrandProductStats(brandId, brandName) {
+  _brandStatsModal = { brandId, brandName };
+  const existing = document.getElementById('modal-brand-stats');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  overlay.id = 'modal-brand-stats';
+  overlay.innerHTML = `<div class="modal" style="max-width:680px">
+    <h3>📊 Stats produits — ${esc(brandName)}</h3>
+    <div id="brand-stats-body" style="color:#aaa;padding:20px;text-align:center">Chargement…</div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-brand-stats').remove()">Fermer</button>
+    </div>
+  </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  try {
+    const data = await fetch(`/api/brands/${brandId}/product-stats`).then(r => r.json());
+    const body = document.getElementById('brand-stats-body');
+    if (!data || !data.length) {
+      body.innerHTML = '<p style="color:#555;font-size:13px">Aucune statistique disponible.</p>';
+      return;
+    }
+    body.innerHTML = `<div class="table-wrap"><table style="margin:0">
+      <thead><tr>
+        <th>Référence</th><th>Description</th><th style="text-align:center">👁 Vues</th><th style="text-align:center">🛒 Panier</th><th>Dernière activité</th>
+      </tr></thead>
+      <tbody>${data.map(p => {
+        const last = p.last_activity ? new Date(p.last_activity).toLocaleDateString('fr-FR') : '—';
+        return `<tr>
+          <td><strong style="font-size:12px">${esc(p.reference||'')}</strong></td>
+          <td style="font-size:12px;color:#888;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.description||'')}</td>
+          <td style="text-align:center">${p.views > 0 ? `<strong style="color:#CCEB3C">${p.views}</strong>` : '<span style="color:#444">—</span>'}</td>
+          <td style="text-align:center">${p.cart_adds > 0 ? `<strong style="color:#60a5fa">${p.cart_adds}</strong>` : '<span style="color:#444">—</span>'}</td>
+          <td style="font-size:11px;color:#666">${last}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  } catch(e) {
+    const body = document.getElementById('brand-stats-body');
+    if (body) body.innerHTML = '<p style="color:#e74c3c;font-size:13px">Erreur de chargement.</p>';
+  }
+}
+
+// ── Feature 5: Archivage saison ───────────────────────────────────────
+async function archiveRestoreSeason(seasonId, action) {
+  const label = action === 'archive' ? 'archiver' : 'restaurer';
+  if (!confirm(`Voulez-vous ${label} cette saison ?`)) return;
+  const r = await fetch(`/api/seasons/${seasonId}/${action}`, { method: 'POST' });
+  if (r.ok) {
+    toast(action === 'archive' ? 'Saison archivée' : 'Saison restaurée');
+    if (typeof loadSeasons === 'function') loadSeasons();
+    else loadBrands();
+  } else {
+    toast('Erreur lors de l\'opération', true);
+  }
 }
 
 // Init
