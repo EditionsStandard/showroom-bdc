@@ -519,7 +519,7 @@ function applyLang() {
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
-    <a id="nav-logout" href="/portal-logout" class="nav-logout">Déconnexion</a>
+    <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="localStorage.removeItem(CART_KEY)">Déconnexion</a>
     <button id="lang-btn" onclick="setLang(currentLang==='fr'?'en':'fr')" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:'Inter',sans-serif;letter-spacing:.06em">EN</button>
   </div>
   <div class="user-menu" id="user-menu">
@@ -542,7 +542,7 @@ function applyLang() {
       <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
       <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
       <div class="dropdown-sep"></div>
-      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout">⏻ Déconnexion</a>
+      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="localStorage.removeItem(CART_KEY)">⏻ Déconnexion</a>
     </div>
   </div>
 </div>

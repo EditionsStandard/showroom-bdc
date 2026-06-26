@@ -844,12 +844,12 @@ function saveCart() {
   Object.entries(cart).forEach(([k, v]) => {
     serializable[k] = { productId: v.product.id, size: v.size, color: v.color, qty: v.qty };
   });
-  localStorage.setItem(CART_KEY, JSON.stringify(serializable));
+  sessionStorage.setItem(CART_KEY, JSON.stringify(serializable));
 }
 
 function restoreCart() {
   try {
-    const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
+    const saved = JSON.parse(sessionStorage.getItem(CART_KEY) || '{}');
     Object.entries(saved).forEach(([k, v]) => {
       const p = productsData.find(p => p.id === v.productId);
       if (p && v.qty > 0) cart[k] = { product: p, size: v.size, color: v.color, qty: v.qty };
@@ -1011,7 +1011,7 @@ async function sendAgentSelectionFromCart() {
     btn.textContent = 'Envoyé ✓';
     // Vider le panier après envoi
     Object.keys(cart).forEach(k => delete cart[k]);
-    localStorage.removeItem(CART_KEY);
+    sessionStorage.removeItem(CART_KEY);
     updateCartBar();
     if (typeof applyFilters === 'function') applyFilters(); else renderProducts();
     // Réinitialiser le formulaire d'envoi
@@ -1812,7 +1812,7 @@ function showSuccess(email, offline, orderId) {
   document.getElementById('success-buyer-space-link').href = '/buyer/' + brandId;
 
   // Clear saved cart after successful order
-  localStorage.removeItem(CART_KEY);
+  sessionStorage.removeItem(CART_KEY);
 
   _successOrderId = orderId;
   _successEmail = email;
