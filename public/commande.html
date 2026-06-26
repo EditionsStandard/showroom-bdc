@@ -86,6 +86,11 @@
   .search-bar input::placeholder { color: var(--muted); }
   .search-icon { color: var(--muted); font-size: 16px; }
 
+  /* ── Bouton "ajouter référence sans taille" ── */
+  .btn-add-ref { width: calc(100% - 40px); margin: 0 20px 12px; display: block; background: transparent; border: 1px dashed var(--border); color: var(--soft); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 9px; cursor: pointer; font-family: 'Inter', sans-serif; transition: border-color .15s, color .15s; border-radius: 2px; }
+  .btn-add-ref:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-add-ref.active { border-color: var(--accent); color: var(--accent); background: rgba(204,235,60,.06); }
+
   /* ── Cart bar ── */
   .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; z-index: 40; }
   .cart-info strong { font-size: 17px; color: var(--black); display: block; font-weight: 700; }
@@ -1129,6 +1134,15 @@ function renderProducts(products) {
       + (p.price_retail > 0 ? '<span class="tag" style="background:#2a2a3a;color:#aaa">Retail ' + fmtPrice(p.price_retail) + '</span>' : '')
       + '</div></div>'
       + '<div class="size-rows">' + sizeRowsHtml + '</div>'
+      + (sizes.length > 0
+          ? (() => {
+              const color = selectedVariant[p.id] || '';
+              const isRef = !!(cart[p.id + '|' + color + '|—']);
+              return '<button class="btn-add-ref' + (isRef ? ' active' : '') + '" id="refbtn_' + p.id + '" onclick="toggleRefOnly(\'' + p.id + '\')">'
+                + (isRef ? '✓ Référence ajoutée' : '+ Ajouter la référence sans taille')
+                + '</button>';
+            })()
+          : '')
       + '</div>';
   }).join('');
 }
@@ -1194,6 +1208,26 @@ document.getElementById('products-container').addEventListener('click', function
   const delta = parseInt(btn.dataset.delta);
   changeQty(pid, size, delta);
 });
+
+function toggleRefOnly(pid) {
+  const color = selectedVariant[pid] || '';
+  const k = pid + '|' + color + '|—';
+  const product = productsData.find(p => p.id === pid);
+  if (!product) return;
+  const isActive = !!cart[k];
+  if (isActive) {
+    delete cart[k];
+  } else {
+    cart[k] = { product, size: '—', color, qty: 1 };
+  }
+  const btn = document.getElementById('refbtn_' + pid);
+  if (btn) {
+    btn.classList.toggle('active', !isActive);
+    btn.textContent = !isActive ? '✓ Référence ajoutée' : '+ Ajouter la référence sans taille';
+  }
+  saveCart();
+  updateCartBar();
+}
 
 function changeQty(pid, size, delta) {
   const color = selectedVariant[pid] || '';
