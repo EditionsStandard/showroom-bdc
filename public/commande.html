@@ -624,6 +624,11 @@
 
     <a id="success-buyer-space-link" href="#" style="display:block;font-size:11px;color:var(--soft);letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px;margin-bottom:20px" data-i18n="success_buyer_space">Voir l'historique de mes commandes</a>
 
+    <div id="section-orders" style="display:none;text-align:left;margin-bottom:20px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Mes commandes</div>
+      <div id="orders-list"></div>
+    </div>
+
     <p data-i18n="success_thanks" style="font-size:10px;color:var(--border);letter-spacing:.08em;text-transform:uppercase">Merci pour votre visite — Editions Standard</p>
   </div>
 </div>
@@ -975,6 +980,7 @@ async function init() {
     restoreCart();
     updateCartBar();
     detectAgentMode();
+    loadFavorites();
 
     // QR deep-link: ?product=ID → auto-start and scroll to product
     const qrProductId = new URLSearchParams(window.location.search).get('product');
@@ -1865,6 +1871,9 @@ function showSuccess(email, offline, orderId) {
   _successOrderId = orderId;
   _successEmail = email;
   _successClientName = document.getElementById('c-name').value.trim();
+
+  // Démarrer le suivi de commande (polling toutes les 30s)
+  startOrderTracking(orderId);
 }
 
 // ── Carousel lightbox ─────────────────────────────────
@@ -2019,6 +2028,140 @@ init().then(() => {
   updateOfflineBanner();
   if (navigator.onLine) syncPendingOrders();
 });
+
+// ── Historique commandes (portail acheteur) ───────────────────────
+let _orderPollInterval = null;
+
+async function loadMyOrders() {
+  const section = document.getElementById('section-orders');
+  const list = document.getElementById('orders-list');
+  if (!section || !list) return;
+  try {
+    const r = await fetch('/api/portal/my-orders');
+    if (!r.ok) return; // not logged in as buyer — silent
+    const orders = await r.json();
+    if (!orders.length) return;
+    section.style.display = 'block';
+    const statusBadge = s => {
+      const cfg = {
+        confirmed:   { color:'#4a9eff', bg:'rgba(74,158,255,.12)', label:'Confirmée' },
+        validated:   { color:'#5ec95e', bg:'rgba(94,201,94,.12)',  label:'Validée' },
+        shipped:     { color:'var(--accent)', bg:'rgba(204,235,60,.1)', label:'Expédiée' },
+        cancelled:   { color:'#e74c3c', bg:'rgba(231,76,60,.12)', label:'Annulée' },
+        in_production:{ color:'#f0a030', bg:'rgba(240,160,48,.12)', label:'En production' },
+      };
+      const c = cfg[s] || { color:'var(--muted)', bg:'rgba(255,255,255,.06)', label: s };
+      return `<span style="display:inline-block;padding:2px 10px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.color};background:${c.bg}">${c.label}</span>`;
+    };
+    list.innerHTML = orders.map(o => {
+      const date = new Date(o.created_at).toLocaleDateString('fr-FR');
+      const ref = o.order_number || o.id.slice(0,8).toUpperCase();
+      const total = (o.lines||[]).reduce((s,l) => s + l.quantity * parseFloat(l.unit_price||0), 0);
+      const linesHtml = (o.lines||[]).map(l =>
+        `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 8px 6px 0;font-size:12px;color:var(--white)">${esc(l.reference)}</td>
+          <td style="padding:6px 8px;font-size:11px;color:var(--soft)">${esc(l.size||'—')}</td>
+          <td style="padding:6px 8px;font-size:12px;color:var(--accent);font-weight:700;text-align:center">${l.quantity}</td>
+          <td style="padding:6px 0;font-size:11px;color:var(--soft);text-align:right">${parseFloat(l.unit_price||0).toFixed(2)} €</td>
+        </tr>`
+      ).join('');
+      return `<div style="background:var(--dark);border:1px solid var(--border);margin-bottom:8px">
+        <div onclick="toggleOrderDetail('${o.id}')" style="padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--white);letter-spacing:.04em">${esc(o.brand_name)} — ${esc(ref)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">${date} · ${total.toFixed(2)} €</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${statusBadge(o.status)}<span id="arrow-${o.id}" style="color:var(--muted);font-size:14px">›</span></div>
+        </div>
+        <div id="detail-${o.id}" style="display:none;border-top:1px solid var(--border);padding:0 16px 12px">
+          <table style="width:100%;border-collapse:collapse;margin-top:10px">
+            <thead><tr>
+              <th style="text-align:left;font-size:10px;color:var(--muted);padding-bottom:6px;text-transform:uppercase;letter-spacing:.08em">Référence</th>
+              <th style="text-align:left;font-size:10px;color:var(--muted);padding-bottom:6px;text-transform:uppercase;letter-spacing:.08em">Taille</th>
+              <th style="text-align:center;font-size:10px;color:var(--muted);padding-bottom:6px;text-transform:uppercase;letter-spacing:.08em">Qté</th>
+              <th style="text-align:right;font-size:10px;color:var(--muted);padding-bottom:6px;text-transform:uppercase;letter-spacing:.08em">PU HT</th>
+            </tr></thead>
+            <tbody>${linesHtml}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+function toggleOrderDetail(id) {
+  const el = document.getElementById('detail-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '›' : '‹';
+}
+
+// ── Favoris produits ──────────────────────────────────────────────
+let myFavorites = new Set();
+
+async function loadFavorites() {
+  try {
+    const r = await fetch('/api/portal/favorites');
+    if (!r.ok) return;
+    const ids = await r.json();
+    myFavorites = new Set(ids);
+    updateFavoriteButtons();
+  } catch(e) {}
+}
+
+function updateFavoriteButtons() {
+  document.querySelectorAll('.fav-btn[data-pid]').forEach(btn => {
+    const active = myFavorites.has(btn.dataset.pid);
+    btn.textContent = active ? '♥' : '♡';
+    btn.style.color = active ? 'var(--accent)' : 'var(--muted)';
+  });
+}
+
+async function toggleFavorite(pid) {
+  try {
+    const r = await fetch('/api/portal/favorites/' + pid, { method: 'POST' });
+    if (!r.ok) return;
+    const data = await r.json();
+    myFavorites = new Set(data.favorites);
+    updateFavoriteButtons();
+  } catch(e) {}
+}
+
+// Inject favorite button into each product card after render
+const _origRenderProducts = renderProducts;
+function renderProducts(products) {
+  _origRenderProducts(products);
+  // Add heart button overlay on each product header
+  document.querySelectorAll('.product-header').forEach(header => {
+    const card = header.closest('.product-card');
+    if (!card) return;
+    // Find pid from a qty-btn inside the card
+    const qbtn = card.querySelector('.qty-btn[data-pid]');
+    if (!qbtn) return;
+    const pid = qbtn.dataset.pid;
+    if (card.querySelector('.fav-btn')) return; // already added
+    const favBtn = document.createElement('button');
+    favBtn.className = 'fav-btn';
+    favBtn.dataset.pid = pid;
+    favBtn.textContent = myFavorites.has(pid) ? '♥' : '♡';
+    favBtn.title = 'Favori';
+    favBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);border:none;color:var(--muted);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;line-height:1';
+    favBtn.style.color = myFavorites.has(pid) ? 'var(--accent)' : 'var(--muted)';
+    favBtn.onclick = (e) => { e.stopPropagation(); toggleFavorite(pid); };
+    const imgWrap = card.querySelector('.product-img-wrap');
+    if (imgWrap) { imgWrap.style.position = 'relative'; imgWrap.appendChild(favBtn); }
+  });
+}
+
+// ── Suivi commande en temps réel après succès ─────────────────────
+function startOrderTracking(orderId) {
+  if (!orderId) return;
+  if (_orderPollInterval) clearInterval(_orderPollInterval);
+  loadMyOrders();
+  _orderPollInterval = setInterval(loadMyOrders, 30000);
+}
 </script>
 </div><!-- .site-wrap -->
 </body>

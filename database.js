@@ -271,6 +271,9 @@ async function init() {
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT ''",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT ''",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS favorites_json TEXT DEFAULT '[]'",
+    "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'sent'",
+    "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS draft_name TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

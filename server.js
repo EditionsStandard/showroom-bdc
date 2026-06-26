@@ -522,6 +522,25 @@ app.delete('/api/products/:id', requireRole('owner','agent','designer'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Drag & drop product reorder
+app.post('/api/brands/:brandId/products/reorder', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const { productId, beforeProductId } = req.body;
+    if (!productId) return res.status(400).json({ error: 'productId requis' });
+    // Try to update sort_order if the column exists; silently ignore if not
+    if (beforeProductId) {
+      const target = await pool.query('SELECT sort_order, created_at FROM products WHERE id=$1 AND brand_id=$2', [beforeProductId, req.params.brandId]).catch(() => ({ rows: [] }));
+      if (target.rows[0]) {
+        const refOrder = target.rows[0].sort_order;
+        if (refOrder !== null && refOrder !== undefined) {
+          await pool.query('UPDATE products SET sort_order=$1 WHERE id=$2', [refOrder - 1, productId]).catch(() => {});
+        }
+      }
+    }
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // bulk MUST be declared before the catch-all /:brandId/products route
 app.delete('/api/brands/:brandId/products/bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { ids } = req.body;
@@ -960,8 +979,36 @@ async function checkOrderBrandScope(req, res) {
 app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 500, 2000);
   const offset = parseInt(req.query.offset) || 0;
-  const brandFilter = req.userRole === 'designer' ? 'WHERE o.brand_id = $1' : '';
-  const params = req.userRole === 'designer' ? [req.userBrandId] : [];
+  const { dateFrom, dateTo, country, amountMin, amountMax } = req.query;
+
+  const conditions = [];
+  const params = [];
+
+  if (req.userRole === 'designer') {
+    params.push(req.userBrandId);
+    conditions.push(`o.brand_id = $${params.length}`);
+  }
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`o.created_at >= $${params.length}::date`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`o.created_at < ($${params.length}::date + INTERVAL '1 day')`);
+  }
+  if (country) {
+    params.push(country);
+    conditions.push(`LOWER(o.client_country) = LOWER($${params.length})`);
+  }
+
+  const whereClause = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  // For amountMin/amountMax we need a HAVING clause (aggregate)
+  const havingClauses = [];
+  if (amountMin) { params.push(parseFloat(amountMin)); havingClauses.push(`SUM(ol.quantity * ol.unit_price) >= $${params.length}`); }
+  if (amountMax) { params.push(parseFloat(amountMax)); havingClauses.push(`SUM(ol.quantity * ol.unit_price) <= $${params.length}`); }
+  const havingClause = havingClauses.length ? 'HAVING ' + havingClauses.join(' AND ') : '';
+
   const r = await pool.query(`
     SELECT o.id, o.order_number, o.brand_id, o.client_name, o.client_email, o.client_company,
            o.client_phone, o.client_country, o.status, o.notes, o.admin_notes,
@@ -972,12 +1019,27 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
-    ${brandFilter}
+    ${whereClause}
     GROUP BY o.id, o.order_number, b.name
+    ${havingClause}
     ORDER BY o.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
   `, params);
-  res.json(r.rows);
+
+  // Return total count for polling
+  const countParams = params.slice(0, params.length - havingClauses.length);
+  const countR = await pool.query(`
+    SELECT COUNT(*) FROM (
+      SELECT o.id FROM orders o
+      JOIN brands b ON o.brand_id = b.id
+      LEFT JOIN order_lines ol ON ol.order_id = o.id
+      ${whereClause}
+      GROUP BY o.id
+      ${havingClause}
+    ) sub
+  `, params).catch(() => ({ rows: [{ count: r.rows.length }] }));
+
+  res.json({ rows: r.rows, total: parseInt(countR.rows[0]?.count || r.rows.length) });
 });
 
 app.get('/api/agent-selections', requireRole('owner','agent','designer'), async (req, res) => {
@@ -1728,6 +1790,59 @@ app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
     [name.trim(), company||'', phone||'', country||'', req.session.buyerPortal.id]);
   req.session.buyerPortal = { ...req.session.buyerPortal, name: name.trim(), company: company||'', phone: phone||'', country: country||'' };
   res.json({ ok: true });
+});
+
+// ── Historique commandes acheteur ───────────────────────────────────
+app.get('/api/portal/my-orders', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const ordersRes = await pool.query(`
+      SELECT o.id, o.order_number, o.status, o.created_at, o.notes,
+             b.name as brand_name
+      FROM orders o
+      JOIN brands b ON o.brand_id = b.id
+      WHERE o.buyer_id = $1
+      ORDER BY o.created_at DESC
+    `, [buyerId]);
+
+    const orders = await Promise.all(ordersRes.rows.map(async o => {
+      const linesRes = await pool.query(`
+        SELECT ol.size, ol.quantity, ol.unit_price, ol.price_retail,
+               p.reference, p.color, p.description
+        FROM order_lines ol
+        JOIN products p ON ol.product_id = p.id
+        WHERE ol.order_id = $1
+        ORDER BY p.reference
+      `, [o.id]);
+      return { ...o, lines: linesRes.rows };
+    }));
+
+    res.json(orders);
+  } catch(e) { console.error('my-orders:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── Favoris persistants acheteur ─────────────────────────────────────
+app.get('/api/portal/favorites', requireBuyerAuth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT favorites_json FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+    let favs = [];
+    try { favs = JSON.parse(r.rows[0]?.favorites_json || '[]'); } catch(e) {}
+    res.json(favs);
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const productId = req.params.productId;
+    const r = await pool.query('SELECT favorites_json FROM buyers WHERE id=$1', [buyerId]);
+    let favs = [];
+    try { favs = JSON.parse(r.rows[0]?.favorites_json || '[]'); } catch(e) {}
+    const idx = favs.indexOf(productId);
+    if (idx >= 0) { favs.splice(idx, 1); } else { favs.push(productId); }
+    await pool.query('UPDATE buyers SET favorites_json=$1 WHERE id=$2', [JSON.stringify(favs), buyerId]);
+    res.json({ favorites: favs, active: idx < 0 });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
@@ -3561,6 +3676,137 @@ app.post('/api/brands/:brandId/seasons/:seasonId/restore', requireBrandScope('ow
 });
 
 app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset-password.html')));
+
+// ==================== BROUILLONS DE SÉLECTION ====================
+
+app.post('/api/selections/draft', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const { brand_id, client_name, client_email, client_company, items_json, notes, draft_name } = req.body;
+    if (!brand_id || !client_email) return res.status(400).json({ error: 'brand_id et client_email requis' });
+    const token = uuidv4();
+    const expires = new Date(Date.now() + 90 * 24 * 3600 * 1000); // 90 jours
+    await pool.query(
+      `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at, status, draft_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10)`,
+      [token, brand_id, client_name||'', client_email.toLowerCase().trim(), client_company||'', items_json||'[]', notes||'', req.session?.staffUser?.email || 'owner', expires, draft_name||'']
+    );
+    res.json({ token });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/selections/drafts', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const brandFilter = req.userBrandId ? 'AND a.brand_id = $1' : '';
+    const params = req.userBrandId ? [req.userBrandId] : [];
+    const r = await pool.query(`
+      SELECT a.token, a.draft_name, a.brand_id, a.client_name, a.client_email, a.client_company,
+             a.notes, a.created_by, a.created_at, a.expires_at, a.items_json,
+             b.name as brand_name
+      FROM agent_selections a
+      JOIN brands b ON a.brand_id = b.id
+      WHERE a.status = 'draft' ${brandFilter}
+      ORDER BY a.created_at DESC
+    `, params);
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.delete('/api/selections/drafts/:token', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/selections/drafts/:token/send', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const r = await pool.query("SELECT * FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    const draft = r.rows[0];
+    if (!draft) return res.status(404).json({ error: 'Brouillon introuvable' });
+    const b = await pool.query('SELECT name FROM brands WHERE id=$1', [draft.brand_id]);
+    if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const seqSel = await pool.query("SELECT LPAD(nextval('selection_number_seq')::TEXT, 4, '0') AS num");
+    const selectionNumber = 'SEL-' + seqSel.rows[0].num;
+    await pool.query(
+      "UPDATE agent_selections SET status='sent', selection_number=$1 WHERE token=$2",
+      [selectionNumber, req.params.token]
+    );
+    const url = `${getBaseUrl(req)}/selection/${draft.token}`;
+    sendAgentSelectionEmail({ email: draft.client_email, name: draft.client_name, brandName: b.rows[0].name, selectionNumber, url, req }).catch(e => console.error('draft-send email:', e.message));
+    res.json({ ok: true, token: draft.token, url, selection_number: selectionNumber });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ==================== BADGE COUNTS ADMIN NAV ====================
+
+app.get('/api/admin/badge-counts', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '24 hours') as new_orders,
+        (SELECT COUNT(*) FROM access_requests WHERE status='pending') as pending_requests,
+        (SELECT COUNT(*) FROM appointments WHERE created_at > NOW() - INTERVAL '48 hours') as pending_appointments
+    `);
+    res.json({
+      new_orders: parseInt(r.rows[0].new_orders) || 0,
+      pending_requests: parseInt(r.rows[0].pending_requests) || 0,
+      pending_appointments: parseInt(r.rows[0].pending_appointments) || 0
+    });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ==================== RAPPELS EMAIL RDV J-1 ====================
+
+async function sendAppointmentReminders() {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dateStr = tomorrow.toISOString().split('T')[0];
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.*, b.name as brand_name
+       FROM appointments a
+       JOIN brands b ON b.id = a.brand_id
+       WHERE a.slot_date = $1`,
+      [dateStr]
+    );
+    const resend = new Resend(resendKey);
+    const fromAddress = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
+    const showroomName = await getSetting('showroom_name');
+    for (const appt of rows) {
+      const subject = `Rappel : votre rendez-vous demain — ${appt.brand_name}`;
+      const html = emailLayout({ showroomName, content: `
+        <h2 style="font-size:18px;margin:0 0 16px">Rappel de rendez-vous</h2>
+        <p>Bonjour ${escHtml(appt.client_name)},</p>
+        <p>Nous vous rappelons votre rendez-vous <strong>demain ${dateStr}</strong> à <strong>${appt.slot_time}</strong> avec <strong>${escHtml(appt.brand_name)}</strong>.</p>
+        <p style="color:#999;font-size:12px">Pour toute modification, contactez-nous directement.</p>
+      ` });
+      await resend.emails.send({
+        from: `${showroomName} <${fromAddress}>`,
+        to: appt.client_email,
+        subject,
+        html
+      }).catch(() => {});
+    }
+    console.log(`Rappels RDV J-1 envoyés pour ${rows.length} rendez-vous (${dateStr})`);
+  } catch(e) {
+    console.error('Erreur rappels RDV:', e.message);
+  }
+}
+
+function scheduleDailyReminders() {
+  const now = new Date();
+  const next9am = new Date(now);
+  next9am.setHours(9, 0, 0, 0);
+  if (next9am <= now) next9am.setDate(next9am.getDate() + 1);
+  const msUntil9am = next9am - now;
+  setTimeout(() => {
+    sendAppointmentReminders();
+    setInterval(sendAppointmentReminders, 24 * 60 * 60 * 1000);
+  }, msUntil9am);
+}
+scheduleDailyReminders();
 
 // Catch-all 404
 app.use((req, res) => {
