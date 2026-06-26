@@ -43,6 +43,14 @@
     .msg { padding:40px 16px; text-align:center; color:var(--soft); }
     .err { color:#e07a7a; }
     #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+  @media (max-width: 767px) {
+    body { overflow-x: hidden; }
+    .wrap { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+    input[type=email], input[type=text], input[type=password] { font-size: 16px; }
+    .qty button { width: 44px; height: 44px; font-size: 20px; }
+    .qty input { height: 44px; font-size: 16px; }
+    .bar button { min-height: 44px; }
+  }
   </style>
   <script>
   (function() {

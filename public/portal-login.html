@@ -36,6 +36,12 @@
   .back-link { display: inline-block; margin-bottom: 20px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: underline; background: none; border: none; padding: 0; }
   #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
   #lang-toggle:hover { border-color: var(--accent); color: var(--white); }
+  @media (max-width: 767px) {
+    body { overflow-x: hidden; align-items: flex-start; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+    .card { padding: 32px 20px; }
+    input { font-size: 16px; }
+    .btn, .btn-ghost { min-height: 44px; }
+  }
 </style>
 <script>
 (function() {

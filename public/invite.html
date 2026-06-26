@@ -40,6 +40,12 @@
   #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Space Mono',monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
   #lang-toggle:hover { border-color: var(--accent); color: var(--white); }
   .sep { height: 1px; background: var(--border); margin: 20px 0; }
+  @media (max-width: 767px) {
+    body { overflow-x: hidden; align-items: flex-start; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+    .card { padding: 28px 20px; }
+    input { font-size: 16px; }
+    .btn { min-height: 44px; }
+  }
 </style>
 <script>
 (function() {

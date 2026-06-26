@@ -33,6 +33,12 @@
   .success-check { width:56px; height:56px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px; color:var(--accent); }
   #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Space Mono',monospace; letter-spacing:.05em; z-index:100; }
   #lang-btn:hover { border-color:var(--accent); color:var(--white); }
+  @media (max-width: 767px) {
+    body { overflow-x: hidden; }
+    .field input, .field textarea { font-size: 16px; }
+    .slot-btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+    .btn { min-height: 44px; }
+  }
 </style>
 <script>
 (function() {

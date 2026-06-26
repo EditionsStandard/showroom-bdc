@@ -39,6 +39,13 @@
     .login-link { text-align: center; margin-top: 20px; font-size: 11px; color: var(--soft); }
     .login-link a { color: var(--white); text-decoration: underline; }
     .required { color: var(--accent); }
+    @media (max-width: 767px) {
+      body { overflow-x: hidden; padding-bottom: env(safe-area-inset-bottom); justify-content: flex-start; padding-top: 24px; }
+      .card { padding: 28px 20px; }
+      .row { grid-template-columns: 1fr; gap: 0; }
+      input, select, textarea { font-size: 16px; }
+      .btn { min-height: 44px; }
+    }
   </style>
   <script>
   (function() {

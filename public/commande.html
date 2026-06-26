@@ -246,14 +246,34 @@
 
   @media (max-width: 767px) {
     /* Mobile tweaks */
+    body { overflow-x: hidden; }
     .product-img { height: 320px; }
-    .cart-bar { padding: 14px 16px; }
+    .cart-bar { padding: 14px 16px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
     .cart-info strong { font-size: 16px; }
-    .btn-next { padding: 12px 18px; font-size: 11px; }
+    .btn-next { padding: 12px 18px; font-size: 11px; min-height: 44px; }
     #page2, #page3, #page4 { padding: 0 0 110px; }
+    .page { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
     .form-section { border-left: none; border-right: none; }
     .recap-card { border-left: none; border-right: none; }
     .total-bar { border-left: none; border-right: none; }
+
+    /* Prevent iOS zoom: inputs must be 16px+ */
+    .field input,
+    .field textarea,
+    .field select,
+    .search-bar input { font-size: 16px; }
+
+    /* Touch targets ≥ 44px */
+    .btn-back { min-height: 44px; }
+    .color-btn { min-height: 44px; padding-top: 12px; padding-bottom: 12px; }
+    .col-filter { min-height: 44px; display: inline-flex; align-items: center; }
+
+    /* Recap table: horizontal scroll on mobile */
+    .recap-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .recap-table { min-width: 480px; }
+
+    /* Form grid: stack fields on mobile */
+    .form-fields-grid { display: block; }
   }
 
   /* ── Landing page 0 ── */
