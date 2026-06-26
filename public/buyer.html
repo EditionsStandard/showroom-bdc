@@ -61,6 +61,7 @@
     <div id="login-msg"></div>
   </div>
   <div id="orders-view" style="display:none">
+    <div id="brand-info" style="margin-bottom:20px"></div>
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 </div>
@@ -95,7 +96,22 @@ async function verifyAndLoad() {
   }
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('orders-view').style.display = 'block';
+  loadBrandInfo();
   loadOrders();
+}
+
+async function loadBrandInfo() {
+  try {
+    const brand = await fetch('/api/buyer/brand').then(r => r.json());
+    if (brand.error) return;
+    const el = document.getElementById('brand-info');
+    const logo = brand.logo_url || brand.logo;
+    const parts = [];
+    if (logo) parts.push(`<img src="${logo}" alt="${brand.name}" style="height:36px;object-fit:contain;margin-bottom:10px;display:block">`);
+    if (brand.about_text) parts.push(`<p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);line-height:1.6;margin-bottom:12px">${brand.about_text}</p>`);
+    if (brand.lookbook_url) parts.push(`<a href="${brand.lookbook_url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--black);background:var(--accent);border-radius:2px;padding:8px 14px;text-decoration:none;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">📄 Lookbook</a>`);
+    if (parts.length) el.innerHTML = `<div class="order-card" style="margin-bottom:20px">${parts.join('')}</div>`;
+  } catch(e) {}
 }
 
 async function loadOrders() {

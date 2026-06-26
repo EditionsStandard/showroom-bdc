@@ -1922,46 +1922,42 @@ let _globalSearchTimeout;
 function globalSearch(q) {
   clearTimeout(_globalSearchTimeout);
   const dd = document.getElementById('global-search-dropdown');
-  if (!q.trim()) { dd.style.display = 'none'; return; }
+  if (q.trim().length < 2) { dd.style.display = 'none'; return; }
   _globalSearchTimeout = setTimeout(async () => {
-    const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : (Array.isArray(d.orders) ? d.orders : [])).catch(() => []);
-    const [orders, buyers] = await Promise.all([
-      arr(fetch('/api/orders')),
-      arr(fetch('/api/buyers'))
-    ]);
-    const ql = q.toLowerCase();
-    const orderMatches = orders.filter(o =>
-      (o.client_name||'').toLowerCase().includes(ql) ||
-      (o.client_email||'').toLowerCase().includes(ql) ||
-      (o.client_company||'').toLowerCase().includes(ql)
-    ).slice(0,5);
-    const buyerMatches = buyers.filter(b =>
-      (b.name||'').toLowerCase().includes(ql) ||
-      (b.email||'').toLowerCase().includes(ql) ||
-      (b.company||'').toLowerCase().includes(ql)
-    ).slice(0,4);
-    if (!orderMatches.length && !buyerMatches.length) {
+    let data;
+    try {
+      data = await fetch('/api/admin/search?q=' + encodeURIComponent(q)).then(r => r.json());
+    } catch(e) { data = { orders: [], buyers: [], selections: [] }; }
+    const { orders = [], buyers = [], selections = [] } = data;
+    if (!orders.length && !buyers.length && !selections.length) {
       dd.innerHTML = `<div style="padding:14px;color:#555;font-size:12px;text-align:center">Aucun résultat</div>`;
       dd.style.display = 'block'; return;
     }
     let html = '';
-    if (orderMatches.length) {
+    if (orders.length) {
       html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Commandes</div>`;
-      html += orderMatches.map(o => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>openOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+      html += orders.map(o => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>openOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
         <span style="font-size:18px">📋</span>
-        <div><div style="font-size:13px;color:#eee">${esc(o.client_name||'')} — ${esc(o.client_company||'')}</div><div style="font-size:11px;color:#666">${esc(o.client_email||'')} · <span class="badge badge-${o.status}">${o.status}</span></div></div>
+        <div><div style="font-size:13px;color:#eee"><strong>${esc(o.order_number||o.id.slice(0,8).toUpperCase())}</strong> — ${esc(o.client_name||'')} <span style="color:#555">${esc(o.brand_name||'')}</span></div><div style="font-size:11px;color:#666">${esc(o.client_email||'')} · <span class="badge badge-${o.status}">${o.status}</span></div></div>
       </div>`).join('');
     }
-    if (buyerMatches.length) {
+    if (buyers.length) {
       html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Acheteurs</div>`;
-      html += buyerMatches.map(b => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('buyers')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+      html += buyers.map(b => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('buyers')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
         <span style="font-size:18px">👤</span>
         <div><div style="font-size:13px;color:#eee">${esc(b.name||b.email)}</div><div style="font-size:11px;color:#666">${esc(b.company||'')} · ${esc(b.email)}</div></div>
       </div>`).join('');
     }
+    if (selections.length) {
+      html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Sélections</div>`;
+      html += selections.map(s => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('selections')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+        <span style="font-size:18px">📂</span>
+        <div><div style="font-size:13px;color:#eee"><strong>${esc(s.selection_number||'')}</strong> — ${esc(s.client_name||'')}</div><div style="font-size:11px;color:#666">${esc(s.client_email||'')}</div></div>
+      </div>`).join('');
+    }
     dd.innerHTML = html;
     dd.style.display = 'block';
-  }, 250);
+  }, 300);
 }
 document.addEventListener('click', e => {
   if (!e.target.closest('#global-search-input') && !e.target.closest('#global-search-dropdown'))
