@@ -726,22 +726,22 @@ function applyLang() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_date">Date</label>
-        <input type="date" id="appt-date" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+        <input type="date" id="appt-date" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
       </div>
       <div>
         <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_time">Heure</label>
-        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
           ${Array.from({length:19},(_,i)=>{const h=Math.floor(i/2)+9,m=i%2?'30':'00';return `<option value="${String(h).padStart(2,'0')}:${m}">${String(h).padStart(2,'0')}h${m}</option>`}).join('')}
         </select>
       </div>
     </div>
     <div style="margin-bottom:12px">
       <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_phone">Téléphone</label>
-      <input type="tel" id="appt-phone" placeholder="+33 6 …" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+      <input type="tel" id="appt-phone" placeholder="+33 6 …" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
     </div>
     <div style="margin-bottom:20px">
       <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_notes">Message</label>
-      <textarea id="appt-notes" rows="3" style="width:100%;box-sizing:border-box;padding:9px 12px;background:#0a0a0a;border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+      <textarea id="appt-notes" rows="3" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px;resize:vertical"></textarea>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="document.getElementById('modal-appt').classList.remove('open')" style="padding:10px 18px;border-radius:6px;border:1px solid #333;background:transparent;color:#aaa;cursor:pointer;font-size:13px">Annuler</button>

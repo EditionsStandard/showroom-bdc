@@ -159,6 +159,13 @@ const publicLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+const passwordLimiter = rateLimit({
+  windowMs: 900000, // 15 minutes
+  max: 5,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // ==================== ADMIN ROUTES ====================
 
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
@@ -1392,7 +1399,7 @@ app.get('/api/portal/currencies', requireBuyerAuth, async (req, res) => {
   res.json(currencies);
 });
 
-app.post('/api/portal/change-password', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/change-password', requireBuyerAuth, passwordLimiter, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
@@ -2188,7 +2195,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() + INTERVAL \'30 days\')',
     [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), (website||'').trim(), (message||'').trim()]
   );
   // Notifier l'admin

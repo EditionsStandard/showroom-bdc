@@ -457,7 +457,7 @@
 <!-- Bandeau MODE AGENT (visible seulement si agent/owner connecté) -->
 <div id="agent-bar" style="display:none;background:#10243a;color:#cfe3ff;padding:10px 16px;font-size:13px;display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1d3a5c">
   <span>👤 <strong>Mode agent</strong> — construis la sélection, puis envoie-la à l'acheteur.</span>
-  <button onclick="openAgentSend()" style="background:#CCEB3C;color:#111;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
+  <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
 </div>
 
 <!-- Modal envoi sélection agent -->
@@ -471,7 +471,7 @@
     <div id="agent-send-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;gap:10px">
       <button onclick="closeAgentSend()" style="flex:1;background:transparent;border:1px solid #333;color:#bbb;border-radius:8px;padding:11px;cursor:pointer;font-family:inherit">Annuler</button>
-      <button id="agent-send-btn" onclick="sendAgentSelectionFromCart()" style="flex:1;background:#CCEB3C;color:#111;border:none;border-radius:8px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer</button>
+      <button id="agent-send-btn" onclick="sendAgentSelectionFromCart()" style="flex:1;background:var(--accent);color:var(--dark);border:none;border-radius:8px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer</button>
     </div>
   </div>
 </div>

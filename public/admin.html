@@ -327,11 +327,11 @@
     <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:360px;position:relative">
       <input id="global-search-input" type="text" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
         style="width:100%;padding:7px 14px;border-radius:20px;border:1px solid #333;background:#0f0f0f;color:#fff;font-size:12px;font-family:inherit;outline:none">
-      <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1a1a1a;border:1px solid #333;border-radius:8px;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
+      <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1px solid #333;border-radius:8px;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#aaa;cursor:pointer">☀️</button>
-      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#CCEB3C;cursor:pointer">EN</button>
+      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:var(--accent);cursor:pointer">EN</button>
     </div>
     <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid #333;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -435,8 +435,8 @@
     </div>
 
     <!-- Sous-onglets -->
-    <div style="display:flex;gap:0;border-bottom:1px solid #252525;margin-bottom:20px">
-      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid #CCEB3C;color:#f5f4f0;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">
+      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--white);padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
       <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
     </div>
 
@@ -686,7 +686,7 @@
         <button class="btn btn-danger btn-sm" id="brand-logo-clear" onclick="clearBrandImg('brand-logo','brand-logo-preview','brand-logo-clear')" style="display:none">✕ Supprimer</button>
       </div>
       <div id="brand-logo-preview" style="display:none;margin-top:6px">
-        <img id="brand-logo-thumb" src="" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px;border:1px solid #333;background:#1a1a1a;padding:4px">
+        <img id="brand-logo-thumb" src="" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px;border:1px solid #333;background:var(--input-bg);padding:4px">
       </div>
       <input type="hidden" id="brand-logo">
     </div>
@@ -776,7 +776,7 @@
       <h3 id="modal-products-title" style="margin:0;font-size:17px">Collection</h3>
     </div>
 
-    <div class="card" style="padding:14px 16px;margin-bottom:16px;background:#0a0a0a">
+    <div class="card" style="padding:14px 16px;margin-bottom:16px;background:var(--black)">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888">Collection</span>
         <select id="collection-filter" onchange="onCollectionFilterChange()" style="min-width:160px">
@@ -791,7 +791,7 @@
       </div>
     </div>
 
-    <div class="card" style="padding:12px 16px;margin-bottom:16px;background:#0a0a0a;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <div class="card" style="padding:12px 16px;margin-bottom:16px;background:var(--black);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888">Lookbook (PDF)</span>
       <span id="col-lookbook-status" style="font-size:12px;color:#888">Aucun</span>
       <input type="file" id="col-lookbook-file" accept="application/pdf" style="display:none" onchange="uploadCollectionLookbook(this)">
@@ -988,7 +988,7 @@
     </div>
 
     <div id="invite-has-link" style="display:none">
-      <div style="background:#0a0a0a;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <div style="background:var(--black);border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
         <span id="invite-url" style="flex:1;font-size:12px;color:#aaa;word-break:break-all;font-family:'Courier New',monospace"></span>
         <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()" data-t="btn_copy" style="flex-shrink:0">📋 Copier</button>
       </div>
@@ -1001,8 +1001,8 @@
         <button class="btn btn-sm" id="invite-toggle-btn" onclick="toggleInviteLink()" data-t="btn_deactivate">Désactiver</button>
       </div>
 
-      <div style="border-top:1px solid #252525;padding-top:14px">
-        <div id="invite-regen-confirm" style="display:none;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px">
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div id="invite-regen-confirm" style="display:none;background:var(--input-bg);border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px">
           <p style="font-size:12px;color:#aaa;margin-bottom:10px" data-t="invite_regenerate_note">Régénérer invalide l'ancien lien immédiatement.</p>
           <div style="display:flex;gap:8px">
             <button class="btn btn-danger btn-sm" onclick="confirmRegenerate()" data-t="btn_confirm_regen">✓ Confirmer</button>
@@ -1055,7 +1055,7 @@
     </div>
 
     <!-- Client -->
-    <div style="background:#0a0a0a;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:13px">
+    <div style="background:var(--black);border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:13px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px">Client</div>
       <div id="mo-client"></div>
     </div>
@@ -1066,18 +1066,18 @@
       <thead><tr><th data-t="th_ref">Référence</th><th data-t="th_color">Couleur</th><th data-t="th_size">Taille</th><th data-t="th_qty">Qté</th><th data-t="th_unit_price">P.U. HT</th><th data-t="th_total_ht">Total HT</th></tr></thead>
       <tbody id="mo-lines"></tbody>
     </table></div>
-    <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:#0a0a0a;border-radius:6px;margin-bottom:14px"></div>
+    <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:var(--black);border-radius:6px;margin-bottom:14px"></div>
 
     <!-- Notes -->
     <div id="mo-notes-wrap" style="display:none;margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Notes acheteur</div>
-      <div id="mo-notes" style="font-size:13px;color:#aaa;background:#0a0a0a;padding:12px;border-radius:8px;line-height:1.6"></div>
+      <div id="mo-notes" style="font-size:13px;color:#aaa;background:var(--black);padding:12px;border-radius:8px;line-height:1.6"></div>
     </div>
 
     <!-- Notes internes admin -->
     <div id="mo-admin-notes-wrap" style="margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🔒 Notes internes (admin uniquement)</div>
-      <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
+      <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
       <button class="btn btn-sm" style="margin-top:6px;background:#222;color:#aaa" onclick="saveAdminNotes()">💾 Sauvegarder note</button>
     </div>
 
@@ -1120,11 +1120,11 @@
     <p id="relance-subtitle" style="font-size:12px;color:#888;margin-bottom:16px"></p>
     <div class="form-group">
       <label style="font-size:11px;font-weight:600;letter-spacing:.5px;color:#666;text-transform:uppercase">Message personnalisé <span style="color:#555;font-weight:400">(optionnel)</span></label>
-      <textarea id="relance-message" rows="4" placeholder="Laissez vide pour utiliser le message standard…" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
+      <textarea id="relance-message" rows="4" placeholder="Laissez vide pour utiliser le message standard…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-relance')">Annuler</button>
-      <button class="btn" onclick="sendRelance()" style="background:#CCEB3C;color:#111;font-weight:700">📧 Envoyer</button>
+      <button class="btn" onclick="sendRelance()" style="background:var(--accent);color:var(--dark);font-weight:700">📧 Envoyer</button>
     </div>
   </div>
 </div>

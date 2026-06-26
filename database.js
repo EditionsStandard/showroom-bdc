@@ -268,6 +268,7 @@ async function init() {
     )`,
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS instagram TEXT DEFAULT ''",
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS website TEXT DEFAULT ''",
+    "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
@@ -310,6 +311,7 @@ async function init() {
     DELETE FROM selection_shares WHERE expires_at < NOW() - INTERVAL '7 days';
     DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
     DELETE FROM buyer_carts WHERE updated_at < NOW() - INTERVAL '90 days';
+    DELETE FROM access_requests WHERE status='pending' AND created_at < NOW() - INTERVAL '30 days';
   `).catch(() => {});
 
   // Index pour les performances
