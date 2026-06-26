@@ -167,7 +167,7 @@ function render() {
     let imgs = []; try { imgs = JSON.parse(l.product.images || '[]'); } catch(e) {}
     const src = imgs[0] || l.product.image_url || '';
     const img = src ? `<img src="${src}">` : `<div class="ph"></div>`;
-    return `<div class="line">
+    return `<div class="line" id="line-${idx}">
       ${img}
       <div class="info">
         <div class="ref">${esc(l.product.reference)}</div>
@@ -178,6 +178,7 @@ function render() {
         <button onclick="chg(${idx},-1)">−</button>
         <input type="number" min="0" id="q${idx}" value="${l.quantity}" oninput="recalc()">
         <button onclick="chg(${idx},1)">+</button>
+        <button onclick="removeLine(${idx})" title="Retirer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1;margin-left:4px">✕</button>
       </div>
     </div>`;
   }).join('');
@@ -195,6 +196,9 @@ function render() {
   document.getElementById('wrap').innerHTML = `
     <div class="head">${logo}<h1>${esc(b.name)}</h1></div>
     <div class="sub">${t('sub_prepared', esc(clientName))}</div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button onclick="clearAllLines()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:2px;font-family:'Space Mono',monospace;letter-spacing:.04em">${t('clear_all') || 'Tout effacer'}</button>
+    </div>
     ${linesHtml}
     <div class="card">
       <div class="field"><label>${t('lbl_store')}</label><input type="text" id="company" value="${esc(DATA.client.company||'')}"></div>
@@ -220,6 +224,15 @@ function render() {
   recalc();
 }
 
+function removeLine(idx) {
+  DATA.lines.splice(idx, 1);
+  render();
+}
+function clearAllLines() {
+  if (!confirm(t('confirm_clear_all') || 'Effacer toute la sélection ?')) return;
+  DATA.lines = [];
+  render();
+}
 function chg(idx, d) {
   const el = document.getElementById('q'+idx);
   el.value = Math.max(0, (parseInt(el.value)||0) + d);
