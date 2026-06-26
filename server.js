@@ -1094,7 +1094,7 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
 
 app.post('/api/public/selection-pdf', async (req, res) => {
   try {
-    const { brand_id, client_name, client_email, client_company, client_country, lines } = req.body;
+    const { brand_id, client_name, client_email, client_company, client_country, notes, lines } = req.body;
     const bRes = await pool.query('SELECT * FROM brands WHERE id=$1', [brand_id]);
     const brand = bRes.rows[0];
     if (!brand) return res.status(404).json({ error: 'Marque introuvable' });
@@ -1105,7 +1105,7 @@ app.post('/api/public/selection-pdf', async (req, res) => {
     const resolvedLines = (lines||[]).filter(l => productMap[l.product_id]).map(l => ({ ...l, product: productMap[l.product_id] }));
     const showroomName = await getSetting('showroom_name');
     const agentName = await getSetting('agent_name');
-    const pdf = await generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, lines: resolvedLines, showroomName, agentName });
+    const pdf = await generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, notes, lines: resolvedLines, showroomName, agentName });
     const ref = (client_name||'Selection').replace(/\s/g,'-').slice(0,20);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Selection-${ref}-${brand.name.replace(/\s/g,'-')}.pdf"`);
@@ -2291,7 +2291,7 @@ app.get('/rdv/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public
 
 // ==================== PDF ====================
 
-async function generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, lines, showroomName, agentName }) {
+async function generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, notes, lines, showroomName, agentName }) {
   let logoBuf = null;
   try {
     const svg2img = require('svg2img');
@@ -2376,6 +2376,15 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
       .text('TOTAL HT', 390, rowY, { width: 80 })
       .text(`${total.toFixed(2)} €`, 390, rowY, { width: 145, align: 'right' });
     rowY += 34;
+
+    // Commentaires agent
+    if (notes && notes.trim()) {
+      doc.rect(50, rowY, 495, 14).fillColor('#f0f0f0').fill();
+      doc.fontSize(7).fillColor('#888').font('Helvetica-Bold').text('COMMENTAIRES', 58, rowY + 4);
+      rowY += 18;
+      doc.fontSize(9).fillColor('#333').font('Helvetica').text(notes.trim(), 58, rowY, { width: 479 });
+      rowY += doc.heightOfString(notes.trim(), { width: 479 }) + 14;
+    }
 
     // Watermark notice
     doc.rect(50, rowY, 495, 38).fillColor('#fffde7').fill();
