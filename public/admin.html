@@ -311,6 +311,7 @@
     <a data-section="settings" id="nav-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
+    <a data-section="access-requests" id="nav-access-requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
     <a data-section="stats" id="nav-stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
     <a data-section="agenda" id="nav-agenda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
   </nav>
@@ -604,6 +605,17 @@
         <tbody id="buyers-body"></tbody>
       </table></div>
     </div>
+  </div>
+
+  <!-- DEMANDES D'ACCÈS -->
+  <div id="access-requests" class="section">
+    <h1>Demandes d'accès</h1>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm" id="ar-tab-pending" onclick="switchArTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
+      <button class="btn btn-secondary btn-sm" id="ar-tab-approved" onclick="switchArTab('approved')">Approuvées</button>
+      <button class="btn btn-secondary btn-sm" id="ar-tab-rejected" onclick="switchArTab('rejected')">Refusées</button>
+    </div>
+    <div id="ar-list"></div>
   </div>
 
   <!-- STATS -->
@@ -1451,6 +1463,7 @@ function toggleLang() {
     else if (id === 'brands') loadBrands();
     else if (id === 'staff') loadStaff();
     else if (id === 'buyers') loadBuyers();
+    else if (id === 'access-requests') loadAccessRequests();
   }
   // Re-render products table if open
   if (document.getElementById('modal-products').classList.contains('open')) filterProducts();
@@ -1640,6 +1653,74 @@ async function deleteAppt(id) {
   if (!confirm('Supprimer ce rendez-vous ?')) return;
   const r = await fetch('/api/admin/appointments/' + id, { method: 'DELETE' });
   if (r.ok) { _allAgenda = _allAgenda.filter(a => a.id !== id); filterAgenda(); toast('RDV supprimé'); }
+}
+
+let _arTab = 'pending';
+let _arData = [];
+
+async function loadAccessRequests() {
+  const list = document.getElementById('ar-list');
+  list.innerHTML = '<div style="color:var(--soft);font-size:13px;padding:20px 0">Chargement…</div>';
+  const r = await fetch('/api/access-requests').catch(() => null);
+  if (!r || !r.ok) { list.innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur chargement</div>'; return; }
+  _arData = await r.json();
+  const pending = _arData.filter(x => x.status === 'pending').length;
+  const badge = document.getElementById('access-requests-badge');
+  if (badge) { badge.textContent = pending; badge.style.display = pending ? '' : 'none'; }
+  renderArList();
+}
+
+function switchArTab(tab) {
+  _arTab = tab;
+  ['pending','approved','rejected'].forEach(t => {
+    const btn = document.getElementById(`ar-tab-${t}`);
+    if (btn) { btn.style.background = t === tab ? 'var(--accent)' : ''; btn.style.color = t === tab ? 'var(--black)' : ''; btn.className = t === tab ? 'btn btn-sm' : 'btn btn-secondary btn-sm'; }
+  });
+  renderArList();
+}
+
+function renderArList() {
+  const list = document.getElementById('ar-list');
+  const rows = _arData.filter(x => x.status === _arTab);
+  if (!rows.length) {
+    const labels = { pending: 'Aucune demande en attente', approved: 'Aucune demande approuvée', rejected: 'Aucune demande refusée' };
+    list.innerHTML = `<div style="color:var(--soft);font-size:13px;padding:20px 0">${labels[_arTab]}</div>`;
+    return;
+  }
+  list.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Message</th>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}</tr></thead>
+    <tbody>${rows.map(x => {
+      const date = new Date(x.created_at).toLocaleDateString('fr-FR');
+      const statusBadge = x.status === 'approved'
+        ? '<span style="color:#34d399;font-size:11px">✓ Approuvée</span>'
+        : '<span style="color:#f87171;font-size:11px">✗ Refusée</span>';
+      const actions = _arTab === 'pending'
+        ? `<td style="white-space:nowrap">
+            <button class="btn btn-sm" onclick="handleAccessRequest('${x.id}','approve')" style="background:#34d399;color:#000;margin-right:4px">✓ Approuver</button>
+            <button class="btn btn-secondary btn-sm" onclick="handleAccessRequest('${x.id}','reject')">✗ Refuser</button>
+           </td>`
+        : `<td>${statusBadge}</td>`;
+      return `<tr>
+        <td style="white-space:nowrap;font-size:12px">${date}</td>
+        <td><strong>${esc(x.name)}</strong></td>
+        <td>${esc(x.company||'—')}</td>
+        <td style="font-size:12px">${esc(x.email)}</td>
+        <td style="font-size:12px">${esc(x.phone||'—')}</td>
+        <td style="font-size:12px">${esc(x.country||'—')}</td>
+        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.message||'')}">${esc(x.message||'—')}</td>
+        ${actions}
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+async function handleAccessRequest(id, action) {
+  const label = action === 'approve' ? 'approuver' : 'refuser';
+  if (!confirm(`Confirmer : ${label} cette demande ?`)) return;
+  const r = await fetch(`/api/access-requests/${id}/${action}`, { method: 'POST' }).catch(() => null);
+  if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
+  toast(action === 'approve' ? 'Demande approuvée — email envoyé à l\'acheteur' : 'Demande refusée');
+  loadAccessRequests();
 }
 
 async function loadBuyers() {
@@ -2407,7 +2488,7 @@ async function copyShareLink(type) {
   const brandId = sel ? sel.value : '';
   let url = '';
   if (type === 'global') {
-    url = `${location.origin}/editions-showroom-b2b-portail`;
+    url = `${location.origin}/demande-acces`;
   } else if (type === 'mailto') {
     const email = document.getElementById('s-email')?.value || 'showroom@editionsstandard.com';
     const subject = encodeURIComponent('Demande d\'accès — Showroom Editions Standard');
@@ -3698,6 +3779,12 @@ async function saveSettings() {
 loadDashboard();
 applyLang();
 initOrderPush();
+// Badge demandes d'accès en attente
+fetch('/api/access-requests').then(r => r.json()).then(data => {
+  const pending = data.filter(x => x.status === 'pending').length;
+  const badge = document.getElementById('access-requests-badge');
+  if (badge && pending) { badge.textContent = pending; badge.style.display = ''; }
+}).catch(() => {});
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(o => {

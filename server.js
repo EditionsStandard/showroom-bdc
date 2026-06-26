@@ -818,7 +818,7 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
     const brandFilter = req.userRole === 'designer' ? 'AND a.brand_id = $1' : '';
     const params = req.userRole === 'designer' ? [req.userBrandId] : [];
     const r = await pool.query(`
-      SELECT a.token, a.brand_id, a.client_name, a.client_email, a.client_company,
+      SELECT a.token, a.selection_number, a.brand_id, a.client_name, a.client_email, a.client_company,
              a.notes, a.created_by, a.used, a.created_at, a.expires_at,
              b.name as brand_name,
              a.items_json
@@ -1209,30 +1209,34 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
     const cleanItems = items.filter(i => i.quantity > 0).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
     const token = crypto.randomBytes(24).toString('hex');
     const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
+    const seqSel = await pool.query("SELECT LPAD(nextval('selection_number_seq')::TEXT, 4, '0') AS num");
+    const selectionNumber = 'SEL-' + seqSel.rows[0].num;
     await pool.query(
-      `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [token, brandId, client_name||'', client_email.toLowerCase().trim(), client_company||'', JSON.stringify(cleanItems), notes||'', req.session?.staffUser?.email || 'owner', expires]
+      `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at, selection_number)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [token, brandId, client_name||'', client_email.toLowerCase().trim(), client_company||'', JSON.stringify(cleanItems), notes||'', req.session?.staffUser?.email || 'owner', expires, selectionNumber]
     );
     const url = `${getBaseUrl(req)}/selection/${token}`;
-    sendAgentSelectionEmail({ email: client_email.toLowerCase().trim(), name: client_name, brandName: b.rows[0].name, url, req }).catch(e => console.error('agent-selection email:', e.message));
-    res.json({ ok: true, token, url });
+    sendAgentSelectionEmail({ email: client_email.toLowerCase().trim(), name: client_name, brandName: b.rows[0].name, selectionNumber, url, req }).catch(e => console.error('agent-selection email:', e.message));
+    res.json({ ok: true, token, url, selection_number: selectionNumber });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-async function sendAgentSelectionEmail({ email, name, brandName, url, req }) {
+async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber, url, req }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email sélection agent non envoyé'); return; }
   const resend = new Resend(resendKey);
   const showroomName = await getSetting('showroom_name');
   const fromField = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
+  const numLabel = selectionNumber ? ` — Réf. ${selectionNumber}` : '';
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
-    subject: `Votre sélection ${brandName} — à valider`,
+    subject: `Votre sélection ${brandName}${numLabel} — à valider`,
     html: emailLayout({ showroomName, content: `
       <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
       <p>Une sélection <strong>${escHtml(brandName)}</strong> a été préparée pour vous lors de notre rendez-vous.</p>
+      ${selectionNumber ? `<p style="font-size:13px;color:#888">Référence : <strong>${escHtml(selectionNumber)}</strong></p>` : ''}
       <p>Cliquez ci-dessous pour la consulter, créer votre accès et la valider :</p>
       ${emailBtn(url, 'Voir et valider ma sélection →')}
       <p style="font-size:13px;color:#888;margin-top:28px">Ce lien est valable 30 jours.</p>
@@ -2165,6 +2169,130 @@ app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','ag
 });
 
 app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
+app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'public', 'demande-acces.html')));
+
+// ── Demandes d'accès acheteur ──────────────────────────────────────────────
+
+app.post('/api/access-request', async (req, res) => {
+  const { name, company, phone, email, country, message } = req.body;
+  if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
+  // Vérifier doublon (même email en pending)
+  const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
+  if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
+  const id = uuidv4();
+  await pool.query(
+    'INSERT INTO access_requests (id,name,company,phone,email,country,message) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (message||'').trim()]
+  );
+  // Notifier l'admin
+  const [showroomName, adminEmail, fromAddress] = await Promise.all([
+    getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
+  ]);
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey && adminEmail) {
+    const resend = new Resend(resendKey);
+    const from = fromAddress || 'showroom@editionsstandard.com';
+    const adminUrl = `${req.protocol}://${req.get('host')}/admin`;
+    await resend.emails.send({
+      from: `${showroomName} <${from}>`,
+      to: [adminEmail],
+      subject: `Nouvelle demande d'accès — ${name} (${company || email})`,
+      html: emailLayout({ showroomName, content: `
+        <p>Une nouvelle demande d'accès au showroom vient d'être soumise.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888;width:120px">Nom</td><td style="padding:8px;border-bottom:1px solid #eee"><strong>${escHtml(name)}</strong></td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Société</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(company||'—')}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Téléphone</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(phone||'—')}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Email</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(email)}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888">Pays</td><td style="padding:8px;border-bottom:1px solid #eee">${escHtml(country||'—')}</td></tr>
+          ${message ? `<tr><td style="padding:8px;color:#888;vertical-align:top">Message</td><td style="padding:8px">${escHtml(message)}</td></tr>` : ''}
+        </table>
+        ${emailBtn(adminUrl, 'GÉRER LES DEMANDES →')}
+      ` })
+    }).catch(e => console.error('access-request notify:', e.message));
+  }
+  res.json({ ok: true });
+});
+
+app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) => {
+  const r = await pool.query('SELECT * FROM access_requests ORDER BY created_at DESC');
+  res.json(r.rows);
+});
+
+app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async (req, res) => {
+  const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
+  if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
+  const req2 = r.rows[0];
+  if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
+
+  // Créer le compte acheteur avec mot de passe temporaire
+  const tempPassword = crypto.randomBytes(4).toString('hex'); // ex: a3f9c12d
+  const hash = await bcrypt.hash(tempPassword, 10);
+  const buyerId = uuidv4();
+  try {
+    await pool.query(
+      'INSERT INTO buyers (id,email,password_hash,name,company,phone,country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [buyerId, req2.email, hash, req2.name, req2.company, req2.phone, req2.country]
+    );
+  } catch(e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
+    throw e;
+  }
+  await pool.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
+
+  // Email de bienvenue avec les identifiants
+  const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey) {
+    const resend = new Resend(resendKey);
+    const from = fromAddress || 'showroom@editionsstandard.com';
+    const loginUrl = `${req.protocol}://${req.get('host')}/editions-showroom-b2b-portail`;
+    await resend.emails.send({
+      from: `${showroomName} <${from}>`,
+      to: [req2.email],
+      subject: `Votre accès au showroom ${showroomName} est confirmé`,
+      html: emailLayout({ showroomName, content: `
+        <p>Bonjour <strong>${escHtml(req2.name)}</strong>,</p>
+        <p>Votre demande d'accès au showroom <strong>${escHtml(showroomName)}</strong> a été acceptée.</p>
+        <p>Voici vos identifiants de connexion :</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+          <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#888;width:120px">Email</td><td style="padding:8px;border-bottom:1px solid #eee"><strong>${escHtml(req2.email)}</strong></td></tr>
+          <tr><td style="padding:8px;color:#888">Mot de passe</td><td style="padding:8px"><strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${escHtml(tempPassword)}</strong></td></tr>
+        </table>
+        <p style="font-size:12px;color:#888">Vous pourrez modifier votre mot de passe après votre première connexion.</p>
+        ${emailBtn(loginUrl, 'ACCÉDER AU SHOWROOM →')}
+      ` })
+    }).catch(e => console.error('access-request approve email:', e.message));
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async (req, res) => {
+  const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
+  if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
+  const req2 = r.rows[0];
+  if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
+  await pool.query("UPDATE access_requests SET status='rejected' WHERE id=$1", [req.params.id]);
+
+  const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey) {
+    const resend = new Resend(resendKey);
+    const from = fromAddress || 'showroom@editionsstandard.com';
+    await resend.emails.send({
+      from: `${showroomName} <${from}>`,
+      to: [req2.email],
+      subject: `Votre demande d'accès — ${showroomName}`,
+      html: emailLayout({ showroomName, content: `
+        <p>Bonjour <strong>${escHtml(req2.name)}</strong>,</p>
+        <p>Nous avons bien reçu votre demande d'accès au showroom <strong>${escHtml(showroomName)}</strong>.</p>
+        <p>Après examen, nous ne sommes pas en mesure de donner suite à votre demande pour le moment.</p>
+        <p>N'hésitez pas à nous contacter directement pour plus d'informations.</p>
+      ` })
+    }).catch(e => console.error('access-request reject email:', e.message));
+  }
+  res.json({ ok: true });
+});
 
 app.get('/api/invite/:token', async (req, res) => {
   const r = await pool.query(`

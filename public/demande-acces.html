@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Demande d'accès — Showroom Editions Standard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DotGothic16&display=swap" rel="stylesheet">
+  <style>
+    :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; }
+    [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--black); color: var(--white); font-family: 'Space Mono','Courier New',monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 40px; width: 100%; max-width: 420px; }
+    .logo-wrap { text-align: center; margin-bottom: 32px; }
+    .logo-wrap img { width: 52px; height: 52px; border-radius: 6px; }
+    .logo-wrap h1 { font-family: 'DotGothic16','Space Mono',monospace; font-size: 16px; color: var(--white); font-weight: 400; margin-top: 12px; letter-spacing: .02em; }
+    .logo-wrap .sub { color: var(--muted); font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: .1em; }
+    .intro { font-size: 12px; color: var(--soft); line-height: 1.7; margin-bottom: 24px; padding: 12px 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 2px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .1em; }
+    input, select, textarea { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 2px; padding: 11px 13px; font-size: 13px; color: var(--white); font-family: 'Space Mono',monospace; outline: none; transition: border-color .2s; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    select option { background: var(--dark); }
+    textarea { resize: vertical; min-height: 80px; }
+    .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Space Mono',monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: 6px; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 14px; display: none; }
+    .success { text-align: center; display: none; }
+    .success .icon { font-size: 44px; color: var(--accent); margin-bottom: 16px; }
+    .success h2 { font-size: 17px; margin-bottom: 10px; }
+    .success p { color: var(--soft); font-size: 12px; line-height: 1.7; }
+    .login-link { text-align: center; margin-top: 20px; font-size: 11px; color: var(--soft); }
+    .login-link a { color: var(--white); text-decoration: underline; }
+    .required { color: var(--accent); }
+  </style>
+  <script>
+  (function() {
+    const h = new Date().getHours();
+    document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
+  })();
+  </script>
+</head>
+<body>
+<div class="card">
+  <div id="form-section">
+    <div class="logo-wrap">
+      <img src="/logo.svg" alt="Editions Standard">
+      <h1>Demande d'accès</h1>
+      <p class="sub">Editions Standard — Showroom</p>
+    </div>
+
+    <div class="intro">
+      Remplissez ce formulaire pour demander l'accès au showroom. Votre demande sera examinée et vous recevrez vos identifiants par email après validation.
+    </div>
+
+    <div id="error-msg" class="error"></div>
+
+    <div class="row">
+      <div class="field">
+        <label>Nom <span class="required">*</span></label>
+        <input id="f-name" type="text" placeholder="Dupont" autocomplete="family-name">
+      </div>
+      <div class="field">
+        <label>Prénom <span class="required">*</span></label>
+        <input id="f-firstname" type="text" placeholder="Jean" autocomplete="given-name">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Boutique / Société <span class="required">*</span></label>
+      <input id="f-company" type="text" placeholder="Boutique XYZ" autocomplete="organization">
+    </div>
+
+    <div class="field">
+      <label>Email professionnel <span class="required">*</span></label>
+      <input id="f-email" type="email" placeholder="jean@boutique.com" autocomplete="email">
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Téléphone</label>
+        <input id="f-phone" type="tel" placeholder="+33 6 00 00 00 00" autocomplete="tel">
+      </div>
+      <div class="field">
+        <label>Pays</label>
+        <select id="f-country">
+          <option value="">— Choisir —</option>
+          <option>France</option>
+          <option>Belgique</option>
+          <option>Suisse</option>
+          <option>Luxembourg</option>
+          <option>Allemagne</option>
+          <option>Italie</option>
+          <option>Espagne</option>
+          <option>Royaume-Uni</option>
+          <option>États-Unis</option>
+          <option>Canada</option>
+          <option>Japon</option>
+          <option>Corée du Sud</option>
+          <option>Autre</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Message (optionnel)</label>
+      <textarea id="f-message" placeholder="Présentez votre boutique, vos axes de sélection…"></textarea>
+    </div>
+
+    <button class="btn" id="submit-btn" onclick="submitForm()">ENVOYER MA DEMANDE</button>
+
+    <div class="login-link">Déjà un compte ? <a href="/editions-showroom-b2b-portail">Se connecter</a></div>
+  </div>
+
+  <div id="success-section" class="success">
+    <div class="icon">✓</div>
+    <h2>Demande envoyée !</h2>
+    <p>Votre demande a bien été reçue.<br>Vous recevrez vos identifiants d'accès par email après validation de notre équipe.</p>
+    <div class="login-link" style="margin-top:24px">
+      <a href="/editions-showroom-b2b-portail">← Retour à la connexion</a>
+    </div>
+  </div>
+</div>
+
+<script>
+async function submitForm() {
+  const lastName  = document.getElementById('f-name').value.trim();
+  const firstName = document.getElementById('f-firstname').value.trim();
+  const company   = document.getElementById('f-company').value.trim();
+  const email     = document.getElementById('f-email').value.trim();
+  const phone     = document.getElementById('f-phone').value.trim();
+  const country   = document.getElementById('f-country').value;
+  const message   = document.getElementById('f-message').value.trim();
+  const errEl     = document.getElementById('error-msg');
+  const btn       = document.getElementById('submit-btn');
+
+  errEl.style.display = 'none';
+  if (!lastName || !firstName || !company || !email) {
+    errEl.textContent = 'Veuillez remplir tous les champs obligatoires.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent = 'Adresse email invalide.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+
+  try {
+    const r = await fetch('/api/access-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, message })
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      errEl.textContent = d.error || 'Erreur serveur. Réessayez.';
+      errEl.style.display = 'block';
+      return;
+    }
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('success-section').style.display = 'block';
+  } catch(e) {
+    errEl.textContent = 'Erreur réseau. Réessayez.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ENVOYER MA DEMANDE';
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') submitForm(); });
+</script>
+</body>
+</html>
