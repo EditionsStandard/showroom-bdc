@@ -524,7 +524,10 @@
   <div class="recap-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h4 data-i18n="recap_sel" style="margin:0">Votre sélection</h4>
-      <button id="btn-dl-selection" onclick="downloadSelection()" style="background:none;border:1px solid var(--border);padding:6px 12px;font-size:10px;color:var(--soft);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;display:flex;align-items:center;gap:6px">📄 <span data-i18n="btn_dl_sel">Télécharger</span></button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:2px;font-family:'Space Mono',monospace;letter-spacing:.04em">Tout effacer</button>
+        <button id="btn-dl-selection" onclick="downloadSelection()" style="background:none;border:1px solid var(--border);padding:6px 12px;font-size:10px;color:var(--soft);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;display:flex;align-items:center;gap:6px">📄 <span data-i18n="btn_dl_sel">Télécharger</span></button>
+      </div>
     </div>
     <div id="recap-lines"></div>
   </div>
@@ -1430,6 +1433,21 @@ function recapChangeQty(k, delta) {
   renderRecap();
 }
 
+function removeFromCart(key) {
+  delete cart[key];
+  saveCart();
+  renderRecap();
+  updateCartBar();
+}
+
+function clearCart() {
+  if (!confirm('Effacer toute la sélection ?')) return;
+  Object.keys(cart).forEach(k => delete cart[k]);
+  saveCart();
+  renderRecap();
+  updateCartBar();
+}
+
 function renderRecap() {
   const lines = Object.values(cart);
   const total = lines.reduce((s, l) => s + l.qty * parseFloat(l.product.price || 0), 0);
@@ -1469,7 +1487,7 @@ function renderRecap() {
             + '<button class="recap-edit-btn" onclick="recapChangeQty(' + JSON.stringify(k) + ',1)">+</button>'
             + '</div></td>'
             + '<td>' + lineTotal + '</td>'
-            + '<td><button class="recap-edit-btn" style="color:#e74c3c" onclick="recapChangeQty(' + JSON.stringify(k) + ',-999)">✕</button></td>'
+            + '<td><button class="recap-edit-btn" style="color:var(--muted);font-size:14px;padding:2px 6px;line-height:1" title="Retirer" onclick="removeFromCart(' + JSON.stringify(k) + ')">✕</button></td>'
             + '</tr>';
         }).join('')
       + '</tbody></table>';
