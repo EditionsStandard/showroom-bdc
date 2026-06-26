@@ -2053,33 +2053,30 @@ async function loadDashboard() {
   document.getElementById('stat-buyers').textContent = buyers.length;
   document.getElementById('stat-online-num').textContent = onlineIds.length;
 
-  // Graphique CA mensuel (6 derniers mois)
-  const months = {};
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    months[key] = 0;
-  }
-  orders.forEach(o => {
-    const key = o.created_at ? o.created_at.slice(0,7) : null;
-    if (key && months[key] !== undefined) months[key] += parseFloat(o.total)||0;
+  // Graphique CA mensuel (6 derniers mois) — via endpoint serveur
+  fetch('/api/dashboard/revenue-chart').then(r => r.json()).then(chartData => {
+    if (Array.isArray(chartData)) {
+      drawRevenueChart(chartData);
+      const totalChart = chartData.reduce((s, d) => s + (d.total || 0), 0);
+      document.getElementById('chart-total').textContent = `6 mois · ${totalChart.toFixed(0)} € CA`;
+    }
+  }).catch(() => {
+    // Fallback client-side
+    const months = {};
+    const now2 = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d2 = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
+      const key = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`;
+      months[key] = 0;
+    }
+    orders.forEach(o => {
+      const key = o.created_at ? o.created_at.slice(0,7) : null;
+      if (key && months[key] !== undefined) months[key] += parseFloat(o.total)||0;
+    });
+    const fallbackData = Object.entries(months).map(([k, v]) => ({ month: k.slice(5), total: v }));
+    drawRevenueChart(fallbackData);
+    document.getElementById('chart-total').textContent = `6 mois · ${fallbackData.reduce((s,d)=>s+d.total,0).toFixed(0)} € CA`;
   });
-  const vals = Object.values(months);
-  const keys = Object.keys(months);
-  const maxV = Math.max(...vals, 1);
-  const chart = document.getElementById('revenue-chart');
-  chart.innerHTML = keys.map((k, i) => {
-    const h = Math.round((vals[i] / maxV) * 72) + 8;
-    const isThis = i === 5;
-    const label = k.slice(5); // MM
-    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" title="${vals[i].toFixed(0)} €">
-      <span style="font-size:9px;color:${isThis?'#CCEB3C':'#555'}">${vals[i]>0?vals[i].toFixed(0)+'€':''}</span>
-      <div style="width:100%;height:${h}px;background:${isThis?'#CCEB3C':'#2a2a2a'};border-radius:4px 4px 0 0;transition:height .3s"></div>
-      <span style="font-size:9px;color:#555">${label}</span>
-    </div>`;
-  }).join('');
-  document.getElementById('chart-total').textContent = `6 mois · ${vals.reduce((a,b)=>a+b,0).toFixed(0)} € CA`;
 
   const tbody = document.getElementById('recent-orders-body');
   const recent = orders.filter(o => o.status !== 'archived').slice(0, 10);
