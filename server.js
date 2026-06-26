@@ -90,6 +90,11 @@ function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+function cloudinaryOpt(url) {
+  if (!url || !url.includes('res.cloudinary.com')) return url;
+  return url.replace('/upload/', '/upload/q_auto,f_auto/');
+}
+
 async function getSetting(key) {
   const r = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
   return r.rows[0]?.value || '';
@@ -932,6 +937,53 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT o.order_number, o.id, o.created_at, b.name as brand_name,
+             o.client_name, o.client_email, o.client_company, o.client_country, o.status,
+             COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_ht
+      FROM orders o
+      JOIN brands b ON o.brand_id = b.id
+      LEFT JOIN order_lines ol ON ol.order_id = o.id
+      GROUP BY o.id, b.name
+      ORDER BY o.created_at DESC
+    `);
+    const headers = ['Référence','Date','Marque','Client','Email','Société','Pays','Statut','Total HT'];
+    const rows = r.rows.map(row => [
+      row.order_number || row.id.slice(0,8).toUpperCase(),
+      new Date(row.created_at).toLocaleDateString('fr-FR'),
+      row.brand_name,
+      row.client_name, row.client_email, row.client_company || '', row.client_country || '',
+      row.status,
+      parseFloat(row.total_ht).toFixed(2)
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="commandes.csv"');
+    res.send('﻿' + csv);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT name, email, company, phone, country, instagram, created_at
+      FROM buyers ORDER BY created_at DESC
+    `);
+    const headers = ['Nom','Email','Société','Téléphone','Pays','Instagram','Inscrit le'];
+    const rows = r.rows.map(row => [
+      row.name, row.email, row.company || '', row.phone || '', row.country || '',
+      row.instagram || '',
+      new Date(row.created_at).toLocaleDateString('fr-FR')
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="acheteurs.csv"');
+    res.send('﻿' + csv);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
   try {
     const r = await pool.query(`
@@ -1105,7 +1157,13 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
   ]);
   let currencies = [];
   try { currencies = JSON.parse(currenciesRaw || '[]'); } catch(e) {}
-  res.json({ brand: b.rows[0], products: p.rows, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
+  const brand = b.rows[0];
+  brand.logo = cloudinaryOpt(brand.logo);
+  brand.logo_url = cloudinaryOpt(brand.logo_url);
+  brand.cover_image = cloudinaryOpt(brand.cover_image);
+  brand.thumbnail = cloudinaryOpt(brand.thumbnail);
+  const products = p.rows.map(prod => ({ ...prod, image_url: cloudinaryOpt(prod.image_url) }));
+  res.json({ brand, products, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
 app.post('/api/public/selection-pdf', async (req, res) => {
@@ -1471,7 +1529,14 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   try {
     // != 'inactive' exclut les NULL en PG — on inclut explicitement les NULL
     const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
-    res.json(r.rows);
+    const brands = r.rows.map(b => ({
+      ...b,
+      logo: cloudinaryOpt(b.logo),
+      logo_url: cloudinaryOpt(b.logo_url),
+      cover_image: cloudinaryOpt(b.cover_image),
+      thumbnail: cloudinaryOpt(b.thumbnail)
+    }));
+    res.json(brands);
   } catch(e) { console.error('portal brands:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -1480,7 +1545,13 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
     const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
-    res.json({ brand: b.rows[0], products: p.rows });
+    const brand = b.rows[0];
+    brand.logo = cloudinaryOpt(brand.logo);
+    brand.logo_url = cloudinaryOpt(brand.logo_url);
+    brand.cover_image = cloudinaryOpt(brand.cover_image);
+    brand.thumbnail = cloudinaryOpt(brand.thumbnail);
+    const products = p.rows.map(prod => ({ ...prod, image_url: cloudinaryOpt(prod.image_url) }));
+    res.json({ brand, products });
   } catch(e) { console.error('portal products:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -3115,6 +3186,8 @@ async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) 
     } catch(e) { console.error('Airtable STORES patch error:', e.message); }
   }
 }
+
+app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset-password.html')));
 
 // Catch-all 404
 app.use((req, res) => {
