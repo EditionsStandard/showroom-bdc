@@ -1,12 +1,14 @@
 {
-  "name": "Editions Standard — Showroom BDC",
+  "name": "Editions Standard Showroom",
   "short_name": "ES Showroom",
-  "description": "Prise de commande showroom Editions Standard",
-  "start_url": "/",
+  "description": "Portail acheteur B2B — Editions Standard",
+  "start_url": "/editions-showroom-b2b-portail",
   "display": "standalone",
   "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "theme_color": "#CCEB3C",
+  "orientation": "portrait-primary",
   "icons": [
-    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }

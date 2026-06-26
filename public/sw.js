@@ -1,7 +1,9 @@
-const CACHE_NAME = 'showroom-bdc-v3';
+const CACHE_NAME = 'es-showroom-v1';
 
 const STATIC_ASSETS = [
   '/logo.svg',
+  '/editions-showroom-b2b-portail',
+  '/portal-login.html',
   'https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap'
 ];
 
