@@ -796,7 +796,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
   const brandFilter = req.userRole === 'designer' ? 'WHERE o.brand_id = $1' : '';
   const params = req.userRole === 'designer' ? [req.userBrandId] : [];
   const r = await pool.query(`
-    SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
+    SELECT o.id, o.order_number, o.brand_id, o.client_name, o.client_email, o.client_company,
            o.client_phone, o.client_country, o.status, o.notes, o.admin_notes,
            o.cgv_accepted, o.buyer_id, o.created_at,
            b.name as brand_name,
@@ -806,7 +806,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
     ${brandFilter}
-    GROUP BY o.id, b.name
+    GROUP BY o.id, o.order_number, b.name
     ORDER BY o.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
   `, params);
@@ -884,7 +884,7 @@ async function sendOrderStatusEmail(orderId, status) {
     html: emailLayout({ showroomName, brandName: order.brand_name, brandLogo: order.brand_logo || '', content: `
       <p>${isEn ? 'Hello' : 'Bonjour'} <strong>${escHtml(order.client_name)}</strong>,</p>
       <p>${msg}</p>
-      <p style="margin-top:12px;font-size:13px;color:#555">${isEn ? 'Brand' : 'Marque'} : <strong>${escHtml(order.brand_name)}</strong> · ${isEn ? 'Reference' : 'Référence'} : <code>${orderId.slice(0,8).toUpperCase()}</code></p>
+      <p style="margin-top:12px;font-size:13px;color:#555">${isEn ? 'Brand' : 'Marque'} : <strong>${escHtml(order.brand_name)}</strong> · ${isEn ? 'Reference' : 'Référence'} : <code>${order.order_number || orderId.slice(0,8).toUpperCase()}</code></p>
       <p style="margin-top:28px">${isEn ? 'Best regards' : 'Cordialement'},<br><strong>${escHtml(agentName || showroomName)}</strong></p>
     ` })
   });
@@ -906,7 +906,7 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
     const headers = ['Date','Référence commande','Client','Email','Société','Téléphone','Pays','Statut','Marque','Référence produit','Description','Couleur','Taille','Quantité','Prix HT','Prix PVC'];
     const rows = r.rows.map(row => [
       new Date(row.created_at).toLocaleDateString('fr-FR'),
-      row.id.slice(0,8).toUpperCase(),
+      row.order_number || row.id.slice(0,8).toUpperCase(),
       row.client_name, row.client_email, row.client_company, row.client_phone, row.client_country,
       row.status, row.brand_name, row.reference, row.description, row.color,
       row.size, row.quantity, row.unit_price, row.price_retail
@@ -1036,7 +1036,8 @@ app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (r
   try {
     const pdf = await generateOrderPDF(req.params.id);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="commande-${req.params.id.slice(0,8)}.pdf"`);
+    const orderNumForFile = (await pool.query('SELECT order_number FROM orders WHERE id=$1', [req.params.id]).then(r => r.rows[0]?.order_number)) || req.params.id.slice(0,8).toUpperCase();
+    res.setHeader('Content-Disposition', `attachment; filename="commande-${orderNumForFile}.pdf"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1064,7 +1065,8 @@ app.get('/api/public/orders/:id/pdf', async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Non disponible' });
     const pdf = await generateOrderPDF(req.params.id);
-    const filename = `PropositionCommande-${req.params.id.slice(0,8).toUpperCase()}.pdf`;
+    const orderNum2 = r.rows[0]?.order_number || req.params.id.slice(0,8).toUpperCase();
+    const filename = `PropositionCommande-${orderNum2}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdf);
@@ -1142,10 +1144,12 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
+    const seqRes = await dbClient.query("SELECT LPAD(nextval('order_number_seq')::TEXT, 4, '0') AS num");
+    const orderNumber = 'ES-' + seqRes.rows[0].num;
     await dbClient.query(
-      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11)`,
-      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null]
+      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id,order_number)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11,$12)`,
+      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber]
     );
     for (const line of resolvedLines) {
       await dbClient.query(
@@ -1526,14 +1530,14 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
   const r = await pool.query(`
-    SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
+    SELECT o.id, o.order_number, o.brand_id, o.client_name, o.client_email, o.client_company,
            o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
            b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
     WHERE o.buyer_id = $1
-    GROUP BY o.id, b.name
+    GROUP BY o.id, o.order_number, b.name
     ORDER BY o.created_at DESC
   `, [req.session.buyerPortal.id]);
   res.json(r.rows);
@@ -1572,12 +1576,13 @@ app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
 });
 
 app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
-  const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
+  const o = await pool.query('SELECT id, order_number FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
   try {
     const pdf = await generateOrderPDF(req.params.id);
+    const oNum = o.rows[0].order_number || req.params.id.slice(0,8).toUpperCase();
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Commande-${oNum}.pdf"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -2281,7 +2286,8 @@ app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
     if (!r.rows[0]) return res.status(404).json({ error: 'Non disponible' });
     const pdf = await generateOrderPDF(req.params.id);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Commande-${req.params.id.slice(0,8).toUpperCase()}.pdf"`);
+    const oNumPublic = (await pool.query('SELECT order_number FROM orders WHERE id=$1', [req.params.id])).rows[0]?.order_number || req.params.id.slice(0,8).toUpperCase();
+    res.setHeader('Content-Disposition', `attachment; filename="Commande-${oNumPublic}.pdf"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -2605,7 +2611,7 @@ async function generateOrderPDF(orderId) {
     doc.fontSize(10).fillColor('#888').font('Helvetica')
       .text('Bon de Commande', textX, headerTop + 30, { lineBreak: false });
     doc.fontSize(9).fillColor('#aaa')
-      .text(`N° ${orderId.slice(0,8).toUpperCase()} — ${dateStr}`, textX, headerTop + 44, { lineBreak: false });
+      .text(`N° ${order.order_number || orderId.slice(0,8).toUpperCase()} — ${dateStr}`, textX, headerTop + 44, { lineBreak: false });
 
     doc.moveTo(50, headerTop + 62).lineTo(545, headerTop + 62).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
     const infoY = headerTop + 72;
@@ -2830,7 +2836,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
     GROUP BY o.id, b.name, b.cgv_text, b.logo
   `, [orderId]);
   const order = oRes.rows[0];
-  const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${orderId.slice(0,8).toUpperCase()}.pdf`;
+  const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${order.order_number || orderId.slice(0,8).toUpperCase()}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
   const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const cgvText = order.brand_cgv || globalCgv;

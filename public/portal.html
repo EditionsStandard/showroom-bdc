@@ -2105,7 +2105,7 @@ function renderOrdersList(data) {
   list.className = 'orders-grid';
   list.innerHTML = data.map(o => `
     <div class="order-card" data-oid="${o.id}" data-brand="${o.brand_id}" data-brand-name="${esc(o.brand_name)}">
-      <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — #${o.id.slice(0,8).toUpperCase()}</div>
+      <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — ${o.order_number || '#'+o.id.slice(0,8).toUpperCase()}</div>
       <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
       <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>

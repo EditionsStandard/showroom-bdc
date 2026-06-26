@@ -3422,7 +3422,7 @@ function filterOrders() {
   const tbody = document.getElementById('orders-body');
   tbody.innerHTML = list.length ? list.map(o => `
     <tr>
-      <td style="font-size:11px;color:#888;font-family:monospace">${o.id.slice(0,8)}</td>
+      <td style="font-size:11px;color:#888;font-family:monospace">${o.order_number || o.id.slice(0,8)}</td>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
       <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
       <td>${o.brand_name||''}</td>
@@ -3442,7 +3442,7 @@ async function viewOrder(id) {
   const o = data.order;
   const lines = data.lines || [];
 
-  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + id.slice(0,8);
+  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + (o.order_number || id.slice(0,8));
   document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR');
   document.getElementById('mo-status-select').value = o.status || 'confirmed';
 

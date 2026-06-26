@@ -250,6 +250,8 @@ async function init() {
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS lang TEXT DEFAULT 'fr'",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number TEXT DEFAULT ''",
+    "CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
