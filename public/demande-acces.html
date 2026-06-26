@@ -110,9 +110,15 @@
       </div>
     </div>
 
-    <div class="field">
-      <label id="t-label-instagram">Instagram</label>
-      <input id="f-instagram" type="text" autocomplete="off">
+    <div class="row">
+      <div class="field">
+        <label id="t-label-instagram">Instagram</label>
+        <input id="f-instagram" type="text" autocomplete="off">
+      </div>
+      <div class="field">
+        <label id="t-label-website">Website</label>
+        <input id="f-website" type="url" autocomplete="url">
+      </div>
     </div>
 
     <div class="field">
@@ -148,6 +154,8 @@ const TR = {
     label_country: 'Pays',
     label_instagram: 'Instagram',
     placeholder_instagram: '@maboutique',
+    label_website: 'Website',
+    placeholder_website: 'https://maboutique.com',
     label_message: 'Message (optionnel)',
     country_choose: '— Choisir —',
     country_other: 'Autre',
@@ -181,6 +189,8 @@ const TR = {
     label_country: 'Country',
     label_instagram: 'Instagram',
     placeholder_instagram: '@mystore',
+    label_website: 'Website',
+    placeholder_website: 'https://mystore.com',
     label_message: 'Message (optional)',
     country_choose: '— Select —',
     country_other: 'Other',
@@ -224,6 +234,8 @@ function applyLang() {
   document.getElementById('t-label-country').textContent = t('label_country');
   document.getElementById('t-label-instagram').textContent = t('label_instagram');
   document.getElementById('f-instagram').placeholder = t('placeholder_instagram');
+  document.getElementById('t-label-website').textContent = t('label_website');
+  document.getElementById('f-website').placeholder = t('placeholder_website');
   document.getElementById('t-label-message').textContent = t('label_message');
 
   document.getElementById('t-country-choose').textContent = t('country_choose');
@@ -281,7 +293,7 @@ async function submitForm() {
     const r = await fetch('/api/access-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram: document.getElementById('f-instagram').value.trim(), message })
+      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram: document.getElementById('f-instagram').value.trim(), website: document.getElementById('f-website').value.trim(), message })
     });
     const d = await r.json();
     if (!r.ok) {

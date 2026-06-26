@@ -267,6 +267,7 @@ async function init() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS instagram TEXT DEFAULT ''",
+    "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS website TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
