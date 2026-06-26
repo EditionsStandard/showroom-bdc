@@ -268,8 +268,8 @@
   function getTheme() {
     const saved = localStorage.getItem('es-theme');
     if (saved) return saved;
-    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return dark ? 'dark' : 'light';
+    const h = new Date().getHours();
+    return (h >= 7 && h < 20) ? 'light' : 'dark';
   }
   function applyTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
@@ -289,11 +289,6 @@
   const _t = getTheme();
   applyTheme(_t);
   document.addEventListener('DOMContentLoaded', () => applyTheme(_t));
-  if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
-      if (!localStorage.getItem('es-theme')) applyTheme(e.matches ? 'light' : 'dark');
-    });
-  }
 })();
 </script>
 </head>

@@ -5,36 +5,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Créer votre accès — Showroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; }
+  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #f2f2f0; font-family: 'Inter', Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-  .card { background: #fff; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 4px 32px rgba(0,0,0,.08); }
-  .header { background: #0a0a0a; border-radius: 10px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
-  .header-logo { color: #CCEB3C; font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; letter-spacing: 3px; }
-  .brand-block { text-align: center; margin-bottom: 24px; }
-  .brand-logo { max-height: 52px; max-width: 160px; object-fit: contain; margin-bottom: 8px; }
-  .brand-name { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 700; letter-spacing: 2px; color: #0a0a0a; text-transform: uppercase; }
-  h1 { font-size: 20px; font-weight: 700; color: #0a0a0a; margin-bottom: 6px; }
-  .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
-  label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
-  input { width: 100%; background: #f7f7f5; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 14px; font-size: 14px; color: #0a0a0a; outline: none; transition: border-color .2s; margin-bottom: 16px; }
-  input:focus { border-color: #0a0a0a; background: #fff; }
-  .btn { width: 100%; background: #0a0a0a; color: #fff; border: none; border-radius: 8px; padding: 14px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: 1px; margin-top: 4px; transition: opacity .15s; }
+  body { background: var(--black); color: var(--white); font-family: 'Space Mono','Courier New',monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 40px; width: 100%; max-width: 400px; }
+  .logo-wrap { text-align: center; margin-bottom: 32px; position: relative; }
+  .logo-wrap img { width: 56px; height: 56px; border-radius: 6px; }
+  .logo-wrap h1 { font-family: 'DotGothic16','Space Mono',monospace; font-size: 17px; color: var(--white); font-weight: 400; margin-top: 12px; letter-spacing: .02em; }
+  .logo-wrap .showroom-sub { color: var(--muted); font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: .1em; }
+  .brand-block { text-align: center; margin-bottom: 20px; padding: 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 2px; }
+  .brand-logo { max-height: 44px; max-width: 140px; object-fit: contain; margin-bottom: 6px; display: block; margin: 0 auto 6px; }
+  .brand-name { font-size: 11px; font-weight: 700; letter-spacing: .15em; color: var(--muted); text-transform: uppercase; }
+  label { display: block; font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .1em; }
+  input { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; font-size: 14px; color: var(--white); font-family: 'Space Mono',monospace; outline: none; transition: border-color .2s; margin-bottom: 16px; }
+  input:focus { border-color: var(--accent); }
+  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Space Mono',monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; transition: opacity .15s; }
   .btn:hover { opacity: .85; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .error { background: #fff3f3; border: 1px solid #f5c6c6; color: #c0392b; border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 16px; display: none; }
   .success { text-align: center; display: none; }
-  .success h2 { font-size: 20px; margin-bottom: 8px; }
-  .success p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  .login-link { text-align: center; margin-top: 20px; font-size: 13px; color: #888; }
-  .login-link a { color: #0a0a0a; font-weight: 600; }
+  .success h2 { font-size: 18px; margin-bottom: 8px; color: var(--white); }
+  .success p { color: var(--soft); font-size: 13px; margin-bottom: 20px; }
+  .login-link { text-align: center; margin-top: 20px; font-size: 12px; color: var(--soft); }
+  .login-link a { color: var(--white); text-decoration: underline; }
   #invalid { text-align: center; display: none; padding: 20px; }
-  #invalid h2 { font-size: 18px; color: #e74c3c; margin-bottom: 8px; }
-  #invalid p { color: #888; font-size: 14px; }
-  #loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
-  #lang-toggle { background: none; border: 1px solid #444; border-radius: 20px; padding: 3px 10px; font-size: 11px; color: #CCEB3C; cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: .05em; transition: border-color .2s; }
-  #lang-toggle:hover { border-color: #CCEB3C; }
+  #invalid h2 { font-size: 16px; color: #e74c3c; margin-bottom: 8px; }
+  #invalid p { color: var(--soft); font-size: 13px; line-height: 1.6; }
+  #loading { text-align: center; padding: 40px; color: var(--soft); font-size: 13px; }
+  #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Space Mono',monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
+  #lang-toggle:hover { border-color: var(--accent); color: var(--white); }
+  .sep { height: 1px; background: var(--border); margin: 20px 0; }
 </style>
+<script>
+(function() {
+  const h = new Date().getHours();
+  document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
+})();
+</script>
 </head>
 <body>
 <div class="card">
@@ -46,16 +58,14 @@
   </div>
 
   <div id="form-section" style="display:none">
-    <div class="header">
-      <img src="/logo.svg" alt="Showroom" width="28" height="28" style="border-radius:4px">
-      <span class="header-logo" id="showroom-label">SHOWROOM</span>
+    <div class="logo-wrap">
       <button id="lang-toggle" onclick="toggleLang()">EN</button>
+      <img src="/logo.svg" alt="Editions Standard">
+      <h1 data-t="page_title">Créer votre accès</h1>
+      <p class="showroom-sub">Editions Standard — Showroom</p>
     </div>
 
-    <div class="brand-block" id="brand-block"></div>
-
-    <h1 data-t="page_title">Créer votre accès</h1>
-    <p class="subtitle" data-t="page_subtitle">Remplissez le formulaire pour accéder au showroom.</p>
+    <div class="brand-block" id="brand-block" style="display:none"></div>
 
     <div id="error-msg" class="error"></div>
 
@@ -65,7 +75,7 @@
     <input id="f-company" type="text" data-tp="company_placeholder" autocomplete="organization">
     <label data-t="email_label">Email *</label>
     <input id="f-email" type="email" data-tp="email_placeholder" autocomplete="email">
-    <label data-t="password_label">Mot de passe * <span style="font-weight:400;font-size:11px;text-transform:none" data-t="password_hint">(6 caractères minimum)</span></label>
+    <label data-t="password_label">Mot de passe * <span style="font-weight:400;font-size:10px;text-transform:none" data-t="password_hint">(6 caractères minimum)</span></label>
     <input id="f-password" type="password" data-tp="password_placeholder" autocomplete="new-password">
 
     <button class="btn" id="submit-btn" onclick="submitForm()" data-t="submit_btn">CRÉER MON ACCÈS</button>
@@ -74,10 +84,10 @@
   </div>
 
   <div id="success-section" class="success">
-    <div style="font-size:48px;margin-bottom:16px">✓</div>
+    <div style="font-size:40px;margin-bottom:16px;color:var(--accent)">✓</div>
     <h2 data-t="success_title">Accès créé !</h2>
     <p data-t="success_msg">Votre compte a bien été créé. Vous allez être redirigé vers le portail.</p>
-    <a href="/portal" class="btn" style="display:inline-block;text-decoration:none;text-align:center" data-t="go_portal_btn">ACCÉDER AU SHOWROOM</a>
+    <a href="/portal" class="btn" style="display:inline-block;text-decoration:none;text-align:center;margin-top:12px" data-t="go_portal_btn">ACCÉDER AU SHOWROOM</a>
   </div>
 </div>
 
@@ -182,10 +192,13 @@ async function init() {
   const data = await r.json();
 
   const brandBlock = document.getElementById('brand-block');
-  if (data.brand_logo) {
-    brandBlock.innerHTML = `<img class="brand-logo" src="${data.brand_logo}" alt="${data.brand_name}"><br><span class="brand-name">${data.brand_name}</span>`;
-  } else {
-    brandBlock.innerHTML = `<span class="brand-name">${data.brand_name}</span>`;
+  if (data.brand_name) {
+    brandBlock.style.display = '';
+    if (data.brand_logo) {
+      brandBlock.innerHTML = `<img class="brand-logo" src="${data.brand_logo}" alt="${data.brand_name}"><div class="brand-name">${data.brand_name}</div>`;
+    } else {
+      brandBlock.innerHTML = `<div class="brand-name">${data.brand_name}</div>`;
+    }
   }
 
   document.getElementById('form-section').style.display = 'block';

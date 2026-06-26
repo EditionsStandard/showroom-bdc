@@ -38,9 +38,8 @@
 <script>
 (function() {
   function getTheme() {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
     const h = new Date().getHours();
-    return (h >= 7 && h < 19) ? 'light' : 'dark';
+    return (h >= 7 && h < 20) ? 'light' : 'dark';
   }
   document.documentElement.setAttribute('data-theme', getTheme());
 })();
