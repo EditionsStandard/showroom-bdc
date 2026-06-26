@@ -813,6 +813,24 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
   res.json(r.rows);
 });
 
+app.get('/api/agent-selections', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    const brandFilter = req.userRole === 'designer' ? 'AND a.brand_id = $1' : '';
+    const params = req.userRole === 'designer' ? [req.userBrandId] : [];
+    const r = await pool.query(`
+      SELECT a.token, a.brand_id, a.client_name, a.client_email, a.client_company,
+             a.notes, a.created_by, a.used, a.created_at, a.expires_at,
+             b.name as brand_name,
+             a.items_json
+      FROM agent_selections a
+      JOIN brands b ON a.brand_id = b.id
+      WHERE 1=1 ${brandFilter}
+      ORDER BY a.created_at DESC
+    `, params);
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     const { status } = req.body;

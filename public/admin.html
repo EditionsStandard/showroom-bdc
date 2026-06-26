@@ -413,42 +413,80 @@
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="card" style="padding:16px 20px;margin-bottom:16px">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <input id="orders-search" type="text" data-tp="orders_search_placeholder" placeholder="🔍 Client, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterOrders()">
-        <select id="orders-filter-brand" onchange="filterOrders()" style="padding:8px 12px;font-size:13px;min-width:140px">
-          <option value="" data-t="filter_all_brands">Toutes les marques</option>
-        </select>
-        <select id="orders-filter-status" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
-          <option value="" data-t="filter_all_statuses">Tous les statuts</option>
-          <option value="confirmed" data-t="status_confirmed">Reçue</option>
-          <option value="validated" data-t="status_validated">Validée ✓</option>
-          <option value="in_production">En production</option>
-          <option value="shipped">Expédiée 🚚</option>
-          <option value="cancelled" data-t="status_cancelled">Annulée</option>
-          <option value="archived">Archivée</option>
-        </select>
-        <select id="orders-sort" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
-          <option value="date_desc" data-t="sort_date_desc">Date ↓</option>
-          <option value="date_asc" data-t="sort_date_asc">Date ↑</option>
-          <option value="total_desc" data-t="sort_total_desc">Total ↓</option>
-          <option value="brand" data-t="sort_brand">Marque A→Z</option>
-        </select>
-        <button class="btn btn-secondary btn-sm" onclick="resetOrderFilters()" data-t="btn_reset">Réinitialiser</button>
+    <!-- Sous-onglets -->
+    <div style="display:flex;gap:0;border-bottom:1px solid #252525;margin-bottom:20px">
+      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid #CCEB3C;color:#f5f4f0;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+    </div>
+
+    <!-- VUE COMMANDES -->
+    <div id="tab-orders-panel">
+      <!-- Filters -->
+      <div class="card" style="padding:16px 20px;margin-bottom:16px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <input id="orders-search" type="text" data-tp="orders_search_placeholder" placeholder="🔍 Client, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterOrders()">
+          <select id="orders-filter-brand" onchange="filterOrders()" style="padding:8px 12px;font-size:13px;min-width:140px">
+            <option value="" data-t="filter_all_brands">Toutes les marques</option>
+          </select>
+          <select id="orders-filter-status" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
+            <option value="" data-t="filter_all_statuses">Tous les statuts</option>
+            <option value="confirmed" data-t="status_confirmed">Reçue</option>
+            <option value="validated" data-t="status_validated">Validée ✓</option>
+            <option value="in_production">En production</option>
+            <option value="shipped">Expédiée 🚚</option>
+            <option value="cancelled" data-t="status_cancelled">Annulée</option>
+            <option value="archived">Archivée</option>
+          </select>
+          <select id="orders-sort" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
+            <option value="date_desc" data-t="sort_date_desc">Date ↓</option>
+            <option value="date_asc" data-t="sort_date_asc">Date ↑</option>
+            <option value="total_desc" data-t="sort_total_desc">Total ↓</option>
+            <option value="brand" data-t="sort_brand">Marque A→Z</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="resetOrderFilters()" data-t="btn_reset">Réinitialiser</button>
+        </div>
+      </div>
+
+      <!-- Stats rapides -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="orders-stats"></div>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap"><table id="orders-table" style="min-width:700px">
+          <thead><tr>
+            <th data-t="th_ref">Réf.</th><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total_ht">Total HT</th><th data-t="th_status">Statut</th><th data-t="th_actions">Actions</th>
+          </tr></thead>
+          <tbody id="orders-body"></tbody>
+        </table></div>
       </div>
     </div>
 
-    <!-- Stats rapides -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="orders-stats"></div>
+    <!-- VUE SÉLECTIONS AGENTS -->
+    <div id="tab-selections-panel" style="display:none">
+      <div class="card" style="padding:16px 20px;margin-bottom:16px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <input id="sel-search" type="text" placeholder="🔍 Client, email, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterSelections()">
+          <select id="sel-filter-brand" onchange="filterSelections()" style="padding:8px 12px;font-size:13px;min-width:140px">
+            <option value="">Toutes les marques</option>
+          </select>
+          <select id="sel-filter-status" onchange="filterSelections()" style="padding:8px 12px;font-size:13px">
+            <option value="">Tous les statuts</option>
+            <option value="pending">En attente</option>
+            <option value="confirmed">Confirmée</option>
+            <option value="expired">Expirée</option>
+          </select>
+        </div>
+      </div>
 
-    <div class="card" style="padding:0;overflow:hidden">
-      <div class="table-wrap"><table id="orders-table" style="min-width:700px">
-        <thead><tr>
-          <th data-t="th_ref">Réf.</th><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total_ht">Total HT</th><th data-t="th_status">Statut</th><th data-t="th_actions">Actions</th>
-        </tr></thead>
-        <tbody id="orders-body"></tbody>
-      </table></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="sel-stats"></div>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap"><table style="min-width:780px">
+          <thead><tr>
+            <th>Date</th><th>Client</th><th>Email</th><th>Société</th><th>Marque</th><th>Articles</th><th>Statut</th><th>Envoyé par</th><th>Expire le</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="sel-body"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 
@@ -2318,6 +2356,10 @@ async function showQR(brandId, brandName) {
 
 // ── Partage du lien showroom (accès direct à la marque) ─────────────
 let currentShowroomUrl = '';
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Lien copié')).catch(() => toast('Copie impossible', true));
+}
+
 function copyShowroomLink() {
   const url = currentShowroomUrl || document.getElementById('qr-url').textContent;
   navigator.clipboard.writeText(url).then(() => toast('Lien copié')).catch(() => toast('Copie impossible', true));
@@ -3251,8 +3293,92 @@ let _currentOrderId = null;
 function STATUS_LABEL() { return { confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: '⚙️ En production', shipped: '🚚 Expédiée', cancelled: t('status_cancelled_icon') }; }
 const STATUS_BADGE = { confirmed: 'confirmed', validated: 'validated', in_production: 'in_production', shipped: 'shipped', cancelled: 'cancelled' };
 
+// ── Onglets commandes / sélections ────────────────────────────────────
+let _currentOrderTab = 'orders';
+let _allSelections = [];
+
+function switchOrderTab(tab) {
+  _currentOrderTab = tab;
+  const isOrders = tab === 'orders';
+  document.getElementById('tab-orders-panel').style.display = isOrders ? '' : 'none';
+  document.getElementById('tab-selections-panel').style.display = isOrders ? 'none' : '';
+  document.getElementById('tab-orders-btn').style.borderBottomColor = isOrders ? '#CCEB3C' : 'transparent';
+  document.getElementById('tab-orders-btn').style.color = isOrders ? '#f5f4f0' : '#888';
+  document.getElementById('tab-selections-btn').style.borderBottomColor = isOrders ? 'transparent' : '#CCEB3C';
+  document.getElementById('tab-selections-btn').style.color = isOrders ? '#888' : '#f5f4f0';
+  if (!isOrders && _allSelections.length === 0) loadSelections();
+}
+
+async function loadSelections() {
+  _allSelections = await fetch('/api/agent-selections').then(r => r.json()).catch(() => []);
+  const brands = [...new Set(_allSelections.map(s => s.brand_name).filter(Boolean))].sort();
+  document.getElementById('sel-filter-brand').innerHTML =
+    `<option value="">Toutes les marques</option>` + brands.map(b => `<option>${b}</option>`).join('');
+  document.getElementById('tab-sel-count').textContent = `(${_allSelections.length})`;
+  filterSelections();
+}
+
+function getSelStatus(s) {
+  if (s.used) return 'confirmed';
+  if (new Date(s.expires_at) < new Date()) return 'expired';
+  return 'pending';
+}
+
+function filterSelections() {
+  const search = (document.getElementById('sel-search').value || '').toLowerCase();
+  const brand = document.getElementById('sel-filter-brand').value;
+  const statusF = document.getElementById('sel-filter-status').value;
+
+  let list = _allSelections.filter(s => {
+    const status = getSelStatus(s);
+    if (brand && s.brand_name !== brand) return false;
+    if (statusF && status !== statusF) return false;
+    if (search) {
+      const hay = ((s.client_name||'') + ' ' + (s.client_email||'') + ' ' + (s.client_company||'')).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  const pending = list.filter(s => getSelStatus(s) === 'pending').length;
+  const confirmed = list.filter(s => getSelStatus(s) === 'confirmed').length;
+  const expired = list.filter(s => getSelStatus(s) === 'expired').length;
+  document.getElementById('sel-stats').innerHTML =
+    `<span><strong>${list.length}</strong> sélection${list.length!==1?'s':''}</span>` +
+    `<span style="color:#CCEB3C"><strong>${pending}</strong> en attente</span>` +
+    `<span><strong>${confirmed}</strong> confirmée${confirmed!==1?'s':''} · <strong>${expired}</strong> expirée${expired!==1?'s':''}</span>`;
+
+  const SEL_BADGE = { pending: 'confirmed', confirmed: 'validated', expired: 'archived' };
+  const SEL_LABEL = { pending: 'En attente', confirmed: 'Confirmée ✓', expired: 'Expirée' };
+
+  const tbody = document.getElementById('sel-body');
+  tbody.innerHTML = list.length ? list.map(s => {
+    const status = getSelStatus(s);
+    const items = (() => { try { return JSON.parse(s.items_json || '[]'); } catch { return []; } })();
+    const nItems = items.reduce((sum, i) => sum + (parseInt(i.quantity) || 1), 0);
+    const expDate = new Date(s.expires_at).toLocaleDateString('fr-FR');
+    const selUrl = `/selection/${s.token}`;
+    return `<tr>
+      <td style="font-size:11px;color:#888">${new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
+      <td><strong>${s.client_name||'—'}</strong></td>
+      <td style="font-size:12px">${s.client_email||'—'}</td>
+      <td style="font-size:12px;color:#888">${s.client_company||'—'}</td>
+      <td>${s.brand_name||''}</td>
+      <td style="text-align:center">${nItems} art.</td>
+      <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span></td>
+      <td style="font-size:11px;color:#888">${s.created_by||'—'}</td>
+      <td style="font-size:11px;color:${status==='expired'?'#e74c3c':'#888'}">${expDate}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
+        ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')">📋</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">Aucune sélection</td></tr>`;
+}
+
 async function loadOrders() {
   _allOrders = await fetch('/api/orders').then(r => r.json());
+  document.getElementById('tab-orders-count').textContent = `(${_allOrders.length})`;
 
   // Populate brand filter
   const brandSel = document.getElementById('orders-filter-brand');
