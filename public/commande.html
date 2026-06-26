@@ -1006,8 +1006,8 @@ async function sendAgentSelectionFromCart() {
       })
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) { res.innerHTML = '<span style="color:#e07a7a">' + (d.error || 'Erreur') + '</span>'; btn.disabled = false; btn.textContent = 'Envoyer'; return; }
-    res.innerHTML = '<span style="color:#5ec95e">✓ Sélection envoyée à ' + email + '.</span>';
+    if (!r.ok) { res.textContent = d.error || 'Erreur'; res.style.color = '#e07a7a'; btn.disabled = false; btn.textContent = 'Envoyer'; return; }
+    res.innerHTML = '<span style="color:#5ec95e">✓ Sélection envoyée à ' + esc(email) + '.</span>';
     btn.textContent = 'Envoyé ✓';
     // Vider le panier après envoi
     Object.keys(cart).forEach(k => delete cart[k]);
@@ -1687,7 +1687,7 @@ async function submitOrder() {
       showSuccess(body.client_email, false, data.order_id);
     } else {
       const errEl = document.getElementById('order-warning');
-      if (errEl) errEl.innerHTML = '<span style="color:#e74c3c">⚠ ' + (data.error || T('err_order')) + '</span>';
+      if (errEl) { errEl.textContent = '⚠ ' + (data.error || T('err_order')); errEl.style.color = '#e74c3c'; }
       btn.disabled = false;
       btn.textContent = T('btn_sign');
     }

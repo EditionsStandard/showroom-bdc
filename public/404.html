@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page introuvable · Editions Standard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
+  <style>
+    :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
+    [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; transition: background .2s, color .2s; }
+    .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; text-align: center; }
+    .logo-wrap { margin-bottom: 32px; }
+    .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
+    .code { font-family: var(--dot), monospace; font-size: 64px; color: var(--accent); font-weight: 400; letter-spacing: .02em; line-height: 1; margin-bottom: 12px; }
+    h1 { font-family: var(--dot), monospace; font-size: 18px; font-weight: 400; color: var(--white); letter-spacing: .02em; margin-bottom: 8px; }
+    p { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; text-transform: uppercase; letter-spacing: .1em; }
+    .btn { display: inline-block; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px 28px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; text-decoration: none; transition: opacity .2s; }
+    .btn:hover { opacity: .85; }
+  </style>
+  <script>
+  (function() {
+    const h = new Date().getHours();
+    document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
+  })();
+  </script>
+</head>
+<body>
+<div class="card">
+  <div class="logo-wrap">
+    <img src="/logo.svg" alt="Editions Standard">
+  </div>
+  <div class="code">404</div>
+  <h1>Page introuvable</h1>
+  <p>Cette page n'existe pas ou a été déplacée.</p>
+  <a class="btn" href="/editions-showroom-b2b-portail">Retour au portail</a>
+</div>
+</body>
+</html>

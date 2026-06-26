@@ -13,7 +13,7 @@
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
-  .wrap { width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 20px 60px; }
+  .wrap { width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 20px calc(60px + env(safe-area-inset-bottom)); }
   h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; letter-spacing: .02em; margin-bottom: 6px; }
   .sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-bottom: 28px; text-transform: uppercase; letter-spacing: .1em; }
   .field { margin-bottom: 16px; }
@@ -111,8 +111,8 @@ async function confirmAppointment() {
   const notes = document.getElementById('rdv-notes').value.trim();
   const msg = document.getElementById('rdv-msg');
 
-  if (!selectedDate || !selectedTime) { msg.innerHTML = '<div class="msg error">Choisissez un créneau.</div>'; return; }
-  if (!client_name || !client_email) { msg.innerHTML = '<div class="msg error">Nom et email requis.</div>'; return; }
+  if (!selectedDate || !selectedTime) { msg.textContent = 'Choisissez un créneau.'; msg.className = 'msg error'; return; }
+  if (!client_name || !client_email) { msg.textContent = 'Nom et email requis.'; msg.className = 'msg error'; return; }
 
   const btn = document.getElementById('btn-confirm');
   btn.disabled = true;
@@ -123,7 +123,7 @@ async function confirmAppointment() {
     }).then(r => r.json());
 
     if (r.error) {
-      msg.innerHTML = `<div class="msg error">${r.error}</div>`;
+      msg.textContent = r.error; msg.className = 'msg error';
       return;
     }
 

@@ -152,6 +152,13 @@ const emailLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+const publicLimiter = rateLimit({
+  windowMs: 3600000, // 1 heure
+  max: 30,
+  message: { error: 'Trop de demandes. Réessayez dans 1 heure.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // ==================== ADMIN ROUTES ====================
 
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
@@ -642,7 +649,7 @@ app.get('/api/public/brands/:brandId/slots', async (req, res) => {
   res.json({ slots });
 });
 
-app.post('/api/public/appointments', async (req, res) => {
+app.post('/api/public/appointments', publicLimiter, async (req, res) => {
   const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
   if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
     return res.status(400).json({ error: 'Données incomplètes' });
@@ -1177,7 +1184,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   return { order_id: orderId, total: orderTotal };
 }
 
-app.post('/api/public/orders', emailLimiter, async (req, res) => {
+app.post('/api/public/orders', publicLimiter, async (req, res) => {
   const { brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted } = req.body;
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
@@ -2173,7 +2180,7 @@ app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'publi
 
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
-app.post('/api/access-request', async (req, res) => {
+app.post('/api/access-request', publicLimiter, async (req, res) => {
   const { name, company, phone, email, country, instagram, website, message } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
   // Vérifier doublon (même email en pending)
@@ -3101,6 +3108,11 @@ async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) 
     } catch(e) { console.error('Airtable STORES patch error:', e.message); }
   }
 }
+
+// Catch-all 404
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
 
 // Gestionnaire d'erreur global Express — capture les exceptions des routes
 // (placé après toutes les routes) pour renvoyer une 500 propre au lieu de planter.

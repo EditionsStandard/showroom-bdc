@@ -1536,10 +1536,10 @@ async function loadStaff() {
   const roleLabel = { owner: t('role_owner'), agent: t('role_agent_short'), designer: 'Designer' };
   document.getElementById('staff-body').innerHTML = staff.map(s => `
     <tr>
-      <td>${s.name || '—'}</td>
-      <td>${s.email}</td>
-      <td>${roleLabel[s.role] || s.role}</td>
-      <td>${s.brand_name || '—'}</td>
+      <td>${esc(s.name) || '—'}</td>
+      <td>${esc(s.email)}</td>
+      <td>${esc(roleLabel[s.role] || s.role)}</td>
+      <td>${esc(s.brand_name) || '—'}</td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${JSON.stringify(s)})">${t('btn_modify')}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
@@ -1742,9 +1742,9 @@ async function loadBuyers() {
     const total = parseFloat(b.total_amount || 0);
     return `<tr>
       <td style="text-align:center">${dot}</td>
-      <td>${b.name || '—'}</td>
-      <td>${b.company || '—'}</td>
-      <td style="font-size:12px">${b.email}</td>
+      <td>${esc(b.name) || '—'}</td>
+      <td>${esc(b.company) || '—'}</td>
+      <td style="font-size:12px">${esc(b.email)}</td>
       <td style="text-align:center;color:${b.order_count > 0 ? '#CCEB3C' : '#555'}">${b.order_count > 0 ? `<strong>${b.order_count}</strong>` : '—'}</td>
       <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
       <td style="font-size:11px;color:#666">${lastSeen}</td>
@@ -2038,8 +2038,8 @@ async function loadDashboard() {
   tbody.innerHTML = recent.map(o => `
     <tr>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
-      <td><strong>${o.client_name}</strong><br><span style="font-size:11px;color:#888">${o.client_email}</span></td>
-      <td>${o.brand_name}</td>
+      <td><strong>${esc(o.client_name)}</strong><br><span style="font-size:11px;color:#888">${esc(o.client_email)}</span></td>
+      <td>${esc(o.brand_name)}</td>
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td>
         <a href="/api/orders/${o.id}/pdf" target="_blank" class="btn btn-secondary btn-sm">PDF</a>
@@ -2352,10 +2352,10 @@ async function generateCheckoutLink() {
     const r = await fetch(`/api/brands/${billingBrandId}/checkout-link`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priceId })
     }).then(r => r.json());
-    if (r.error) { resultDiv.innerHTML = `<span style="color:#e74c3c">${r.error}</span>`; return; }
-    resultDiv.innerHTML = `<a href="${r.url}" target="_blank" style="color:#CCEB3C">${r.url}</a>`;
+    if (r.error) { resultDiv.textContent = r.error; resultDiv.style.color = '#e74c3c'; return; }
+    resultDiv.innerHTML = `<a href="${esc(r.url)}" target="_blank" style="color:#CCEB3C">${esc(r.url)}</a>`;
   } catch(e) {
-    resultDiv.innerHTML = `<span style="color:#e74c3c">${e.message}</span>`;
+    resultDiv.textContent = e.message; resultDiv.style.color = '#e74c3c';
   }
 }
 
@@ -2448,9 +2448,9 @@ async function loadAppointments(brandId, brandName) {
     <tr>
       <td>${dateFmt(a.slot_date)}</td>
       <td>${a.slot_time}</td>
-      <td>${a.client_name}</td>
-      <td><a href="mailto:${a.client_email}" style="color:#CCEB3C">${a.client_email}</a>${a.client_phone ? '<br>' + a.client_phone : ''}</td>
-      <td>${a.notes || '—'}</td>
+      <td>${esc(a.client_name)}</td>
+      <td><a href="mailto:${esc(a.client_email)}" style="color:#CCEB3C">${esc(a.client_email)}</a>${a.client_phone ? '<br>' + esc(a.client_phone) : ''}</td>
+      <td>${esc(a.notes) || '—'}</td>
     </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_appointment')}</td></tr>`;
 }
 
@@ -2762,8 +2762,8 @@ async function sendAgentSelection() {
   });
   const d = await r.json().catch(() => ({}));
   btn.disabled = false; btn.textContent = '📨 Envoyer à l\'acheteur';
-  if (!r.ok) { res.innerHTML = `<span style="color:#e07a7a">${d.error||'Erreur'}</span>`; return; }
-  res.innerHTML = `<span style="color:#5ec95e">✓ Sélection envoyée à ${esc(email)}.</span><br><span style="font-size:11px;color:#888">Lien : <a href="${d.url}" target="_blank" style="color:#CCEB3C">${d.url}</a></span>`;
+  if (!r.ok) { res.textContent = d.error || 'Erreur'; res.style.color = '#e07a7a'; return; }
+  res.innerHTML = `<span style="color:#5ec95e">✓ Sélection envoyée à ${esc(email)}.</span><br><span style="font-size:11px;color:#888">Lien : <a href="${esc(d.url)}" target="_blank" style="color:#CCEB3C">${esc(d.url)}</a></span>`;
 }
 
 // Remplit le filtre de collection depuis les produits chargés

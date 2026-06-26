@@ -1100,7 +1100,8 @@ async function init() {
     // Si l'API retourne une erreur JSON ou pas un tableau → on sécurise
     allBrands = Array.isArray(brandsData) ? brandsData : [];
     if (!Array.isArray(brandsData)) {
-      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${brandsData.error || 'Erreur de chargement'}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
+      const _errMsg = esc(brandsData.error || 'Erreur de chargement');
+      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">Recharger</button></div>`;
       return;
     }
   } catch(e) {
@@ -1187,7 +1188,7 @@ async function saveProfile() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, company, phone, country })
     }).then(r => r.json());
-    if (r.error) { msg.innerHTML = `<span style="color:#e74c3c">${r.error}</span>`; return; }
+    if (r.error) { msg.textContent = r.error; msg.style.color = '#e74c3c'; return; }
     me = { ...me, name, company, phone, country };
     document.getElementById('user-name').textContent = name;
     document.getElementById('user-avatar').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -1229,9 +1230,9 @@ async function confirmDeleteAccount() {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     }).then(r => r.json());
-    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
+    if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
     window.location.href = '/editions-showroom-b2b-portail?deleted=1';
-  } catch(e) { msg.innerHTML = '<div class="msg error">Erreur réseau.</div>'; }
+  } catch(e) { msg.className = 'msg error'; msg.textContent = 'Erreur réseau.'; }
 }
 
 async function changePassword() {
@@ -1244,12 +1245,12 @@ async function changePassword() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword, newPassword })
     }).then(r => r.json());
-    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; return; }
+    if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
     document.getElementById('pw-current').value = '';
     document.getElementById('pw-new').value = '';
-    msg.innerHTML = `<div class="msg">${t('pw_saved')}</div>`;
+    msg.className = 'msg'; msg.textContent = t('pw_saved');
   } catch(e) {
-    msg.innerHTML = `<div class="msg error">Erreur réseau, réessayez.</div>`;
+    msg.className = 'msg error'; msg.textContent = 'Erreur réseau, réessayez.';
   }
 }
 
@@ -1757,7 +1758,7 @@ async function submitCheckout() {
       })
     }).then(r => r.json());
 
-    if (r.error) { msg.innerHTML = `<div class="msg error">${r.error}</div>`; btnConfirm.disabled = false; btnConfirm.textContent = origBtnText; return; }
+    if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; btnConfirm.disabled = false; btnConfirm.textContent = origBtnText; return; }
 
     btnConfirm.textContent = origBtnText;
     Object.keys(cart).forEach(k => delete cart[k]);
