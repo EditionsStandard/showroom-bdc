@@ -3877,26 +3877,6 @@ app.post('/api/agent/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
-// ── Stats dashboard admin ────────────────────────────────────────────
-app.get('/api/stats', requireRole('owner', 'agent'), async (req, res) => {
-  try {
-    const [brandsRes, ordersRes, orders30Res, revenueRes, buyersRes] = await Promise.all([
-      pool.query("SELECT COUNT(*) FROM brands WHERE subscription_status != 'suspended'"),
-      pool.query('SELECT COUNT(*) FROM orders'),
-      pool.query("SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '30 days'"),
-      pool.query('SELECT COALESCE(SUM(total_amount), 0) as total FROM orders'),
-      pool.query('SELECT COUNT(*) FROM buyers'),
-    ]);
-    res.json({
-      brands_count:   parseInt(brandsRes.rows[0].count),
-      orders_count:   parseInt(ordersRes.rows[0].count),
-      orders_last30:  parseInt(orders30Res.rows[0].count),
-      revenue_total:  parseFloat(revenueRes.rows[0].total),
-      buyers_count:   parseInt(buyersRes.rows[0].count),
-    });
-  } catch(e) { console.error('stats:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
-});
-
 // ── Reorder — dupliquer une commande existante ───────────────────────
 app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, res) => {
   try {
