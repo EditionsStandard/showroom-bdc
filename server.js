@@ -3810,7 +3810,53 @@ scheduleDailyReminders();
 
 // PWA assets
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.json')));
+app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent-manifest.json')));
 app.get('/sw.js', (req, res) => { res.setHeader('Service-Worker-Allowed', '/'); res.sendFile(path.join(__dirname, 'public', 'sw.js')); });
+
+// Agent PWA
+app.get('/agent', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent.html')));
+
+app.post('/api/agent/login', loginLimiter, async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+  try {
+    const { rows } = await pool.query('SELECT * FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
+    if (!rows[0]) return res.status(401).json({ error: 'Invalid credentials' });
+    const user = rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    req.session.user = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+    let brands;
+    if (user.role === 'owner') {
+      const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE subscription_status != 'suspended' ORDER BY name");
+      brands = r.rows;
+    } else {
+      const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
+      brands = r.rows;
+    }
+    res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
+});
+
+app.get('/api/agent/me', async (req, res) => {
+  if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+  const user = req.session.user;
+  let brands;
+  try {
+    if (user.role === 'owner') {
+      const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name');
+      brands = r.rows;
+    } else if (user.brand_id) {
+      const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
+      brands = r.rows;
+    } else { brands = []; }
+    res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
+  } catch(e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+app.post('/api/agent/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
 
 // Catch-all 404
 app.use((req, res) => {

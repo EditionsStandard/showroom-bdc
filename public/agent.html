@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ES Agent">
+  <link rel="manifest" href="/agent-manifest.json">
+  <meta name="theme-color" content="#CCEB3C">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>ES Agent — Showroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DotGothic16&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black: #0a0a0a; --white: #f5f5f5; --dark: #141414; --border: #262626;
+      --accent: #CCEB3C; --muted: #666; --soft: #999; --input-bg: #1a1a1a;
+      --dot: 'DotGothic16';
+    }
+    [data-theme="light"] {
+      --black: #f5f5f5; --white: #0a0a0a; --dark: #ebebeb; --border: #d0d0d0;
+      --muted: #888; --soft: #555; --input-bg: #e0e0e0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--black); color: var(--white);
+      font-family: 'Space Mono', 'Courier New', monospace;
+      min-height: 100vh;
+      padding: 40px 20px calc(40px + env(safe-area-inset-bottom));
+      max-width: 480px; margin: 0 auto;
+    }
+    input {
+      width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+      color: var(--white); border-radius: 2px; padding: 14px 16px;
+      font-size: 16px; font-family: inherit; outline: none;
+      transition: border-color .15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%; background: var(--accent); color: #111; border: none;
+      padding: 16px; font-size: 13px; font-weight: 700; font-family: inherit;
+      border-radius: 2px; cursor: pointer; margin-top: 14px;
+      letter-spacing: .08em; text-transform: uppercase; min-height: 52px;
+    }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 8px 14px; border-radius: 2px; cursor: pointer;
+      font-size: 11px; font-family: inherit; letter-spacing: .04em;
+    }
+    .card { background: var(--dark); border: 1px solid var(--border); border-radius: 2px; padding: 20px; }
+    .brand-card {
+      display: flex; align-items: center; gap: 16px; padding: 16px;
+      border: 1px solid var(--border); border-radius: 2px; margin-bottom: 12px;
+      cursor: pointer; text-decoration: none; color: var(--white);
+      transition: border-color .15s; min-height: 80px;
+    }
+    .brand-card:active { border-color: var(--accent); background: var(--dark); }
+    .brand-logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 2px; flex-shrink: 0; }
+    .brand-logo-ph {
+      width: 56px; height: 56px; background: var(--input-bg); border-radius: 2px;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .brand-name { font-size: 13px; font-weight: 700; letter-spacing: .06em; }
+    .brand-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .err { color: #e55; font-size: 12px; margin-top: 8px; }
+    .logo-area { text-align: center; margin-bottom: 36px; padding-top: 20px; }
+    .logo-es { font-family: var(--dot), monospace; font-size: 36px; color: var(--accent); letter-spacing: .1em; }
+    .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: .25em; text-transform: uppercase; margin-top: 6px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .header-title .es { font-family: var(--dot), monospace; font-size: 22px; color: var(--accent); }
+    .header-title .agent-name { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .section-label { font-size: 10px; color: var(--muted); letter-spacing: .15em; text-transform: uppercase; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login">
+  <div class="logo-area">
+    <div class="logo-es">ES</div>
+    <div class="logo-sub">Agent Showroom</div>
+  </div>
+  <div class="card">
+    <input type="email" id="login-email" placeholder="Email" autocomplete="email" autocapitalize="none">
+    <input type="password" id="login-pw" placeholder="Mot de passe" autocomplete="current-password" style="margin-top:10px">
+    <div id="login-err" class="err" style="display:none"></div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Se connecter</button>
+  </div>
+</div>
+
+<!-- BRANDS -->
+<div id="screen-brands" style="display:none">
+  <div class="header">
+    <div class="header-title">
+      <div class="es">ES Agent</div>
+      <div class="agent-name" id="agent-name"></div>
+    </div>
+    <button class="btn-secondary" onclick="doLogout()">Déconnexion</button>
+  </div>
+  <div class="section-label">Choisir une marque</div>
+  <div id="brands-list"></div>
+</div>
+
+<script>
+(function() {
+  const h = new Date().getHours();
+  if (h >= 7 && h < 20) document.documentElement.setAttribute('data-theme','light');
+})();
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-err');
+  if (!email || !pw) { err.textContent = 'Renseignez email et mot de passe.'; err.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Connexion…';
+  err.style.display = 'none';
+  try {
+    const r = await fetch('/api/agent/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pw })
+    });
+    if (r.ok) {
+      const data = await r.json();
+      showBrands(data);
+    } else {
+      err.textContent = 'Email ou mot de passe incorrect.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Se connecter';
+    }
+  } catch(e) {
+    err.textContent = 'Erreur réseau — vérifiez votre connexion.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Se connecter';
+  }
+}
+
+function showBrands(data) {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-brands').style.display = 'block';
+  document.getElementById('agent-name').textContent = data.name || data.email || '';
+  const list = document.getElementById('brands-list');
+  if (!data.brands || !data.brands.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:48px 0">Aucune marque assignée.<br>Contactez l\'administrateur.</div>';
+    return;
+  }
+  list.innerHTML = data.brands.map(b => {
+    const logo = (b.logo || b.logo_url)
+      ? `<img class="brand-logo" src="${esc(b.logo||b.logo_url)}" alt="">`
+      : `<div class="brand-logo-ph">🏷</div>`;
+    return `<a class="brand-card" href="/commande/${esc(b.id)}">
+      ${logo}
+      <div style="flex:1;min-width:0">
+        <div class="brand-name">${esc(b.name)}</div>
+        <div class="brand-sub">Saisir une commande →</div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+async function checkSession() {
+  try {
+    const r = await fetch('/api/agent/me');
+    if (r.ok) { const data = await r.json(); showBrands(data); }
+  } catch(e) {}
+}
+
+async function doLogout() {
+  await fetch('/api/agent/logout', { method: 'POST' }).catch(() => {});
+  document.getElementById('screen-brands').style.display = 'none';
+  document.getElementById('screen-login').style.display = 'block';
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = 'Se connecter';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pw').value = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkSession();
+  document.getElementById('login-pw').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('login-email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('login-pw').focus();
+  });
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
