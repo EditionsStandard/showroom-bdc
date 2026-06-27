@@ -3180,12 +3180,12 @@ function renderProductsTable(products) {
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap">${Number(p.price).toFixed(2)} €</td>
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '— (cliquer)'}</td>
       <td>${imgThumb}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-secondary btn-sm" onclick="editProductById('${p.id}')" title="Modifier">✏️</button>
-        <button class="btn btn-secondary btn-sm" title="Dupliquer" onclick="duplicateProduct('${p.id}')">⧉</button>
-        <button class="btn btn-secondary btn-sm" title="${inactive ? 'Réactiver' : 'Désactiver'}" onclick="toggleProductActive('${p.id}',${inactive ? 1 : 0})" style="color:${inactive?'#2ecc71':'#888'}">${inactive ? '▶' : '⏸'}</button>
-        <button class="btn btn-secondary btn-sm" title="QR Code" onclick="showProductQR('${p.brand_id}','${p.id}')">📱</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')" title="Supprimer">✕</button>
+      <td style="white-space:nowrap" ondragstart="event.stopPropagation()">
+        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();editProductById('${p.id}')" title="Modifier">✏️</button>
+        <button class="btn btn-secondary btn-sm" title="Dupliquer" onclick="event.stopPropagation();duplicateProduct('${p.id}')">⧉</button>
+        <button class="btn btn-secondary btn-sm" title="${inactive ? 'Réactiver' : 'Désactiver'}" onclick="event.stopPropagation();toggleProductActive('${p.id}',${inactive ? 1 : 0})" style="color:${inactive?'#2ecc71':'#888'}">${inactive ? '▶' : '⏸'}</button>
+        <button class="btn btn-secondary btn-sm" title="QR Code" onclick="event.stopPropagation();showProductQR('${p.brand_id}','${p.id}')">📱</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteProduct('${p.id}')" title="Supprimer">✕</button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">${t('no_ref')}</td></tr>`;
