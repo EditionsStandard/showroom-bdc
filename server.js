@@ -2488,6 +2488,25 @@ app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
   res.json({ orders: orders.rows, buyers: buyers.rows, selections: selections.rows });
 });
 
+app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const [brandsR, ordersR, revenueR, buyersR, orders30R] = await Promise.all([
+      pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
+      pool.query(`SELECT COUNT(*) as orders_count FROM orders WHERE status NOT IN ('draft','cancelled','archived')`),
+      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue_total FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived')`),
+      pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
+      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders WHERE status NOT IN ('draft','cancelled') AND created_at >= NOW() - INTERVAL '30 days'`)
+    ]);
+    res.json({
+      brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
+      orders_count: parseInt(ordersR.rows[0].orders_count) || 0,
+      revenue_total: parseFloat(revenueR.rows[0].revenue_total) || 0,
+      buyers_count: parseInt(buyersR.rows[0].buyers_count) || 0,
+      orders_last30: parseInt(orders30R.rows[0].orders_last30) || 0
+    });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
   req.url = req.url.replace('/api/search', '/api/admin/search');
   res.redirect(307, '/api/admin/search?' + new URLSearchParams({ q: req.query.q || '' }));

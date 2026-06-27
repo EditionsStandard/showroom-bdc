@@ -2307,14 +2307,22 @@ async function loadDashboard() {
   if (currentUserRole === 'designer') return loadDesignerDashboard();
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
-  const [brands, orders, buyers, onlineIds] = await Promise.all([
+
+  // Charger les stats légères + marques + présence en parallèle
+  const [stats, brands, recentOrders, onlineIds] = await Promise.all([
+    fetch('/api/stats').then(r => r.json()).catch(() => ({})),
     arr(fetch('/api/brands')),
-    arrOrders(fetch('/api/orders')),
-    arr(fetch('/api/buyers')),
+    arrOrders(fetch('/api/orders?limit=10&sort=date_desc')),
     arr(fetch('/api/buyers/presence'))
   ]);
-  document.getElementById('stat-brands').textContent = brands.length;
-  document.getElementById('stat-orders').textContent = orders.length;
+
+  // Stats cards via /api/stats
+  document.getElementById('stat-brands').textContent = stats.brands_count ?? brands.length;
+  document.getElementById('stat-orders').textContent = stats.orders_count ?? '—';
+  document.getElementById('stat-total').textContent =
+    stats.revenue_total != null ? Number(stats.revenue_total).toFixed(2) + ' €' : '—';
+  document.getElementById('stat-buyers').textContent = stats.buyers_count ?? '—';
+  document.getElementById('stat-online-num').textContent = onlineIds.length;
 
   // Peupler le sélecteur de marque de la carte Partage
   const shareSel = document.getElementById('share-brand-select');
@@ -2322,20 +2330,16 @@ async function loadDashboard() {
     shareSel.innerHTML = '<option value="">Choisir une marque…</option>' +
       brands.map(b => `<option value="${b.id}" data-token="${b.invite_token||''}">${esc(b.name)}</option>`).join('');
   }
-  const total = orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
-  document.getElementById('stat-total').textContent = total.toFixed(2) + ' €';
-  document.getElementById('stat-buyers').textContent = buyers.length;
-  document.getElementById('stat-online-num').textContent = onlineIds.length;
 
   // Graphique CA mensuel (6 derniers mois) — via endpoint serveur
-  fetch('/api/dashboard/revenue-chart').then(r => r.json()).then(chartData => {
+  fetch('/api/dashboard/revenue-chart?months=6').then(r => r.json()).then(chartData => {
     if (Array.isArray(chartData)) {
       drawRevenueChart(chartData);
       const totalChart = chartData.reduce((s, d) => s + (d.total || 0), 0);
       document.getElementById('chart-total').textContent = `6 mois · ${totalChart.toFixed(0)} € CA`;
     }
   }).catch(() => {
-    // Fallback client-side
+    // Fallback client-side avec les commandes récentes
     const months = {};
     const now2 = new Date();
     for (let i = 5; i >= 0; i--) {
@@ -2343,7 +2347,7 @@ async function loadDashboard() {
       const key = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`;
       months[key] = 0;
     }
-    orders.forEach(o => {
+    recentOrders.forEach(o => {
       const key = o.created_at ? o.created_at.slice(0,7) : null;
       if (key && months[key] !== undefined) months[key] += parseFloat(o.total)||0;
     });
@@ -2352,8 +2356,9 @@ async function loadDashboard() {
     document.getElementById('chart-total').textContent = `6 mois · ${fallbackData.reduce((s,d)=>s+d.total,0).toFixed(0)} € CA`;
   });
 
+  // Tableau des dernières commandes
   const tbody = document.getElementById('recent-orders-body');
-  const recent = orders.filter(o => o.status !== 'archived').slice(0, 10);
+  const recent = recentOrders.filter(o => o.status !== 'archived').slice(0, 10);
   tbody.innerHTML = recent.map(o => `
     <tr>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
@@ -2367,9 +2372,9 @@ async function loadDashboard() {
     </tr>
   `).join('');
 
-  // CA par marque
+  // CA par marque (depuis commandes récentes — chart bar)
   const byBrand = {};
-  orders.filter(o => o.status !== 'archived').forEach(o => {
+  recentOrders.filter(o => o.status !== 'archived').forEach(o => {
     if (!byBrand[o.brand_name]) byBrand[o.brand_name] = 0;
     byBrand[o.brand_name] += parseFloat(o.total) || 0;
   });
