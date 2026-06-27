@@ -3167,7 +3167,7 @@ function renderProductsTable(products) {
     try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
-    const pJson = JSON.stringify({id:p.id,collection_name:p.collection_name||'',season_id:p.season_id||'',reference:p.reference,description:p.description||'',color:p.color||'',category:p.category||'',composition:p.composition||'',sizes:p.sizes||'',price:p.price,price_retail:p.price_retail||0,image_url:p.image_url||'',images:p.images||'[]',variants:p.variants||'[]'}).replace(/'/g,"&#39;");
+    const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
     return `<tr class="product-row" draggable="true" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''};cursor:grab">
       <td><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateBulkBar()" style="width:auto"></td>
@@ -3181,7 +3181,7 @@ function renderProductsTable(products) {
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '— (cliquer)'}</td>
       <td>${imgThumb}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-secondary btn-sm" onclick='editProduct(${pJson})' title="Modifier">✏️</button>
+        <button class="btn btn-secondary btn-sm" onclick="editProductById('${p.id}')" title="Modifier">✏️</button>
         <button class="btn btn-secondary btn-sm" title="Dupliquer" onclick="duplicateProduct('${p.id}')">⧉</button>
         <button class="btn btn-secondary btn-sm" title="${inactive ? 'Réactiver' : 'Désactiver'}" onclick="toggleProductActive('${p.id}',${inactive ? 1 : 0})" style="color:${inactive?'#2ecc71':'#888'}">${inactive ? '▶' : '⏸'}</button>
         <button class="btn btn-secondary btn-sm" title="QR Code" onclick="showProductQR('${p.brand_id}','${p.id}')">📱</button>
@@ -3357,6 +3357,12 @@ function openAddProduct() {
   document.getElementById('product-form-title').textContent = t('product_form_title_new');
   document.getElementById('product-form-btn').textContent = t('js_add_product');
   document.getElementById('add-product-form').style.display = 'block';
+}
+
+function editProductById(id) {
+  const p = productsCache.find(x => x.id === id);
+  if (!p) return toast('Référence introuvable', true);
+  editProduct(p);
 }
 
 function editProduct(p) {
