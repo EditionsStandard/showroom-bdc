@@ -3169,8 +3169,8 @@ function renderProductsTable(products) {
     const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
     const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
-    return `<tr class="product-row" draggable="true" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''};cursor:grab">
-      <td><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateBulkBar()" style="width:auto"></td>
+    return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
+      <td><span class="drag-handle" draggable="true" data-drag-id="${p.id}" style="cursor:grab;padding:0 6px;color:#555;user-select:none">⠿</span><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateBulkBar()" style="width:auto"></td>
       <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.description||''}">${p.description||'—'}</td>
@@ -3215,11 +3215,11 @@ function initProductDrag() {
   const rows = document.querySelectorAll('.product-row');
   rows.forEach(row => {
     row.addEventListener('dragstart', e => {
-      if (e.target.closest('.prod-action')) { e.preventDefault(); return; }
+      if (!e.target.closest('.drag-handle')) { e.preventDefault(); return; }
       e.dataTransfer.setData('productId', row.dataset.id);
       row.style.opacity = '0.4';
     });
-    row.addEventListener('dragend', () => { row.style.opacity = row.style.opacity === '0.45' ? '0.45' : '1'; row.style.borderTop = ''; });
+    row.addEventListener('dragend', () => { row.style.opacity = row.dataset.inactive === '1' ? '0.45' : '1'; row.style.borderTop = ''; });
     row.addEventListener('dragover', e => { e.preventDefault(); row.style.borderTop = '2px solid #CCEB3C'; });
     row.addEventListener('dragleave', () => { row.style.borderTop = ''; });
     row.addEventListener('drop', e => {
