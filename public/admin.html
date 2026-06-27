@@ -3387,12 +3387,12 @@ function editProductById(id) {
 function editProduct(p) {
   resetProductForm();
   let imgs = [];
-  try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
+  try { const _i = typeof p.images === 'string' ? JSON.parse(p.images || '[]') : (p.images || []); imgs = Array.isArray(_i) ? _i : []; } catch(e) {}
   if (!imgs.length && p.image_url) imgs = [p.image_url];
   currentImages = imgs;
 
   let variants = [];
-  try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
+  try { const _v = typeof p.variants === 'string' ? JSON.parse(p.variants || '[]') : (p.variants || []); variants = Array.isArray(_v) ? _v : []; } catch(e) {}
   currentVariants = variants.map(v => ({ color: v.color || '', images: Array.isArray(v.images) ? v.images : [] }));
 
   document.getElementById('p-id').value = p.id;
