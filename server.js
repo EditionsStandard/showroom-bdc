@@ -3858,6 +3858,110 @@ app.post('/api/agent/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
+// ── Stats dashboard admin ────────────────────────────────────────────
+app.get('/api/stats', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const [brandsRes, ordersRes, orders30Res, revenueRes, buyersRes] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM brands WHERE subscription_status != 'suspended'"),
+      pool.query('SELECT COUNT(*) FROM orders'),
+      pool.query("SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '30 days'"),
+      pool.query('SELECT COALESCE(SUM(total_amount), 0) as total FROM orders'),
+      pool.query('SELECT COUNT(*) FROM buyers'),
+    ]);
+    res.json({
+      brands_count:   parseInt(brandsRes.rows[0].count),
+      orders_count:   parseInt(ordersRes.rows[0].count),
+      orders_last30:  parseInt(orders30Res.rows[0].count),
+      revenue_total:  parseFloat(revenueRes.rows[0].total),
+      buyers_count:   parseInt(buyersRes.rows[0].count),
+    });
+  } catch(e) { console.error('stats:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── Reorder — dupliquer une commande existante ───────────────────────
+app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const src = await pool.query(
+      'SELECT brand_id, buyer_id, client_name, client_email, client_company, client_phone, client_country, notes FROM orders WHERE id=$1',
+      [req.params.id]
+    );
+    if (!src.rows.length) return res.status(404).json({ error: 'Commande introuvable' });
+    const o = src.rows[0];
+    const lines = await pool.query(
+      'SELECT product_id, size, quantity, unit_price, price_retail, note FROM order_lines WHERE order_id=$1',
+      [req.params.id]
+    );
+    const newId = uuidv4();
+    const dbClient = await pool.connect();
+    try {
+      await dbClient.query('BEGIN');
+      const seqRes = await dbClient.query("SELECT LPAD(nextval('order_number_seq')::TEXT, 4, '0') AS num");
+      const orderNumber = 'ES-' + seqRes.rows[0].num;
+      await dbClient.query(
+        `INSERT INTO orders (id,brand_id,buyer_id,client_name,client_email,client_company,client_phone,client_country,notes,status,order_number)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10)`,
+        [newId, o.brand_id, o.buyer_id, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country, o.notes, orderNumber]
+      );
+      for (const l of lines.rows) {
+        await dbClient.query(
+          'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+          [uuidv4(), newId, l.product_id, l.size, l.quantity, l.unit_price, l.price_retail, l.note]
+        );
+      }
+      await dbClient.query('COMMIT');
+    } catch(e) {
+      await dbClient.query('ROLLBACK');
+      throw e;
+    } finally {
+      dbClient.release();
+    }
+    res.json({ id: newId });
+  } catch(e) { console.error('reorder:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── RGPD — Export données acheteur connecté ──────────────────────────
+app.get('/api/portal/my-data-export', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const [profile, orders, favs] = await Promise.all([
+      pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang FROM buyers WHERE id=$1', [buyerId]),
+      pool.query(`SELECT o.id, o.order_number, o.brand_id, o.status, o.notes, o.created_at,
+                         b.name as brand_name
+                  FROM orders o JOIN brands b ON o.brand_id=b.id
+                  WHERE o.buyer_id=$1 ORDER BY o.created_at DESC`, [buyerId]),
+      pool.query('SELECT favorites_json FROM buyers WHERE id=$1', [buyerId]),
+    ]);
+    let favorites = [];
+    try { favorites = JSON.parse(favs.rows[0]?.favorites_json || '[]'); } catch(e) {}
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="mes-donnees.json"');
+    res.json({
+      generated_at: new Date().toISOString(),
+      profile: profile.rows[0] || null,
+      orders: orders.rows,
+      favorites,
+    });
+  } catch(e) { res.status(500).json({ error: 'Erreur export' }); }
+});
+
+// ── RGPD — Suppression compte acheteur (POST) ────────────────────────
+app.post('/api/portal/delete-account', requireBuyerAuth, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis' });
+    const buyerId = req.session.buyerPortal.id;
+    const r = await pool.query('SELECT id, password_hash FROM buyers WHERE id=$1', [buyerId]);
+    const buyer = r.rows[0];
+    if (!buyer || !await bcrypt.compare(password, buyer.password_hash)) {
+      return res.status(400).json({ error: 'Mot de passe incorrect' });
+    }
+    await pool.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
+    await pool.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    req.session.destroy(() => {});
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur suppression' }); }
+});
+
 // Catch-all 404
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
