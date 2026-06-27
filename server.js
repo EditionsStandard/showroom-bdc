@@ -3827,31 +3827,29 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     req.session.user = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
     let brands;
-    const isAdmin = ['owner', 'admin'].includes(user.role);
-    if (isAdmin) {
+    if (!user.brand_id) {
       const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name");
       brands = r.rows;
-    } else if (user.brand_id) {
+    } else {
       const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
       brands = r.rows;
-    } else { brands = []; }
+    }
     res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
 
 app.get('/api/agent/me', async (req, res) => {
-  if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
-  const user = req.session.user;
+  const user = req.session?.user || req.session?.staffUser;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
   let brands;
   try {
-    const isAdmin = ['owner', 'admin'].includes(user.role);
-    if (isAdmin) {
+    if (!user.brand_id) {
       const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name');
       brands = r.rows;
-    } else if (user.brand_id) {
+    } else {
       const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
       brands = r.rows;
-    } else { brands = []; }
+    }
     res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
   } catch(e) { res.status(500).json({ error: 'Server error' }); }
 });
