@@ -3392,8 +3392,11 @@ function editProduct(p) {
   renderVariantsList();
   document.getElementById('product-form-title').textContent = t('product_form_title_edit');
   document.getElementById('product-form-btn').textContent = t('js_edit_product');
-  document.getElementById('add-product-form').style.display = 'block';
-  document.getElementById('add-product-form').scrollIntoView({ behavior: 'smooth' });
+  const _form = document.getElementById('add-product-form');
+  _form.style.display = 'block';
+  const _modal = document.getElementById('modal-products').querySelector('.modal');
+  if (_modal) setTimeout(() => _modal.scrollTo({ top: _modal.scrollHeight, behavior: 'smooth' }), 50);
+  else _form.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ── Variants ──────────────────────────────────────────
