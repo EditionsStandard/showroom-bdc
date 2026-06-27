@@ -3827,13 +3827,14 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     req.session.user = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
     let brands;
-    if (user.role === 'owner') {
-      const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE subscription_status != 'suspended' ORDER BY name");
+    const isAdmin = ['owner', 'admin'].includes(user.role);
+    if (isAdmin) {
+      const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name");
       brands = r.rows;
-    } else {
+    } else if (user.brand_id) {
       const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
       brands = r.rows;
-    }
+    } else { brands = []; }
     res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
@@ -3843,7 +3844,8 @@ app.get('/api/agent/me', async (req, res) => {
   const user = req.session.user;
   let brands;
   try {
-    if (user.role === 'owner') {
+    const isAdmin = ['owner', 'admin'].includes(user.role);
+    if (isAdmin) {
       const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name');
       brands = r.rows;
     } else if (user.brand_id) {
