@@ -2015,6 +2015,7 @@ async function handleAccessRequest(id, action) {
   if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
   toast(action === 'approve' ? 'Demande approuvée — email envoyé à l\'acheteur' : 'Demande refusée');
   loadAccessRequests();
+  if (action === 'approve') loadDashboard();
 }
 
 async function loadBuyers() {
@@ -2669,15 +2670,19 @@ async function saveBrand() {
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';
-  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  if (r.ok) { closeModal('modal-brand'); loadBrands(); toast(t('js_brand_saved')); }
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(e => { toast(e.message || 'Erreur réseau', true); return null; });
+  if (!r) return;
+  if (r.ok) { closeModal('modal-brand'); loadBrands(); loadDashboard(); toast(t('js_brand_saved')); }
   else toast(t('js_error'), true);
 }
 
 async function deleteBrand(id) {
   if (!confirm(t('confirm_delete_brand'))) return;
-  await fetch(`/api/brands/${id}`, { method: 'DELETE' });
+  const r = await fetch(`/api/brands/${id}`, { method: 'DELETE' }).catch(e => { toast(e.message || 'Erreur réseau', true); return null; });
+  if (!r) return;
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || 'Suppression impossible', true); return; }
   loadBrands();
+  loadDashboard();
   toast(t('js_brand_deleted'));
 }
 
@@ -3621,11 +3626,13 @@ async function saveProduct() {
     variants: currentVariants
   };
   let r;
-  if (id) {
-    r = await fetch(`/api/products/${id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  } else {
-    r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  }
+  try {
+    if (id) {
+      r = await fetch(`/api/products/${id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    } else {
+      r = await fetch(`/api/brands/${currentBrandId}/products`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }
+  } catch(e) { toast(e.message || 'Erreur réseau', true); return; }
   if (r.ok) {
     const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
     cancelProductForm();
@@ -4562,11 +4569,14 @@ async function applyBulkStatus() {
   if (!status) { toast('Veuillez choisir un statut', true); return; }
   const ids = [...document.querySelectorAll('.order-check:checked')].map(c => c.dataset.id);
   if (!ids.length) return;
-  const r = await fetch('/api/orders/bulk-status', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids, status })
-  });
+  let r;
+  try {
+    r = await fetch('/api/orders/bulk-status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, status })
+    });
+  } catch(e) { toast(e.message || 'Erreur réseau', true); return; }
   const data = await r.json();
   if (r.ok) {
     toast(`${data.updated} commande(s) mise(s) à jour`);
