@@ -36,7 +36,7 @@ async function sendPushToAdmins(title, body) {
     const subs = await pool.query('SELECT subscription_json FROM push_subscriptions');
     for (const row of subs.rows) {
       const sub = JSON.parse(row.subscription_json);
-      webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(() => {});
+      webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(e => console.error('[push-error]', e.message));
     }
   } catch(e) {}
 }
@@ -573,7 +573,7 @@ app.post('/api/brands/:brandId/products/reorder', requireBrandScope('owner','age
       if (target.rows[0]) {
         const refOrder = target.rows[0].sort_order;
         if (refOrder !== null && refOrder !== undefined) {
-          await pool.query('UPDATE products SET sort_order=$1 WHERE id=$2', [refOrder - 1, productId]).catch(() => {});
+          await pool.query('UPDATE products SET sort_order=$1 WHERE id=$2', [refOrder - 1, productId]).catch(e => console.error('[sort-order-error]', e.message));
         }
       }
     }
@@ -1602,7 +1602,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
 
   // Push notification Web Push vers admins
   const brandNameForPush = (await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]).catch(() => ({ rows: [] }))).rows[0]?.name || '';
-  sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`).catch(() => {});
+  sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`).catch(e => console.error('[push-order-error]', e.message));
 
   return { order_id: orderId, total: orderTotal };
 }
@@ -2010,7 +2010,7 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
       pool.query(
         'INSERT INTO product_stats (product_id, views) VALUES ($1, 1) ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()',
         [prod.id]
-      ).catch(() => {});
+      ).catch(e => console.error('[product-stats-error]', e.message));
     }
     const brand = b.rows[0];
     brand.logo = cloudinaryOpt(brand.logo);
@@ -4039,7 +4039,7 @@ async function sendAppointmentReminders() {
         to: appt.client_email,
         subject,
         html
-      }).catch(() => {});
+      }).catch(e => console.error('[appt-reminder-email-error]', e.message));
     }
     console.log(`Rappels RDV J-1 envoyés pour ${rows.length} rendez-vous (${dateStr})`);
   } catch(e) {
@@ -4320,9 +4320,9 @@ init().then(() => {
             subject: `Rappel — Rendez-vous ${showroomName} demain`,
             html: `<p>Bonjour ${rdv.client_name},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${agentPhone ? `<p>Contact : ${agentPhone}</p>` : ''}<p>À demain !</p>`
           })
-        }).catch(() => {});
+        }).catch(e => console.error('[rdv-email-error]', e.message));
 
-        await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(() => {});
+        await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(e => console.error('[rdv-reminder-update-error]', e.message));
       }
       if (rdvs.rows.length) console.log(`[rdv-reminders] ${rdvs.rows.length} rappel(s) envoyé(s)`);
     } catch(e) { console.error('[rdv-reminders]', e.message); }

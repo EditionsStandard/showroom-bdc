@@ -938,7 +938,7 @@ async function init() {
     const res = await fetch('/api/public/brands/' + brandId);
     const data = await res.json();
     if (data.error === 'subscription_inactive') {
-      document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center"><div><p style="font-size:14px;color:var(--muted);line-height:1.6">' + (data.message || T('subscription_inactive_msg')) + '</p></div></div>';
+      document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center"><div><p style="font-size:14px;color:var(--muted);line-height:1.6">' + esc(data.message || T('subscription_inactive_msg')) + '</p></div></div>';
       return;
     }
     if (data.error) { document.getElementById('page0').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center"><p style="color:var(--muted)">' + T('no_brand') + '</p></div>'; return; }
@@ -1064,6 +1064,9 @@ function openAgentSend() {
   document.getElementById('agent-send-modal').style.display = 'flex';
 }
 function closeAgentSend() { document.getElementById('agent-send-modal').style.display = 'none'; }
+document.getElementById('agent-send-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAgentSend();
+});
 async function sendAgentSelectionFromCart() {
   const email = document.getElementById('agent-send-email').value.trim();
   const res = document.getElementById('agent-send-result');

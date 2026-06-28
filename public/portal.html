@@ -1205,7 +1205,7 @@ function applyLang() {
   <div class="compare-modal-inner">
     <div class="compare-modal-header">
       <h3 style="margin:0;font-family:'Space Mono',monospace;font-size:16px">Comparaison produits</h3>
-      <button onclick="closeCompareModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">✕</button>
+      <button onclick="closeCompareModal()" aria-label="Fermer la comparaison" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">✕</button>
     </div>
     <div class="compare-cols" id="compare-cols"></div>
   </div>
@@ -1359,13 +1359,19 @@ async function submitAppt() {
   const phone = document.getElementById('appt-phone').value.trim();
   const notes = document.getElementById('appt-notes').value.trim();
   if (!date || !time) { alert(t('appt_err_datetime')); return; }
-  const r = await fetch('/api/portal/appointments', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ brand_id: _apptBrandId, slot_date: date, slot_time: time, client_phone: phone, notes })
-  });
-  document.getElementById('modal-appt').classList.remove('open');
-  if (r.ok) showPortalToast(t('appt_success'));
-  else { const e = await r.json().catch(()=>{}); showPortalToast(e?.error || t('err_generic'), true); }
+  const apptBtn = document.querySelector('#modal-appt button[onclick="submitAppt()"]');
+  if (apptBtn) { apptBtn.disabled = true; apptBtn.textContent = '\u2026'; }
+  try {
+    const r = await fetch('/api/portal/appointments', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ brand_id: _apptBrandId, slot_date: date, slot_time: time, client_phone: phone, notes })
+    });
+    document.getElementById('modal-appt').classList.remove('open');
+    if (r.ok) showPortalToast(t('appt_success'));
+    else { const e = await r.json().catch(()=>{}); showPortalToast(e?.error || t('err_generic'), true); }
+  } finally {
+    if (apptBtn) { apptBtn.disabled = false; apptBtn.textContent = t('appt_send') || 'Confirmer'; }
+  }
 }
 
 function closeCgvModal() {
@@ -1373,6 +1379,12 @@ function closeCgvModal() {
 }
 document.getElementById('cgv-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCgvModal();
+});
+// Fermeture des modaux génériques au clic sur le backdrop
+document.querySelectorAll('.gmodal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
@@ -2626,11 +2638,15 @@ async function renderFavs() {
   el.innerHTML += html || `<p class="msg" style="color:var(--muted)">Produits non disponibles.</p>`;
 }
 
-// ── Tri commandes ─────────────────────────────────────
+// ── Tri & pagination commandes ────────────────────────
+let ordersPage = 0;
+const ORDERS_PER_PAGE = 20;
+let ordersData_sorted = [];
+
 function applySortOrders() {
   if (!ordersData.length) return;
   const sort = document.getElementById('orders-sort')?.value || 'date-desc';
-  const sorted = ordersData.slice().sort((a, b) => {
+  ordersData_sorted = ordersData.slice().sort((a, b) => {
     if (sort === 'date-desc') return new Date(b.created_at) - new Date(a.created_at);
     if (sort === 'date-asc') return new Date(a.created_at) - new Date(b.created_at);
     if (sort === 'amount-desc') return parseFloat(b.total||0) - parseFloat(a.total||0);
@@ -2639,15 +2655,18 @@ function applySortOrders() {
     if (sort === 'status') return (a.status||'').localeCompare(b.status||'');
     return 0;
   });
-  renderOrdersList(sorted);
+  ordersPage = 0;
+  renderOrdersList(ordersData_sorted);
 }
 
 function renderOrdersList(data) {
   const list = document.getElementById('orders-list');
   const statusLabel = { confirmed: t('status_confirmed'), validated: t('status_validated'), cancelled: t('status_cancelled') };
   const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  const start = ordersPage * ORDERS_PER_PAGE;
+  const page = data.slice(start, start + ORDERS_PER_PAGE);
   list.className = 'orders-grid';
-  list.innerHTML = data.map(o => `
+  list.innerHTML = page.map(o => `
     <div class="order-card" data-oid="${o.id}" data-brand="${o.brand_id}" data-brand-name="${esc(o.brand_name)}">
       <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — ${o.order_number || '#'+o.id.slice(0,8).toUpperCase()}</div>
       <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
@@ -2660,6 +2679,15 @@ function renderOrdersList(data) {
         <button onclick="reorderOrder('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline">↺ ${t('renouveler')}</button>
       </div>
     </div>`).join('');
+  if (data.length > ORDERS_PER_PAGE) {
+    const end = Math.min(start + ORDERS_PER_PAGE, data.length);
+    const btnStyle = "background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:8px 16px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer";
+    list.innerHTML += `<div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:16px;grid-column:1/-1">
+      ${ordersPage > 0 ? `<button onclick="ordersPage--;renderOrdersList(ordersData_sorted)" style="${btnStyle}">← Précédent</button>` : ''}
+      <span style="color:var(--muted);font-size:12px;font-family:'Inter',sans-serif">${start+1}–${end} / ${data.length}</span>
+      ${end < data.length ? `<button onclick="ordersPage++;renderOrdersList(ordersData_sorted)" style="${btnStyle}">Suivant →</button>` : ''}
+    </div>`;
+  }
 }
 
 // ── Recherche globale cross-marques ───────────────────
@@ -2791,9 +2819,9 @@ function openProductDrawer(productId) {
     const k = currentBrand.id + '|' + p.id + '|';
     const q = cart[k]?.qty || 0;
     return `<div class="drawer-qty-row">
-      <button class="qty-btn" onclick="changeQty('${p.id}','',-1);drawerRefreshQty()">−</button>
+      <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1);drawerRefreshQty()">−</button>
       <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_">${q}</span>
-      <button class="qty-btn" onclick="changeQty('${p.id}','',1);drawerRefreshQty()">+</button>
+      <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1);drawerRefreshQty()">+</button>
     </div>`;
   })();
   document.getElementById('drawer-qty-rows').innerHTML = rows;
