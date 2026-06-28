@@ -887,6 +887,7 @@ let brandCgvText = '';
 let brandName = '';
 let brandMoqQty = 0;
 let brandMoqAmount = 0;
+let brandMoqStrict = false;
 let agentData = {};
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
@@ -930,6 +931,7 @@ async function init() {
     brandName = data.brand.name;
     brandMoqQty = parseInt(data.brand.moq_qty) || 0;
     brandMoqAmount = parseFloat(data.brand.moq_amount) || 0;
+    brandMoqStrict = data.brand.moq_strict === true || data.brand.moq_strict === 'true';
     agentData = data.agent || {};
     if (data.currencies && data.currencies.length) {
       currenciesData = data.currencies;
@@ -1436,8 +1438,10 @@ document.getElementById('btn-next').addEventListener('click', function() {
     if (!country) { alert(T('err_country')); return; }
     goToPage(3);
   } else if (currentPage === 3) {
-    if (document.getElementById('moq-warning').style.display !== 'none') {
-      document.getElementById('moq-warning').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const moqWarn = document.getElementById('moq-warning');
+    if (brandMoqStrict && moqWarn.dataset.unmet === '1') {
+      showToast(T('moq_strict_block') || 'Minimum de commande non atteint');
+      moqWarn.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     goToPage(4);
@@ -1523,13 +1527,42 @@ function renderRecap() {
 
   document.getElementById('recap-total').textContent = fmtPrice(total);
 
-  // MOQ warning
+  // MOQ warning — barre de progression
   const moqWarn = document.getElementById('moq-warning');
-  let moqMsg = '';
-  if (brandMoqQty > 0 && totalQty < brandMoqQty) moqMsg += T('moq_qty_warn', brandMoqQty);
-  if (brandMoqAmount > 0 && total < brandMoqAmount) moqMsg += (moqMsg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
-  if (moqMsg) { moqWarn.innerHTML = moqMsg; moqWarn.style.display = 'block'; }
-  else { moqWarn.style.display = 'none'; }
+  let moqHtml = '';
+  let moqUnmet = false;
+
+  function moqBar(current, target, unit) {
+    const pct = Math.min(100, target > 0 ? Math.round(current / target * 100) : 100);
+    const done = current >= target;
+    const barColor = done ? '#CCEB3C' : (pct >= 70 ? '#a8c220' : '#f0a500');
+    const label = done
+      ? '<span style="color:#CCEB3C;font-weight:700">✓ Minimum atteint</span>'
+      : '<span style="color:var(--soft)">' + unit(current) + ' / ' + unit(target) + ' — encore ' + unit(target - current) + '</span>';
+    return '<div style="margin-bottom:10px">'
+      + label
+      + '<div style="margin-top:5px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">'
+      + '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width .3s"></div>'
+      + '</div></div>';
+  }
+
+  if (brandMoqQty > 0) {
+    moqHtml += moqBar(totalQty, brandMoqQty, v => v + ' pcs');
+    if (totalQty < brandMoqQty) moqUnmet = true;
+  }
+  if (brandMoqAmount > 0) {
+    moqHtml += moqBar(total, brandMoqAmount, v => fmtPrice(v));
+    if (total < brandMoqAmount) moqUnmet = true;
+  }
+
+  if (moqHtml) {
+    moqWarn.innerHTML = moqHtml;
+    moqWarn.style.display = 'block';
+    moqWarn.dataset.unmet = moqUnmet ? '1' : '0';
+  } else {
+    moqWarn.style.display = 'none';
+    moqWarn.dataset.unmet = '0';
+  }
 
   const name    = document.getElementById('c-name').value;
   const email   = document.getElementById('c-email').value;
