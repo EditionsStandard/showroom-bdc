@@ -43,7 +43,7 @@
 
   /* Stats */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .stat { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, #CCEB3C); }
   .stat-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
   .stat-icon svg { width: 18px; height: 18px; color: var(--stat-color, #CCEB3C); }
@@ -78,7 +78,7 @@
   tr:hover td { background: #1e1e35; }
 
   /* Brand card grid */
-  .brands-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .brands-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
   .brand-card { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; }
   .brand-card h4 { font-size: 16px; color: #fff; margin-bottom: 4px; }
   .brand-card .brand-meta { font-size: 11px; color: #666; }
@@ -173,11 +173,22 @@
     #toast { bottom: 72px; right: 12px; left: 12px; text-align: center; }
   }
 
-  @media (min-width: 1200px) {
+  @media (min-width: 1024px) {
     .main { padding: 40px 48px; }
     .stats { grid-template-columns: repeat(4, 1fr); }
-    .brands-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    .brands-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
   }
+
+  /* Orders table — colonnes proportionnelles */
+  #orders-table { table-layout: fixed; width: 100%; }
+  #orders-table th:nth-child(1) { width: 32px; }   /* checkbox */
+  #orders-table th:nth-child(2) { width: 5%; }      /* réf */
+  #orders-table th:nth-child(3) { width: 10%; }     /* date */
+  #orders-table th:nth-child(4) { width: 22%; }     /* client */
+  #orders-table th:nth-child(5) { width: 15%; }     /* marque */
+  #orders-table th:nth-child(6) { width: 10%; }     /* montant */
+  #orders-table th:nth-child(7) { width: 10%; }     /* statut */
+  #orders-table th:nth-child(8) { width: 26%; }     /* actions */
 
   /* ── Responsive mobile supplémentaire ── */
   @media (max-width: 768px) {
