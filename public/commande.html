@@ -82,7 +82,7 @@
 
   /* ── Search ── */
   .search-bar { background: var(--dark); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 10px; position: sticky; top: 97px; z-index: 30; }
-  .search-bar input { border: none; outline: none; flex: 1; font-size: 13px; color: var(--white); background: transparent; letter-spacing: .04em; }
+  .search-bar input { border: none; outline: none; flex: 1; font-size: 16px; color: var(--white); background: transparent; letter-spacing: .04em; }
   .search-bar input::placeholder { color: var(--muted); }
   .search-icon { color: var(--muted); font-size: 16px; }
 
@@ -95,7 +95,7 @@
   .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; z-index: 40; }
   .cart-info strong { font-size: 17px; color: var(--black); display: block; font-weight: 700; }
   .cart-info span { font-size: 11px; color: rgba(0,0,0,.6); letter-spacing: .08em; text-transform: uppercase; }
-  .btn-next { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; letter-spacing: .1em; text-transform: uppercase; font-family: 'Inter', sans-serif; }
+  .btn-next { background: var(--black); color: var(--white); border: none; padding: 14px 24px; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; letter-spacing: .1em; text-transform: uppercase; font-family: 'Inter', sans-serif; min-height: 52px; }
   .btn-next:disabled { background: rgba(0,0,0,.25); color: rgba(0,0,0,.4); }
 
   /* ── Forms ── */
@@ -244,6 +244,9 @@
     #products-container { grid-template-columns: repeat(3, 1fr); }
   }
 
+  @media (max-width: 480px) {
+    .product-img { height: 220px; }
+  }
   @media (max-width: 767px) {
     /* Mobile tweaks */
     body { overflow-x: hidden; }
@@ -270,7 +273,7 @@
 
     /* Recap table: horizontal scroll on mobile */
     .recap-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .recap-table { min-width: 480px; }
+    .recap-table { min-width: 0; width: 100%; }
 
     /* Form grid: stack fields on mobile */
     .form-fields-grid { display: block; }
