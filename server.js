@@ -23,6 +23,8 @@ const crypto = require('crypto');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
+
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false })); // CSP off car inline scripts dans admin/portal
 app.set('trust proxy', 1); // Railway runs behind a proxy — required for secure cookies
@@ -66,6 +68,15 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.get('/index.html', (req, res) => res.redirect('/'));
 // Favicon → réutilise le logo (évite le 404 /favicon.ico sur chaque page)
 app.get('/favicon.ico', (req, res) => res.redirect(301, '/logo.svg'));
+app.get('/sw.js', (req, res) => {
+  const swPath = path.join(__dirname, 'public', 'sw.js');
+  let swContent = fs.readFileSync(swPath, 'utf8');
+  swContent = swContent.replace("'es-showroom-v1'", `'es-showroom-${APP_VERSION}'`);
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.send(swContent);
+});
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   etag: true
@@ -3995,7 +4006,7 @@ app.use((req, res) => {
 // Gestionnaire d'erreur global Express — capture les exceptions des routes
 // (placé après toutes les routes) pour renvoyer une 500 propre au lieu de planter.
 app.use((err, req, res, next) => {
-  console.error('Erreur non gérée:', err);
+  console.error('[error]', new Date().toISOString(), req.method, req.path, err.message);
   if (res.headersSent) return next(err);
   res.status(500).json({ error: 'Erreur serveur' });
 });
@@ -4003,14 +4014,28 @@ app.use((err, req, res, next) => {
 // Filet de sécurité au niveau du process : une erreur asynchrone non capturée
 // ne doit PAS faire planter tout le serveur (sinon site down jusqu'au redémarrage).
 process.on('unhandledRejection', (reason) => {
-  console.error('Promesse rejetée non gérée:', reason);
+  console.error('[unhandledRejection]', new Date().toISOString(), reason);
 });
 process.on('uncaughtException', (err) => {
-  console.error('Exception non capturée:', err);
+  console.error('[uncaughtException]', new Date().toISOString(), err);
 });
 
 // Start
 init().then(() => {
+  // Nettoyage périodique des tokens expirés (toutes les 6h)
+  setInterval(async () => {
+    try {
+      await pool.query(`
+        DELETE FROM buyer_magic_links WHERE expires_at < NOW();
+        DELETE FROM buyer_password_resets WHERE expires_at < NOW();
+        DELETE FROM buyer_access_tokens WHERE expires_at < NOW();
+        DELETE FROM selection_shares WHERE expires_at < NOW();
+        DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
+      `);
+      await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
+    } catch(e) { console.error('[cleanup]', e.message); }
+  }, 6 * 60 * 60 * 1000);
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✅ Showroom BDC démarré sur http://localhost:${PORT}`);
     console.log(`   Admin : http://localhost:${PORT}/admin\n`);
