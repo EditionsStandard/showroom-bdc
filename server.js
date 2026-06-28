@@ -44,6 +44,13 @@ async function sendPushToAdmins(title, body) {
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+// ── Structured logger ───────────────────────────────────────────────
+const log = {
+  info: (msg, data={}) => console.log(JSON.stringify({ level:'info', msg, ...data, ts: new Date().toISOString() })),
+  warn: (msg, data={}) => console.warn(JSON.stringify({ level:'warn', msg, ...data, ts: new Date().toISOString() })),
+  error: (msg, data={}) => console.error(JSON.stringify({ level:'error', msg, ...data, ts: new Date().toISOString() })),
+};
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
@@ -4311,7 +4318,7 @@ app.use((req, res) => {
 // Gestionnaire d'erreur global Express — capture les exceptions des routes
 // (placé après toutes les routes) pour renvoyer une 500 propre au lieu de planter.
 app.use((err, req, res, next) => {
-  console.error('[error]', new Date().toISOString(), req.method, req.path, err.message);
+  log.error('[error]', { method: req.method, path: req.path, err: err.message });
   if (res.headersSent) return next(err);
   res.status(500).json({ error: 'Erreur serveur' });
 });
@@ -4319,10 +4326,10 @@ app.use((err, req, res, next) => {
 // Filet de sécurité au niveau du process : une erreur asynchrone non capturée
 // ne doit PAS faire planter tout le serveur (sinon site down jusqu'au redémarrage).
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', new Date().toISOString(), reason);
+  log.error('[unhandledRejection]', { reason: String(reason) });
 });
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', new Date().toISOString(), err);
+  log.error('[uncaughtException]', { err: err.message, stack: err.stack });
 });
 
 // Start
@@ -4338,7 +4345,7 @@ init().then(() => {
         DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
       `);
       await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
-    } catch(e) { console.error('[cleanup]', e.message); }
+    } catch(e) { log.error('[cleanup]', { err: e.message }); }
   }, 6 * 60 * 60 * 1000);
 
   // ── Backup hebdomadaire (lundi 7h UTC) ───────────────────────────────
@@ -4391,8 +4398,8 @@ init().then(() => {
             ]
           })
         });
-        console.log('[backup] Backup hebdomadaire envoyé à', adminEmail);
-      } catch(e) { console.error('[backup] Erreur:', e.message); }
+        log.info('[backup] Backup hebdomadaire envoyé', { to: adminEmail });
+      } catch(e) { log.error('[backup] Erreur', { err: e.message }); }
 
       setTimeout(runBackup, 7 * 24 * 60 * 60 * 1000);
     }
@@ -4433,8 +4440,8 @@ init().then(() => {
 
         await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(e => console.error('[rdv-reminder-update-error]', e.message));
       }
-      if (rdvs.rows.length) console.log(`[rdv-reminders] ${rdvs.rows.length} rappel(s) envoyé(s)`);
-    } catch(e) { console.error('[rdv-reminders]', e.message); }
+      if (rdvs.rows.length) log.info('[rdv-reminders] rappels envoyés', { count: rdvs.rows.length });
+    } catch(e) { log.error('[rdv-reminders]', { err: e.message }); }
   }, 60 * 60 * 1000);
 
   // ── Relances acheteurs inactifs (lundi 8h UTC) ───────────────────────
@@ -4473,8 +4480,8 @@ init().then(() => {
           await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
           await new Promise(r => setTimeout(r, 500));
         }
-        if (inactive.rows.length) console.log(`[reminders] ${inactive.rows.length} relances envoyées`);
-      } catch(e) { console.error('[reminders] Erreur:', e.message); }
+        if (inactive.rows.length) log.info('[reminders] relances envoyées', { count: inactive.rows.length });
+      } catch(e) { log.error('[reminders] Erreur', { err: e.message }); }
 
       setTimeout(runReminders, 7 * 24 * 60 * 60 * 1000);
     }

@@ -570,6 +570,7 @@
         <span id="orders-count" style="font-size:13px;color:#888"></span>
         <a href="/api/orders/export/csv" class="btn btn-secondary btn-sm" style="text-decoration:none" download>⬇ Export CSV</a>
         <a href="/api/orders/export-csv" class="btn btn-secondary btn-sm" style="text-decoration:none" onclick="window.location='/api/orders/export-csv';return false">↓ CSV Commandes</a>
+        <a href="/api/admin/export/orders.xlsx" class="btn btn-secondary btn-sm" style="text-decoration:none">⬇ XLSX</a>
       </div>
     </div>
 
@@ -869,6 +870,7 @@
       <div style="display:flex;gap:6px;margin-left:8px">
         <button id="agenda-view-list" class="btn btn-primary btn-sm" onclick="switchAgendaView('list')">📋 Liste</button>
         <button id="agenda-view-cal" class="btn btn-secondary btn-sm" onclick="switchAgendaView('calendar')">📅 Calendrier</button>
+        <button id="agenda-view-week" class="btn btn-secondary btn-sm" onclick="switchAgendaView('week')">🗓 Semaine</button>
       </div>
     </div>
 
@@ -909,6 +911,10 @@
           <div id="cal-day-appts"></div>
         </div>
       </div>
+    </div>
+    <!-- Vue semaine -->
+    <div id="agenda-week-view" style="display:none">
+      <div id="rdv-calendar-view"></div>
     </div>
   </div>
 
@@ -1155,6 +1161,16 @@
         <div class="form-group"><label data-t="lbl_composition">Composition</label><input id="p-composition" type="text" data-tp="ph_composition"></div>
       </div>
       <div class="form-group"><label data-t="lbl_sizes">Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" data-tp="ph_sizes"></div>
+      <!-- Stock -->
+      <div class="form-group" style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="edit-stock-enabled" onchange="toggleStockQty()">
+          <span>Gérer le stock</span>
+        </label>
+        <div id="stock-qty-row" style="display:none;margin-top:8px">
+          <input type="number" id="edit-stock-qty" min="0" placeholder="Quantité disponible" class="input-field" style="width:140px">
+        </div>
+      </div>
       <!-- Photos sans variante -->
       <div class="form-group" id="p-images-section">
         <label data-t="lbl_product_photos">Photos du produit <span style="color:#555;font-weight:400;font-size:11px">(si pas de variante couleur)</span></label>
@@ -1971,9 +1987,61 @@ function switchAgendaView(view) {
   _agendaView = view;
   document.getElementById('agenda-list-view').style.display = view === 'list' ? '' : 'none';
   document.getElementById('agenda-cal-view').style.display = view === 'calendar' ? '' : 'none';
+  const weekEl = document.getElementById('agenda-week-view');
+  if (weekEl) weekEl.style.display = view === 'week' ? '' : 'none';
   document.getElementById('agenda-view-list').className = view === 'list' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
   document.getElementById('agenda-view-cal').className = view === 'calendar' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  const weekBtn = document.getElementById('agenda-view-week');
+  if (weekBtn) weekBtn.className = view === 'week' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
   if (view === 'calendar') renderCalendar(_allAgenda);
+  if (view === 'week') renderWeekCalendar(_allAgenda);
+}
+
+function renderWeekCalendar(appointments) {
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Lundi
+
+  const days = Array.from({length: 7}, (_, i) => {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
+    return d;
+  });
+
+  const HOURS = Array.from({length: 11}, (_, i) => i + 8); // 8h à 18h
+  const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  const grid = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+        <thead>
+          <tr>
+            <th style="width:48px;padding:4px;color:var(--muted)"></th>
+            ${days.map((d, i) => `<th style="padding:6px 4px;text-align:center;color:${d.toDateString()===today.toDateString()?'var(--accent)':'var(--white)'}">
+              ${DAY_LABELS[i]}<br><span style="font-size:10px;color:var(--muted)">${d.getDate()}/${d.getMonth()+1}</span>
+            </th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${HOURS.map(h => `
+            <tr>
+              <td style="padding:4px 6px;color:var(--muted);text-align:right;vertical-align:top">${h}h</td>
+              ${days.map(d => {
+                const dateStr = d.toISOString().split('T')[0];
+                const rdvs = appointments.filter(a => a.slot_date === dateStr && parseInt(a.slot_time) === h);
+                return `<td style="border:1px solid var(--border);padding:2px;height:52px;vertical-align:top">
+                  ${rdvs.map(rdv => `<div style="background:var(--accent);color:#000;border-radius:3px;padding:2px 4px;font-size:10px;margin-bottom:2px;cursor:pointer;overflow:hidden" title="${esc(rdv.client_name)}">${esc((rdv.client_name||'').split(' ')[0])}</div>`).join('')}
+                </td>`;
+              }).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  const container = document.getElementById('rdv-calendar-view');
+  if (container) container.innerHTML = grid;
 }
 
 function renderCalendar(appointments) {
@@ -3658,8 +3726,20 @@ function resetProductForm() {
   document.getElementById('p-price-retail').value = '';
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
+  const stockEnabled = document.getElementById('edit-stock-enabled');
+  if (stockEnabled) stockEnabled.checked = false;
+  const stockQtyRow = document.getElementById('stock-qty-row');
+  if (stockQtyRow) stockQtyRow.style.display = 'none';
+  const stockQty = document.getElementById('edit-stock-qty');
+  if (stockQty) stockQty.value = '';
   renderImagesGrid();
   renderVariantsList();
+}
+
+function toggleStockQty() {
+  const enabled = document.getElementById('edit-stock-enabled')?.checked;
+  const row = document.getElementById('stock-qty-row');
+  if (row) row.style.display = enabled ? 'block' : 'none';
 }
 
 function openAddProduct() {
@@ -3698,6 +3778,13 @@ function editProduct(p) {
   document.getElementById('p-price-retail').value = p.price_retail || '';
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
+  // Stock
+  const _stockEnabled = document.getElementById('edit-stock-enabled');
+  if (_stockEnabled) _stockEnabled.checked = !!p.stock_enabled;
+  const _stockRow = document.getElementById('stock-qty-row');
+  if (_stockRow) _stockRow.style.display = p.stock_enabled ? 'block' : 'none';
+  const _stockQty = document.getElementById('edit-stock-qty');
+  if (_stockQty) _stockQty.value = p.stock_qty != null ? p.stock_qty : '';
   renderImagesGrid();
   renderVariantsList();
   document.getElementById('product-form-title').textContent = t('product_form_title_edit');
@@ -3898,6 +3985,17 @@ async function saveProduct() {
     }
   } catch(e) { toast(e.message || 'Erreur réseau', true); return; }
   if (r.ok) {
+    // PATCH stock
+    const stockEnabled = document.getElementById('edit-stock-enabled')?.checked || false;
+    const stockQtyVal = document.getElementById('edit-stock-qty')?.value;
+    const stockQty = stockEnabled && stockQtyVal !== '' ? parseInt(stockQtyVal) : null;
+    let patchId = id;
+    if (!patchId) {
+      try { const d = await r.json(); patchId = d.id; } catch(e) {}
+    }
+    if (patchId) {
+      fetch(`/api/products/${patchId}/stock`, { method: 'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ stock_enabled: stockEnabled, stock_qty: stockQty }) }).catch(()=>{});
+    }
     const scrollPos = document.getElementById('modal-products').querySelector('.modal').scrollTop;
     cancelProductForm();
     await refreshProducts();
