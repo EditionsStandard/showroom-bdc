@@ -3539,6 +3539,14 @@ function renderProductsTable(products) {
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap">${Number(p.price).toFixed(2)} €</td>
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '— (cliquer)'}</td>
       <td>${imgThumb}</td>
+      <td>${(() => {
+        if (!p.stock_enabled) return '—';
+        const qty = p.stock_qty;
+        if (qty === null || qty === undefined) return '—';
+        if (qty === 0) return '<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;background:#3a1a1a;color:#f44336">Rupture</span>';
+        if (qty <= 5) return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;background:#3a2a0a;color:#ffa726">⚠ ${qty}</span>`;
+        return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;background:#1a3a1a;color:#4caf50">${qty} en stock</span>`;
+      })()}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-sm prod-action" data-action="edit" data-id="${p.id}" title="Modifier" aria-label="Modifier">✏️</button>
         <button class="btn btn-secondary btn-sm prod-action" data-action="dup" data-id="${p.id}" title="Dupliquer" aria-label="Dupliquer">⧉</button>

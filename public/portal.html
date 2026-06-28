@@ -139,6 +139,10 @@
   .drawer-price-ws { font-size: 20px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
   .drawer-price-retail { font-size: 13px; font-family: 'Inter', sans-serif; color: var(--muted); }
   .drawer-price-margin { font-size: 12px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 4px; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
+  .stock-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; font-family:'Inter',sans-serif; }
+  .stock-badge.in { background:#1a3a1a; color:#4caf50; }
+  .stock-badge.low { background:#3a2a0a; color:#ffa726; }
+  .stock-badge.out { background:#3a1a1a; color:#f44336; }
   .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .qty-btn { width: 44px; height: 44px; min-width: 44px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 16px; border-radius: 4px; }
   .qty-display { min-width: 28px; text-align: center; font-size: 15px; font-weight: 700; }
@@ -1182,6 +1186,7 @@ function applyLang() {
       <div id="drawer-color" class="drawer-meta"></div>
       <div id="drawer-composition" class="drawer-meta"></div>
       <div class="drawer-desc" id="drawer-desc"></div>
+      <div id="drawer-stock-badge" style="display:none;margin-bottom:8px"></div>
       <div class="drawer-sep"></div>
       <div class="drawer-sizes-title" id="drawer-sizes-title">Quantités</div>
       <div id="drawer-qty-rows"></div>
@@ -1465,6 +1470,15 @@ async function syncCartFromServer() {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
     updateCartBar();
   } catch(e) {}
+}
+
+function stockBadgeHtml(p) {
+  if (!p.stock_enabled) return '';
+  const qty = p.stock_qty;
+  if (qty === null || qty === undefined) return '';
+  if (qty === 0) return '<span class="stock-badge out">● Rupture de stock</span>';
+  if (qty <= 3) return `<span class="stock-badge low">● Plus que ${qty}</span>`;
+  return `<span class="stock-badge in">● En stock (${qty})</span>`;
 }
 
 function sentenceCase(s) {
@@ -1991,19 +2005,22 @@ function renderProductsPage() {
       : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${badgeNew}${favBtn}</div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
-    const qtyHtml = sizes.length ? sizes.map(sz => {
-      const k = currentBrand.id + '|' + p.id + '|' + sz;
-      const q = cart[k] ? cart[k].qty : 0;
-      return `<div class="qty-row"><span style="font-size:11px;font-family:'Inter',sans-serif;min-width:30px">${esc(sz)}</span>
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
-        <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
-    }).join('') : (() => {
-      const q = cart[key0] ? cart[key0].qty : 0;
-      return `<div class="qty-row"><button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1)">−</button>
-        <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1)">+</button></div>`;
-    })();
+    const _isOutOfStock = p.stock_enabled && p.stock_qty === 0;
+    const qtyHtml = _isOutOfStock
+      ? `<div style="margin-top:10px"><span class="stock-badge out" style="display:inline-block">● Rupture de stock</span></div>`
+      : sizes.length ? sizes.map(sz => {
+        const k = currentBrand.id + '|' + p.id + '|' + sz;
+        const q = cart[k] ? cart[k].qty : 0;
+        return `<div class="qty-row"><span style="font-size:11px;font-family:'Inter',sans-serif;min-width:30px">${esc(sz)}</span>
+          <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
+          <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
+          <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
+      }).join('') : (() => {
+        const q = cart[key0] ? cart[key0].qty : 0;
+        return `<div class="qty-row"><button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1)">−</button>
+          <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
+          <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1)">+</button></div>`;
+      })();
     const _cartQty = getProductCartQty(p.id);
     const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:8px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;z-index:2">${_cartQty}</div>` : '';
     return `<div class="product-card" data-pid="${p.id}" data-product-id="${p.id}" style="position:relative">
@@ -2014,6 +2031,7 @@ function renderProductsPage() {
         <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer">${esc(sentenceCase(p.description))}</div>
         ${p.color ? `<div class="product-meta">${esc(p.color)}</div>` : ''}
         ${priceBlockHtml(p.price, p.price_retail, true)}
+        ${stockBadgeHtml(p) ? `<div style="margin-top:6px">${stockBadgeHtml(p)}</div>` : ''}
         ${qtyHtml}
       </div>
     </div>`;
@@ -2815,27 +2833,35 @@ function openProductDrawer(productId) {
     `<img class="drawer-thumb${i===0?' active':''}" src="${esc(src)}" alt="" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})">`
   ).join('');
 
+  // Stock badge dans le drawer
+  const _drawerStockBadge = stockBadgeHtml(p);
+  const _drawerStockEl = document.getElementById('drawer-stock-badge');
+  if (_drawerStockEl) { _drawerStockEl.innerHTML = _drawerStockBadge; _drawerStockEl.style.display = _drawerStockBadge ? 'block' : 'none'; }
+
   // Qty rows
   const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const _drawerOutOfStock = p.stock_enabled && p.stock_qty === 0;
   document.getElementById('drawer-sizes-title').textContent = sizes.length ? t('sizes_qty') : t('qty_label');
-  const rows = sizes.length ? sizes.map(sz => {
-    const k = currentBrand.id + '|' + p.id + '|' + sz;
-    const q = cart[k]?.qty || 0;
-    return `<div class="drawer-qty-row">
-      <span class="drawer-size-label">${esc(sz)}</span>
-      <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1);drawerRefreshQty()">−</button>
-      <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-      <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1);drawerRefreshQty()">+</button>
-    </div>`;
-  }).join('') : (() => {
-    const k = currentBrand.id + '|' + p.id + '|';
-    const q = cart[k]?.qty || 0;
-    return `<div class="drawer-qty-row">
-      <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1);drawerRefreshQty()">−</button>
-      <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_">${q}</span>
-      <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1);drawerRefreshQty()">+</button>
-    </div>`;
-  })();
+  const rows = _drawerOutOfStock
+    ? `<div style="margin-top:8px"><span class="stock-badge out">● Rupture de stock — ajout au panier désactivé</span></div>`
+    : sizes.length ? sizes.map(sz => {
+      const k = currentBrand.id + '|' + p.id + '|' + sz;
+      const q = cart[k]?.qty || 0;
+      return `<div class="drawer-qty-row">
+        <span class="drawer-size-label">${esc(sz)}</span>
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1);drawerRefreshQty()">−</button>
+        <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1);drawerRefreshQty()">+</button>
+      </div>`;
+    }).join('') : (() => {
+      const k = currentBrand.id + '|' + p.id + '|';
+      const q = cart[k]?.qty || 0;
+      return `<div class="drawer-qty-row">
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1);drawerRefreshQty()">−</button>
+        <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_">${q}</span>
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1);drawerRefreshQty()">+</button>
+      </div>`;
+    })();
   document.getElementById('drawer-qty-rows').innerHTML = rows;
 
   document.getElementById('drawer-overlay').classList.add('open');
