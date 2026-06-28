@@ -1,4 +1,4 @@
-const CACHE_NAME = 'es-showroom-v1';
+const CACHE_NAME = 'es-showroom-v1'; // sera remplacé dynamiquement par le serveur
 
 const STATIC_ASSETS = [
   '/logo.svg',
