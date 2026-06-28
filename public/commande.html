@@ -50,7 +50,12 @@
   .page.active { display: block; }
 
   /* ── Product cards ── */
-  .product-card { background: var(--dark); border-bottom: 1px solid var(--border); overflow: hidden; transition: background .15s; }
+  /* ── Focus visible ── */
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { box-shadow: 0 0 0 3px rgba(204,235,60,.12); }
+
+  .product-card { background: var(--dark); border-bottom: 1px solid var(--border); overflow: hidden; transition: background .15s, border-color .15s, box-shadow .15s; }
+  .product-card:hover { border-color: var(--soft); box-shadow: 0 4px 16px rgba(0,0,0,.3); }
   .product-img-wrap { position: relative; overflow: hidden; }
   .product-img { width: 100%; height: 360px; object-fit: contain; background: #0d0d0d; display: block; cursor: pointer; transition: transform .4s ease; }
   .product-img:active { transform: scale(.98); }
@@ -95,12 +100,14 @@
   .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; z-index: 40; }
   .cart-info strong { font-size: 17px; color: var(--black); display: block; font-weight: 700; }
   .cart-info span { font-size: 11px; color: rgba(0,0,0,.6); letter-spacing: .08em; text-transform: uppercase; }
-  .btn-next { background: var(--black); color: var(--white); border: none; padding: 14px 24px; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; letter-spacing: .1em; text-transform: uppercase; font-family: 'Inter', sans-serif; min-height: 52px; }
+  .btn-next { background: var(--black); color: var(--white); border: none; padding: 14px 24px; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; letter-spacing: .1em; text-transform: uppercase; font-family: 'Inter', sans-serif; min-height: 52px; transition: background .15s, opacity .15s, transform .1s; }
+  .btn-next:active { transform: scale(.98); }
   .btn-next:disabled { background: #2a2a2a; color: #666; border: 1px solid #333; }
 
   /* ── Forms ── */
   .page-pad { padding: 24px 20px 110px; }
   .form-section { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 24px 20px; margin-bottom: 2px; }
+  @media (min-width: 768px) { .form-section { padding: 32px 40px; } }
   .form-section h3 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--white); letter-spacing: .02em; }
   .field { margin-bottom: 18px; }
   .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
@@ -114,6 +121,12 @@
   .recap-card { background: var(--dark); border: 1px solid var(--border); padding: 20px; margin-bottom: 2px; }
   .recap-card h4 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--white); letter-spacing: .04em; }
   .recap-table { width: 100%; border-collapse: collapse; }
+  .recap-table th:nth-child(1) { width: 30%; }
+  .recap-table th:nth-child(2) { width: 20%; }
+  .recap-table th:nth-child(3) { width: 10%; }
+  .recap-table th:nth-child(4) { width: 10%; }
+  .recap-table th:nth-child(5) { width: 15%; }
+  .recap-table th:nth-child(6) { width: 15%; }
   .recap-table thead th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; padding: 0 8px 10px 0; text-align: left; border-bottom: 1px solid var(--border); }
   .recap-table thead th:last-child { text-align: right; padding-right: 0; }
   .recap-table tbody td { font-size: 13px; color: var(--soft); padding: 13px 8px 13px 0; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.6; }
