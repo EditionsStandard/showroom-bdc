@@ -39,11 +39,11 @@
   h3 { font-size: 15px; color: #fff; margin-bottom: 14px; }
 
   /* Cards */
-  .card { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .card { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 
   /* Stats */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .stat { background: linear-gradient(135deg, #111 60%, rgba(204,235,60,.03) 100%); border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, #CCEB3C); }
   .stat-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
   .stat-icon svg { width: 18px; height: 18px; color: var(--stat-color, #CCEB3C); }
@@ -343,6 +343,30 @@
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
   .skeleton { background: linear-gradient(90deg,#222 25%,#2a2a2a 50%,#222 75%); background-size:200%; animation:shimmer 1.2s infinite; border-radius:4px; color:transparent!important; }
   [data-theme="light"] .skeleton { background: linear-gradient(90deg,#e0e0e0 25%,#f0f0f0 50%,#e0e0e0 75%); background-size:200%; animation:shimmer 1.2s infinite; }
+
+  /* ── Desktop UX improvements ── */
+
+  /* 1. Focus visible sur tous les éléments interactifs */
+  .btn:focus-visible { outline: 2px solid var(--accent, #CCEB3C); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent, #CCEB3C); outline-offset: 0; box-shadow: 0 0 0 3px rgba(204,235,60,.1); }
+  a:focus-visible { outline: 2px solid var(--accent, #CCEB3C); outline-offset: 2px; }
+
+  /* 2. Cursor pointer sur lignes de table cliquables */
+  .table tbody tr { cursor: default; transition: background .12s; }
+  .table tbody tr[onclick], .table tbody tr.clickable { cursor: pointer; }
+  tbody tr[onclick] { cursor: pointer; }
+
+  /* 3. Hover sidebar nav — transitions fluides */
+  nav a { transition: background .15s, color .15s, opacity .15s; }
+  nav a:hover { opacity: 1; }
+  nav a:focus-visible { outline: 2px solid var(--accent, #CCEB3C); outline-offset: -2px; }
+
+  /* 6. Transitions boutons — évite les transitions parasites sur box-shadow/transform */
+  .btn { transition: background .15s ease-out, border-color .15s ease-out, color .15s ease-out, opacity .15s ease-out; }
+
+  /* 7. Animation fadeIn entre sections */
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .section.active { animation: fadeSlide .2s ease-out; }
 </style>
 <script>
 (function() {
