@@ -1395,17 +1395,22 @@
 
 <!-- MODAL CSV IMPORT -->
 <div class="modal-overlay" id="modal-csv-import">
-  <div class="modal" style="max-width:480px">
-    <h3>Importer des produits CSV</h3>
-    <p style="font-size:12px;color:#888;margin-bottom:16px">Sélectionnez un fichier CSV. Les colonnes attendues : <code>reference, description, color, sizes, price, price_retail, collection, composition, category</code></p>
+  <div class="modal" style="max-width:540px">
+    <h3>⬆ Import CSV produits</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Colonnes supportées : <code>reference, description, color, sizes, price, price_retail, collection_name, composition, category</code>. Séparateur virgule ou point-virgule.</p>
     <div class="form-group">
       <label>Fichier CSV</label>
-      <input type="file" id="csv-modal-input" accept=".csv,.txt" style="cursor:pointer">
+      <input type="file" id="csv-modal-input" accept=".csv,.txt" style="cursor:pointer" onchange="onCsvFileChange(this)">
+    </div>
+    <div id="csv-modal-preview" style="display:none;margin-bottom:12px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Aperçu (3 premières lignes)</div>
+      <div id="csv-preview-content" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:10px 12px;font-size:11px;font-family:monospace;color:#aaa;overflow-x:auto;white-space:pre;max-height:120px;overflow-y:auto"></div>
+      <div id="csv-preview-count" style="font-size:11px;color:#666;margin-top:6px"></div>
     </div>
     <div id="csv-modal-status" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-csv-import')">Annuler</button>
-      <button class="btn btn-primary" onclick="submitCsvImport()">↑ Importer</button>
+      <button class="btn btn-primary" id="btn-csv-import-submit" onclick="submitCsvImport()" disabled style="opacity:.5">Importer</button>
     </div>
   </div>
 </div>
@@ -4493,11 +4498,54 @@ function downloadCSVTemplateNew() {
   a.click();
 }
 
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(/[,;]/).map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = line.split(/[,;]/).map(v => v.trim().replace(/^"|"$/g, ''));
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
+    return obj;
+  });
+}
+
+function onCsvFileChange(input) {
+  const preview = document.getElementById('csv-modal-preview');
+  const previewContent = document.getElementById('csv-preview-content');
+  const previewCount = document.getElementById('csv-preview-count');
+  const submitBtn = document.getElementById('btn-csv-import-submit');
+  const status = document.getElementById('csv-modal-status');
+  status.style.display = 'none';
+  if (!input.files || !input.files[0]) {
+    preview.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '.5';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    const preview3 = lines.slice(0, 4).join('\n'); // header + 3 rows
+    previewContent.textContent = preview3;
+    const dataCount = Math.max(0, lines.length - 1);
+    previewCount.textContent = `${dataCount} ligne${dataCount !== 1 ? 's' : ''} de données détectée${dataCount !== 1 ? 's' : ''}`;
+    preview.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+  };
+  reader.readAsText(input.files[0]);
+}
+
 function openCsvImportModal() {
   document.getElementById('csv-modal-input').value = '';
+  document.getElementById('csv-modal-preview').style.display = 'none';
   const status = document.getElementById('csv-modal-status');
   status.style.display = 'none';
   status.textContent = '';
+  const submitBtn = document.getElementById('btn-csv-import-submit');
+  submitBtn.disabled = true;
+  submitBtn.style.opacity = '.5';
   openModal('modal-csv-import');
 }
 
@@ -4515,28 +4563,46 @@ async function submitCsvImport() {
   status.style.background = '#1a1a2a';
   status.style.color = '#aaa';
   status.textContent = 'Import en cours…';
-  const fd = new FormData();
-  fd.append('file', input.files[0]);
+  const submitBtn = document.getElementById('btn-csv-import-submit');
+  submitBtn.disabled = true;
+  submitBtn.style.opacity = '.5';
   try {
-    const r = await fetch(`/api/brands/${currentBrandId}/products/import-csv`, { method: 'POST', body: fd });
+    const text = await input.files[0].text();
+    const rows = parseCSV(text);
+    if (!rows.length) {
+      status.style.background = '#3a1a1a';
+      status.style.color = '#e74c3c';
+      status.textContent = 'Aucune ligne de données dans le fichier.';
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      return;
+    }
+    const r = await fetch(`/api/brands/${currentBrandId}/import-csv`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows })
+    });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
       status.style.background = '#3a1a1a';
       status.style.color = '#e74c3c';
       status.textContent = data.error || `Erreur ${r.status}`;
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
       return;
     }
-    const imported = data.imported ?? data.success ?? '?';
-    const skipped = data.skipped ?? data.errors ?? 0;
+    const { created = 0, updated = 0, errors = [] } = data;
     status.style.background = '#1a3a1a';
     status.style.color = '#2ecc71';
-    status.textContent = `✅ ${imported} référence(s) importée(s)${skipped ? ` — ${skipped} ignorée(s)` : ''}`;
+    status.textContent = `✅ ${created} créé${created !== 1 ? 's' : ''}, ${updated} mis à jour, ${errors.length} erreur${errors.length !== 1 ? 's' : ''}`;
     refreshProducts();
-    setTimeout(() => closeModal('modal-csv-import'), 2000);
+    setTimeout(() => closeModal('modal-csv-import'), 2500);
   } catch(e) {
     status.style.background = '#3a1a1a';
     status.style.color = '#e74c3c';
     status.textContent = 'Erreur réseau : ' + e.message;
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
   }
 }
 
