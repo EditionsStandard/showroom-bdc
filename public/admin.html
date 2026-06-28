@@ -634,7 +634,7 @@
           <option value="shipped">Expédiée</option>
         </select>
         <button onclick="applyBulkStatus()" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius:2px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
-        <button onclick="clearBulkSelection()" style="background:transparent;border:none;color:var(--black);cursor:pointer;font-size:16px;margin-left:auto">✕</button>
+        <button onclick="clearBulkSelection()" aria-label="Annuler la sélection" style="background:transparent;border:none;color:var(--black);cursor:pointer;font-size:16px;margin-left:auto">✕</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap"><table id="orders-table" style="min-width:700px">
@@ -2081,7 +2081,7 @@ function filterAgenda() {
       <td style="font-size:12px"><a href="mailto:${esc(a.client_email)}" style="color:#CCEB3C">${esc(a.client_email)}</a>${a.client_phone?`<br>${esc(a.client_phone)}`:''}
       </td>
       <td style="font-size:11px;color:#888">${esc(a.notes||'—')}</td>
-      <td>${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteAppt('${a.id}')">✕</button>` : ''}</td>
+      <td>${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" aria-label="Supprimer le rendez-vous" onclick="deleteAppt('${a.id}')">✕</button>` : ''}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Aucun rendez-vous</td></tr>`;
 }
@@ -3465,11 +3465,11 @@ function renderProductsTable(products) {
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '— (cliquer)'}</td>
       <td>${imgThumb}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-secondary btn-sm prod-action" data-action="edit" data-id="${p.id}" title="Modifier">✏️</button>
-        <button class="btn btn-secondary btn-sm prod-action" data-action="dup" data-id="${p.id}" title="Dupliquer">⧉</button>
+        <button class="btn btn-secondary btn-sm prod-action" data-action="edit" data-id="${p.id}" title="Modifier" aria-label="Modifier">✏️</button>
+        <button class="btn btn-secondary btn-sm prod-action" data-action="dup" data-id="${p.id}" title="Dupliquer" aria-label="Dupliquer">⧉</button>
         <button class="btn btn-secondary btn-sm prod-action" data-action="toggle" data-id="${p.id}" data-inactive="${inactive?1:0}" data-brand="${p.brand_id}" title="${inactive?'Réactiver':'Désactiver'}" style="color:${inactive?'#2ecc71':'#888'}">${inactive?'▶':'⏸'}</button>
-        <button class="btn btn-secondary btn-sm prod-action" data-action="qr" data-id="${p.id}" data-brand="${p.brand_id}" title="QR Code">📱</button>
-        <button class="btn btn-danger btn-sm prod-action" data-action="del" data-id="${p.id}" title="Supprimer">✕</button>
+        <button class="btn btn-secondary btn-sm prod-action" data-action="qr" data-id="${p.id}" data-brand="${p.brand_id}" title="QR Code" aria-label="QR Code">📱</button>
+        <button class="btn btn-danger btn-sm prod-action" data-action="del" data-id="${p.id}" title="Supprimer" aria-label="Supprimer">✕</button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">${t('no_ref')}</td></tr>`;
@@ -3728,7 +3728,7 @@ function renderVariantsList() {
         <input class="variant-color-input" type="text" placeholder="Nom de la couleur (ex: Noir, Écru…)"
           value="${esc(v.color)}" oninput="currentVariants[${i}].color=this.value"
           style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;color:#fff;font-size:14px">
-        <button onclick="removeVariant(${i})" style="background:#c0392b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">✕</button>
+        <button onclick="removeVariant(${i})" aria-label="Supprimer cette variante" style="background:#c0392b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">✕</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">

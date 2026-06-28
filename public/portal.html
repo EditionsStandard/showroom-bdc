@@ -1753,7 +1753,7 @@ function renderBrandPicker() {
     <div id="brand-grid-inner" class="brand-grid">` +
     allBrands.map(b => {
       const coverSrc = b.thumbnail || b.cover_image || '';
-      const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
+      const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" alt="${esc(b.name)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
       const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
       const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
       return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
@@ -1794,7 +1794,7 @@ async function openBrand(brandId, _fromPop) {
     ? `<a href="${esc(currentBrand.lookbook_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius:4px;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
     : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
-  const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}">` : '';
+  const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">` : '';
 
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
     <div class="brand-banner">
@@ -2556,7 +2556,7 @@ function renderRecentlyViewed() {
   <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
     ${items.map(p => `<div onclick="openProductDrawer('${p.id}')" style="flex-shrink:0;cursor:pointer;width:80px">
       <div style="width:80px;height:100px;background:#fff;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
-        ${p.image_url ? `<img src="${esc(p.image_url)}" style="width:100%;height:100%;object-fit:contain" loading="lazy">` : `<div style="width:100%;height:100%;background:var(--mid)"></div>`}
+        ${p.image_url ? `<img src="${esc(p.image_url)}" alt="${esc(p.reference||p.description||'Produit')}" style="width:100%;height:100%;object-fit:contain" loading="lazy">` : `<div style="width:100%;height:100%;background:var(--mid)"></div>`}
       </div>
       <div style="font-size:10px;font-family:var(--dot),monospace;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(p.reference)}</div>
     </div>`).join('')}
@@ -2622,7 +2622,7 @@ async function renderFavs() {
           let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
           if (!imgs.length && p.image_url) imgs = [p.image_url];
           return `<div style="background:var(--dark);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
-            ${imgs[0] ? `<img src="${esc(imgs[0])}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
+            ${imgs[0] ? `<img src="${esc(imgs[0])}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
               ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
@@ -2712,7 +2712,7 @@ async function runGlobalSearch(q) {
         let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
         if (!imgs.length && p.image_url) imgs = [p.image_url];
         return `<div class="global-result-item" onclick="openBrand('${p.brand_id}');setTimeout(()=>openProductDrawer('${p.id}'),600)">
-          ${imgs[0] ? `<img class="global-result-img" src="${esc(imgs[0])}" loading="lazy">` : '<div class="global-result-img" style="background:var(--mid)"></div>'}
+          ${imgs[0] ? `<img class="global-result-img" src="${esc(imgs[0])}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy">` : '<div class="global-result-img" style="background:var(--mid)"></div>'}
           <div class="global-result-info">
             <div class="global-result-ref">${esc(p.reference)}</div>
             <div class="global-result-desc">${esc(sentenceCase(p.description||''))}</div>
@@ -2800,7 +2800,7 @@ function openProductDrawer(productId) {
   const thumbsEl = document.getElementById('drawer-thumbs');
   thumbsEl.style.display = imgs.length > 1 ? 'flex' : 'none';
   thumbsEl.innerHTML = imgs.map((src, i) =>
-    `<img class="drawer-thumb${i===0?' active':''}" src="${esc(src)}" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})">`
+    `<img class="drawer-thumb${i===0?' active':''}" src="${esc(src)}" alt="" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})">`
   ).join('');
 
   // Qty rows
