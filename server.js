@@ -14,6 +14,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STR
 
 // ── Web Push notifications ────────────────────────────────────────────
 const webpush = (() => { try { return require('web-push'); } catch(e) { return null; } })();
+const XLSX = (() => { try { return require('xlsx'); } catch(e) { return null; } })();
 const cloudinary = require('cloudinary').v2;
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -125,6 +126,14 @@ function logAudit(req, action, targetType, targetId, details) {
     [uuidv4(), email, action, targetType, targetId||'', details||'']).catch(()=>{});
 }
 
+// ── Order events (timeline) ───────────────────────────────────────────
+async function addOrderEvent(orderId, eventType, note, createdBy) {
+  await pool.query(
+    'INSERT INTO order_events (order_id, event_type, note, created_by) VALUES ($1,$2,$3,$4)',
+    [orderId, eventType, note || '', createdBy || 'system']
+  ).catch(() => {});
+}
+
 // Helpers
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -211,6 +220,13 @@ const passwordLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+
+const cartLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 // ==================== ADMIN ROUTES ====================
 
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
@@ -764,6 +780,17 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { stock_qty, stock_enabled } = req.body;
+    await pool.query(
+      'UPDATE products SET stock_qty=$1, stock_enabled=$2 WHERE id=$3',
+      [stock_qty ?? null, stock_enabled ?? false, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
   if (!req.file || !req.file.mimetype.startsWith('image/')) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp…)' });
   try {
@@ -1149,11 +1176,13 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
     const oldStatus = prev.rows[0]?.status || '';
     await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
     logAudit(req, 'update_order_status', 'order', orderId, `${oldStatus} → ${status}`);
+    const changedBy = req.session?.staffUser?.name || req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
     // Log status change
     await pool.query(
       'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
-      [uuidv4(), orderId, oldStatus, status, req.session?.user?.email || req.session?.staffUser?.email || req.session?.admin ? 'admin' : 'system']
+      [uuidv4(), orderId, oldStatus, status, changedBy]
     ).catch(e => console.error('history insert error:', e.message));
+    await addOrderEvent(orderId, status, `Statut → ${status}`, changedBy);
     // Notify buyer on meaningful transitions
     if (['validated','in_production','shipped'].includes(status)) {
       sendOrderStatusEmail(orderId, status).catch(e => console.error('status email error:', e.message));
@@ -1169,6 +1198,29 @@ app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), asyn
       [req.params.id]
     );
     res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/orders/:id/events', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM order_events WHERE order_id=$1 ORDER BY created_at ASC', [req.params.id]);
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/orders/:id/events', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { note, event_type } = req.body;
+    await addOrderEvent(req.params.id, event_type || 'note', note, req.session.staffUser?.name || req.session.admin && 'admin' || 'admin');
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.patch('/api/orders/:id/notes', requireRole('owner','agent'), async (req, res) => {
+  try {
+    await pool.query('UPDATE orders SET internal_notes=$1 WHERE id=$2', [req.body.notes || '', req.params.id]);
+    await addOrderEvent(req.params.id, 'note', req.body.notes, req.session.staffUser?.name || (req.session.admin ? 'admin' : 'admin'));
+    res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -2004,7 +2056,7 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
   try {
     const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, subscription_status, lookbook_url, default_currency FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
-    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
+    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load
     for (const prod of p.rows) {
       pool.query(
@@ -2266,7 +2318,7 @@ app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
   res.json(r.rows[0] ? JSON.parse(r.rows[0].cart_json || '{}') : {});
 });
 
-app.post('/api/portal/cart', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/cart', requireBuyerAuth, cartLimiter, async (req, res) => {
   const cartJson = JSON.stringify(req.body.cart || {});
   if (cartJson.length > 100_000) return res.status(400).json({ error: 'Panier trop volumineux' });
   await pool.query(

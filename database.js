@@ -280,10 +280,25 @@ async function init() {
     `CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, subscription_json TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT false",
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS template_name TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT ''",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_qty INTEGER DEFAULT NULL",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_enabled BOOLEAN DEFAULT false",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
   }
+
+  // Table timeline événements commande
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_events (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id TEXT REFERENCES orders(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      note TEXT,
+      created_by TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
 
   // Table audit log admin
   await pool.query(`

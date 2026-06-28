@@ -1380,10 +1380,17 @@
       <button class="btn btn-sm" style="margin-top:6px;background:#222;color:#aaa" onclick="saveAdminNotes()">💾 Sauvegarder note</button>
     </div>
 
-    <!-- Historique statuts -->
+    <!-- Timeline événements -->
     <div style="margin-top:16px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Historique</div>
-      <div id="order-history-list" style="font-size:12px;color:var(--soft)"></div>
+      <div id="order-timeline" style="font-size:12px;margin-bottom:12px"></div>
+      <!-- Ajouter une note interne -->
+      <div id="mo-add-note-wrap" style="display:flex;gap:8px;align-items:flex-start">
+        <textarea id="mo-event-note" rows="2" placeholder="Ajouter une note interne…" style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;color:#ccc;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+        <button class="btn btn-secondary btn-sm" onclick="addOrderNote()" style="white-space:nowrap;margin-top:2px">💬 Ajouter</button>
+      </div>
+      <!-- Historique statuts (legacy) -->
+      <div id="order-history-list" style="display:none"></div>
     </div>
 
     <div class="modal-footer">
@@ -4543,6 +4550,7 @@ async function viewOrder(id) {
 
   openModal('modal-order');
   loadOrderHistory(id);
+  loadOrderTimeline(id);
 }
 
 async function loadOrderHistory(orderId) {
@@ -4563,6 +4571,41 @@ async function loadOrderHistory(orderId) {
       </div>`;
     }).join('');
   } catch(e) { el.innerHTML = '<span style="color:#555">Erreur chargement</span>'; }
+}
+
+async function loadOrderTimeline(orderId) {
+  const container = document.getElementById('order-timeline');
+  if (!container) return;
+  container.innerHTML = '<span style="color:#555;font-size:12px">Chargement…</span>';
+  const events = await fetch(`/api/orders/${orderId}/events`).then(r => r.json()).catch(() => []);
+  const icons = { created:'📋', confirmed:'✅', validated:'🟢', in_production:'⚙️', shipped:'📦', cancelled:'❌', archived:'📦', note:'💬', paid:'💳' };
+  container.innerHTML = events.length
+    ? events.map(e => `
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #1a1a1a">
+        <span style="font-size:15px;flex-shrink:0">${icons[e.event_type] || '•'}</span>
+        <div>
+          <div style="font-size:12px;color:#ccc">${esc(e.note || e.event_type)}</div>
+          <div style="font-size:10px;color:#555;margin-top:2px">${new Date(e.created_at).toLocaleString('fr-FR')}${e.created_by ? ' · ' + esc(e.created_by) : ''}</div>
+        </div>
+      </div>`).join('')
+    : '<div style="color:#555;font-size:12px">Aucun événement</div>';
+}
+
+async function addOrderNote() {
+  if (!_currentOrderId) return;
+  const noteEl = document.getElementById('mo-event-note');
+  const note = (noteEl?.value || '').trim();
+  if (!note) return;
+  const r = await fetch(`/api/orders/${_currentOrderId}/events`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ event_type: 'note', note })
+  });
+  if (r.ok) {
+    noteEl.value = '';
+    loadOrderTimeline(_currentOrderId);
+  } else {
+    toast('Erreur lors de l\'ajout de la note', true);
+  }
 }
 
 async function saveAdminNotes() {
