@@ -518,6 +518,38 @@
         <tbody id="recent-orders-body"></tbody>
       </table></div>
     </div>
+
+    <!-- ANALYTIQUES ACHETEURS -->
+    <h3 style="font-family:'DotGothic16',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px" id="buyer-analytics-grid">
+      <!-- Top Acheteurs -->
+      <div class="card" style="margin-bottom:0">
+        <h3 style="font-size:13px;margin-bottom:14px">🏆 Top Acheteurs</h3>
+        <div class="table-wrap" id="top-buyers-wrap">
+          <table style="min-width:300px">
+            <thead><tr><th>Nom</th><th>Société</th><th>Cmds</th><th>CA</th></tr></thead>
+            <tbody id="top-buyers-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Acheteurs inactifs -->
+      <div class="card" style="margin-bottom:0">
+        <h3 style="font-size:13px;margin-bottom:14px">😴 Acheteurs inactifs</h3>
+        <div id="inactive-buyers-list" style="max-height:280px;overflow-y:auto">
+          <p style="font-size:12px;color:#555">Chargement…</p>
+        </div>
+      </div>
+      <!-- Perf. Marques -->
+      <div class="card" style="margin-bottom:0">
+        <h3 style="font-size:13px;margin-bottom:14px">📊 Perf. Marques</h3>
+        <div class="table-wrap" id="top-brands-wrap">
+          <table style="min-width:280px">
+            <thead><tr><th>Marque</th><th>Cmds</th><th>CA</th><th>Acheteurs</th></tr></thead>
+            <tbody id="top-brands-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- BRANDS -->
@@ -2458,6 +2490,77 @@ async function loadDashboard() {
         </div>
         <div style="font-size:11px;color:#CCEB3C;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
       </div>`).join('');
+  }
+
+  // Analytiques acheteurs enrichies (non-bloquant)
+  loadBuyerStats();
+}
+
+async function loadBuyerStats() {
+  try {
+    const data = await fetch('/api/admin/buyer-stats').then(r => r.json());
+
+    // Top Acheteurs
+    const topBody = document.getElementById('top-buyers-body');
+    if (topBody) {
+      if (!data.topBuyers || !data.topBuyers.length) {
+        topBody.innerHTML = '<tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Aucune donnée</td></tr>';
+      } else {
+        topBody.innerHTML = data.topBuyers.map(b => `
+          <tr>
+            <td style="font-size:12px"><strong>${esc(b.name)}</strong></td>
+            <td style="font-size:11px;color:#888">${esc(b.company||'—')}</td>
+            <td style="font-size:12px;text-align:center">${b.order_count}</td>
+            <td style="font-size:12px;color:#CCEB3C;white-space:nowrap">${Number(b.total_amount).toFixed(0)} €</td>
+          </tr>`).join('');
+      }
+    }
+
+    // Acheteurs inactifs
+    const inactiveEl = document.getElementById('inactive-buyers-list');
+    if (inactiveEl) {
+      if (!data.inactiveBuyers || !data.inactiveBuyers.length) {
+        inactiveEl.innerHTML = '<p style="font-size:12px;color:#555">Aucun acheteur inactif.</p>';
+      } else {
+        const now = Date.now();
+        inactiveEl.innerHTML = data.inactiveBuyers.map(b => {
+          const lastSeen = b.last_seen_at ? new Date(b.last_seen_at) : null;
+          const daysAgo = lastSeen ? Math.floor((now - lastSeen) / 86400000) : null;
+          let badge = '';
+          if (!lastSeen || daysAgo > 60) {
+            badge = '<span style="background:#3a1a1a;color:#e74c3c;border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+60j</span>';
+          } else if (daysAgo > 30) {
+            badge = '<span style="background:#2a1a00;color:#f39c12;border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+30j</span>';
+          }
+          const seenStr = lastSeen ? lastSeen.toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR') : 'Jamais';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1e1e1e">
+            <div>
+              <div style="font-size:12px;font-weight:600">${esc(b.name)}${badge}</div>
+              <div style="font-size:11px;color:#666">${esc(b.email)}</div>
+            </div>
+            <div style="font-size:11px;color:#555;white-space:nowrap;margin-left:8px">${seenStr}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    // Top Marques
+    const brandsBody = document.getElementById('top-brands-body');
+    if (brandsBody) {
+      if (!data.topBrands || !data.topBrands.length) {
+        brandsBody.innerHTML = '<tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Aucune donnée</td></tr>';
+      } else {
+        brandsBody.innerHTML = data.topBrands.map(b => `
+          <tr>
+            <td style="font-size:12px"><strong>${esc(b.name)}</strong></td>
+            <td style="font-size:12px;text-align:center">${b.order_count}</td>
+            <td style="font-size:12px;color:#CCEB3C;white-space:nowrap">${Number(b.total_amount).toFixed(0)} €</td>
+            <td style="font-size:12px;text-align:center">${b.buyer_count}</td>
+          </tr>`).join('');
+      }
+    }
+  } catch(e) {
+    console.error('loadBuyerStats error:', e);
   }
 }
 

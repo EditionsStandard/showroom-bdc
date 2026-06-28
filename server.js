@@ -663,6 +663,44 @@ app.post('/api/brands/:brandId/products/import-csv', requireRole('owner','agent'
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// ── Import CSV produits (JSON rows) ─────────────────────────────────
+app.post('/api/brands/:brandId/import-csv', requireRole('owner', 'agent', 'designer'), async (req, res) => {
+  try {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
+    let created = 0, updated = 0;
+    const errors = [];
+    for (const row of rows) {
+      const ref = (row.reference || row.Reference || row.ref || '').trim();
+      if (!ref) { errors.push('Ligne sans référence ignorée'); continue; }
+      try {
+        const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [req.params.brandId, ref]);
+        const fields = {
+          description: row.description || row.Description || '',
+          color: row.color || row.Color || row.couleur || '',
+          sizes: row.sizes || row.tailles || row.Sizes || '',
+          price: parseFloat(row.price || row.prix || row.Price || 0) || 0,
+          price_retail: parseFloat(row.price_retail || row.prix_retail || 0) || 0,
+          collection_name: row.collection_name || row.collection || row.Collection || '',
+          composition: row.composition || row.Composition || '',
+          category: row.category || row.categorie || row.Category || '',
+        };
+        if (existing.rows[0]) {
+          await pool.query(`UPDATE products SET description=$1,color=$2,sizes=$3,price=$4,price_retail=$5,collection_name=$6,composition=$7,category=$8 WHERE id=$9`,
+            [fields.description, fields.color, fields.sizes, fields.price, fields.price_retail, fields.collection_name, fields.composition, fields.category, existing.rows[0].id]);
+          updated++;
+        } else {
+          const id = uuidv4();
+          await pool.query(`INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,collection_name,composition,category,active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1)`,
+            [id, req.params.brandId, ref, fields.description, fields.color, fields.sizes, fields.price, fields.price_retail, fields.collection_name, fields.composition, fields.category]);
+          created++;
+        }
+      } catch(e) { errors.push(`${ref}: ${e.message}`); }
+    }
+    res.json({ created, updated, errors });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ── Export CSV produits ──────────────────────────────────────────────
 app.get('/api/brands/:brandId/products/export-csv', requireRole('owner','agent','designer'), async (req, res) => {
   try {
@@ -2200,6 +2238,58 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
     `);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+// ── Analytics acheteurs enrichies ────────────────────────────────────
+app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const [topBuyers, inactiveBuyers, topBrands, recentActivity] = await Promise.all([
+      // Top 10 acheteurs par montant commandé
+      pool.query(`
+        SELECT b.name, b.company, b.email, b.last_seen_at,
+               COUNT(o.id) as order_count,
+               COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount
+        FROM buyers b
+        LEFT JOIN orders o ON o.buyer_id = b.id
+        LEFT JOIN order_lines ol ON ol.order_id = o.id
+        GROUP BY b.id, b.name, b.company, b.email, b.last_seen_at
+        ORDER BY total_amount DESC LIMIT 10
+      `),
+      // Acheteurs inactifs > 30 jours
+      pool.query(`
+        SELECT name, company, email, last_seen_at
+        FROM buyers
+        WHERE last_seen_at < NOW() - INTERVAL '30 days' OR last_seen_at IS NULL
+        ORDER BY last_seen_at ASC NULLS FIRST LIMIT 20
+      `),
+      // Top marques par CA
+      pool.query(`
+        SELECT br.name, COUNT(DISTINCT o.id) as order_count,
+               COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
+               COUNT(DISTINCT o.buyer_id) as buyer_count
+        FROM brands br
+        LEFT JOIN orders o ON o.brand_id = br.id
+        LEFT JOIN order_lines ol ON ol.order_id = o.id
+        GROUP BY br.id, br.name
+        ORDER BY total_amount DESC
+      `),
+      // Activité 30 derniers jours (commandes par jour)
+      pool.query(`
+        SELECT DATE(created_at) as day, COUNT(*) as count,
+               COALESCE(SUM(total_amount), 0) as amount
+        FROM orders
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE(created_at)
+        ORDER BY day ASC
+      `)
+    ]);
+    res.json({
+      topBuyers: topBuyers.rows,
+      inactiveBuyers: inactiveBuyers.rows,
+      topBrands: topBrands.rows,
+      recentActivity: recentActivity.rows
+    });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // ── Statistiques produits par marque ────────────────────────────────
@@ -4035,6 +4125,121 @@ init().then(() => {
       await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
     } catch(e) { console.error('[cleanup]', e.message); }
   }, 6 * 60 * 60 * 1000);
+
+  // ── Backup hebdomadaire (lundi 7h UTC) ───────────────────────────────
+  function scheduleWeeklyBackup() {
+    function msUntilNextMonday7h() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setUTCHours(7, 0, 0, 0);
+      const day = now.getUTCDay(); // 0=dim, 1=lun
+      const daysUntilMonday = day === 1 ? (now.getUTCHours() >= 7 ? 7 : 0) : (8 - day) % 7;
+      next.setUTCDate(now.getUTCDate() + daysUntilMonday);
+      return next.getTime() - now.getTime();
+    }
+
+    async function runBackup() {
+      try {
+        const resendKey = process.env.RESEND_API_KEY;
+        const adminEmail = process.env.ADMIN_EMAIL || 'nguyen.boun@gmail.com';
+        if (!resendKey) return;
+
+        const [buyers, orders, brands] = await Promise.all([
+          pool.query('SELECT id,email,name,company,country,created_at FROM buyers ORDER BY created_at DESC'),
+          pool.query('SELECT o.id,o.order_number,b.name as brand,o.client_name,o.client_email,o.client_company,o.status,o.created_at FROM orders o JOIN brands b ON b.id=o.brand_id ORDER BY o.created_at DESC LIMIT 500'),
+          pool.query('SELECT id,name,subscription_status,created_at FROM brands ORDER BY name'),
+        ]);
+
+        function toCSV(rows) {
+          if (!rows.length) return '';
+          const headers = Object.keys(rows[0]);
+          return [headers.join(','), ...rows.map(r => headers.map(h => `"${(r[h]||'').toString().replace(/"/g,'""')}"`).join(','))].join('\n');
+        }
+
+        const buyersCSV = toCSV(buyers.rows);
+        const ordersCSV = toCSV(orders.rows);
+        const brandsCSV = toCSV(brands.rows);
+        const date = new Date().toISOString().split('T')[0];
+
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'Showroom Backup <noreply@editionsstandard.com>',
+            to: [adminEmail],
+            subject: `[Backup] Showroom ES — ${date}`,
+            html: `<p>Backup hebdomadaire du ${date}.</p><p>${buyers.rows.length} acheteurs, ${orders.rows.length} commandes, ${brands.rows.length} marques.</p><p>Fichiers CSV en pièces jointes.</p>`,
+            attachments: [
+              { filename: `buyers-${date}.csv`, content: Buffer.from(buyersCSV).toString('base64') },
+              { filename: `orders-${date}.csv`, content: Buffer.from(ordersCSV).toString('base64') },
+              { filename: `brands-${date}.csv`, content: Buffer.from(brandsCSV).toString('base64') },
+            ]
+          })
+        });
+        console.log('[backup] Backup hebdomadaire envoyé à', adminEmail);
+      } catch(e) { console.error('[backup] Erreur:', e.message); }
+
+      setTimeout(runBackup, 7 * 24 * 60 * 60 * 1000);
+    }
+
+    setTimeout(runBackup, msUntilNextMonday7h());
+  }
+  scheduleWeeklyBackup();
+
+  // ── Relances acheteurs inactifs (lundi 8h UTC) ───────────────────────
+  function scheduleInactiveReminders() {
+    async function runReminders() {
+      try {
+        const resendKey = process.env.RESEND_API_KEY;
+        const showroomName = await getSetting('showroom_name');
+        const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
+        if (!resendKey) return;
+
+        const inactive = await pool.query(`
+          SELECT b.id, b.email, b.name, b.company, b.lang
+          FROM buyers b
+          WHERE (b.last_seen_at < NOW() - INTERVAL '45 days' OR b.last_seen_at IS NULL)
+            AND b.created_at < NOW() - INTERVAL '45 days'
+          ORDER BY b.last_seen_at ASC NULLS FIRST
+          LIMIT 10
+        `);
+
+        for (const buyer of inactive.rows) {
+          const isFr = (buyer.lang || 'fr') === 'fr';
+          const subject = isFr
+            ? `${showroomName} — Découvrez les nouveautés`
+            : `${showroomName} — Discover new arrivals`;
+          const html = isFr
+            ? `<p>Bonjour ${buyer.name || buyer.company || ''},</p><p>Cela fait un moment que vous n'avez pas visité le showroom <strong>${showroomName}</strong>. De nouvelles références sont disponibles.</p><p><a href="${baseUrl}/editions-showroom-b2b-portail">Accéder au showroom →</a></p>`
+            : `<p>Hello ${buyer.name || buyer.company || ''},</p><p>It's been a while since you visited <strong>${showroomName}</strong>. New references are available.</p><p><a href="${baseUrl}/editions-showroom-b2b-portail">Visit the showroom →</a></p>`;
+
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], subject, html })
+          }).catch(e => console.error('[reminder] email error:', e.message));
+
+          await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (inactive.rows.length) console.log(`[reminders] ${inactive.rows.length} relances envoyées`);
+      } catch(e) { console.error('[reminders] Erreur:', e.message); }
+
+      setTimeout(runReminders, 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const msUntil8h = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setUTCHours(8, 0, 0, 0);
+      const day = now.getUTCDay();
+      const days = day === 1 ? (now.getUTCHours() >= 8 ? 7 : 0) : (8 - day) % 7;
+      next.setUTCDate(now.getUTCDate() + days);
+      return next.getTime() - now.getTime();
+    };
+    setTimeout(runReminders, msUntil8h());
+  }
+  scheduleInactiveReminders();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✅ Showroom BDC démarré sur http://localhost:${PORT}`);
