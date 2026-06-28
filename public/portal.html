@@ -16,6 +16,17 @@
   :root {
     --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#777; --soft:#bbb; --white:#f5f4f0; --accent:#CCEB3C;
     --dot:'DotGothic16','Space Mono',monospace;
+    --z-base: 1;
+    --z-card: 10;
+    --z-sticky: 20;
+    --z-nav: 30;
+    --z-drawer: 40;
+    --z-bar: 50;
+    --z-dropdown: 60;
+    --z-toast: 70;
+    --z-modal: 80;
+    --z-overlay: 90;
+    --z-top: 100;
   }
   [data-theme="light"] {
     --black:#f5f4f0; --dark:#fff; --mid:#eee; --border:#ddd; --muted:#888; --soft:#444; --white:#111; --accent:#6b8500;
@@ -35,7 +46,7 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s; }
-  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
   .header-left { display: flex; align-items: center; gap: 14px; }
   .header-left img { width: 36px; height: 36px; border-radius: 6px; display: block; }
   .header h1 { font-family: var(--dot), monospace; font-size: 22px; font-weight: 400; }
@@ -53,7 +64,7 @@
   .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .user-chevron { font-size: 9px; opacity: .6; transition: transform .2s; }
   .user-menu.open .user-chevron { transform: rotate(180deg); }
-  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 8px; min-width: 220px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: 300; }
+  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 8px; min-width: 220px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: var(--z-dropdown); }
   .user-menu.open .user-dropdown { display: block; }
   .user-dropdown-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
   .user-dropdown-header .uname { font-size: 13px; font-weight: 600; color: var(--white); }
@@ -132,7 +143,7 @@
   .qty-btn { width: 44px; height: 44px; min-width: 44px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 16px; border-radius: 4px; }
   .qty-display { min-width: 28px; text-align: center; font-size: 15px; font-weight: 700; }
   .qty-display.active { color: var(--accent); }
-  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 18px 40px calc(18px + env(safe-area-inset-bottom)) 40px; display: flex; justify-content: space-between; align-items: center; z-index: 60; }
+  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 18px 40px calc(18px + env(safe-area-inset-bottom)) 40px; display: flex; justify-content: space-between; align-items: center; z-index: var(--z-bar); }
   .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; }
   .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 4px; font-family: 'Space Mono', monospace; }
   .field { margin-bottom: 16px; }
@@ -144,7 +155,7 @@
   .cgv-box h4 { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); font-weight: 400; margin: 0; }
   .cgv-box-icon { font-size: 12px; color: var(--muted); }
   /* CGV Modal */
-  .cgv-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 400; align-items: center; justify-content: center; padding: 20px; }
+  .cgv-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: var(--z-modal); align-items: center; justify-content: center; padding: 20px; }
   .cgv-modal-overlay.open { display: flex; }
   .cgv-modal { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; width: 100%; max-width: 620px; max-height: 80vh; display: flex; flex-direction: column; }
   @media (max-width: 640px) { .cgv-modal { max-width: 95vw; margin: 0 auto; } }
@@ -173,11 +184,11 @@
   .msg.error { color: var(--accent); }
   .product-img { cursor: zoom-in; }
   .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 10px; pointer-events: none; letter-spacing: .04em; }
-  .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+  .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: var(--z-modal); flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
   .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; }
   .img-modal-main img { max-width: 92vw; max-height: 82vh; object-fit: contain; user-select: none; }
-  .img-close { position: absolute; top: 16px; right: 16px; color: var(--soft); font-size: 28px; background: none; border: none; cursor: pointer; line-height: 1; padding: 10px; z-index: 10; font-family: 'Inter', sans-serif; font-weight: 300; }
+  .img-close { position: absolute; top: 16px; right: 16px; color: var(--soft); font-size: 28px; background: none; border: none; cursor: pointer; line-height: 1; padding: 10px; z-index: var(--z-card); font-family: 'Inter', sans-serif; font-weight: 300; }
   .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--soft); font-size: 40px; width: 56px; height: 80px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
   .img-nav:active { color: #fff; }
   .img-nav-prev { left: 4px; }
@@ -199,10 +210,10 @@
   body.presentation-mode::before {
     content: '';
     position: fixed; top: 0; left: 0; right: 0; height: 3px;
-    background: var(--accent); z-index: 1000; pointer-events: none;
+    background: var(--accent); z-index: var(--z-top); pointer-events: none;
   }
   .pres-exit {
-    position: fixed; top: 10px; right: 12px; z-index: 999;
+    position: fixed; top: 10px; right: 12px; z-index: var(--z-top);
     background: var(--accent); border: none; color: #111;
     border-radius: 4px; padding: 8px 16px; font-size: 11px;
     cursor: pointer; font-family: 'Space Mono', monospace;
@@ -213,7 +224,7 @@
   /* Indicateur mode présentation — bandeau visible */
   .pres-indicator {
     display: none; position: fixed; top: 10px; left: 12px;
-    z-index: 998; background: rgba(204,235,60,.15);
+    z-index: var(--z-top); background: rgba(204,235,60,.15);
     border: 1px solid rgba(204,235,60,.5); color: var(--accent);
     font-family: 'Space Mono', monospace; font-size: 10px;
     letter-spacing: .1em; padding: 6px 12px; border-radius: 4px;
@@ -236,7 +247,7 @@
   }
 
   /* ── Modal générique ── */
-  .gmodal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 500; align-items: center; justify-content: center; padding: 20px; }
+  .gmodal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: var(--z-modal); align-items: center; justify-content: center; padding: 20px; }
   .gmodal-overlay.open { display: flex; }
   .gmodal { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; width: 100%; max-width: 480px; padding: 28px 28px 24px; position: relative; }
   .gmodal-title { font-family: var(--dot), monospace; font-size: 17px; margin-bottom: 18px; }
@@ -254,7 +265,7 @@
   .cart-line-note::placeholder { color: var(--border); }
 
   /* ── Badge nouveau ── */
-  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 10px; font-family: 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: 5; }
+  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 10px; font-family: 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: var(--z-card); }
 
   /* ── Sort toolbar ── */
   .sort-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
@@ -299,7 +310,7 @@
   .global-result-price { font-family: var(--dot), monospace; font-size: 14px; color: var(--accent); flex-shrink: 0; }
 
   /* ── Favoris ── */
-  .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: background .15s; z-index: 5; }
+  .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: background .15s; z-index: var(--z-card); }
   .fav-btn:hover { background: rgba(0,0,0,.85); }
   .fav-btn.active { color: #ff5c5c; }
   #view-favs { display: none; }
@@ -320,9 +331,9 @@
   @media (max-width: 640px) { .skel-brand-cover { height: 120px; } .skel-product-img { height: 200px; } }
 
   /* ── Product drawer ── */
-  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 80; }
+  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: var(--z-modal); }
   .drawer-overlay.open { display: block; }
-  .product-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw; background: var(--dark); border-left: 1px solid var(--border); z-index: 90; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); overflow: hidden; }
+  .product-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw; background: var(--dark); border-left: 1px solid var(--border); z-index: var(--z-overlay); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); overflow: hidden; }
   .product-drawer.open { transform: translateX(0); }
   .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .drawer-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 10px; min-height: 44px; min-width: 44px; font-family: 'Inter', sans-serif; font-weight: 300; display: flex; align-items: center; justify-content: center; }
@@ -371,7 +382,7 @@
     .mobile-nav {
       display: flex; position: fixed; bottom: 0; left: 0; right: 0;
       background: var(--dark); border-top: 1px solid var(--border);
-      z-index: 59; padding: 0 0 env(safe-area-inset-bottom);
+      z-index: var(--z-bar); padding: 0 0 env(safe-area-inset-bottom);
     }
     .mobile-nav button {
       flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -414,7 +425,7 @@
     .brand-banner-cover { height: 140px; }
     .brand-banner-info { padding: 14px 16px; }
     .search-bar { max-width: 100%; }
-    .search-bar-sticky { position: sticky; top: 56px; z-index: 50; background: var(--black); padding: 8px 0; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+    .search-bar-sticky { position: sticky; top: 56px; z-index: var(--z-bar); background: var(--black); padding: 8px 0; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
     .collection-filters { flex-wrap: nowrap; padding-bottom: 4px; }
     .cart-bar { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) 16px; }
     .cart-bar strong { font-size: 16px; }
@@ -447,7 +458,7 @@
 
   /* ── Comparateur produits ── */
   .compare-btn {
-    position: absolute; top: 8px; left: 8px; z-index: 3;
+    position: absolute; top: 8px; left: 8px; z-index: var(--z-base);
     background: rgba(0,0,0,.55); border: 1px solid #444;
     color: #ccc; font-size: 11px; font-family: 'Space Mono', monospace;
     padding: 4px 8px; border-radius: 4px; cursor: pointer;
@@ -460,7 +471,7 @@
     position: fixed; bottom: 60px; left: 0; right: 0;
     background: #1a1a1a; border-top: 1px solid #333;
     padding: 12px 24px; display: flex; align-items: center;
-    justify-content: space-between; gap: 12px; z-index: 55;
+    justify-content: space-between; gap: 12px; z-index: var(--z-bar);
     transform: translateY(100%); transition: transform .25s ease;
   }
   .compare-bar.visible { transform: translateY(0); }
@@ -477,7 +488,7 @@
   .btn-compare-go { background: var(--accent); color: #111; }
   .btn-compare-clear { background: #2a2a2a; color: #aaa; border: 1px solid #333 !important; }
   /* Modale comparateur */
-  #modal-compare { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:200; align-items:center; justify-content:center; padding:16px; }
+  #modal-compare { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:var(--z-modal); align-items:center; justify-content:center; padding:16px; }
   #modal-compare.open { display:flex; }
   .compare-modal-inner {
     background: #111; border: 1px solid #2a2a2a; border-radius: 10px;
@@ -768,48 +779,67 @@ function setLang(lang) {
 }
 function applyLang() {
   const T = TRANSLATIONS[currentLang];
-  document.getElementById('nav-catalog').textContent = T.nav_catalog;
-  document.getElementById('nav-orders').textContent = T.nav_orders;
-  document.getElementById('nav-profile').textContent = T.nav_profile;
-  document.getElementById('nav-logout').textContent = T.nav_logout;
-  document.getElementById('dd-catalog').textContent = T.dd_catalog;
-  document.getElementById('dd-orders').textContent = T.dd_orders;
-  document.getElementById('dd-profile').textContent = T.dd_profile;
-  document.getElementById('dd-logout').textContent = T.dd_logout;
-  document.getElementById('lang-btn').textContent = T.lang_btn;
+  const _sid = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  _sid('nav-catalog', T.nav_catalog);
+  _sid('nav-orders', T.nav_orders);
+  _sid('nav-profile', T.nav_profile);
+  _sid('nav-logout', T.nav_logout);
+  _sid('dd-catalog', T.dd_catalog);
+  _sid('dd-orders', T.dd_orders);
+  _sid('dd-profile', T.dd_profile);
+  _sid('dd-logout', T.dd_logout);
+  _sid('lang-btn', T.lang_btn);
   // Cart view static labels
   const backBtn = document.querySelector('#view-cart .back-btn');
   if (backBtn) backBtn.textContent = T.back_catalog;
   const cartTitle = document.querySelector('#view-cart .section-title');
   if (cartTitle) cartTitle.textContent = T.cart_title;
-  document.getElementById('cart-bar-btn').textContent = T.cart_btn;
-  document.querySelector('label[for="ck-cgv"]').textContent = T.cgv_accept;
-  document.getElementById('sig-label').textContent = T.sig_label;
-  document.getElementById('sig-clear').textContent = T.sig_clear;
-  document.getElementById('btn-confirm-order').textContent = T.btn_confirm;
-  document.querySelector('#view-cart label[data-field="name"]').textContent = T.ck_name;
-  document.querySelector('#view-cart label[data-field="company"]').textContent = T.ck_company;
-  document.querySelector('#view-cart label[data-field="phone"]').textContent = T.ck_phone;
-  document.querySelector('#view-cart label[data-field="country"]').textContent = T.ck_country;
+  _sid('cart-bar-btn', T.cart_btn);
+  const elCgvLbl = document.querySelector('label[for="ck-cgv"]');
+  if (elCgvLbl) elCgvLbl.textContent = T.cgv_accept;
+  _sid('sig-label', T.sig_label);
+  _sid('sig-clear', T.sig_clear);
+  _sid('btn-confirm-order', T.btn_confirm);
+  const elCkName = document.querySelector('#view-cart label[data-field="name"]');
+  if (elCkName) elCkName.textContent = T.ck_name;
+  const elCkCompany = document.querySelector('#view-cart label[data-field="company"]');
+  if (elCkCompany) elCkCompany.textContent = T.ck_company;
+  const elCkPhone = document.querySelector('#view-cart label[data-field="phone"]');
+  if (elCkPhone) elCkPhone.textContent = T.ck_phone;
+  const elCkCountry = document.querySelector('#view-cart label[data-field="country"]');
+  if (elCkCountry) elCkCountry.textContent = T.ck_country;
   // Orders
-  document.querySelector('#view-orders .section-title').textContent = T.orders_title;
+  const elOrdersTitle = document.querySelector('#view-orders .section-title');
+  if (elOrdersTitle) elOrdersTitle.textContent = T.orders_title;
   // Account
-  document.querySelector('#view-account .section-title').textContent = T.account_title;
-  document.getElementById('account-info-title').textContent = T.account_info;
-  document.getElementById('account-save-btn').textContent = T.account_save;
-  document.getElementById('account-pw-title').textContent = T.account_pw;
-  document.getElementById('account-pw-btn').textContent = T.pw_btn;
-  document.querySelector('label[data-field="prof-name"]').textContent = T.prof_name;
-  document.querySelector('label[data-field="prof-company"]').textContent = T.prof_company;
-  document.querySelector('label[data-field="prof-email"]').textContent = T.prof_email;
-  document.querySelector('label[data-field="prof-phone"]').textContent = T.prof_phone;
-  document.querySelector('label[data-field="prof-country"]').textContent = T.prof_country;
-  document.getElementById('prof-name').placeholder = T.ph_name;
-  document.getElementById('prof-company').placeholder = T.ph_company;
-  document.getElementById('prof-phone').placeholder = T.ph_phone;
-  document.getElementById('prof-country').placeholder = T.ph_country;
-  document.querySelector('label[data-field="pw-current"]').textContent = T.pw_current;
-  document.querySelector('label[data-field="pw-new"]').textContent = T.pw_new;
+  const elAccTitle = document.querySelector('#view-account .section-title');
+  if (elAccTitle) elAccTitle.textContent = T.account_title;
+  _sid('account-info-title', T.account_info);
+  _sid('account-save-btn', T.account_save);
+  _sid('account-pw-title', T.account_pw);
+  _sid('account-pw-btn', T.pw_btn);
+  const elProfNameLbl = document.querySelector('label[data-field="prof-name"]');
+  if (elProfNameLbl) elProfNameLbl.textContent = T.prof_name;
+  const elProfCompanyLbl = document.querySelector('label[data-field="prof-company"]');
+  if (elProfCompanyLbl) elProfCompanyLbl.textContent = T.prof_company;
+  const elProfEmailLbl = document.querySelector('label[data-field="prof-email"]');
+  if (elProfEmailLbl) elProfEmailLbl.textContent = T.prof_email;
+  const elProfPhoneLbl = document.querySelector('label[data-field="prof-phone"]');
+  if (elProfPhoneLbl) elProfPhoneLbl.textContent = T.prof_phone;
+  const elProfCountryLbl = document.querySelector('label[data-field="prof-country"]');
+  if (elProfCountryLbl) elProfCountryLbl.textContent = T.prof_country;
+  const elProfNameInp = document.getElementById('prof-name');
+  if (elProfNameInp) elProfNameInp.placeholder = T.ph_name;
+  const elProfCompanyInp = document.getElementById('prof-company');
+  if (elProfCompanyInp) elProfCompanyInp.placeholder = T.ph_company;
+  const elProfPhoneInp = document.getElementById('prof-phone');
+  if (elProfPhoneInp) elProfPhoneInp.placeholder = T.ph_phone;
+  const elProfCountryInp = document.getElementById('prof-country');
+  if (elProfCountryInp) elProfCountryInp.placeholder = T.ph_country;
+  const elPwCurrentLbl = document.querySelector('label[data-field="pw-current"]');
+  if (elPwCurrentLbl) elPwCurrentLbl.textContent = T.pw_current;
+  const elPwNewLbl = document.querySelector('label[data-field="pw-new"]');
+  if (elPwNewLbl) elPwNewLbl.textContent = T.pw_new;
   // Success (boutons sans id fixe — garde null-safe)
   const successBack = document.getElementById('success-back-btn');
   if (successBack) successBack.textContent = T.success_back;
@@ -877,7 +907,7 @@ function applyLang() {
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
-    <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="localStorage.removeItem(CART_KEY);releaseWakeLock()">Déconnexion</a>
+    <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
     <button id="lang-btn" onclick="setLang(currentLang==='fr'?'en':'fr')" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:'Inter',sans-serif;letter-spacing:.06em">EN</button>
   </div>
   <div class="user-menu" id="user-menu">
@@ -900,7 +930,7 @@ function applyLang() {
       <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
       <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
       <div class="dropdown-sep"></div>
-      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="localStorage.removeItem(CART_KEY);releaseWakeLock()">⏻ Déconnexion</a>
+      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
     </div>
   </div>
 </div>
@@ -1539,7 +1569,7 @@ async function init() {
   // Heartbeat — signal presence to admin every 30s
   const ping = () => fetch('/api/portal/ping', { method: 'POST' }).catch(() => {});
   ping();
-  setInterval(ping, 30000);
+  window._pingInterval = setInterval(ping, 30000);
 
   requestWakeLock();
 }
@@ -1952,14 +1982,14 @@ function renderProductsPage() {
       const k = currentBrand.id + '|' + p.id + '|' + sz;
       const q = cart[k] ? cart[k].qty : 0;
       return `<div class="qty-row"><span style="font-size:11px;font-family:'Inter',sans-serif;min-width:30px">${esc(sz)}</span>
-        <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
         <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-        <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
     }).join('') : (() => {
       const q = cart[key0] ? cart[key0].qty : 0;
-      return `<div class="qty-row"><button class="qty-btn" onclick="changeQty('${p.id}','',-1)">−</button>
+      return `<div class="qty-row"><button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1)">−</button>
         <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
-        <button class="qty-btn" onclick="changeQty('${p.id}','',1)">+</button></div>`;
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1)">+</button></div>`;
     })();
     const _cartQty = getProductCartQty(p.id);
     const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:8px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;z-index:2">${_cartQty}</div>` : '';
@@ -2132,10 +2162,11 @@ let moqBlocked = false;
 let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true;
 function initSigCanvas() {
   sigCanvas = document.getElementById('sig-canvas');
+  if (!sigCanvas) return;
   sigCtx = sigCanvas.getContext('2d');
   const rect = sigCanvas.getBoundingClientRect();
   sigCanvas.width = rect.width || 600;
-  sigCanvas.height = 120;
+  sigCanvas.height = Math.min(180, Math.max(120, window.innerHeight * 0.22));
   sigCtx.strokeStyle = '#0a0a0a';
   sigCtx.lineWidth = 2;
   sigCtx.lineCap = 'round';
@@ -2752,9 +2783,9 @@ function openProductDrawer(productId) {
     const q = cart[k]?.qty || 0;
     return `<div class="drawer-qty-row">
       <span class="drawer-size-label">${esc(sz)}</span>
-      <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',-1);drawerRefreshQty()">−</button>
+      <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1);drawerRefreshQty()">−</button>
       <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-      <button class="qty-btn" onclick="changeQty('${p.id}','${sz}',1);drawerRefreshQty()">+</button>
+      <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1);drawerRefreshQty()">+</button>
     </div>`;
   }).join('') : (() => {
     const k = currentBrand.id + '|' + p.id + '|';
@@ -2968,6 +2999,39 @@ if (localStorage.getItem('bright_mode')) document.body.classList.add('bright-mod
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ── Logout complet ────────────────────────────────────
+function portalLogout() {
+  if (window._pingInterval) { clearInterval(window._pingInterval); window._pingInterval = null; }
+  releaseWakeLock();
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('es-') || key.startsWith('cart-') || key.startsWith('fav-') || key.startsWith('portal_') || key === CART_KEY)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+}
+
+// ── Canvas signature resize ───────────────────────────
+function resizeSignatureCanvas() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.width = canvas.offsetWidth || 600;
+  canvas.height = Math.min(180, Math.max(120, window.innerHeight * 0.22));
+  ctx.putImageData(data, 0, 0);
+  // Restore stroke style after resize
+  if (sigCtx) {
+    sigCtx = ctx;
+    sigCtx.strokeStyle = '#0a0a0a';
+    sigCtx.lineWidth = 2;
+    sigCtx.lineCap = 'round';
+  }
+}
+window.addEventListener('resize', resizeSignatureCanvas);
 
 init();
 
