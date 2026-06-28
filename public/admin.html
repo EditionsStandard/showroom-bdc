@@ -442,6 +442,7 @@
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       Portail
     </a>
+    <button id="btn-push-notif" onclick="initPushNotifications()" style="background:none;border:1px solid #333;border-radius:20px;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
     <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
@@ -772,6 +773,20 @@
     </div>
     <div class="card">
       <h3 data-t="buyers_existing_title">Comptes acheteurs existants</h3>
+      <!-- Filtres acheteurs -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+        <select id="buyers-filter-country" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius:6px;color:var(--text,#e0e0e0)">
+          <option value="">🌍 Tous les pays</option>
+        </select>
+        <select id="buyers-filter-active" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius:6px;color:var(--text,#e0e0e0)">
+          <option value="">Tous (actifs + inactifs)</option>
+          <option value="active">Actifs (connectés &lt; 90j)</option>
+          <option value="inactive">Inactifs (&gt; 90j ou jamais)</option>
+        </select>
+        <input id="buyers-filter-amount" type="number" min="0" placeholder="Montant min (€)" oninput="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;width:160px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius:6px;color:var(--text,#e0e0e0)">
+        <span id="buyers-filter-count" style="font-size:12px;color:#666;margin-left:auto"></span>
+        <button onclick="resetBuyersFilters()" class="btn btn-secondary btn-sm">✕ Reset</button>
+      </div>
       <div class="table-wrap"><table id="buyers-table">
         <thead><tr><th style="width:24px"></th><th data-t="lbl_name">Nom</th><th data-t="lbl_company">Société</th><th data-t="lbl_email">Email</th><th>Tags</th><th>Commandes</th><th>CA total</th><th>Dernière connexion</th><th></th></tr></thead>
         <tbody id="buyers-body"></tbody>
@@ -1271,6 +1286,7 @@
     <p style="font-size:12px;color:#666;margin-top:8px">Scannez pour accéder directement à ce produit.</p>
     <div class="modal-footer" style="justify-content:center">
       <button class="btn btn-secondary" onclick="closeModal('modal-qr-product')" data-t="btn_close">Fermer</button>
+      <a id="qr-product-download" class="btn btn-secondary" download="" style="text-decoration:none">⬇ Télécharger</a>
       <button class="btn btn-primary" onclick="printProductQR()" data-t="btn_print">Imprimer</button>
     </div>
   </div>
@@ -2110,6 +2126,14 @@ async function loadBuyers() {
   ]);
   const onlineSet = new Set(onlineIds);
   _allBuyers = stats.map(b => ({ ...b, _online: onlineSet.has(b.id) }));
+  _filteredBuyers = [..._allBuyers];
+  // Populate country dropdown with unique countries
+  const countrySel = document.getElementById('buyers-filter-country');
+  if (countrySel) {
+    const countries = [...new Set(_allBuyers.map(b => (b.country||'').trim()).filter(Boolean))].sort();
+    countrySel.innerHTML = `<option value="">🌍 Tous les pays</option>` +
+      countries.map(c => `<option value="${esc(c.toLowerCase())}">${esc(c)}</option>`).join('');
+  }
   _buyersPage = 1;
   renderBuyersPage();
 
@@ -2378,6 +2402,37 @@ async function checkNewOrders() {
     }
   }
   _lastOrderCount = total;
+}
+
+async function initPushNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  const { key } = await fetch('/api/admin/vapid-public-key').then(r => r.json()).catch(() => ({}));
+  if (!key) return;
+
+  const btn = document.getElementById('btn-push-notif');
+  if (!btn) return;
+
+  if (Notification.permission === 'granted') {
+    btn.textContent = '🔔 Notifications activées';
+    btn.style.color = 'var(--accent)';
+    btn.dataset.active = '1';
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: key
+  });
+  await fetch('/api/admin/push-subscribe', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subscription: sub })
+  });
+  btn.textContent = '🔔 Notifications activées';
+  btn.style.color = 'var(--accent)';
+  btn.dataset.active = '1';
 }
 
 function updateOrderNavBadge(count) {
@@ -3104,6 +3159,9 @@ async function showProductQR(brandId, productId) {
   document.getElementById('qr-product-desc').textContent = data.description || '';
   document.getElementById('qr-product-img').src = data.qr;
   document.getElementById('qr-product-url').textContent = data.url;
+  const dl = document.getElementById('qr-product-download');
+  dl.href = data.qr;
+  dl.download = `qr-${data.reference||'produit'}.png`;
 }
 
 function printProductQR() {
@@ -4027,6 +4085,7 @@ let _ordersPage = 1;
 let _buyersPage = 1;
 let _filteredOrders = [];
 let _allBuyers = [];
+let _filteredBuyers = [];
 const ORDERS_PER_PAGE = 20;
 const BUYERS_PER_PAGE = 25;
 
@@ -4036,7 +4095,7 @@ function changePage(type, delta) {
     _ordersPage = Math.min(Math.max(1, _ordersPage + delta), totalPages);
     renderOrdersPage();
   } else if (type === 'buyers') {
-    const totalPages = Math.max(1, Math.ceil(_allBuyers.length / BUYERS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(_filteredBuyers.length / BUYERS_PER_PAGE));
     _buyersPage = Math.min(Math.max(1, _buyersPage + delta), totalPages);
     renderBuyersPage();
   }
@@ -4067,9 +4126,9 @@ function renderOrdersPage() {
 }
 
 function renderBuyersPage() {
-  const totalPages = Math.max(1, Math.ceil(_allBuyers.length / BUYERS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(_filteredBuyers.length / BUYERS_PER_PAGE));
   const start = (_buyersPage - 1) * BUYERS_PER_PAGE;
-  const page = _allBuyers.slice(start, start + BUYERS_PER_PAGE);
+  const page = _filteredBuyers.slice(start, start + BUYERS_PER_PAGE);
   const tbody = document.getElementById('buyers-body');
   tbody.innerHTML = page.map(b => {
     const online = b._online;
@@ -4100,6 +4159,40 @@ function renderBuyersPage() {
   }).join('') || `<tr><td colspan="9" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
   const info = document.getElementById('buyers-page-info');
   if (info) info.textContent = `Page ${_buyersPage} / ${totalPages}`;
+  const countEl = document.getElementById('buyers-filter-count');
+  if (countEl) countEl.textContent = `${_filteredBuyers.length} acheteur(s)`;
+}
+
+function applyBuyersFilters() {
+  const country = (document.getElementById('buyers-filter-country')?.value || '').toLowerCase();
+  const active = document.getElementById('buyers-filter-active')?.value || '';
+  const minAmount = parseFloat(document.getElementById('buyers-filter-amount')?.value) || 0;
+  const now = Date.now();
+  const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
+  _filteredBuyers = _allBuyers.filter(b => {
+    if (country && (b.country || '').toLowerCase() !== country) return false;
+    if (active === 'active') {
+      if (!b.last_seen_at || (now - new Date(b.last_seen_at).getTime()) > NINETY_DAYS) return false;
+    } else if (active === 'inactive') {
+      if (b.last_seen_at && (now - new Date(b.last_seen_at).getTime()) <= NINETY_DAYS) return false;
+    }
+    if (minAmount > 0 && (parseFloat(b.total_amount) || 0) < minAmount) return false;
+    return true;
+  });
+  _buyersPage = 1;
+  renderBuyersPage();
+}
+
+function resetBuyersFilters() {
+  const c = document.getElementById('buyers-filter-country');
+  const a = document.getElementById('buyers-filter-active');
+  const m = document.getElementById('buyers-filter-amount');
+  if (c) c.value = '';
+  if (a) a.value = '';
+  if (m) m.value = '';
+  _filteredBuyers = [..._allBuyers];
+  _buyersPage = 1;
+  renderBuyersPage();
 }
 
 function STATUS_LABEL() { return { confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: '⚙️ En production', shipped: '🚚 Expédiée', cancelled: t('status_cancelled_icon') }; }

@@ -276,6 +276,10 @@ async function init() {
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'sent'",
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS draft_name TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS default_currency TEXT DEFAULT ''",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT false",
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, subscription_json TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
+    "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT false",
+    "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS template_name TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

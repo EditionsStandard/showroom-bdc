@@ -66,3 +66,12 @@ self.addEventListener('fetch', e => {
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// Push notifications
+self.addEventListener('push', e => {
+  if (!e.data) return;
+  const { title, body } = e.data.json();
+  e.waitUntil(self.registration.showNotification(title, {
+    body, icon: '/icon-192.png', badge: '/icon-192.png', vibrate: [200, 100, 200]
+  }));
+});

@@ -11,6 +11,9 @@ const PDFDocument = require('pdfkit');
 const multer = require('multer');
 const { Resend } = require('resend');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
+
+// ── Web Push notifications ────────────────────────────────────────────
+const webpush = (() => { try { return require('web-push'); } catch(e) { return null; } })();
 const cloudinary = require('cloudinary').v2;
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -18,6 +21,25 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 const { pool, init } = require('./database');
+
+if (webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:' + (process.env.ADMIN_EMAIL || 'nguyen.boun@gmail.com'),
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
+
+async function sendPushToAdmins(title, body) {
+  if (!webpush || !process.env.VAPID_PUBLIC_KEY) return;
+  try {
+    const subs = await pool.query('SELECT subscription_json FROM push_subscriptions');
+    for (const row of subs.rows) {
+      const sub = JSON.parse(row.subscription_json);
+      webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(() => {});
+    }
+  } catch(e) {}
+}
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
@@ -1341,6 +1363,23 @@ app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res
   res.json(r.rows);
 });
 
+app.post('/api/admin/push-subscribe', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { subscription } = req.body;
+    if (!subscription) return res.status(400).json({ error: 'Missing subscription' });
+    const id = uuidv4();
+    await pool.query(
+      'INSERT INTO push_subscriptions (id, subscription_json) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [id, JSON.stringify(subscription)]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur' }); }
+});
+
+app.get('/api/admin/vapid-public-key', requireRole('owner','agent'), (req, res) => {
+  res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+});
+
 app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (req, res) => {
   try {
     if (req.userRole === 'agent' && req.userBrandId) {
@@ -1561,6 +1600,10 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   const orderTotal = parseFloat(totRes.rows[0]?.total || 0);
   syncAirtable(client_email, client_company, client_name, orderTotal).catch(e => console.error('Airtable sync error:', e.message));
 
+  // Push notification Web Push vers admins
+  const brandNameForPush = (await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]).catch(() => ({ rows: [] }))).rows[0]?.name || '';
+  sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`).catch(() => {});
+
   return { order_id: orderId, total: orderTotal };
 }
 
@@ -1731,6 +1774,39 @@ app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
       res.json({ ok: true, order_id: result.order_id });
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── Templates de sélection agent ─────────────────────────────────────
+
+// Sauvegarder une sélection comme template
+app.post('/api/agent-selections/:token/save-as-template', requireRole('owner','agent'), async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nom requis' });
+  await pool.query('UPDATE agent_selections SET is_template=true, template_name=$1 WHERE token=$2', [name, req.params.token]);
+  res.json({ ok: true });
+});
+
+// Lister les templates
+app.get('/api/agent-selections/templates', requireRole('owner','agent','designer'), async (req, res) => {
+  const r = await pool.query(`SELECT token, template_name, brand_id, items_json, created_at, selection_number FROM agent_selections WHERE is_template=true ORDER BY created_at DESC`);
+  res.json(r.rows);
+});
+
+// Créer une sélection depuis un template (copie)
+app.post('/api/agent-selections/:token/use-template', requireRole('owner','agent'), async (req, res) => {
+  const { client_name, client_email, client_company } = req.body;
+  const src = await pool.query('SELECT * FROM agent_selections WHERE token=$1 AND is_template=true', [req.params.token]);
+  if (!src.rows[0]) return res.status(404).json({ error: 'Template introuvable' });
+  const t = src.rows[0];
+  const newToken = uuidv4();
+  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const numRes = await pool.query("SELECT nextval('selection_number_seq') as n");
+  const selNum = 'SEL-' + String(numRes.rows[0].n).padStart(4, '0');
+  await pool.query(
+    `INSERT INTO agent_selections (token,brand_id,client_name,client_email,client_company,items_json,notes,created_by,expires_at,selection_number,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'sent')`,
+    [newToken, t.brand_id, client_name||'', client_email||'', client_company||'', t.items_json, t.notes||'', t.created_by||'', expires, selNum]
+  );
+  res.json({ token: newToken, selection_number: selNum });
 });
 
 // ==================== BUYER PORTAL (email + password, multi-brand) ====================
@@ -2517,8 +2593,38 @@ app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
 
 // Admin: manage buyer accounts (owner + agent)
 app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, tags, internal_notes FROM buyers ORDER BY created_at DESC');
-  res.json(r.rows);
+  const { country, active, minAmount } = req.query;
+  const conditions = [];
+  const params = [];
+  if (country) {
+    params.push(country.toLowerCase());
+    conditions.push(`LOWER(COALESCE(country,'')) = $${params.length}`);
+  }
+  if (active === 'active') {
+    conditions.push(`last_seen_at > NOW() - INTERVAL '90 days'`);
+  } else if (active === 'inactive') {
+    conditions.push(`(last_seen_at IS NULL OR last_seen_at <= NOW() - INTERVAL '90 days')`);
+  }
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+  const r = await pool.query(
+    `SELECT id, email, name, company, phone, country, created_at, last_seen_at, tags, internal_notes FROM buyers ${where} ORDER BY created_at DESC`,
+    params
+  );
+  let rows = r.rows;
+  if (minAmount) {
+    const min = parseFloat(minAmount) || 0;
+    if (min > 0 && rows.length) {
+      const amounts = await pool.query(
+        `SELECT o.buyer_id, COALESCE(SUM(ol.quantity*ol.unit_price),0) as total
+         FROM orders o LEFT JOIN order_lines ol ON ol.order_id=o.id
+         WHERE o.buyer_id = ANY($1) GROUP BY o.buyer_id`,
+        [rows.map(b => b.id)]
+      );
+      const amountMap = new Map(amounts.rows.map(a => [a.buyer_id, parseFloat(a.total)]));
+      rows = rows.filter(b => (amountMap.get(b.id) || 0) >= min);
+    }
+  }
+  res.json(rows);
 });
 
 // Tags et notes internes acheteur
@@ -4185,6 +4291,42 @@ init().then(() => {
     setTimeout(runBackup, msUntilNextMonday7h());
   }
   scheduleWeeklyBackup();
+
+  // ── Rappels RDV (toutes les heures) ─────────────────────────────────
+  setInterval(async () => {
+    try {
+      const resendKey = process.env.RESEND_API_KEY;
+      if (!resendKey) return;
+      const showroomName = await getSetting('showroom_name');
+      const agentPhone = await getSetting('agent_phone');
+
+      // RDV demain dont le rappel n'a pas encore été envoyé
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const rdvs = await pool.query(
+        `SELECT * FROM appointments WHERE slot_date = $1 AND (reminder_sent IS NULL OR reminder_sent = false)`,
+        [tomorrowStr]
+      ).catch(() => ({ rows: [] }));
+
+      for (const rdv of rdvs.rows) {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: `${showroomName} <noreply@editionsstandard.com>`,
+            to: [rdv.client_email],
+            subject: `Rappel — Rendez-vous ${showroomName} demain`,
+            html: `<p>Bonjour ${rdv.client_name},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${agentPhone ? `<p>Contact : ${agentPhone}</p>` : ''}<p>À demain !</p>`
+          })
+        }).catch(() => {});
+
+        await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(() => {});
+      }
+      if (rdvs.rows.length) console.log(`[rdv-reminders] ${rdvs.rows.length} rappel(s) envoyé(s)`);
+    } catch(e) { console.error('[rdv-reminders]', e.message); }
+  }, 60 * 60 * 1000);
 
   // ── Relances acheteurs inactifs (lundi 8h UTC) ───────────────────────
   function scheduleInactiveReminders() {
