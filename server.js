@@ -1344,6 +1344,58 @@ app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res)
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+
+// Export commandes XLSX
+app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (req, res) => {
+  if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
+  const { brand_id, status, from, to } = req.query;
+  let q = `SELECT o.order_number, b.name as marque, o.client_name, o.client_company, o.client_email, o.client_country, o.status, o.total_amount, o.created_at,
+    STRING_AGG(ol.reference || ' x' || ol.quantity || ' (' || ol.size || ')', ', ') as lignes
+    FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines ol ON ol.order_id=o.id WHERE 1=1`;
+  const params = [];
+  if (brand_id) { params.push(brand_id); q += ` AND o.brand_id=$${params.length}`; }
+  if (status) { params.push(status); q += ` AND o.status=$${params.length}`; }
+  if (from) { params.push(from); q += ` AND o.created_at >= $${params.length}`; }
+  if (to) { params.push(to); q += ` AND o.created_at <= $${params.length}`; }
+  q += ' GROUP BY o.id, b.name ORDER BY o.created_at DESC';
+  const r = await pool.query(q, params);
+  const ws = XLSX.utils.json_to_sheet(r.rows.map(row => ({
+    'N° commande': row.order_number, 'Marque': row.marque, 'Client': row.client_name,
+    'Société': row.client_company, 'Email': row.client_email, 'Pays': row.client_country,
+    'Statut': row.status, 'Montant': row.total_amount,
+    'Date': new Date(row.created_at).toLocaleDateString('fr-FR'), 'Lignes': row.lignes
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="commandes.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
+// Export produits XLSX
+app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (req, res) => {
+  if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
+  const { brand_id } = req.query;
+  let q = `SELECT b.name as marque, p.reference, p.description, p.color, p.sizes, p.price, p.price_retail, p.collection_name, p.category, p.composition, p.active FROM products p JOIN brands b ON b.id=p.brand_id WHERE 1=1`;
+  const params = [];
+  if (brand_id) { params.push(brand_id); q += ` AND p.brand_id=$${params.length}`; }
+  q += ' ORDER BY b.name, p.reference';
+  const r = await pool.query(q, params);
+  const ws = XLSX.utils.json_to_sheet(r.rows.map(row => ({
+    'Marque': row.marque, 'Référence': row.reference, 'Description': row.description,
+    'Couleur': row.color, 'Tailles': row.sizes, 'Prix HT': row.price,
+    'Prix retail': row.price_retail, 'Collection': row.collection_name,
+    'Catégorie': row.category, 'Composition': row.composition, 'Actif': row.active ? 'Oui' : 'Non'
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Produits');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="produits.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
 app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
   try {
     const r = await pool.query(`
@@ -1634,6 +1686,11 @@ async function createOrder({ brand_id, client_name, client_email, client_company
         'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
         [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
       );
+      // Décrémenter le stock si activé
+      if (line.product.stock_enabled && line.product.stock_qty !== null) {
+        const newQty = Math.max(0, (line.product.stock_qty || 0) - line.quantity);
+        await dbClient.query('UPDATE products SET stock_qty=$1 WHERE id=$2', [newQty, line.product_id]);
+      }
     }
     await dbClient.query('COMMIT');
   } catch(e) {

@@ -1539,6 +1539,7 @@ async function init() {
   autoSetCurrency(COUNTRY_CURRENCY[me.country] || '');
   restoreCart();
   syncCartFromServer();
+  syncFavoritesFromServer();
   // Populate user menu
   const initials = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = initials;
@@ -2528,10 +2529,21 @@ function toggleFav(productId) {
   if (card) { card.textContent = favorites.has(productId) ? '♥' : '♡'; card.classList.toggle('active', favorites.has(productId)); }
   // If favs view open, refresh
   if (document.getElementById('view-favs').style.display !== 'none') renderFavs();
+  // Sync to server (non-blocking)
+  fetch(`/api/portal/favorites/${productId}`, { method: 'POST' }).catch(() => {});
 }
 
 function saveFavs() { try { localStorage.setItem('portal_favs', JSON.stringify([...favorites])); } catch(e) {} }
 function loadFavs() { try { const d = localStorage.getItem('portal_favs'); if (d) favorites = new Set(JSON.parse(d)); } catch(e) {} }
+async function syncFavoritesFromServer() {
+  try {
+    const serverFavs = await fetch('/api/portal/favorites').then(r => r.json());
+    if (Array.isArray(serverFavs) && serverFavs.length) {
+      serverFavs.forEach(id => favorites.add(id));
+      saveFavs();
+    }
+  } catch(e) {}
+}
 
 function trackRecentlyViewed(p) {
   if (!p) return;
