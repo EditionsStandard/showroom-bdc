@@ -85,6 +85,13 @@ app.use(session({
   }
 }));
 
+// ── Audit log helper ──────────────────────────────────────
+function logAudit(req, action, targetType, targetId, details) {
+  const email = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'unknown');
+  pool.query('INSERT INTO admin_audit_log (id,user_email,action,target_type,target_id,details,created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
+    [uuidv4(), email, action, targetType, targetId||'', details||'']).catch(()=>{});
+}
+
 // Helpers
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1069,6 +1076,7 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
     const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
     const oldStatus = prev.rows[0]?.status || '';
     await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
+    logAudit(req, 'update_order_status', 'order', orderId, `${oldStatus} → ${status}`);
     // Log status change
     await pool.query(
       'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
@@ -2661,6 +2669,7 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
     await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
+    logAudit(req, 'delete_buyer', 'buyer', req.params.id, '');
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -2761,6 +2770,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
     throw e;
   }
   await pool.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
+  logAudit(req, 'approve_access_request', 'access_request', req.params.id, req2.email);
 
   // Email de bienvenue avec les identifiants
   const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
@@ -2810,6 +2820,7 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
   const req2 = r.rows[0];
   if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
   await pool.query("UPDATE access_requests SET status='rejected' WHERE id=$1", [req.params.id]);
+  logAudit(req, 'reject_access_request', 'access_request', req.params.id, req2.email);
 
   const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
   const resendKey = process.env.RESEND_API_KEY;
@@ -2829,6 +2840,14 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
     }).catch(e => console.error('access-request reject email:', e.message));
   }
   res.json({ ok: true });
+});
+
+// ── Admin audit log ──────────────────────────────────────
+app.get('/api/admin/audit-log', requireRole('owner'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 100');
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/invite/:token', async (req, res) => {

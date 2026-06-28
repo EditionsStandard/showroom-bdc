@@ -281,6 +281,19 @@ async function init() {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
   }
 
+  // Table audit log admin
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id TEXT PRIMARY KEY,
+      user_email TEXT,
+      action TEXT,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {});
+
   // Table historique des statuts de commande
   await pool.query(`
     CREATE TABLE IF NOT EXISTS order_status_history (
