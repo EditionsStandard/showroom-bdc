@@ -3605,7 +3605,7 @@ async function saveProduct() {
   const reference = document.getElementById('p-ref').value.trim();
   if (!reference) return toast(t('js_ref_required'), true);
   // first image: prefer first variant image if variants exist, else main images
-  const firstImg = currentVariants.length ? (currentVariants[0].images[0] || '') : (currentImages[0] || '');
+  const firstImg = currentVariants.length ? ((currentVariants[0].images || [])[0] || '') : (currentImages[0] || '');
   const body = {
     collection_name: document.getElementById('p-collection').value,
     reference,

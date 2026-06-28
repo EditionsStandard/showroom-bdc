@@ -991,7 +991,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
   const conditions = [];
   const params = [];
 
-  if (req.userRole === 'designer') {
+  if (req.userRole === 'designer' || req.userRole === 'agent') {
     params.push(req.userBrandId);
     conditions.push(`o.brand_id = $${params.length}`);
   }
@@ -1051,8 +1051,9 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
 
 app.get('/api/agent-selections', requireRole('owner','agent','designer'), async (req, res) => {
   try {
-    const brandFilter = req.userRole === 'designer' ? 'AND a.brand_id = $1' : '';
-    const params = req.userRole === 'designer' ? [req.userBrandId] : [];
+    const needsScope = req.userRole === 'designer' || req.userRole === 'agent';
+    const brandFilter = needsScope ? 'AND a.brand_id = $1' : '';
+    const params = needsScope ? [req.userBrandId] : [];
     const r = await pool.query(`
       SELECT a.token, a.selection_number, a.brand_id, a.client_name, a.client_email, a.client_company,
              a.notes, a.created_by, a.used, a.created_at, a.expires_at,
@@ -1292,8 +1293,14 @@ app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res
 });
 
 app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (req, res) => {
-  await pool.query('DELETE FROM appointments WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    if (req.userRole === 'agent' && req.userBrandId) {
+      const check = await pool.query('SELECT brand_id FROM appointments WHERE id=$1', [req.params.id]);
+      if (!check.rows[0] || check.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    }
+    await pool.query('DELETE FROM appointments WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // ── Magic link accès direct portail ──────────────────────────────────
