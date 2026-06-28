@@ -134,6 +134,7 @@
     }
     nav a:hover, nav a.active { border-left-color: transparent; border-top-color: #CCEB3C; background: #1c1c1c; }
     nav a span.icon { font-size: 20px; }
+    nav a svg { display: none; }
 
     /* Main content */
     .main { margin-left: 0; padding: 16px 16px 80px; }
@@ -313,6 +314,11 @@
     [data-theme="light"] nav a:hover,
     [data-theme="light"] nav a.active { border-top-color: #CCEB3C; border-left-color: transparent; }
   }
+
+  /* ── Skeleton loader ── */
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .skeleton { background: linear-gradient(90deg,#222 25%,#2a2a2a 50%,#222 75%); background-size:200%; animation:shimmer 1.2s infinite; border-radius:4px; color:transparent!important; }
+  [data-theme="light"] .skeleton { background: linear-gradient(90deg,#e0e0e0 25%,#f0f0f0 50%,#e0e0e0 75%); background-size:200%; animation:shimmer 1.2s infinite; }
 </style>
 <script>
 (function() {
@@ -356,15 +362,15 @@
     </div>
   </div>
   <nav>
-    <a class="active" data-section="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span data-t="nav_dashboard">Tableau de bord</span></a>
-    <a data-section="brands"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
-    <a data-section="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
-    <a data-section="settings" id="nav-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
-    <a data-section="staff" id="nav-staff" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
-    <a data-section="buyers" id="nav-buyers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
-    <a data-section="access-requests" id="nav-access-requests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
-    <a data-section="stats" id="nav-stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
-    <a data-section="agenda" id="nav-agenda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
+    <a class="active" data-section="dashboard"><span class="icon">🏠</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span data-t="nav_dashboard">Tableau de bord</span></a>
+    <a data-section="brands"><span class="icon">🏷️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
+    <a data-section="orders"><span class="icon">📋</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
+    <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
+    <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
+    <a data-section="access-requests" id="nav-access-requests"><span class="icon">🔔</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
+    <a data-section="stats" id="nav-stats"><span class="icon">📊</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
+    <a data-section="agenda" id="nav-agenda"><span class="icon">📅</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
@@ -2314,6 +2320,10 @@ async function loadDashboard() {
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
 
+  // Skeleton pendant le chargement
+  const statEls = ['stat-brands','stat-orders','stat-total','stat-buyers','stat-online-num'];
+  statEls.forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = '███'; el.classList.add('skeleton'); } });
+
   // Charger les stats légères + marques + présence en parallèle
   const [stats, brands, recentOrders, onlineIds] = await Promise.all([
     fetch('/api/stats').then(r => r.json()).catch(() => ({})),
@@ -2321,6 +2331,9 @@ async function loadDashboard() {
     arrOrders(fetch('/api/orders?limit=10&sort=date_desc')),
     arr(fetch('/api/buyers/presence'))
   ]);
+
+  // Retirer le skeleton
+  statEls.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('skeleton'); });
 
   // Stats cards via /api/stats
   document.getElementById('stat-brands').textContent = stats.brands_count ?? brands.length;
