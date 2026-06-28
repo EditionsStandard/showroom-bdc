@@ -1152,7 +1152,7 @@ function renderProducts(products) {
     let variants = [];
     try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
     // filter out empty variants
-    variants = variants.filter(v => v.color || v.images.length);
+    variants = variants.filter(v => v.color || (Array.isArray(v.images) && v.images.length));
 
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
