@@ -310,19 +310,19 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 });
 
 app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, about_text, lookbook_url } = req.body;
+  const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,about_text,lookbook_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'']);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, moq_strict||false, about_text||'', lookbook_url||'']);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
-    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, about_text, lookbook_url, default_currency } = req.body;
-    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11 WHERE id=$12',
-      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', default_currency||null, req.params.id]);
+    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency } = req.body;
+    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12 WHERE id=$13',
+      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', default_currency||null, moq_strict||false, req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1848,7 +1848,7 @@ app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   try {
     // != 'inactive' exclut les NULL en PG — on inclut explicitement les NULL
-    const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
+    const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
     const brands = r.rows.map(b => ({
       ...b,
       logo: cloudinaryOpt(b.logo),
@@ -1862,7 +1862,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
   try {
-    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, subscription_status, lookbook_url, default_currency FROM brands WHERE id=$1", [req.params.brandId]);
+    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, subscription_status, lookbook_url, default_currency FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load

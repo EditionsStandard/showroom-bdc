@@ -866,6 +866,12 @@
         <input id="brand-moq-amount" type="number" min="0" step="0.01" placeholder="0">
       </div>
     </div>
+    <div class="form-group" style="margin-top:4px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="brand-moq-strict" style="width:auto;accent-color:var(--accent)">
+        <span>Bloquer la validation si le minimum n'est pas atteint <span style="color:#555;font-weight:400;font-size:11px">(décoché = avertissement uniquement, l'acheteur peut quand même valider)</span></span>
+      </label>
+    </div>
 
     <!-- Lookbook PDF -->
     <div class="form-group" style="margin-top:8px">
@@ -2563,6 +2569,7 @@ function resetBrandModal() {
   document.getElementById('brand-about').value = '';
   document.getElementById('brand-moq-qty').value = '';
   document.getElementById('brand-moq-amount').value = '';
+  document.getElementById('brand-moq-strict').checked = false;
   document.getElementById('brand-lookbook').value = '';
   document.getElementById('brand-lookbook-status').textContent = '';
   document.getElementById('brand-lookbook-clear').style.display = 'none';
@@ -2616,6 +2623,7 @@ function editBrand(b) {
   document.getElementById('brand-about').value = b.about_text || '';
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
+  document.getElementById('brand-moq-strict').checked = b.moq_strict === true || b.moq_strict === 'true';
   if (b.lookbook_url) {
     document.getElementById('brand-lookbook').value = b.lookbook_url;
     const fname = b.lookbook_url.split('/').pop().split('?')[0];
@@ -2642,6 +2650,7 @@ async function saveBrand() {
     about_text: document.getElementById('brand-about').value.trim(),
     moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
     moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0,
+    moq_strict: document.getElementById('brand-moq-strict').checked,
     lookbook_url: document.getElementById('brand-lookbook').value,
     default_currency: document.getElementById('brand-default-currency').value || null
   };

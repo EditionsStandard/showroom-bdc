@@ -235,6 +235,7 @@ async function init() {
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS cgv_text TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_qty INTEGER DEFAULT 0",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_amount NUMERIC DEFAULT 0",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_strict BOOLEAN DEFAULT false",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_country TEXT DEFAULT ''",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed'",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial'",

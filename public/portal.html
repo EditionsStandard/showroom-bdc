@@ -845,6 +845,7 @@ function applyLang() {
           <span id="sig-label" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
           <a id="sig-clear" onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
         </div>
+        <p id="moq-hint" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;font-family:'Inter',sans-serif">Minimum de commande non atteint — complétez votre sélection pour valider.</p>
         <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
         <div id="checkout-msg"></div>
       </div>
@@ -1911,36 +1912,43 @@ let moqBlocked = false;
     const brand = allBrands.find(b => b.id === brandId);
     const moqQty = parseInt(brand?.moq_qty) || 0;
     const moqAmount = parseFloat(brand?.moq_amount) || 0;
+    const moqStrict = brand?.moq_strict === true || brand?.moq_strict === 'true';
     let moqWarnHtml = '';
     if (moqQty > 0 || moqAmount > 0) {
       const bars = [];
       if (moqQty > 0) {
         const pct = Math.min(100, Math.round(brandQty / moqQty * 100));
         const ok = brandQty >= moqQty;
-        if (!ok) moqBlocked = true;
+        const remaining = moqQty - brandQty;
+        if (!ok && moqStrict) moqBlocked = true;
+        const barColor = ok ? 'var(--accent)' : pct >= 70 ? '#f0a500' : 'var(--border)';
+        const label = ok ? '✓' : `encore ${remaining} pièce${remaining>1?'s':''}`;
         bars.push(`<div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
-            <span>${t('moq_bar_qty')}</span><span>${brandQty} / ${moqQty}</span>
+            <span>${t('moq_bar_qty')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
           </div>
-          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${ok?'var(--accent)':'#e55'};border-radius:2px;transition:width .3s"></div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s ease"></div>
           </div>
         </div>`);
       }
       if (moqAmount > 0) {
         const pct = Math.min(100, Math.round(brandTotal / moqAmount * 100));
         const ok = brandTotal >= moqAmount;
-        if (!ok) moqBlocked = true;
+        const remaining = moqAmount - brandTotal;
+        if (!ok && moqStrict) moqBlocked = true;
+        const barColor = ok ? 'var(--accent)' : pct >= 70 ? '#f0a500' : 'var(--border)';
+        const label = ok ? '✓' : `encore ${fmtPrice(remaining)}`;
         bars.push(`<div style="margin-top:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
-            <span>${t('moq_bar_amt')}</span><span>${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)}</span>
+            <span>${t('moq_bar_amt')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
           </div>
-          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${ok?'var(--accent)':'#e55'};border-radius:2px;transition:width .3s"></div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s ease"></div>
           </div>
         </div>`);
       }
-      moqWarnHtml = bars.join('');
+      moqWarnHtml = `<div style="padding:10px 0 4px">${bars.join('')}</div>`;
     }
     return `<div style="margin-bottom:24px">
       <div style="font-family:var(--dot),monospace;font-size:13px;color:var(--accent);margin-bottom:10px;letter-spacing:.04em">${esc(lines[0].brand_name)}</div>
@@ -1972,7 +1980,11 @@ let moqBlocked = false;
   }).join('');
 
   document.getElementById('cart-lines').innerHTML = linesHtml || `<p class="msg">${t('cart_empty')}</p>`;
-  document.getElementById('btn-confirm-order').disabled = moqBlocked;
+  const confirmBtn = document.getElementById('btn-confirm-order');
+  confirmBtn.disabled = moqBlocked;
+  confirmBtn.style.opacity = moqBlocked ? '0.4' : '1';
+  const moqHintEl = document.getElementById('moq-hint');
+  if (moqHintEl) moqHintEl.style.display = moqBlocked ? 'block' : 'none';
   initSwipeToDelete();
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
