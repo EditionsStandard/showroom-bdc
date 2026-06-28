@@ -51,7 +51,7 @@
   .stat .label { font-size: 11px; color: #666; margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; }
 
   /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; }
   .btn-primary { background: #CCEB3C; color: #111; font-weight: 600; }
   .btn-primary:hover { background: #b8d62f; }
   .btn-secondary { background: #1c1c1c; color: #aaa; border: 1px solid #333; }
@@ -66,7 +66,7 @@
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .form-group { margin-bottom: 14px; }
   label { display: block; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
-  input, textarea, select { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e0e0e0; font-size: 13px; outline: none; transition: border-color .2s; font-family: inherit; }
+  input, textarea, select { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e0e0e0; font-size: 16px; outline: none; transition: border-color .2s; font-family: inherit; }
   input:focus, textarea:focus, select:focus { border-color: #CCEB3C; }
   textarea { resize: vertical; min-height: 70px; }
 
@@ -131,6 +131,7 @@
       flex: 1; flex-direction: column; gap: 2px; padding: 6px 4px;
       font-size: 11px; text-align: center; border-left: none;
       border-top: 3px solid transparent; justify-content: center;
+      min-height: 52px; display: flex; align-items: center;
     }
     nav a:hover, nav a.active { border-left-color: transparent; border-top-color: #CCEB3C; background: #1c1c1c; }
     nav a span.icon { font-size: 20px; }
@@ -227,6 +228,18 @@
     .stats { grid-template-columns: 1fr; }
     .stat .num { font-size: 20px; }
     h1 { font-size: 16px; }
+  }
+
+  @media (max-width: 640px) {
+    .filter-row, .orders-filters,
+    .card > div[style*="display:flex"][style*="gap"],
+    .card > div[style*="display: flex"][style*="gap"] {
+      flex-wrap: wrap;
+    }
+    .filter-row > *, .orders-filters > * {
+      min-width: 120px;
+      flex: 1;
+    }
   }
 
   /* ── Theme toggle ── */
@@ -383,12 +396,12 @@
   <div class="topbar">
     <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:360px;position:relative">
       <input id="global-search-input" type="text" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
-        style="width:100%;padding:7px 14px;border-radius:20px;border:1px solid #333;background:#0f0f0f;color:#fff;font-size:12px;font-family:inherit;outline:none">
+        style="width:100%;padding:7px 14px;border-radius:20px;border:1px solid #333;background:#0f0f0f;color:#fff;font-size:16px;font-family:inherit;outline:none">
       <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1px solid #333;border-radius:8px;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:#aaa;cursor:pointer">☀️</button>
-      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:4px 10px;font-size:11px;color:var(--accent);cursor:pointer">EN</button>
+      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:6px 10px;font-size:11px;color:#aaa;cursor:pointer;min-height:36px;min-width:36px">☀️</button>
+      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:6px 10px;font-size:11px;color:var(--accent);cursor:pointer;min-height:36px;min-width:36px">EN</button>
     </div>
     <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid #333;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
