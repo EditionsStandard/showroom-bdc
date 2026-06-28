@@ -190,13 +190,38 @@
   body.presentation-mode .mobile-nav { display: none !important; }
   body.presentation-mode .header .nav { display: none; }
   body.presentation-mode #user-menu { display: none; }
-  body.presentation-mode .back-btn { margin-top: 12px; }
-  body.presentation-mode .product-img { height: 280px; }
-  .pres-exit { position: fixed; top: 12px; right: 12px; z-index: 999; background: rgba(0,0,0,.7); border: 1px solid var(--border); color: var(--soft); border-radius: 4px; padding: 7px 14px; font-size: 11px; cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .06em; display: none; }
+  body.presentation-mode .back-btn { margin-top: 52px; }
+  body.presentation-mode .product-img { height: 300px; }
+  /* Barre top accent en mode présentation */
+  body.presentation-mode::before {
+    content: '';
+    position: fixed; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent); z-index: 1000; pointer-events: none;
+  }
+  .pres-exit {
+    position: fixed; top: 10px; right: 12px; z-index: 999;
+    background: var(--accent); border: none; color: #111;
+    border-radius: 4px; padding: 8px 16px; font-size: 11px;
+    cursor: pointer; font-family: 'Space Mono', monospace;
+    letter-spacing: .06em; font-weight: 700; display: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
   body.presentation-mode .pres-exit { display: block; }
-  /* Indicateur mode présentation */
-  .pres-indicator { display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 998; background: rgba(204,235,60,.12); border: 1px solid rgba(204,235,60,.3); color: var(--accent); font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .12em; padding: 4px 12px; border-radius: 10px; pointer-events: none; }
+  /* Indicateur mode présentation — bandeau visible */
+  .pres-indicator {
+    display: none; position: fixed; top: 10px; left: 12px;
+    z-index: 998; background: rgba(204,235,60,.15);
+    border: 1px solid rgba(204,235,60,.5); color: var(--accent);
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    letter-spacing: .1em; padding: 6px 12px; border-radius: 4px;
+    pointer-events: none; font-weight: 700; text-transform: uppercase;
+  }
   body.presentation-mode .pres-indicator { display: block; }
+  /* Masquer prix + qtés en mode présentation */
+  body.presentation-mode .qty-row { display: none !important; }
+  body.presentation-mode .price-block { display: none !important; }
+  body.presentation-mode .product-price { display: none !important; }
+  body.presentation-mode .cart-badge { display: none !important; }
   /* Bouton Présenter — mobile uniquement */
   #present-btn { display: none; }
   @media (max-width: 640px) {
@@ -375,8 +400,10 @@
     .product-ref { font-size: 13px; }
     .product-desc { font-size: 11px; line-height: 1.5; }
     .product-price { font-size: 14px; }
-    .qty-row { gap: 8px; margin-top: 10px; }
-    .qty-btn { width: 40px; height: 40px; font-size: 20px; border-radius: 6px; }
+    .qty-row { gap: 4px; margin-top: 8px; flex-wrap: nowrap; }
+    .qty-btn { width: 34px; height: 34px; min-width: 34px; font-size: 18px; border-radius: 4px; }
+    .qty-display { min-width: 22px; font-size: 13px; }
+    .qty-row span[style*="min-width:30px"] { min-width: 24px !important; font-size: 10px !important; }
     .brand-banner-cover { height: 140px; }
     .brand-banner-info { padding: 14px 16px; }
     .search-bar { max-width: 100%; }
