@@ -444,6 +444,54 @@
     .brand-grid { grid-template-columns: 1fr; }
     .product-img { height: 260px; }
   }
+
+  /* ── Comparateur produits ── */
+  .compare-btn {
+    position: absolute; top: 8px; left: 8px; z-index: 3;
+    background: rgba(0,0,0,.55); border: 1px solid #444;
+    color: #ccc; font-size: 11px; font-family: 'Space Mono', monospace;
+    padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    backdrop-filter: blur(4px); transition: background .15s, color .15s, border-color .15s;
+    display: none;
+  }
+  .compare-btn.active { background: var(--accent); color: #111; border-color: var(--accent); }
+  body:not(.presentation-mode) .compare-btn { display: block; }
+  .compare-bar {
+    position: fixed; bottom: 60px; left: 0; right: 0;
+    background: #1a1a1a; border-top: 1px solid #333;
+    padding: 12px 24px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px; z-index: 55;
+    transform: translateY(100%); transition: transform .25s ease;
+  }
+  .compare-bar.visible { transform: translateY(0); }
+  .compare-bar-items { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .compare-bar-chip {
+    background: #2a2a2a; border: 1px solid #444; border-radius: 4px;
+    padding: 4px 8px; font-size: 11px; font-family: 'Space Mono', monospace;
+    color: #ccc; display: flex; align-items: center; gap: 6px;
+  }
+  .compare-bar-chip button { background: none; border: none; color: #888; cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
+  .compare-bar-chip button:hover { color: #fff; }
+  .compare-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .compare-bar-actions button { padding: 8px 14px; font-size: 12px; font-family: 'Space Mono', monospace; border-radius: 4px; cursor: pointer; border: none; font-weight: 700; }
+  .btn-compare-go { background: var(--accent); color: #111; }
+  .btn-compare-clear { background: #2a2a2a; color: #aaa; border: 1px solid #333 !important; }
+  /* Modale comparateur */
+  #modal-compare { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:200; align-items:center; justify-content:center; padding:16px; }
+  #modal-compare.open { display:flex; }
+  .compare-modal-inner {
+    background: #111; border: 1px solid #2a2a2a; border-radius: 10px;
+    max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px;
+  }
+  .compare-modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .compare-cols { display: grid; gap: 16px; }
+  .compare-col { border: 1px solid #2a2a2a; border-radius: 8px; overflow: hidden; }
+  .compare-col img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+  .compare-col-info { padding: 12px; }
+  .compare-col-ref { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .compare-col-desc { font-size: 11px; color: #888; margin-bottom: 8px; line-height: 1.5; }
+  .compare-col-price { font-family: 'Space Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 700; }
+  .compare-col-sizes { font-size: 11px; color: #aaa; margin-top: 4px; }
 </style>
 <script>
 (function() {
@@ -1112,6 +1160,26 @@ function applyLang() {
 </div>
 
 <div id="qr-toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);font-family:'Space Mono',monospace;font-size:13px;font-weight:700;padding:12px 22px;border-radius:6px;z-index:200;letter-spacing:.04em;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s"></div>
+
+<!-- Barre comparateur (au-dessus de la cart-bar) -->
+<div class="compare-bar" id="compare-bar">
+  <div class="compare-bar-items" id="compare-bar-items"></div>
+  <div class="compare-bar-actions">
+    <button class="btn-compare-clear" onclick="clearCompare()">✕ Effacer</button>
+    <button class="btn-compare-go" onclick="openCompareModal()">Comparer →</button>
+  </div>
+</div>
+
+<!-- Modale comparateur -->
+<div id="modal-compare">
+  <div class="compare-modal-inner">
+    <div class="compare-modal-header">
+      <h3 style="margin:0;font-family:'Space Mono',monospace;font-size:16px">Comparaison produits</h3>
+      <button onclick="closeCompareModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div class="compare-cols" id="compare-cols"></div>
+  </div>
+</div>
 
 <div class="cart-bar" id="cart-bar" style="display:none">
   <div>
@@ -1896,6 +1964,7 @@ function renderProductsPage() {
     const _cartQty = getProductCartQty(p.id);
     const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:8px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;z-index:2">${_cartQty}</div>` : '';
     return `<div class="product-card" data-pid="${p.id}" data-product-id="${p.id}" style="position:relative">
+      <button class="compare-btn" id="cmp-${p.id}" onclick="toggleCompare('${p.id}')" title="Comparer ce produit">⊕ Comparer</button>
       ${img}${_cartBadge}
       <div class="product-info">
         <div class="product-ref" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" title="Voir la fiche produit">${esc(p.reference)}</div>
@@ -2946,6 +3015,85 @@ if (typeof showView === 'function') {
 }
 // Init état actif au chargement
 updateMobileNav('catalog');
+
+// ── Comparateur produits ──────────────────────────────────────────────
+let compareList = []; // max 3 product ids
+
+function toggleCompare(pid) {
+  if (document.body.classList.contains('presentation-mode')) return;
+  const idx = compareList.indexOf(pid);
+  if (idx >= 0) {
+    compareList.splice(idx, 1);
+  } else {
+    if (compareList.length >= 3) { alert('Maximum 3 produits à comparer.'); return; }
+    compareList.push(pid);
+  }
+  refreshCompareUI();
+}
+
+function refreshCompareUI() {
+  // Update buttons
+  document.querySelectorAll('.compare-btn').forEach(btn => {
+    const pid = btn.id.replace('cmp-', '');
+    btn.classList.toggle('active', compareList.includes(pid));
+    btn.textContent = compareList.includes(pid) ? '✓ Comparé' : '⊕ Comparer';
+  });
+  // Update bar
+  const bar = document.getElementById('compare-bar');
+  const items = document.getElementById('compare-bar-items');
+  if (compareList.length >= 2) {
+    bar.classList.add('visible');
+  } else {
+    bar.classList.remove('visible');
+  }
+  items.innerHTML = compareList.map(pid => {
+    const p = (currentProducts || []).find(x => x.id === pid);
+    if (!p) return '';
+    return `<div class="compare-bar-chip"><span>${esc(p.reference)}</span><button onclick="toggleCompare('${pid}')" title="Retirer">✕</button></div>`;
+  }).join('');
+}
+
+function clearCompare() {
+  compareList = [];
+  refreshCompareUI();
+}
+
+function openCompareModal() {
+  if (compareList.length < 2) return;
+  const cols = document.getElementById('compare-cols');
+  cols.style.gridTemplateColumns = `repeat(${compareList.length}, 1fr)`;
+  cols.innerHTML = compareList.map(pid => {
+    const p = (currentProducts || []).find(x => x.id === pid);
+    if (!p) return '';
+    let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
+    if (!imgs.length && p.image_url) imgs = [p.image_url];
+    const imgHtml = imgs[0]
+      ? `<img src="${imgs[0]}" alt="${esc(p.reference)}" loading="lazy">`
+      : `<div style="width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px">Pas d'image</div>`;
+    const priceHtml = p.price > 0 ? fmtPrice(p.price) : '—';
+    const pvcHtml = p.price_retail > 0 ? `<div style="font-size:11px;color:#888;margin-top:2px">PVC ${fmtPrice(p.price_retail)}</div>` : '';
+    return `<div class="compare-col">
+      ${imgHtml}
+      <div class="compare-col-info">
+        <div class="compare-col-ref">${esc(p.reference)}</div>
+        ${p.color ? `<div class="compare-col-desc">${esc(p.color)}</div>` : ''}
+        ${p.description ? `<div class="compare-col-desc">${esc(p.description)}</div>` : ''}
+        <div class="compare-col-price">${priceHtml}</div>
+        ${pvcHtml}
+        ${p.sizes ? `<div class="compare-col-sizes">Tailles : ${esc(p.sizes)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('modal-compare').classList.add('open');
+}
+
+function closeCompareModal() {
+  document.getElementById('modal-compare').classList.remove('open');
+}
+
+document.getElementById('modal-compare').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-compare')) closeCompareModal();
+});
 </script>
 </body>
 </html>

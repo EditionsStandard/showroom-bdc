@@ -577,6 +577,7 @@
     <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">
       <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--white);padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
       <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-templates-btn" onclick="switchOrderTab('templates')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer">⭐ Templates <span id="tab-tpl-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
     </div>
 
     <!-- VUE COMMANDES -->
@@ -677,6 +678,48 @@
           </tr></thead>
           <tbody id="sel-body"></tbody>
         </table></div>
+      </div>
+    </div>
+
+    <!-- VUE TEMPLATES -->
+    <div id="tab-templates-panel" style="display:none">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap"><table style="min-width:600px">
+          <thead><tr>
+            <th>Nom du template</th><th>Réf.</th><th>Date</th><th>Articles</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="tpl-body"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SAVE TEMPLATE -->
+  <div class="modal-overlay" id="modal-save-template">
+    <div class="modal" style="max-width:380px">
+      <h3>⭐ Sauvegarder comme template</h3>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">Donnez un nom à ce template pour le réutiliser facilement.</p>
+      <input id="tpl-name-input" type="text" placeholder="Ex: Sélection Été 2025" style="width:100%;margin-bottom:16px">
+      <input type="hidden" id="tpl-token-input">
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-save-template')">Annuler</button>
+        <button class="btn btn-primary" onclick="saveSelectionAsTemplate()">⭐ Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL USE TEMPLATE -->
+  <div class="modal-overlay" id="modal-use-template">
+    <div class="modal" style="max-width:420px">
+      <h3>Utiliser ce template</h3>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">Créer une nouvelle sélection depuis le template <strong id="use-tpl-name"></strong>.</p>
+      <input type="hidden" id="use-tpl-token">
+      <div class="form-group" style="margin-bottom:10px"><label>Nom client</label><input id="use-tpl-client-name" type="text" placeholder="Nom"></div>
+      <div class="form-group" style="margin-bottom:10px"><label>Email client</label><input id="use-tpl-client-email" type="email" placeholder="email@exemple.com"></div>
+      <div class="form-group" style="margin-bottom:16px"><label>Société</label><input id="use-tpl-client-company" type="text" placeholder="Société (optionnel)"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-use-template')">Annuler</button>
+        <button class="btn btn-primary" onclick="useTemplate()">Créer la sélection →</button>
       </div>
     </div>
   </div>
@@ -4204,14 +4247,83 @@ let _allSelections = [];
 
 function switchOrderTab(tab) {
   _currentOrderTab = tab;
-  const isOrders = tab === 'orders';
-  document.getElementById('tab-orders-panel').style.display = isOrders ? '' : 'none';
-  document.getElementById('tab-selections-panel').style.display = isOrders ? 'none' : '';
-  document.getElementById('tab-orders-btn').style.borderBottomColor = isOrders ? '#CCEB3C' : 'transparent';
-  document.getElementById('tab-orders-btn').style.color = isOrders ? '#f5f4f0' : '#888';
-  document.getElementById('tab-selections-btn').style.borderBottomColor = isOrders ? 'transparent' : '#CCEB3C';
-  document.getElementById('tab-selections-btn').style.color = isOrders ? '#888' : '#f5f4f0';
-  if (!isOrders && _allSelections.length === 0) loadSelections();
+  const panels = { orders: 'tab-orders-panel', selections: 'tab-selections-panel', templates: 'tab-templates-panel' };
+  const btns   = { orders: 'tab-orders-btn',  selections: 'tab-selections-btn',  templates: 'tab-templates-btn' };
+  Object.entries(panels).forEach(([k, id]) => {
+    const el = document.getElementById(id); if (el) el.style.display = k === tab ? '' : 'none';
+  });
+  Object.entries(btns).forEach(([k, id]) => {
+    const el = document.getElementById(id); if (!el) return;
+    el.style.borderBottomColor = k === tab ? '#CCEB3C' : 'transparent';
+    el.style.color = k === tab ? '#f5f4f0' : '#888';
+    if (k === tab) el.style.fontWeight = '700'; else el.style.fontWeight = '';
+  });
+  if (tab === 'selections' && _allSelections.length === 0) loadSelections();
+  if (tab === 'templates') loadTemplates();
+}
+
+let _allTemplates = [];
+
+async function loadTemplates() {
+  _allTemplates = await fetch('/api/agent-selections/templates').then(r => r.json()).catch(() => []);
+  document.getElementById('tab-tpl-count').textContent = `(${_allTemplates.length})`;
+  const tbody = document.getElementById('tpl-body');
+  tbody.innerHTML = _allTemplates.length ? _allTemplates.map(t => {
+    const items = (() => { try { return JSON.parse(t.items_json || '[]'); } catch { return []; } })();
+    const nItems = items.reduce((s, i) => s + (parseInt(i.quantity) || 1), 0);
+    return `<tr>
+      <td><strong>${esc(t.template_name||'—')}</strong></td>
+      <td style="font-family:monospace;font-size:12px">${esc(t.selection_number||'—')}</td>
+      <td style="font-size:12px;color:#888">${new Date(t.created_at).toLocaleDateString('fr-FR')}</td>
+      <td style="text-align:center">${nItems} art.</td>
+      <td><button class="btn btn-primary btn-sm" onclick="openUseTemplateModal('${t.token}','${esc(t.template_name||'')}')">Utiliser →</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun template sauvegardé</td></tr>`;
+}
+
+function openSaveTemplateModal(token) {
+  document.getElementById('tpl-token-input').value = token;
+  document.getElementById('tpl-name-input').value = '';
+  openModal('modal-save-template');
+  setTimeout(() => document.getElementById('tpl-name-input').focus(), 100);
+}
+
+async function saveSelectionAsTemplate() {
+  const token = document.getElementById('tpl-token-input').value;
+  const name = document.getElementById('tpl-name-input').value.trim();
+  if (!name) return toast('Donnez un nom au template');
+  const r = await fetch(`/api/agent-selections/${token}/save-as-template`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+  if (!r.ok) { toast('Erreur'); return; }
+  closeModal('modal-save-template');
+  toast('⭐ Template sauvegardé');
+  _allSelections = [];
+  loadSelections();
+}
+
+function openUseTemplateModal(token, name) {
+  document.getElementById('use-tpl-token').value = token;
+  document.getElementById('use-tpl-name').textContent = name;
+  document.getElementById('use-tpl-client-name').value = '';
+  document.getElementById('use-tpl-client-email').value = '';
+  document.getElementById('use-tpl-client-company').value = '';
+  openModal('modal-use-template');
+  setTimeout(() => document.getElementById('use-tpl-client-name').focus(), 100);
+}
+
+async function useTemplate() {
+  const token = document.getElementById('use-tpl-token').value;
+  const client_name = document.getElementById('use-tpl-client-name').value.trim();
+  const client_email = document.getElementById('use-tpl-client-email').value.trim();
+  const client_company = document.getElementById('use-tpl-client-company').value.trim();
+  if (!client_email || !client_email.includes('@')) return toast('Email client requis');
+  const r = await fetch(`/api/agent-selections/${token}/use-template`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ client_name, client_email, client_company }) });
+  if (!r.ok) { toast('Erreur'); return; }
+  const data = await r.json();
+  closeModal('modal-use-template');
+  toast(`✅ Sélection ${data.selection_number} créée`);
+  _allSelections = [];
+  loadSelections();
+  switchOrderTab('selections');
 }
 
 async function loadSelections() {
@@ -4277,6 +4389,7 @@ function filterSelections() {
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')">📋</button>
+        ${s.is_template ? `<span class="badge badge-validated" style="font-size:10px;padding:3px 7px">⭐ Template</span>` : `<button class="btn btn-secondary btn-sm" onclick="openSaveTemplateModal('${s.token}')">⭐</button>`}
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="11" style="color:#666;text-align:center;padding:20px">Aucune sélection</td></tr>`;
