@@ -192,9 +192,13 @@
 
   /* ── Responsive mobile supplémentaire ── */
   @media (max-width: 768px) {
-    /* Sidebar: scroll horizontal en bas (déjà géré ci-dessus, renforcement) */
+    /* Barre du bas : scroll horizontal interne, clippée pour ne PAS provoquer
+       de débordement horizontal de la page (la barre est position:fixed). */
+    .sidebar { overflow-x: auto; overflow-y: hidden; max-width: 100vw; -webkit-overflow-scrolling: touch; }
     nav { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     nav a { min-width: 56px; }
+    /* garde-fou global : aucun débordement horizontal de page sur mobile */
+    html, body { overflow-x: hidden; max-width: 100%; }
 
     /* Tables: overflow-x scroll avec wrapper */
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
