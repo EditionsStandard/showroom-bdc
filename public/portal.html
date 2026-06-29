@@ -489,6 +489,10 @@
   }
   .compare-btn.active { background: var(--accent); color: #111; border-color: var(--accent); }
   body:not(.presentation-mode) .compare-btn { display: block; }
+  /* Sur une carte produit, le bouton "Comparer" occupe le coin haut-gauche :
+     on décale la pastille NEW juste en dessous pour éviter le chevauchement.
+     (Sur les cartes marque, badge-new reste en haut-gauche.) */
+  body:not(.presentation-mode) .product-card .badge-new { top: 42px; }
   .compare-bar {
     position: fixed; bottom: 60px; left: 0; right: 0;
     background: #1a1a1a; border-top: 1px solid #333;
@@ -2059,7 +2063,7 @@ function renderProductsPage() {
           <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1)">+</button></div>`;
       })();
     const _cartQty = getProductCartQty(p.id);
-    const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:8px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;z-index:2">${_cartQty}</div>` : '';
+    const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:48px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;z-index:2">${_cartQty}</div>` : '';
     return `<div class="product-card" data-pid="${p.id}" data-product-id="${p.id}" style="position:relative">
       <button class="compare-btn" id="cmp-${p.id}" onclick="toggleCompare('${p.id}')" title="Comparer ce produit">⊕ Comparer</button>
       ${img}${_cartBadge}
