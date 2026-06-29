@@ -1801,19 +1801,31 @@ async function createOrder({ brand_id, client_name, client_email, client_company
       [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber]
     );
     for (const line of resolvedLines) {
+      // Décrément du stock si suivi : décrément atomique et conditionnel
+      // (verrou ligne + garde stock_qty >= quantité) → évite le sur-engagement
+      // et les conditions de course entre commandes simultanées.
+      if (line.product.stock_enabled && line.product.stock_qty !== null) {
+        const upd = await dbClient.query(
+          'UPDATE products SET stock_qty = stock_qty - $1 WHERE id=$2 AND stock_enabled=true AND stock_qty IS NOT NULL AND stock_qty >= $1',
+          [line.quantity, line.product_id]
+        );
+        if (upd.rowCount === 0) {
+          const err = new Error('stock_insuffisant');
+          err.stockRef = line.product.reference || line.product_id;
+          throw err;
+        }
+      }
       await dbClient.query(
         'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
         [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
       );
-      // Décrémenter le stock si activé
-      if (line.product.stock_enabled && line.product.stock_qty !== null) {
-        const newQty = Math.max(0, (line.product.stock_qty || 0) - line.quantity);
-        await dbClient.query('UPDATE products SET stock_qty=$1 WHERE id=$2', [newQty, line.product_id]);
-      }
     }
     await dbClient.query('COMMIT');
   } catch(e) {
     await dbClient.query('ROLLBACK');
+    if (e && e.message === 'stock_insuffisant') {
+      return { error: `Stock insuffisant pour la référence ${e.stockRef}. Rafraîchissez votre sélection.` };
+    }
     return { error: 'Erreur lors de la création de la commande' };
   } finally {
     dbClient.release();
