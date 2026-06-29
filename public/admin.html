@@ -1500,6 +1500,14 @@
     </div>
 
     <!-- Notes internes admin -->
+    <div id="mo-delivery-wrap" style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🚚 Fenêtre de livraison</div>
+      <div style="display:flex;gap:8px">
+        <input id="mo-delivery-window" type="text" maxlength="120" placeholder="ex. Janvier – Février 2027" style="flex:1;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;font-family:inherit">
+        <button class="btn btn-sm" style="background:#222;color:#aaa" onclick="saveDeliveryWindow()">💾</button>
+      </div>
+    </div>
+
     <div id="mo-admin-notes-wrap" style="margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🔒 Notes internes (admin uniquement)</div>
       <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
@@ -4791,6 +4799,11 @@ async function viewOrder(id) {
   // Notes internes : réservées owner/agent (PUT admin-notes → 403 pour designer)
   const notesAdminWrap = document.getElementById('mo-admin-notes-wrap');
   if (notesAdminWrap) notesAdminWrap.style.display = readOnly ? 'none' : '';
+  // Fenêtre de livraison : fixée par l'agence
+  const delivWrap = document.getElementById('mo-delivery-wrap');
+  if (delivWrap) delivWrap.style.display = readOnly ? 'none' : '';
+  const delivInput = document.getElementById('mo-delivery-window');
+  if (delivInput) delivInput.value = o.delivery_window || '';
 
   document.getElementById('mo-client').innerHTML =
     `<strong>${esc(o.client_name||'')}</strong> — ${esc(o.client_company||'')}<br>` +
@@ -4892,6 +4905,17 @@ async function saveAdminNotes() {
     body: JSON.stringify({ admin_notes: notes })
   });
   if (r.ok) toast('Note sauvegardée');
+  else toast('Échec de la sauvegarde', true);
+}
+
+async function saveDeliveryWindow() {
+  if (!_currentOrderId) return;
+  const dw = document.getElementById('mo-delivery-window').value;
+  const r = await fetch('/api/orders/' + _currentOrderId + '/delivery-window', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ delivery_window: dw })
+  });
+  if (r.ok) toast('Fenêtre de livraison enregistrée');
   else toast('Échec de la sauvegarde', true);
 }
 

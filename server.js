@@ -2414,7 +2414,7 @@ app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
   const r = await pool.query(`
     SELECT o.id, o.order_number, o.brand_id, o.client_name, o.client_email, o.client_company,
            o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
-           b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
+           o.delivery_window, b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
@@ -2998,6 +2998,16 @@ app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req,
     await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+// Fenêtre de livraison (ex. "Janvier – Février 2027") — fixée par l'agence
+app.put('/api/orders/:id/delivery-window', requireRole('owner','agent'), async (req, res) => {
+  try {
+    if (!await checkOrderBrandScope(req, res)) return;
+    const dw = String(req.body.delivery_window || '').trim().slice(0, 120);
+    await pool.query('UPDATE orders SET delivery_window=$1 WHERE id=$2', [dw, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
@@ -3969,6 +3979,7 @@ async function generateOrderPDF(orderId) {
     if (order.client_company) doc.text(order.client_company, 300);
     doc.fillColor('#555').text(order.client_email, 300);
     if (order.client_phone) doc.fillColor('#777').text(order.client_phone, 300);
+    if (order.delivery_window) doc.fillColor('#0a0a0a').font('Helvetica-Bold').text('Livraison : ' + order.delivery_window, 300);
 
     const tableTop = infoY + 70;
     doc.moveTo(50, tableTop).lineTo(545, tableTop).strokeColor('#e0e0e0').lineWidth(0.5).stroke();

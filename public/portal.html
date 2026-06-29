@@ -2743,6 +2743,7 @@ function renderOrdersList(data) {
       <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
       <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
+      ${o.delivery_window ? `<div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin-top:8px">🚚 ${currentLang==='en'?'Delivery':'Livraison'} : <strong style="color:var(--white)">${esc(o.delivery_window)}</strong></div>` : ''}
       <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">
         <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
