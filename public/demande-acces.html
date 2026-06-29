@@ -12,8 +12,11 @@
     :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; }
     [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--black); color: var(--white); font-family: 'Space Mono','Courier New',monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-    .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 40px; width: 100%; max-width: 420px; }
+    body { background: var(--black); color: var(--white); font-family: 'Space Mono','Courier New',monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px;
+      background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px); background-size: 22px 22px; }
+    [data-theme="light"] body { background-image: radial-gradient(rgba(0,0,0,.07) 1px, transparent 1px); }
+    .card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 40px; width: 100%; max-width: 420px; position: relative; overflow: hidden; }
+    .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
     .logo-wrap { text-align: center; margin-bottom: 32px; position: relative; }
     .logo-wrap img { width: 52px; height: 52px; border-radius: 6px; }
     .logo-wrap h1 { font-family: 'DotGothic16','Space Mono',monospace; font-size: 16px; color: var(--white); font-weight: 400; margin-top: 12px; letter-spacing: .02em; }
@@ -28,7 +31,7 @@
     input:focus, select:focus, textarea:focus { border-color: var(--accent); }
     select option { background: var(--dark); }
     textarea { resize: vertical; min-height: 80px; }
-    .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Space Mono',monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: 6px; transition: opacity .15s; }
+    .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 0; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Space Mono',monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: 6px; transition: opacity .15s; min-height: 48px; }
     .btn:hover { opacity: .85; }
     .btn:disabled { opacity: .5; cursor: not-allowed; }
     .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 14px; display: none; }
