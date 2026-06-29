@@ -442,6 +442,10 @@
   #dashboard #recent-orders-table tbody tr { transition: background .12s ease; }
   #dashboard #recent-orders-table tbody tr:hover { background: rgba(204,235,60,.05); }
 
+  /* Rôle marque (designer) : la distribution (QR, partage, invitations) est
+     réservée à l'agence — on masque ces outils côté UI (le serveur les bloque aussi). */
+  body.role-designer .agency-only { display: none !important; }
+
   [data-theme="light"] #dashboard .stat::after { color: rgba(0,0,0,.18); }
   [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(107,133,0,.06); }
 
@@ -557,8 +561,8 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
-    <!-- Carte partage prospection -->
-    <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
+    <!-- Carte partage prospection — distribution réservée à l'agence -->
+    <div class="card agency-only" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <span style="font-size:18px">📤</span>
         <h3 style="margin:0;font-size:14px;color:var(--accent)">Partager le showroom</h3>
@@ -640,7 +644,7 @@
   <div id="brands" class="section">
     <h1 data-t="h1_brands">Marques & Collections</h1>
     <button class="btn btn-primary" onclick="openBrandModal()" data-t="btn_new_brand">+ Nouvelle marque</button>
-    <button class="btn btn-secondary" id="btn-print-all-qr" onclick="printAllBrandsQR()">🖨️ Imprimer tous les QR (A4)</button>
+    <button class="btn btn-secondary agency-only" id="btn-print-all-qr" onclick="printAllBrandsQR()">🖨️ Imprimer tous les QR (A4)</button>
     <div style="height:20px"></div>
     <div class="brands-grid" id="brands-grid"></div>
   </div>
@@ -1187,7 +1191,7 @@
 
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="openAddProduct()" data-t="btn_add_ref">+ Ajouter référence</button>
-      <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()" data-t="btn_print_qr">🖨️ Imprimer QR Codes</button>
+      <button class="btn btn-secondary btn-sm agency-only" onclick="printAllProductQR()" data-t="btn_print_qr">🖨️ Imprimer QR Codes</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadLinesheet()" data-t="btn_linesheet">📑 Télécharger linesheet</button>
       <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 <span data-t="btn_delete_selection">Supprimer la sélection</span> (<span id="bulk-count">0</span>)</button>
       <button class="btn btn-danger btn-sm" onclick="clearAllProducts()" data-t="btn_clear_collection">🗑 Vider collection</button>
@@ -1967,6 +1971,8 @@ async function initUserRole() {
   }
   if (me.role === 'designer') {
     currentUserBrandId = me.brand_id || null;
+    // Distribution réservée à l'agence : masque QR / partage / invitations (classe .agency-only)
+    document.body.classList.add('role-designer');
     // Le designer n'a accès qu'à SA marque : on masque les onglets globaux sans données scopables
     document.getElementById('nav-buyers').style.display = 'none';
     document.getElementById('nav-stats').style.display = 'none';
@@ -2907,7 +2913,7 @@ async function loadBrands() {
       <h4>${b.name}</h4>
       <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
-        <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
+        <button class="btn btn-secondary btn-sm agency-only" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
         <button class="btn btn-secondary btn-sm" onclick="shareShowroomBrand('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien showroom</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>

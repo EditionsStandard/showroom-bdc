@@ -431,7 +431,9 @@ app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
+// QR codes réservés à l'agence (owner/agent) : la distribution/diffusion ne
+// passe pas par les marques, qui ne doivent pas pouvoir court-circuiter l'agence.
+app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent'), async (req, res) => {
   const r = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
@@ -508,7 +510,7 @@ app.post('/api/brands/:id/subscription-status', requireRole('owner'), async (req
   res.json({ ok: true });
 });
 
-app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
+app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('owner','agent'), async (req, res) => {
   const { brandId, productId } = req.params;
   const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
@@ -517,7 +519,7 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('ow
   res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
 });
 
-app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent','designer'), async (req, res) => {
+app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent'), async (req, res) => {
   const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
