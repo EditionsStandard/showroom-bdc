@@ -4363,7 +4363,9 @@ scheduleDailyReminders();
 // PWA assets
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.json')));
 app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent-manifest.json')));
-app.get('/sw.js', (req, res) => { res.setHeader('Service-Worker-Allowed', '/'); res.sendFile(path.join(__dirname, 'public', 'sw.js')); });
+// NB : /sw.js est servi plus haut (avec injection de APP_VERSION pour le cache-bust).
+// L'ancienne définition en double ici servait le fichier statique sans versionnage
+// (route morte, masquée par la première) → supprimée.
 
 // Agent PWA
 app.get('/agent', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent.html')));
