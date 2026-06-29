@@ -4418,8 +4418,8 @@ function renderOrdersPage() {
       <td><input type="checkbox" class="order-check" data-id="${o.id}" onchange="updateBulkBar()"></td>
       <td style="font-size:11px;color:#888;font-family:monospace">${o.order_number || o.id.slice(0,8)}</td>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
-      <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
-      <td>${o.brand_name||''}</td>
+      <td><strong>${esc(o.client_name||'')}</strong><br><span style="font-size:11px;color:#888">${esc(o.client_company||'')}</span></td>
+      <td>${esc(o.brand_name||'')}</td>
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
@@ -4642,10 +4642,10 @@ function filterSelections() {
     return `<tr>
       <td style="font-family:monospace;font-size:12px;font-weight:700">${esc(s.selection_number||'—')}</td>
       <td style="font-size:11px;color:#888">${new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
-      <td><strong>${s.client_name||'—'}</strong></td>
-      <td style="font-size:12px">${s.client_email||'—'}</td>
-      <td style="font-size:12px;color:#888">${s.client_company||'—'}</td>
-      <td>${s.brand_name||''}</td>
+      <td><strong>${esc(s.client_name||'—')}</strong></td>
+      <td style="font-size:12px">${esc(s.client_email||'—')}</td>
+      <td style="font-size:12px;color:#888">${esc(s.client_company||'—')}</td>
+      <td>${esc(s.brand_name||'')}</td>
       <td style="text-align:center">${nItems} art.</td>
       <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span></td>
       <td style="font-size:11px;color:#888">${s.created_by||'—'}</td>
@@ -4774,17 +4774,17 @@ async function viewOrder(id) {
   if (notesAdminWrap) notesAdminWrap.style.display = readOnly ? 'none' : '';
 
   document.getElementById('mo-client').innerHTML =
-    `<strong>${o.client_name||''}</strong> — ${o.client_company||''}<br>` +
-    `<a href="mailto:${o.client_email}" style="color:#CCEB3C">${o.client_email||''}</a>` +
-    (o.client_phone ? ` · ${o.client_phone}` : '') +
-    (o.client_country ? `<br>${o.client_country}` : '');
+    `<strong>${esc(o.client_name||'')}</strong> — ${esc(o.client_company||'')}<br>` +
+    `<a href="mailto:${encodeURIComponent(o.client_email||'')}" style="color:#CCEB3C">${esc(o.client_email||'')}</a>` +
+    (o.client_phone ? ` · ${esc(o.client_phone)}` : '') +
+    (o.client_country ? `<br>${esc(o.client_country)}` : '');
 
   const total = lines.reduce((s, l) => s + (l.qty * parseFloat(l.unit_price||0)), 0);
   document.getElementById('mo-lines').innerHTML = lines.map(l => `
     <tr>
-      <td>${l.product_ref||''}</td>
-      <td>${l.color||'-'}</td>
-      <td>${l.size||'-'}</td>
+      <td>${esc(l.product_ref||'')}</td>
+      <td>${esc(l.color||'-')}</td>
+      <td>${esc(l.size||'-')}</td>
       <td style="text-align:center">${l.qty}</td>
       <td>${parseFloat(l.unit_price||0).toFixed(2)} €</td>
       <td><strong>${(l.qty * parseFloat(l.unit_price||0)).toFixed(2)} €</strong></td>
