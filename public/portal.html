@@ -85,15 +85,25 @@
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
   /* Marqueur accent brut (carré plat) — signature commune à tous les écrans */
   h2.section-title::before { content: ''; display: inline-block; width: 9px; height: 9px; background: var(--accent); border-radius: 0; margin-right: 14px; vertical-align: 2px; }
-  .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
-  .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; }
+  /* Cartes marque pleine largeur (une par ligne), style brut */
+  .brand-grid { display: flex; flex-direction: column; gap: 14px; }
+  .brand-card { display: flex; align-items: stretch; background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; }
   .brand-card:hover { border-color: var(--accent); }
-  .brand-card:hover .brand-name { color: var(--accent); }
-  .brand-name { transition: color .18s; }
-  .brand-cover { width: 100%; height: 200px; object-fit: cover; object-position: center top; display: block; background: var(--dark); }
-  .brand-cover-ph { width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
-  .brand-info { padding: 18px 20px; }
-  .brand-name { font-family: var(--dot), monospace; font-size: 19px; }
+  .brand-card:hover .brand-name, .brand-card:hover .brand-cta { color: var(--accent); }
+  .brand-cover { width: 300px; flex-shrink: 0; align-self: stretch; object-fit: cover; object-position: center; display: block; background: var(--dark); }
+  .brand-cover-ph { width: 300px; flex-shrink: 0; align-self: stretch; min-height: 172px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
+  .brand-info { flex: 1; min-width: 0; padding: 26px 32px; display: flex; flex-direction: column; justify-content: center; gap: 7px; position: relative; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; transition: color .18s; }
+  .brand-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .brand-cta { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 8px; transition: color .18s; }
+  .brand-idx { position: absolute; top: 16px; right: 20px; font-family: var(--dot), monospace; font-size: 12px; color: var(--muted); opacity: .55; letter-spacing: .1em; }
+  @media (max-width: 720px) {
+    .brand-card { flex-direction: column; min-height: 0; }
+    .brand-cover, .brand-cover-ph { width: 100%; height: 190px; min-height: 0; }
+    .brand-info { padding: 18px 18px 22px; }
+    .brand-idx { top: 12px; right: 14px; }
+  }
   .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Inter', sans-serif; letter-spacing: .06em; min-height: 44px; padding: 10px 0; display: inline-flex; align-items: center; }
   .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 24px; }
   .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
@@ -417,10 +427,10 @@
     #currency-select { display: block !important; font-size: 11px; padding: 4px 6px; }
     .wrap { padding: 16px 14px 100px; }
     h2.section-title { font-size: 20px; margin-bottom: 14px; }
-    .brand-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .brand-cover, .brand-cover-ph { height: 120px; }
-    .brand-info { padding: 10px 12px; }
-    .brand-name { font-size: 13px; }
+    .brand-grid { gap: 12px; }
+    .brand-cover, .brand-cover-ph { height: 170px; width: 100%; }
+    .brand-info { padding: 16px 16px 20px; }
+    .brand-name { font-size: 19px; }
     .products-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .product-img { height: 200px; }
     .product-img-2 { height: 200px; }
@@ -1772,12 +1782,19 @@ function renderBrandPicker() {
     </div>
     <div id="global-search-results" class="global-search-results"></div>
     <div id="brand-grid-inner" class="brand-grid">` +
-    allBrands.map(b => {
+    allBrands.map((b, i) => {
       const coverSrc = b.thumbnail || b.cover_image || '';
       const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" alt="${esc(b.name)}" loading="lazy">` : `<div class="brand-cover-ph">🏷️</div>`;
       const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
       const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
-      return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><div class="brand-name">${esc(b.name)}</div></div></div>`;
+      const idx = String(i + 1).padStart(2, '0');
+      const desc = b.about_text ? `<div class="brand-desc">${esc(b.about_text)}</div>` : '';
+      const meta = [];
+      if (b.moq_qty && Number(b.moq_qty) > 0) meta.push(`MOQ ${parseInt(b.moq_qty)}`);
+      if (b.lookbook_url) meta.push('Lookbook');
+      const metaHtml = meta.length ? `<div class="brand-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : '';
+      const cta = (currentLang === 'en' ? 'View collection' : 'Voir la collection') + ' →';
+      return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name">${esc(b.name)}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
     }).join('') + '</div>';
 }
 
