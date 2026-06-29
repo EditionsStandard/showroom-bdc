@@ -60,6 +60,31 @@ app.use(helmet({ contentSecurityPolicy: false })); // CSP off car inline scripts
 app.set('trust proxy', 1); // Railway runs behind a proxy — required for secure cookies
 const PORT = process.env.PORT || 3000;
 
+// ── Filet anti-requêtes-pendantes ────────────────────────────────────
+// Express 4 ne transmet PAS les rejets de promesse au middleware d'erreur :
+// un handler async qui throw/reject laisse la requête pendante jusqu'au
+// timeout du socket. On enrobe donc automatiquement chaque handler de route
+// pour rediriger toute erreur (sync ou async) vers le middleware d'erreur
+// global (défini en fin de fichier). Couvre toutes les routes, présentes et
+// futures, sans avoir à les enrober une par une.
+['get', 'post', 'put', 'delete', 'patch', 'all'].forEach(method => {
+  const original = app[method].bind(app);
+  app[method] = (path, ...handlers) => {
+    const wrapped = handlers.map(h =>
+      (typeof h === 'function' && h.length < 4)
+        ? function (req, res, next) {
+            try {
+              const ret = h(req, res, next);
+              if (ret && typeof ret.then === 'function') ret.catch(next);
+              return ret;
+            } catch (err) { next(err); }
+          }
+        : h
+    );
+    return original(path, ...wrapped);
+  };
+});
+
 // Stripe webhook needs the raw body for signature verification — must be registered before express.json()
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   if (!stripe) return res.status(503).send('Stripe non configuré');
