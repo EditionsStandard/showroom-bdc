@@ -3750,6 +3750,31 @@ async function generateLinesheetPDF(brandId, seasonId) {
   query += ' ORDER BY collection_name, reference';
   const prods = await pool.query(query, params);
 
+  // Première image d'un produit (data: ou URL distante)
+  const getFirstImage = (p) => {
+    try { const imgs = JSON.parse(p.images || '[]'); if (imgs.length) return imgs[0]; } catch(e) {}
+    return p.image_url || null;
+  };
+  // Pré-charge les images en Buffer AVANT la génération (synchrone) du PDF.
+  // Gère le base64 ET les URL distantes (Cloudinary) — sinon images manquantes.
+  // Cloudinary : on force un JPEG borné (PDFKit n'accepte que JPEG/PNG, pas webp).
+  const imageBuffers = {};
+  await Promise.all(prods.rows.map(async (p) => {
+    const img = getFirstImage(p);
+    if (!img) return;
+    try {
+      if (img.startsWith('data:image')) {
+        imageBuffers[p.id] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+      } else if (/^https?:\/\//i.test(img)) {
+        const url = img.includes('res.cloudinary.com')
+          ? img.replace('/upload/', '/upload/w_400,h_400,c_limit,f_jpg,q_80/')
+          : img;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (resp.ok) imageBuffers[p.id] = Buffer.from(await resp.arrayBuffer());
+      }
+    } catch(e) { /* placeholder en repli */ }
+  }));
+
   let logoBuf = null;
   try {
     const svg2img = require('svg2img');
@@ -3794,14 +3819,6 @@ async function generateLinesheetPDF(brandId, seasonId) {
     const cols = [40, 40 + colW + colGap];
     let colY = [y, y];
 
-    const getFirstImage = (p) => {
-      try {
-        const imgs = JSON.parse(p.images || '[]');
-        if (imgs.length) return imgs[0];
-      } catch(e) {}
-      return p.image_url || null;
-    };
-
     const measureCardHeight = (p) => {
       const nameText = p.description || '';
       doc.fontSize(7.5).font('Helvetica');
@@ -3814,19 +3831,13 @@ async function generateLinesheetPDF(brandId, seasonId) {
     };
 
     const drawProductCard = (p, x, yy) => {
-      const img = getFirstImage(p);
+      const buf = imageBuffers[p.id];
       const textX = x + imgW + textGap;
-      if (img && img.startsWith('data:image')) {
+      doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
+      if (buf) {
         try {
-          const base64 = img.replace(/^data:image\/\w+;base64,/, '');
-          const buf = Buffer.from(base64, 'base64');
-          doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
           doc.image(buf, x, yy, { fit: [imgW, imgH], align: 'center', valign: 'center' });
-        } catch(e) {
-          doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
-        }
-      } else {
-        doc.rect(x, yy, imgW, imgH).fillColor('#f2f2f2').fill();
+        } catch(e) { /* format non supporté → fond gris déjà dessiné */ }
       }
 
       let ty = yy;
