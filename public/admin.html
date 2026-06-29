@@ -369,90 +369,86 @@
   .section.active { animation: fadeSlide .2s ease-out; }
 
   /* ============================================================
-     EDITORIAL CRM — refonte visuelle (maquette, scopée #dashboard)
-     Direction : garder l'âme éditoriale (mono, vert acide, sombre)
-     et ajouter la finition d'un CRM moderne. Réversible : tout est
-     préfixé #dashboard, les autres écrans sont inchangés.
+     RAW / NOTHING — refonte visuelle (scopée #dashboard)
+     Monochrome brut : noir/blanc/gris, grille de points, typo
+     dot-matrix (DotGothic16), filets fins, aucun effet (ni dégradé,
+     ni glow, ni ombre). UN seul accent : le vert acide --accent,
+     utilisé avec parcimonie. Réversible : tout est préfixé #dashboard.
      ============================================================ */
-  #dashboard { --r: 14px; }
-
-  /* Titre : marqueur éditorial + overline mono discret */
-  #dashboard > h1 { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
-  #dashboard > h1::before {
-    content: ''; width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
-    background: var(--accent, #CCEB3C);
-    box-shadow: 0 0 0 4px rgba(204,235,60,.12), 0 4px 16px rgba(204,235,60,.3);
+  #dashboard {
+    counter-reset: statidx;
+    background-image: radial-gradient(#1c1c1c 1px, transparent 1px);
+    background-size: 22px 22px;
   }
+
+  /* Titre dot-matrix + libellé technique, séparé par un filet */
+  #dashboard > h1 { font-family: 'DotGothic16', monospace; display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
   #dashboard > h1::after {
     content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'DotGothic16', monospace;
-    font-size: 11px; letter-spacing: .2em; color: #5a5a5a; align-self: center;
+    font-size: 11px; letter-spacing: .26em; color: #4a4a4a; align-self: center;
   }
-  #dashboard .dash-kicker { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .14em;
-    text-transform: uppercase; color: #6a6a6a; margin: 0 0 26px; }
+  #dashboard .dash-kicker { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .2em;
+    text-transform: uppercase; color: #6a6a6a; margin: 0 0 26px; padding-bottom: 18px; border-bottom: 1px solid #2c2c2c; }
 
-  /* Stat cards — relief, hover, rythme typographique, index éditorial */
-  #dashboard { counter-reset: statidx; }
+  /* Stats — modules plats, filet fin, index, gros chiffre dot-matrix */
   #dashboard .stat {
-    border-radius: var(--r);
     counter-increment: statidx;
-    transition: transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s ease, border-color .22s ease;
-    animation: statIn .42s cubic-bezier(.2,.7,.3,1) backwards;
+    background: #000; border: 1px solid #2c2c2c; border-radius: 0;
+    box-shadow: none; transition: border-color .2s ease;
   }
-  /* index numéroté façon planche éditoriale (01, 02, 03…) */
+  #dashboard .stat::before { display: none; }      /* supprime le filet coloré */
+  #dashboard .stat-icon { display: none; }          /* look brut, sans pastille colorée */
+  #dashboard .stat:hover { border-color: #444; }
   #dashboard .stat::after {
     content: '0' counter(statidx);
-    position: absolute; top: 15px; right: 17px;
-    font-family: 'DotGothic16', monospace; font-size: 12px; letter-spacing: .08em;
-    color: rgba(255,255,255,.16);
+    position: absolute; top: 14px; right: 16px;
+    font-family: 'DotGothic16', monospace; font-size: 12px; letter-spacing: .08em; color: #4a4a4a;
   }
-  @keyframes statIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  #dashboard .stats .stat:nth-child(1) { animation-delay: .02s; }
-  #dashboard .stats .stat:nth-child(2) { animation-delay: .07s; }
-  #dashboard .stats .stat:nth-child(3) { animation-delay: .12s; }
-  #dashboard .stat::before { transition: height .22s ease, box-shadow .22s ease; }
-  #dashboard .stat:hover {
-    transform: translateY(-3px);
-    border-color: color-mix(in srgb, var(--stat-color, #CCEB3C) 45%, #252525);
-    box-shadow: 0 12px 32px rgba(0,0,0,.45);
-  }
-  #dashboard .stat:hover::before { height: 3px; box-shadow: 0 0 16px var(--stat-color, #CCEB3C); }
-  #dashboard .stat-icon { transition: transform .22s ease; }
-  #dashboard .stat:hover .stat-icon { transform: scale(1.09) rotate(-3deg); }
-  #dashboard .stat .num { font-size: 36px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  #dashboard .stat .label { color: #7a7a7a; font-weight: 600; }
+  #dashboard .stat .num { font-family: 'DotGothic16', monospace; font-size: 40px; color: #fafafa; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+  #dashboard .stat .label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7a7a7a; font-weight: 400; }
 
-  /* Cartes — en-têtes éditoriaux (pastille accent avant chaque titre) */
-  #dashboard .card { border-radius: var(--r); transition: border-color .2s ease, box-shadow .2s ease; }
+  /* Cartes — plates, filet fin, en-tête mono avec carré blanc */
+  #dashboard .card { background: #000; border: 1px solid #2c2c2c; border-radius: 0; box-shadow: none; }
+  /* neutralise les fonds dégradés verts inline (carte partage, diffusion marque) */
+  #dashboard .card[style*="linear-gradient"] { background: #000 !important; border-color: #2c2c2c !important; }
   #dashboard .card > h3,
-  #dashboard .card > div > h3 { display: flex; align-items: center; gap: 9px; letter-spacing: .01em; }
+  #dashboard .card > div > h3 {
+    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: #7a7a7a; display: flex; align-items: center; gap: 9px;
+  }
   #dashboard .card > h3::before,
   #dashboard .card > div > h3::before {
-    content: ''; width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0;
-    background: var(--accent, #CCEB3C); box-shadow: 0 0 8px rgba(204,235,60,.5);
+    content: ''; width: 6px; height: 6px; border-radius: 0; flex-shrink: 0; background: #fafafa; box-shadow: none;
   }
 
-  /* Sous-titres de groupe (ex. "Analytiques") — barre accent à gauche */
-  #dashboard > h3 { position: relative; padding-left: 16px; }
+  /* Sous-titre de groupe (Analytiques) — tiret accent (le seul vert) */
+  #dashboard > h3 { position: relative; padding-left: 26px; font-family: 'DotGothic16', monospace; font-weight: 400; }
   #dashboard > h3::before {
     content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-    width: 4px; height: 18px; border-radius: 2px; background: var(--accent, #CCEB3C);
+    width: 18px; height: 2px; border-radius: 0; background: var(--accent, #CCEB3C);
   }
 
-  /* Tableau — lignes plus vivantes au survol */
+  /* Tableaux — séparateurs pointillés, survol monochrome discret */
+  #dashboard table td { border-bottom: 1px dotted #2c2c2c; }
   #dashboard #recent-orders-table tbody tr { transition: background .12s ease; }
-  #dashboard #recent-orders-table tbody tr:hover { background: rgba(204,235,60,.05); }
+  #dashboard #recent-orders-table tbody tr:hover { background: rgba(255,255,255,.03); }
 
-  /* Rôle marque (designer) : la distribution (QR, partage, invitations) est
-     réservée à l'agence — on masque ces outils côté UI (le serveur les bloque aussi). */
+  /* Indicateur "en ligne" : forcé sur l'accent vert (le point unique) */
+  #dashboard #stat-online span[style*="#4caf50"] { background: var(--accent, #CCEB3C) !important; box-shadow: 0 0 6px var(--accent, #CCEB3C) !important; }
+
+  /* Rôle marque (designer) : distribution réservée à l'agence — NE PAS retirer */
   body.role-designer .agency-only { display: none !important; }
 
-  [data-theme="light"] #dashboard .stat::after { color: rgba(0,0,0,.18); }
-  [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(107,133,0,.06); }
-
-  @media (prefers-reduced-motion: reduce) {
-    #dashboard .stat { animation: none; }
-    #dashboard .stat:hover, #dashboard .stat:hover .stat-icon { transform: none; }
-  }
+  /* Thème clair : adapte le brut au fond clair */
+  [data-theme="light"] #dashboard { background-image: radial-gradient(#e4e4e4 1px, transparent 1px); }
+  [data-theme="light"] #dashboard .stat,
+  [data-theme="light"] #dashboard .card { background: #fff; border-color: #e2e2e2; }
+  [data-theme="light"] #dashboard .stat .num { color: #111; }
+  [data-theme="light"] #dashboard .stat::after { color: #bbb; }
+  [data-theme="light"] #dashboard .card > h3::before,
+  [data-theme="light"] #dashboard .card > div > h3::before { background: #111; }
+  [data-theme="light"] #dashboard table td { border-bottom-color: #e2e2e2; }
+  [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(0,0,0,.03); }
 </style>
 <script>
 (function() {
@@ -2758,13 +2754,13 @@ async function loadDashboard() {
   const maxBrand = Math.max(...sorted.map(e=>e[1]),1);
   const brandChart = document.getElementById('brand-revenue-chart');
   if (brandChart && sorted.length) {
-    brandChart.innerHTML = sorted.map(([name,val]) => `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="font-size:11px;color:#aaa;min-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-        <div style="flex:1;background:#1a1a1a;border-radius:3px;height:6px;overflow:hidden">
-          <div style="width:${Math.round(val/maxBrand*100)}%;height:100%;background:#CCEB3C;border-radius:3px"></div>
+    brandChart.innerHTML = sorted.map(([name,val],i) => `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Space Mono',monospace">
+        <div style="font-size:11px;color:#cfcfcf;min-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+        <div style="flex:1;background:#1c1c1c;height:1px;position:relative">
+          <div style="position:absolute;left:0;top:-2px;width:${Math.round(val/maxBrand*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>
         </div>
-        <div style="font-size:11px;color:#CCEB3C;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
+        <div style="font-size:11px;color:#7a7a7a;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
       </div>`).join('');
   }
 
