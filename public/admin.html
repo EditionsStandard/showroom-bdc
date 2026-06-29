@@ -2917,7 +2917,7 @@ async function loadBrands() {
         <button class="btn btn-secondary btn-sm" onclick="shareShowroomBrand('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien showroom</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
-        <button class="btn btn-secondary btn-sm" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
+        <button class="btn btn-secondary btn-sm agency-only" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
         <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${b.name.replace(/'/g,"\\'")}')">📊 Stats</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}

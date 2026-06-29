@@ -1870,7 +1870,9 @@ app.post('/api/public/orders', publicLimiter, async (req, res) => {
 // ==================== SÉLECTION AGENT (préparée en RDV, confirmée par l'acheteur) ====================
 
 // 1) L'agent prépare une sélection pour un acheteur et lui envoie un lien
-app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agent','designer'), async (req, res) => {
+// Réservé à l'agence (owner/agent) : l'envoi d'une sélection est un contact
+// acheteur direct — une marque ne doit pas pouvoir solliciter les acheteurs.
+app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agent'), async (req, res) => {
   try {
     const { client_name, client_email, client_company, notes, items } = req.body;
     if (!client_email || !client_email.includes('@')) return res.status(400).json({ error: 'Email acheteur valide requis' });
