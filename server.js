@@ -56,7 +56,31 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
 
 const app = express();
-app.use(helmet({ contentSecurityPolicy: false })); // CSP off car inline scripts dans admin/portal
+// CSP : l'app utilise des scripts/handlers/styles inline → script-src/style-src
+// gardent 'unsafe-inline' (et script-src-attr pour les onclick). Mais on verrouille
+// le reste : connect-src 'self' (anti-exfiltration), object-src 'none',
+// base-uri 'self', frame-ancestors 'none' (anti-clickjacking), form-action 'self'.
+// Origines externes réelles : cdn.jsdelivr.net (lib QR), Google Fonts, images https
+// (Cloudinary). Testé sans violation sur admin/portal/commande.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrcAttr: ["'unsafe-inline'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'"],
+    }
+  }
+}));
 app.set('trust proxy', 1); // Railway runs behind a proxy — required for secure cookies
 const PORT = process.env.PORT || 3000;
 
