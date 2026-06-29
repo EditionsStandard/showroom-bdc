@@ -7,7 +7,7 @@
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DotGothic16&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
@@ -367,6 +367,88 @@
   /* 7. Animation fadeIn entre sections */
   @keyframes fadeSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .section.active { animation: fadeSlide .2s ease-out; }
+
+  /* ============================================================
+     EDITORIAL CRM — refonte visuelle (maquette, scopée #dashboard)
+     Direction : garder l'âme éditoriale (mono, vert acide, sombre)
+     et ajouter la finition d'un CRM moderne. Réversible : tout est
+     préfixé #dashboard, les autres écrans sont inchangés.
+     ============================================================ */
+  #dashboard { --r: 14px; }
+
+  /* Titre : marqueur éditorial + overline mono discret */
+  #dashboard > h1 { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  #dashboard > h1::before {
+    content: ''; width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+    background: var(--accent, #CCEB3C);
+    box-shadow: 0 0 0 4px rgba(204,235,60,.12), 0 4px 16px rgba(204,235,60,.3);
+  }
+  #dashboard > h1::after {
+    content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'DotGothic16', monospace;
+    font-size: 11px; letter-spacing: .2em; color: #5a5a5a; align-self: center;
+  }
+  #dashboard .dash-kicker { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: #6a6a6a; margin: 0 0 26px; }
+
+  /* Stat cards — relief, hover, rythme typographique, index éditorial */
+  #dashboard { counter-reset: statidx; }
+  #dashboard .stat {
+    border-radius: var(--r);
+    counter-increment: statidx;
+    transition: transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s ease, border-color .22s ease;
+    animation: statIn .42s cubic-bezier(.2,.7,.3,1) backwards;
+  }
+  /* index numéroté façon planche éditoriale (01, 02, 03…) */
+  #dashboard .stat::after {
+    content: '0' counter(statidx);
+    position: absolute; top: 15px; right: 17px;
+    font-family: 'DotGothic16', monospace; font-size: 12px; letter-spacing: .08em;
+    color: rgba(255,255,255,.16);
+  }
+  @keyframes statIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  #dashboard .stats .stat:nth-child(1) { animation-delay: .02s; }
+  #dashboard .stats .stat:nth-child(2) { animation-delay: .07s; }
+  #dashboard .stats .stat:nth-child(3) { animation-delay: .12s; }
+  #dashboard .stat::before { transition: height .22s ease, box-shadow .22s ease; }
+  #dashboard .stat:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--stat-color, #CCEB3C) 45%, #252525);
+    box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  }
+  #dashboard .stat:hover::before { height: 3px; box-shadow: 0 0 16px var(--stat-color, #CCEB3C); }
+  #dashboard .stat-icon { transition: transform .22s ease; }
+  #dashboard .stat:hover .stat-icon { transform: scale(1.09) rotate(-3deg); }
+  #dashboard .stat .num { font-size: 36px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  #dashboard .stat .label { color: #7a7a7a; font-weight: 600; }
+
+  /* Cartes — en-têtes éditoriaux (pastille accent avant chaque titre) */
+  #dashboard .card { border-radius: var(--r); transition: border-color .2s ease, box-shadow .2s ease; }
+  #dashboard .card > h3,
+  #dashboard .card > div > h3 { display: flex; align-items: center; gap: 9px; letter-spacing: .01em; }
+  #dashboard .card > h3::before,
+  #dashboard .card > div > h3::before {
+    content: ''; width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0;
+    background: var(--accent, #CCEB3C); box-shadow: 0 0 8px rgba(204,235,60,.5);
+  }
+
+  /* Sous-titres de groupe (ex. "Analytiques") — barre accent à gauche */
+  #dashboard > h3 { position: relative; padding-left: 16px; }
+  #dashboard > h3::before {
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 4px; height: 18px; border-radius: 2px; background: var(--accent, #CCEB3C);
+  }
+
+  /* Tableau — lignes plus vivantes au survol */
+  #dashboard #recent-orders-table tbody tr { transition: background .12s ease; }
+  #dashboard #recent-orders-table tbody tr:hover { background: rgba(204,235,60,.05); }
+
+  [data-theme="light"] #dashboard .stat::after { color: rgba(0,0,0,.18); }
+  [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(107,133,0,.06); }
+
+  @media (prefers-reduced-motion: reduce) {
+    #dashboard .stat { animation: none; }
+    #dashboard .stat:hover, #dashboard .stat:hover .stat-icon { transform: none; }
+  }
 </style>
 <script>
 (function() {
@@ -449,6 +531,7 @@
   <!-- DASHBOARD -->
   <div id="dashboard" class="section active">
     <h1 data-t="h1_dashboard">Tableau de bord</h1>
+    <p class="dash-kicker" data-t="dash_kicker">Vue d'ensemble de votre showroom en temps réel</p>
     <div class="stats">
       <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
@@ -1530,6 +1613,7 @@ const TRANSLATIONS = {
     logout: '⏻ Déconnexion',
     // Section headings
     h1_dashboard: 'Tableau de bord', h1_brands: 'Marques & Collections',
+    dash_kicker: 'Vue d\'ensemble de votre showroom en temps réel',
     h1_orders: 'Commandes', h1_settings: 'Paramètres', h1_staff: 'Comptes', h1_buyers: 'Acheteurs',
     // Stats
     stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'CA total HT',
@@ -1665,6 +1749,7 @@ const TRANSLATIONS = {
     logout: '⏻ Log out',
     // Section headings
     h1_dashboard: 'Dashboard', h1_brands: 'Brands & Collections',
+    dash_kicker: 'A real-time overview of your showroom',
     h1_orders: 'Orders', h1_settings: 'Settings', h1_staff: 'Accounts', h1_buyers: 'Buyers',
     // Stats
     stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Total revenue',
