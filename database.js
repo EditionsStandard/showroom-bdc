@@ -339,6 +339,7 @@ async function init() {
 
   const defaults = {
     showroom_name: 'Editions Standard',
+    current_season: 'SS27',
     showroom_email: '',
     smtp_host: '',
     smtp_port: '587',

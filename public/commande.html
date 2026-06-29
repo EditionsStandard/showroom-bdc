@@ -71,7 +71,7 @@
   .tag-price { font-size: 11px; font-weight: 600; color: var(--accent); background: rgba(204,235,60,.08); letter-spacing: .04em; }
 
   /* ── Variant colors ── */
-  .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Inter', sans-serif; }
+  .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 8px; padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Inter', sans-serif; }
   .color-btn.active { border-color: var(--accent); color: var(--accent); }
 
   /* ── Size / qty rows ── */
@@ -81,8 +81,8 @@
   .size-label { font-size: 12px; font-weight: 500; color: var(--white); min-width: 60px; letter-spacing: .06em; text-transform: uppercase; }
   .qty-ctrl { display: flex; align-items: center; gap: 0; }
   .qty-btn { width: 44px; height: 44px; border: 1px solid var(--border); background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--soft); font-weight: 300; user-select: none; touch-action: manipulation; transition: color .15s, border-color .15s; }
-  .qty-btn:first-child { border-radius: 2px 0 0 2px; }
-  .qty-btn:last-child { border-radius: 0 2px 2px 0; }
+  .qty-btn:first-child { border-radius: 8px 0 0 8px; }
+  .qty-btn:last-child { border-radius: 0 8px 8px 0; }
   .qty-btn:active { color: var(--accent); border-color: var(--accent); }
   .qty-display { width: 48px; text-align: center; font-size: 15px; font-weight: 500; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); height: 44px; line-height: 42px; }
   .qty-display.active { color: var(--accent); }
@@ -94,7 +94,7 @@
   .search-icon { color: var(--muted); font-size: 16px; }
 
   /* ── Bouton "ajouter référence sans taille" ── */
-  .btn-add-ref { width: calc(100% - 40px); margin: 0 20px 12px; display: block; background: transparent; border: 1px dashed var(--border); color: var(--soft); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 9px; cursor: pointer; font-family: 'Inter', sans-serif; transition: border-color .15s, color .15s; border-radius: 2px; }
+  .btn-add-ref { width: calc(100% - 40px); margin: 0 20px 12px; display: block; background: transparent; border: 1px dashed var(--border); color: var(--soft); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 9px; cursor: pointer; font-family: 'Inter', sans-serif; transition: border-color .15s, color .15s; border-radius: 8px; }
   .btn-add-ref:hover { border-color: var(--accent); color: var(--accent); }
   .btn-add-ref.active { border-color: var(--accent); color: var(--accent); background: rgba(204,235,60,.06); }
 
@@ -402,6 +402,9 @@
   [data-theme="light"] #sig-canvas { background: #fff; }
   /* Image modal stays dark */
   [data-theme="light"] #img-modal { background: rgba(0,0,0,.97); }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 // Theme: run before render to avoid flash
@@ -648,7 +651,7 @@
     </div>
 
     <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:16px">
-      <button id="btn-open-mail" onclick="shareOrderMail()" style="background:var(--accent);color:var(--black);border:none;padding:15px 32px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:2px;font-family:inherit;width:100%;max-width:340px">✉️ Envoyer par mail avec PDF</button>
+      <button id="btn-open-mail" onclick="shareOrderMail()" style="background:var(--accent);color:var(--black);border:none;padding:15px 32px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:8px;font-family:inherit;width:100%;max-width:340px">✉️ Envoyer par mail avec PDF</button>
       <a id="btn-dl-pdf" href="#" style="display:none;font-size:11px;color:var(--soft);letter-spacing:.06em;text-decoration:underline;text-underline-offset:3px" download>📄 Télécharger le PDF séparément</a>
       <p id="mail-share-hint" style="font-size:10px;color:var(--muted);letter-spacing:.04em;text-align:center;max-width:300px">Sur iPhone : choisissez Spark ou Airmail dans la liste<br>Sur Mac : le PDF se télécharge + le mail s'ouvre</p>
     </div>

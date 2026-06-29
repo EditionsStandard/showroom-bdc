@@ -466,6 +466,9 @@
   [data-theme="light"] #dashboard .card > div > h3::before { background: #111; }
   [data-theme="light"] #dashboard table td { border-bottom-color: #e2e2e2; }
   [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(0,0,0,.03); }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 (function() {
@@ -840,6 +843,7 @@
         <div class="form-group"><label data-t="s_name_label">Nom du showroom</label><input id="s-name" type="text"></div>
         <div class="form-group"><label data-t="s_email_label">Email showroom (copie BDC)</label><input id="s-email" type="email"></div>
       </div>
+      <div class="form-group"><label data-t="s_season_label">Saison en cours (pastille sur les cartes marque, ex. SS27)</label><input id="s-season" type="text" placeholder="SS27" maxlength="12"></div>
       <div class="sep"></div>
       <h3 data-t="settings_email">Envoi des emails</h3>
       <p style="font-size:12px;color:#888;margin:-4px 0 12px">Les emails sont envoyés via Resend (configuré côté serveur). Indique simplement l'adresse expéditeur affichée aux destinataires.</p>
@@ -1685,6 +1689,7 @@ const TRANSLATIONS = {
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Conditions Générales de Vente',
     settings_currencies: 'Devises', settings_security: 'Sécurité',
     s_name_label: 'Nom du showroom', s_email_label: 'Email showroom (copie BDC)',
+    s_season_label: 'Saison en cours (pastille sur les cartes marque, ex. SS27)',
     s_smtp_host_label: 'Serveur SMTP', s_smtp_port_label: 'Port',
     s_smtp_user_label: 'Utilisateur SMTP', s_smtp_pass_label: 'Mot de passe SMTP',
     s_smtp_from_label: 'Adresse expéditeur (From)', s_smtp_from_placeholder: 'commandes@votreshowroom.com',
@@ -1821,6 +1826,7 @@ const TRANSLATIONS = {
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Terms & Conditions',
     settings_currencies: 'Currencies', settings_security: 'Security',
     s_name_label: 'Showroom name', s_email_label: 'Showroom email (BDC copy)',
+    s_season_label: 'Current season (badge on brand cards, e.g. SS27)',
     s_smtp_host_label: 'SMTP server', s_smtp_port_label: 'Port',
     s_smtp_user_label: 'SMTP user', s_smtp_pass_label: 'SMTP password',
     s_smtp_from_label: 'Sender address (From)', s_smtp_from_placeholder: 'orders@yourshowroom.com',
@@ -4941,6 +4947,7 @@ async function resend(id) {
 async function loadSettings() {
   const s = await fetch('/api/settings').then(r => r.json());
   document.getElementById('s-name').value = s.showroom_name || '';
+  document.getElementById('s-season').value = s.current_season || '';
   document.getElementById('s-email').value = s.showroom_email || '';
   document.getElementById('s-smtp-from').value = s.smtp_from || '';
   document.getElementById('s-agent-name').value = s.agent_name || '';
@@ -4990,6 +4997,7 @@ function collectCurrencies() {
 async function saveSettings() {
   const body = {
     showroom_name: document.getElementById('s-name').value,
+    current_season: document.getElementById('s-season').value,
     showroom_email: document.getElementById('s-email').value,
     smtp_from: document.getElementById('s-smtp-from').value,
     agent_name: document.getElementById('s-agent-name').value,
