@@ -93,7 +93,9 @@
   .brand-cover { width: 300px; flex-shrink: 0; align-self: stretch; object-fit: cover; object-position: center; display: block; background: var(--dark); }
   .brand-cover-ph { width: 300px; flex-shrink: 0; align-self: stretch; min-height: 172px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
   .brand-info { flex: 1; min-width: 0; padding: 26px 32px; display: flex; flex-direction: column; justify-content: center; gap: 7px; position: relative; }
+  .brand-name-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .brand-name { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; transition: color .18s; }
+  .brand-season { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); padding: 2px 8px; line-height: 1.5; flex-shrink: 0; }
   .brand-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
   .brand-cta { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 8px; transition: color .18s; }
@@ -1800,7 +1802,8 @@ function renderBrandPicker() {
       if (b.lookbook_url) meta.push('Lookbook');
       const metaHtml = meta.length ? `<div class="brand-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : '';
       const cta = (currentLang === 'en' ? 'View collection' : 'Voir la collection') + ' →';
-      return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name">${esc(b.name)}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
+      const seasonPill = b.season ? `<span class="brand-season">${esc(b.season)}</span>` : '';
+      return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name-row"><div class="brand-name">${esc(b.name)}</div>${seasonPill}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
     }).join('') + '</div>';
 }
 

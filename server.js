@@ -426,7 +426,7 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 });
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season'];
   for (let [key, value] of Object.entries(req.body)) {
     if (!allowed.includes(key)) continue;
     if (key === 'admin_password' && value && !value.startsWith('$2')) {
@@ -2312,9 +2312,11 @@ app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   try {
     // != 'inactive' exclut les NULL en PG — on inclut explicitement les NULL
-    const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
+    const r = await pool.query("SELECT id, name, about_text, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
+    const season = (await getSetting('current_season')) || '';
     const brands = r.rows.map(b => ({
       ...b,
+      season, // saison showroom globale (ex. "SS27") — affichée en pastille sur chaque carte
       logo: cloudinaryOpt(b.logo),
       logo_url: cloudinaryOpt(b.logo_url),
       cover_image: cloudinaryOpt(b.cover_image),
