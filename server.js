@@ -189,6 +189,12 @@ function cloudinaryOpt(url) {
   return url.replace('/upload/', '/upload/q_auto,f_auto/');
 }
 
+// Nombre fini, négatif ramené à 0 (prix, MOQ, stock — jamais de valeur négative).
+function nonNeg(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 async function getSetting(key) {
   const r = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
   return r.rows[0]?.value || '';
@@ -415,7 +421,7 @@ app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
   await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, moq_strict||false, about_text||'', lookbook_url||'']);
+    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', lookbook_url||'']);
   res.json({ id, name });
 });
 
@@ -423,7 +429,7 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency } = req.body;
     await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12 WHERE id=$13',
-      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', default_currency||null, moq_strict||false, req.params.id]);
+      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', lookbook_url||'', default_currency||null, moq_strict||false, req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -570,7 +576,7 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
   const id = uuidv4();
   await pool.query(
     'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
   );
   res.json({ id });
 });
@@ -596,7 +602,7 @@ app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req
     const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id } = req.body;
     await pool.query(
       'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14 WHERE id=$15',
-      [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
+      [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -607,8 +613,8 @@ app.patch('/api/products/:id/prices', requireRole('owner','agent','designer'), a
     if (!await checkProductBrandScope(req, res)) return;
     const fields = [];
     const vals = [];
-    if (req.body.price !== undefined)        { fields.push(`price=$${vals.push(parseFloat(req.body.price)||0)}`); }
-    if (req.body.price_retail !== undefined) { fields.push(`price_retail=$${vals.push(parseFloat(req.body.price_retail)||0)}`); }
+    if (req.body.price !== undefined)        { fields.push(`price=$${vals.push(nonNeg(req.body.price))}`); }
+    if (req.body.price_retail !== undefined) { fields.push(`price_retail=$${vals.push(nonNeg(req.body.price_retail))}`); }
     if (!fields.length) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
     vals.push(req.params.id);
     await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals);
@@ -852,9 +858,12 @@ app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, r
   try {
     if (!await checkProductBrandScope(req, res)) return;
     const { stock_qty, stock_enabled } = req.body;
+    // Stock : entier >= 0, ou null si non renseigné (jamais de stock négatif)
+    const sq = (stock_qty === null || stock_qty === undefined || stock_qty === '')
+      ? null : Math.max(0, Math.floor(Number(stock_qty) || 0));
     await pool.query(
       'UPDATE products SET stock_qty=$1, stock_enabled=$2 WHERE id=$3',
-      [stock_qty ?? null, stock_enabled ?? false, req.params.id]
+      [sq, stock_enabled ?? false, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -1779,8 +1788,12 @@ app.post('/api/public/selection-pdf', async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
 async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
-  const validLines = (lines || []).filter(l => l.quantity > 0);
+  // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées)
+  const validLines = (lines || [])
+    .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)) }))
+    .filter(l => Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= MAX_LINE_QTY);
   if (!validLines.length) return { error: 'Aucune quantité saisie' };
   if (!buyer_signature) return { error: 'Signature requise' };
   if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
