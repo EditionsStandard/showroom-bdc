@@ -136,10 +136,23 @@ app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   etag: true
 }));
-if (!process.env.SESSION_SECRET) console.warn('⚠️  SESSION_SECRET non défini — utilisez une valeur aléatoire en production');
+// Secret de session : jamais de valeur connue en production. Si SESSION_SECRET
+// n'est pas défini en prod, on génère un secret aléatoire au démarrage (au lieu
+// d'un secret codé en dur, qui permettrait de forger des cookies de session et
+// de contourner l'authentification). Conséquence : définir SESSION_SECRET, sinon
+// les sessions sont invalidées à chaque redémarrage.
+function resolveSessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    console.error('⚠️  SESSION_SECRET non défini en production — secret aléatoire généré (sessions invalidées à chaque redémarrage). DÉFINISSEZ SESSION_SECRET.');
+    return crypto.randomBytes(48).toString('hex');
+  }
+  console.warn('⚠️  SESSION_SECRET non défini — fallback de développement utilisé (ne pas utiliser en production).');
+  return 'showroom-dev-fallback-not-for-production';
+}
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
-  secret: process.env.SESSION_SECRET || (() => { if (process.env.NODE_ENV === 'production') { console.error('⚠️  SESSION_SECRET non défini — utiliser une valeur aléatoire en production!'); } return 'showroom-dev-fallback-not-for-production'; })(),
+  secret: resolveSessionSecret(),
   resave: false,
   saveUninitialized: false,
   name: 'sid',
