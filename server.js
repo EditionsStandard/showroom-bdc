@@ -659,15 +659,31 @@ app.post('/api/brands/:brandId/products/collection-bulk', requireBrandScope('own
       return res.json({ ok: true, count: r.rowCount });
     }
     if (action === 'delete') {
-      // Supprime les produits sans commande, désactive ceux référencés par des commandes (FK)
-      const prods = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND collection_name=$2', [brandId, collection]);
-      let deleted = 0, deactivated = 0;
-      for (const p of prods.rows) {
-        const used = await pool.query('SELECT 1 FROM order_lines WHERE product_id=$1 LIMIT 1', [p.id]);
-        if (used.rows.length) { await pool.query('UPDATE products SET active=0 WHERE id=$1', [p.id]); deactivated++; }
-        else { await pool.query('DELETE FROM products WHERE id=$1', [p.id]); deleted++; }
+      // Supprime les produits sans commande, désactive ceux référencés par des commandes (FK).
+      // Deux requêtes ensemblistes atomiques (au lieu de 2N+1 requêtes en boucle).
+      const dbClient = await pool.connect();
+      try {
+        await dbClient.query('BEGIN');
+        const deact = await dbClient.query(
+          `UPDATE products SET active=0
+           WHERE brand_id=$1 AND collection_name=$2
+             AND EXISTS (SELECT 1 FROM order_lines ol WHERE ol.product_id = products.id)`,
+          [brandId, collection]
+        );
+        const del = await dbClient.query(
+          `DELETE FROM products
+           WHERE brand_id=$1 AND collection_name=$2
+             AND NOT EXISTS (SELECT 1 FROM order_lines ol WHERE ol.product_id = products.id)`,
+          [brandId, collection]
+        );
+        await dbClient.query('COMMIT');
+        return res.json({ ok: true, deleted: del.rowCount, deactivated: deact.rowCount });
+      } catch(e) {
+        await dbClient.query('ROLLBACK');
+        throw e;
+      } finally {
+        dbClient.release();
       }
-      return res.json({ ok: true, deleted, deactivated });
     }
     return res.status(400).json({ error: 'Action invalide' });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -2124,6 +2140,23 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erreur lors de l\'export' }); }
 });
 
+// RGPD — anonymise les commandes (conservation légale) puis supprime le compte,
+// le tout dans une transaction pour éviter un état incohérent en cas d'échec.
+async function anonymizeAndDeleteBuyer(buyerId) {
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query('BEGIN');
+    await dbClient.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
+    await dbClient.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    await dbClient.query('COMMIT');
+  } catch(e) {
+    await dbClient.query('ROLLBACK');
+    throw e;
+  } finally {
+    dbClient.release();
+  }
+}
+
 // RGPD — Suppression du compte (droit à l'oubli)
 app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
   try {
@@ -2135,9 +2168,7 @@ app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
     if (!buyer || !await bcrypt.compare(password, buyer.password_hash)) {
       return res.status(400).json({ error: 'Mot de passe incorrect' });
     }
-    // Anonymise les commandes existantes (conservation légale) puis supprime le compte
-    await pool.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
-    await pool.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    await anonymizeAndDeleteBuyer(buyerId);
     req.session.destroy(() => {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erreur lors de la suppression' }); }
@@ -4457,8 +4488,7 @@ app.post('/api/portal/delete-account', requireBuyerAuth, async (req, res) => {
     if (!buyer || !await bcrypt.compare(password, buyer.password_hash)) {
       return res.status(400).json({ error: 'Mot de passe incorrect' });
     }
-    await pool.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
-    await pool.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    await anonymizeAndDeleteBuyer(buyerId);
     req.session.destroy(() => {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erreur suppression' }); }
