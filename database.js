@@ -283,6 +283,15 @@ async function init() {
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT ''",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_qty INTEGER DEFAULT NULL",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_enabled BOOLEAN DEFAULT false",
+    // Demandes de lien de partage émises par les marques (designer) → traitées par l'agence
+    `CREATE TABLE IF NOT EXISTS share_requests (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      requested_by TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
@@ -429,6 +438,8 @@ async function init() {
     'CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)',
     // upsert import CSV (recherche par marque + référence)
     'CREATE INDEX IF NOT EXISTS idx_products_brand_reference ON products(brand_id, reference)',
+    // demandes de lien de partage en attente (vue agence)
+    'CREATE INDEX IF NOT EXISTS idx_share_requests_status ON share_requests(status)',
   ];
   for (const sql of indexes) {
     await pool.query(sql).catch(e => console.error('Index création ignorée:', e.message.split('\n')[0]));

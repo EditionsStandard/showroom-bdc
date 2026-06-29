@@ -3218,6 +3218,64 @@ app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','ag
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// ── Demandes de lien de partage (marque → agence) ───────────────────────────
+// La distribution est réservée à l'agence ; une marque peut demander un lien,
+// l'agence reçoit la demande puis génère/partage le lien elle-même.
+app.post('/api/brands/:brandId/share-request', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const message = String(req.body.message || '').trim().slice(0, 1000);
+    const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [req.params.brandId]);
+    if (!brand.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const requestedBy = req.session?.staffUser?.email || (req.session?.admin ? 'owner' : '');
+    await pool.query(
+      'INSERT INTO share_requests (id, brand_id, requested_by, message) VALUES ($1,$2,$3,$4)',
+      [uuidv4(), req.params.brandId, requestedBy, message]
+    );
+    // Notifie l'agence (push + email best-effort, non bloquant)
+    sendPushToAdmins('Demande de lien de partage', `${brand.rows[0].name}${requestedBy ? ' — ' + requestedBy : ''}`).catch(() => {});
+    (async () => {
+      const resendKey = process.env.RESEND_API_KEY;
+      const [showroomName, adminEmail, fromAddress] = await Promise.all([
+        getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
+      ]);
+      if (!resendKey || !adminEmail) return;
+      const resend = new Resend(resendKey);
+      await resend.emails.send({
+        from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+        to: [adminEmail],
+        subject: `Demande de lien de partage — ${brand.rows[0].name}`,
+        html: emailLayout({ showroomName, content: `
+          <p>La marque <strong>${escHtml(brand.rows[0].name)}</strong> demande un lien de partage.</p>
+          ${requestedBy ? `<p style="color:#888;font-size:13px">Demandé par : ${escHtml(requestedBy)}</p>` : ''}
+          ${message ? `<p style="background:#f6f6f6;padding:12px;border-radius:6px">${escHtml(message)}</p>` : ''}
+          <p style="color:#888;font-size:13px">Gérez les demandes depuis votre tableau de bord admin.</p>
+        ` })
+      });
+    })().catch(e => console.error('share-request notify:', e.message));
+    res.json({ ok: true });
+  } catch(e) { console.error('share-request:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Liste des demandes en attente (vue agence)
+app.get('/api/share-requests', requireRole('owner','agent'), async (req, res) => {
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(`
+    SELECT s.id, s.brand_id, s.requested_by, s.message, s.created_at, b.name as brand_name
+    FROM share_requests s JOIN brands b ON b.id = s.brand_id
+    WHERE s.status='pending' ${scoped ? 'AND s.brand_id = $1' : ''}
+    ORDER BY s.created_at DESC
+  `, scoped ? [req.userBrandId] : []);
+  res.json(r.rows);
+});
+
+// Marque une demande comme traitée
+app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (req, res) => {
+  try {
+    await pool.query("UPDATE share_requests SET status='handled' WHERE id=$1", [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
 app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'public', 'demande-acces.html')));
 

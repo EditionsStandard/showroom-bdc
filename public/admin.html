@@ -586,6 +586,12 @@
       <div id="share-preview" style="margin-top:10px;font-size:11px;color:#666;font-family:monospace;min-height:16px"></div>
     </div>
 
+    <!-- Demandes de lien de partage émises par les marques (vue agence) -->
+    <div class="card agency-only" id="share-requests-card" style="display:none;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:14px">Demandes de lien de partage</h3>
+      <div id="share-requests-list"></div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="card" style="margin-bottom:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -2667,6 +2673,7 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 // Dashboard
 async function loadDashboard() {
   if (currentUserRole === 'designer') return loadDesignerDashboard();
+  loadShareRequests();
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
 
@@ -2863,6 +2870,14 @@ async function loadDesignerDashboard() {
       ${stat('#a78bfa','#160a28', ca.toFixed(0) + ' €', en ? 'Revenue (HT)' : 'CA HT')}
       ${stat('#34d399','#062016', pending, en ? 'To process' : 'À traiter')}
     </div>
+    <div class="card" style="background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:18px">📨</span>
+        <h3 style="margin:0;font-size:14px;color:var(--accent,#CCEB3C)">${en ? 'Share your page' : 'Diffusion de votre fiche'}</h3>
+      </div>
+      <p style="font-size:12px;color:#888;margin-bottom:12px">${en ? 'Distribution is handled by the agency. Request a share link and the agency will prepare it for you.' : "La diffusion est gérée par l'agence. Demandez un lien de partage : l'agence le préparera pour vous."}</p>
+      <button class="btn btn-primary btn-sm" onclick="requestShareLink()">${en ? '📨 Request a share link' : '📨 Demander un lien de partage'}</button>
+    </div>
     <div class="card">
       <h3>${en ? 'Upcoming appointments' : 'Prochains rendez-vous'}</h3>
       <div class="table-wrap"><table>
@@ -2887,6 +2902,51 @@ async function loadDesignerDashboard() {
         </tr>`).join('') || `<tr><td colspan="4" style="text-align:center;color:#555;padding:20px">${en?'No order yet':'Aucune commande'}</td></tr>`}</tbody>
       </table></div>
     </div>`;
+}
+
+// ── Demandes de lien de partage ──────────────────────────────────────
+// Côté marque : envoie une demande à l'agence (la diffusion reste gérée par l'agence).
+async function requestShareLink() {
+  const bid = currentUserBrandId;
+  if (!bid) { toast(currentLang === 'en' ? 'No brand linked' : 'Aucune marque associée', true); return; }
+  const message = prompt(currentLang === 'en'
+    ? 'Anything to tell the agency? (optional)'
+    : "Un message pour l'agence ? (optionnel)");
+  if (message === null) return; // annulé
+  try {
+    const r = await fetch(`/api/brands/${bid}/share-request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    if (r.ok) toast(currentLang === 'en' ? 'Request sent to the agency ✓' : "Demande envoyée à l'agence ✓");
+    else toast(currentLang === 'en' ? 'Send failed' : "Échec de l'envoi", true);
+  } catch(e) { toast(currentLang === 'en' ? 'Network error' : 'Erreur réseau', true); }
+}
+
+// Côté agence : liste les demandes en attente sur le dashboard.
+async function loadShareRequests() {
+  if (currentUserRole === 'designer') return;
+  const card = document.getElementById('share-requests-card');
+  const list = document.getElementById('share-requests-list');
+  if (!card || !list) return;
+  try {
+    const reqs = await fetch('/api/share-requests').then(r => r.json());
+    if (!Array.isArray(reqs) || !reqs.length) { card.style.display = 'none'; return; }
+    list.innerHTML = reqs.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #252525">
+        <div>
+          <div style="font-size:13px;color:#fff">${esc(s.brand_name)}</div>
+          <div style="font-size:11px;color:#888">${s.requested_by ? esc(s.requested_by) + ' · ' : ''}${s.message ? esc(s.message) : '—'}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="handleShareRequest('${s.id}')">✓ ${currentLang === 'en' ? 'Done' : 'Traité'}</button>
+      </div>`).join('');
+    card.style.display = '';
+  } catch(e) { card.style.display = 'none'; }
+}
+
+async function handleShareRequest(id) {
+  try { await fetch(`/api/share-requests/${id}/handle`, { method: 'POST' }); } catch(e) {}
+  loadShareRequests();
 }
 
 // Brands
