@@ -869,7 +869,7 @@ app.get('/api/public/brands/:brandId/slots', async (req, res) => {
     if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
     days.push(d.toISOString().slice(0, 10));
   }
-  const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+  const times = APPOINTMENT_TIMES;
   const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
   const bookedSet = new Set(booked.rows.map(b => {
     const d = b.slot_date instanceof Date ? b.slot_date.toISOString().slice(0,10) : String(b.slot_date).slice(0,10);
@@ -882,24 +882,53 @@ app.get('/api/public/brands/:brandId/slots', async (req, res) => {
   res.json({ slots });
 });
 
+// Créneaux proposés (doit rester cohérent avec /api/public/brands/:brandId/slots)
+const APPOINTMENT_TIMES = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+function isValidAppointmentSlot(slot_date, slot_time) {
+  if (!APPOINTMENT_TIMES.includes(slot_time)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(slot_date)) return false;
+  const d = new Date(slot_date + 'T00:00:00');
+  if (isNaN(d)) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const max = new Date(today); max.setDate(max.getDate() + 22);
+  if (d < today || d > max) return false;          // dans la fenêtre proposée
+  if (d.getDay() === 0 || d.getDay() === 6) return false; // pas le week-end
+  return true;
+}
+
 app.post('/api/public/appointments', publicLimiter, async (req, res) => {
-  const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
-  if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
-    return res.status(400).json({ error: 'Données incomplètes' });
-  }
-  const id = uuidv4();
   try {
-    await pool.query(
-      'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, brand_id, client_name, client_email, client_phone||'', slot_date, slot_time, notes||'']
-    );
-  } catch(e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
-    throw e;
-  }
-  // Send confirmation emails (non-blocking)
-  sendAppointmentConfirmationEmail({ id, brand_id, client_name, client_email, client_phone: client_phone||'', slot_date, slot_time, notes: notes||'' }).catch(e => console.error('RDV email error:', e.message));
-  res.json({ ok: true, id });
+    const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
+    if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
+      return res.status(400).json({ error: 'Données incomplètes' });
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(client_email).trim())) {
+      return res.status(400).json({ error: 'Email invalide' });
+    }
+    if (!isValidAppointmentSlot(String(slot_date), String(slot_time))) {
+      return res.status(400).json({ error: 'Créneau invalide' });
+    }
+    const brand = await pool.query('SELECT 1 FROM brands WHERE id=$1', [brand_id]);
+    if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
+
+    const name = String(client_name).trim().slice(0, 200);
+    const email = String(client_email).trim().toLowerCase().slice(0, 200);
+    const phone = String(client_phone || '').trim().slice(0, 50);
+    const note = String(notes || '').trim().slice(0, 1000);
+    const id = uuidv4();
+    try {
+      await pool.query(
+        'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [id, brand_id, name, email, phone, slot_date, slot_time, note]
+      );
+    } catch(e) {
+      if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
+      throw e;
+    }
+    // Send confirmation emails (non-blocking)
+    sendAppointmentConfirmationEmail({ id, brand_id, client_name: name, client_email: email, client_phone: phone, slot_date, slot_time, notes: note }).catch(e => console.error('RDV email error:', e.message));
+    res.json({ ok: true, id });
+  } catch(e) { console.error('public appointment error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 async function sendAppointmentConfirmationEmail(appt) {
@@ -2977,7 +3006,7 @@ app.get('/api/portal/brands/:brandId/slots', requireBuyerAuth, async (req, res) 
     if (d.getDay() === 0 || d.getDay() === 6) continue;
     days.push(d.toISOString().slice(0, 10));
   }
-  const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+  const times = APPOINTMENT_TIMES;
   const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
   const bookedSet = new Set(booked.rows.map(b => {
     const d = b.slot_date instanceof Date ? b.slot_date.toISOString().slice(0,10) : String(b.slot_date).slice(0,10);
@@ -3123,8 +3152,10 @@ app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'publi
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
 app.post('/api/access-request', publicLimiter, async (req, res) => {
+ try {
   const { name, company, phone, email, country, instagram, website, message } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
   // Vérifier doublon (même email en pending)
   const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
   if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
@@ -3163,6 +3194,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
     }).catch(e => console.error('access-request notify:', e.message));
   }
   res.json({ ok: true });
+ } catch(e) { console.error('access-request error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) => {
