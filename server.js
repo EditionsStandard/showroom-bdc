@@ -1094,6 +1094,18 @@ async function checkOrderBrandScope(req, res) {
   return true;
 }
 
+// Buyers are shared across brands. A brand-scoped agent may only act on buyers
+// who have at least one order with their brand.
+async function checkBuyerBrandScope(req, res) {
+  if (!isBrandScoped(req)) return true;
+  const o = await pool.query('SELECT 1 FROM orders WHERE buyer_id=$1 AND brand_id=$2 LIMIT 1', [req.params.id, req.userBrandId]);
+  if (!o.rows.length) {
+    res.status(403).json({ error: 'Accès refusé' });
+    return false;
+  }
+  return true;
+}
+
 app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 500, 2000);
   const offset = parseInt(req.query.offset) || 0;
@@ -1289,8 +1301,9 @@ async function sendOrderStatusEmail(orderId, status) {
 
 app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
-      SELECT o.id, o.created_at, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country,
+      SELECT o.id, o.order_number, o.created_at, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country,
              o.status, b.name as brand_name,
              ol.size, ol.quantity, ol.unit_price, ol.price_retail,
              p.reference, p.description, p.color
@@ -1298,8 +1311,9 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
       JOIN brands b ON o.brand_id=b.id
       JOIN order_lines ol ON ol.order_id=o.id
       JOIN products p ON ol.product_id=p.id
+      ${scoped ? 'WHERE o.brand_id = $1' : ''}
       ORDER BY o.created_at DESC, o.id, p.reference
-    `);
+    `, scoped ? [req.userBrandId] : []);
     const headers = ['Date','Référence commande','Client','Email','Société','Téléphone','Pays','Statut','Marque','Référence produit','Description','Couleur','Taille','Quantité','Prix HT','Prix PVC'];
     const rows = r.rows.map(row => [
       new Date(row.created_at).toLocaleDateString('fr-FR'),
@@ -1317,6 +1331,7 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT o.order_number, o.id, o.created_at, b.name as brand_name,
              o.client_name, o.client_email, o.client_company, o.client_country, o.status,
@@ -1324,9 +1339,10 @@ app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res)
       FROM orders o
       JOIN brands b ON o.brand_id = b.id
       LEFT JOIN order_lines ol ON ol.order_id = o.id
+      ${scoped ? 'WHERE o.brand_id = $1' : ''}
       GROUP BY o.id, b.name
       ORDER BY o.created_at DESC
-    `);
+    `, scoped ? [req.userBrandId] : []);
     const headers = ['Référence','Date','Marque','Client','Email','Société','Pays','Statut','Total HT'];
     const rows = r.rows.map(row => [
       row.order_number || row.id.slice(0,8).toUpperCase(),
@@ -1345,10 +1361,13 @@ app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT name, email, company, phone, country, instagram, created_at
-      FROM buyers ORDER BY created_at DESC
-    `);
+      FROM buyers
+      ${scoped ? 'WHERE id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}
+      ORDER BY created_at DESC
+    `, scoped ? [req.userBrandId] : []);
     const headers = ['Nom','Email','Société','Téléphone','Pays','Instagram','Inscrit le'];
     const rows = r.rows.map(row => [
       row.name, row.email, row.company || '', row.phone || '', row.country || '',
@@ -1366,7 +1385,9 @@ app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res)
 // Export commandes XLSX
 app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (req, res) => {
   if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
-  const { brand_id, status, from, to } = req.query;
+  const { status, from, to } = req.query;
+  // Agent scopé : forcer sa marque, ignorer tout brand_id fourni dans la query.
+  const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
   let q = `SELECT o.order_number, b.name as marque, o.client_name, o.client_company, o.client_email, o.client_country, o.status, o.total_amount, o.created_at,
     STRING_AGG(ol.reference || ' x' || ol.quantity || ' (' || ol.size || ')', ', ') as lignes
     FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines ol ON ol.order_id=o.id WHERE 1=1`;
@@ -1394,7 +1415,7 @@ app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (re
 // Export produits XLSX
 app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (req, res) => {
   if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
-  const { brand_id } = req.query;
+  const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
   let q = `SELECT b.name as marque, p.reference, p.description, p.color, p.sizes, p.price, p.price_retail, p.collection_name, p.category, p.composition, p.active FROM products p JOIN brands b ON b.id=p.brand_id WHERE 1=1`;
   const params = [];
   if (brand_id) { params.push(brand_id); q += ` AND p.brand_id=$${params.length}`; }
@@ -1482,12 +1503,14 @@ app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, 
 
 // ── Agenda global ────────────────────────────────────────────────────
 app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res) => {
+  const scoped = isBrandScoped(req);
   const r = await pool.query(`
     SELECT a.*, b.name AS brand_name
     FROM appointments a
     JOIN brands b ON b.id = a.brand_id
+    ${scoped ? 'WHERE a.brand_id = $1' : ''}
     ORDER BY a.slot_date DESC, a.slot_time DESC
-  `);
+  `, scoped ? [req.userBrandId] : []);
   res.json(r.rows);
 });
 
@@ -1522,6 +1545,7 @@ app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (r
 // ── Magic link accès direct portail ──────────────────────────────────
 app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
     const buyer = b.rows[0];
@@ -1916,13 +1940,20 @@ app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
 app.post('/api/agent-selections/:token/save-as-template', requireRole('owner','agent'), async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
+  const sel = await pool.query('SELECT brand_id FROM agent_selections WHERE token=$1', [req.params.token]);
+  if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+  if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
   await pool.query('UPDATE agent_selections SET is_template=true, template_name=$1 WHERE token=$2', [name, req.params.token]);
   res.json({ ok: true });
 });
 
-// Lister les templates
+// Lister les templates (agent scopé : uniquement ceux de sa marque)
 app.get('/api/agent-selections/templates', requireRole('owner','agent','designer'), async (req, res) => {
-  const r = await pool.query(`SELECT token, template_name, brand_id, items_json, created_at, selection_number FROM agent_selections WHERE is_template=true ORDER BY created_at DESC`);
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(
+    `SELECT token, template_name, brand_id, items_json, created_at, selection_number FROM agent_selections WHERE is_template=true ${scoped ? 'AND brand_id=$1' : ''} ORDER BY created_at DESC`,
+    scoped ? [req.userBrandId] : []
+  );
   res.json(r.rows);
 });
 
@@ -1932,6 +1963,7 @@ app.post('/api/agent-selections/:token/use-template', requireRole('owner','agent
   const src = await pool.query('SELECT * FROM agent_selections WHERE token=$1 AND is_template=true', [req.params.token]);
   if (!src.rows[0]) return res.status(404).json({ error: 'Template introuvable' });
   const t = src.rows[0];
+  if (isBrandScoped(req) && t.brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
   const newToken = uuidv4();
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const numRes = await pool.query("SELECT nextval('selection_number_seq') as n");
@@ -2736,6 +2768,10 @@ app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { country, active, minAmount } = req.query;
   const conditions = [];
   const params = [];
+  if (isBrandScoped(req)) {
+    params.push(req.userBrandId);
+    conditions.push(`id IN (SELECT buyer_id FROM orders WHERE brand_id = $${params.length} AND buyer_id IS NOT NULL)`);
+  }
   if (country) {
     params.push(country.toLowerCase());
     conditions.push(`LOWER(COALESCE(country,'')) = $${params.length}`);
@@ -2770,6 +2806,7 @@ app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
 // Tags et notes internes acheteur
 app.patch('/api/buyers/:id/tags-notes', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const { tags, internal_notes } = req.body;
     await pool.query('UPDATE buyers SET tags=$1, internal_notes=$2 WHERE id=$3',
       [tags || '', internal_notes || '', req.params.id]);
@@ -2778,7 +2815,12 @@ app.patch('/api/buyers/:id/tags-notes', requireRole('owner','agent'), async (req
 });
 
 app.get('/api/buyers/presence', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query(`SELECT id, last_seen_at FROM buyers WHERE last_seen_at > NOW() - INTERVAL '90 seconds'`);
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(
+    `SELECT id, last_seen_at FROM buyers WHERE last_seen_at > NOW() - INTERVAL '90 seconds'
+     ${scoped ? 'AND id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}`,
+    scoped ? [req.userBrandId] : []
+  );
   res.json(r.rows.map(b => b.id));
 });
 
@@ -2800,6 +2842,7 @@ app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req,
 
 app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
     const buyer = b.rows[0];
@@ -2836,17 +2879,24 @@ app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json({ orders: [], buyers: [], selections: [] });
   const like = `%${q}%`;
+  // Agent scopé : la recherche ne remonte que les données de sa marque.
+  const scoped = isBrandScoped(req);
+  const bId = req.userBrandId;
   const [orders, buyers, selections] = await Promise.all([
     pool.query(`SELECT o.id, o.order_number, o.client_name, o.client_email, o.client_company, o.status, b.name as brand_name,
       SUM(ol.quantity*ol.unit_price) as total, o.created_at
       FROM orders o JOIN brands b ON o.brand_id=b.id LEFT JOIN order_lines ol ON ol.order_id=o.id
-      WHERE o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1 OR o.order_number ILIKE $1
-      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 5`, [like]),
+      WHERE (o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1 OR o.order_number ILIKE $1)
+      ${scoped ? 'AND o.brand_id = $2' : ''}
+      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 5`, scoped ? [like, bId] : [like]),
     pool.query(`SELECT id, name, email, company FROM buyers
-      WHERE name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1 LIMIT 5`, [like]),
+      WHERE (name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1)
+      ${scoped ? 'AND id IN (SELECT buyer_id FROM orders WHERE brand_id = $2 AND buyer_id IS NOT NULL)' : ''}
+      LIMIT 5`, scoped ? [like, bId] : [like]),
     pool.query(`SELECT id, selection_number, client_name, client_email FROM agent_selections
-      WHERE client_name ILIKE $1 OR client_email ILIKE $1 OR selection_number ILIKE $1
-      ORDER BY created_at DESC LIMIT 5`, [like]).catch(() => ({ rows: [] }))
+      WHERE (client_name ILIKE $1 OR client_email ILIKE $1 OR selection_number ILIKE $1)
+      ${scoped ? 'AND brand_id = $2' : ''}
+      ORDER BY created_at DESC LIMIT 5`, scoped ? [like, bId] : [like]).catch(() => ({ rows: [] }))
   ]);
   res.json({ orders: orders.rows, buyers: buyers.rows, selections: selections.rows });
 });
@@ -3020,6 +3070,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
 
 app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const { name, company, email, phone, country, password } = req.body;
     if (password) {
       if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
@@ -3034,6 +3085,9 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
 
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
+    // Un acheteur est partagé entre marques : un agent scopé ne peut pas supprimer
+    // un compte global (cela impacterait les commandes d'autres marques).
+    if (isBrandScoped(req)) return res.status(403).json({ error: 'Suppression réservée à un administrateur showroom.' });
     await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
     logAudit(req, 'delete_buyer', 'buyer', req.params.id, '');
     res.json({ ok: true });
@@ -4087,6 +4141,7 @@ app.post('/api/selections/draft', requireRole('owner', 'agent'), async (req, res
   try {
     const { brand_id, client_name, client_email, client_company, items_json, notes, draft_name } = req.body;
     if (!brand_id || !client_email) return res.status(400).json({ error: 'brand_id et client_email requis' });
+    if (isBrandScoped(req) && brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     const token = uuidv4();
     const expires = new Date(Date.now() + 90 * 24 * 3600 * 1000); // 90 jours
     await pool.query(
@@ -4117,7 +4172,11 @@ app.get('/api/selections/drafts', requireRole('owner', 'agent'), async (req, res
 
 app.delete('/api/selections/drafts/:token', requireRole('owner', 'agent'), async (req, res) => {
   try {
-    await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    if (isBrandScoped(req)) {
+      await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft' AND brand_id=$2", [req.params.token, req.userBrandId]);
+    } else {
+      await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4127,6 +4186,7 @@ app.post('/api/selections/drafts/:token/send', requireRole('owner', 'agent'), as
     const r = await pool.query("SELECT * FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
     const draft = r.rows[0];
     if (!draft) return res.status(404).json({ error: 'Brouillon introuvable' });
+    if (isBrandScoped(req) && draft.brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     const b = await pool.query('SELECT name FROM brands WHERE id=$1', [draft.brand_id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const seqSel = await pool.query("SELECT LPAD(nextval('selection_number_seq')::TEXT, 4, '0') AS num");
