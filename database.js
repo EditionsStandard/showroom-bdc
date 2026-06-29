@@ -403,15 +403,36 @@ async function init() {
     DELETE FROM access_requests WHERE status='pending' AND created_at < NOW() - INTERVAL '30 days';
   `).catch(() => {});
 
-  // Index pour les performances
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id);
-    CREATE INDEX IF NOT EXISTS idx_products_active ON products(active);
-    CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON orders(buyer_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_brand_id ON orders(brand_id);
-    CREATE INDEX IF NOT EXISTS idx_order_lines_order_id ON order_lines(order_id);
-    CREATE INDEX IF NOT EXISTS idx_appointments_brand_id ON appointments(brand_id);
-  `).catch(() => {});
+  // Index pour les performances — exécutés SÉPARÉMENT (comme les ALTER) pour
+  // qu'un index en échec ne bloque pas la création des autres.
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id)',
+    'CREATE INDEX IF NOT EXISTS idx_products_active ON products(active)',
+    'CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON orders(buyer_id)',
+    'CREATE INDEX IF NOT EXISTS idx_orders_brand_id ON orders(brand_id)',
+    'CREATE INDEX IF NOT EXISTS idx_order_lines_order_id ON order_lines(order_id)',
+    'CREATE INDEX IF NOT EXISTS idx_appointments_brand_id ON appointments(brand_id)',
+    // product_id : très sollicité (EXISTS "produit utilisé ?", jointures lignes/produits)
+    'CREATE INDEX IF NOT EXISTS idx_order_lines_product_id ON order_lines(product_id)',
+    // filtres récurrents sur les commandes (stats, dashboard, listes triées)
+    'CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)',
+    'CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)',
+    // sélections agent : cloisonnement marque + filtres brouillons/templates
+    'CREATE INDEX IF NOT EXISTS idx_agent_selections_brand_id ON agent_selections(brand_id)',
+    'CREATE INDEX IF NOT EXISTS idx_agent_selections_status ON agent_selections(status)',
+    // timelines de commande
+    'CREATE INDEX IF NOT EXISTS idx_order_events_order_id ON order_events(order_id)',
+    'CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id)',
+    // archivage/restauration par saison
+    'CREATE INDEX IF NOT EXISTS idx_products_season_id ON products(season_id)',
+    // déduplication des demandes d'accès en attente
+    'CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)',
+    // upsert import CSV (recherche par marque + référence)
+    'CREATE INDEX IF NOT EXISTS idx_products_brand_reference ON products(brand_id, reference)',
+  ];
+  for (const sql of indexes) {
+    await pool.query(sql).catch(e => console.error('Index création ignorée:', e.message.split('\n')[0]));
+  }
 }
 
 module.exports = { pool, init };
