@@ -200,6 +200,10 @@
     /* garde-fou global : aucun débordement horizontal de page sur mobile */
     html, body { overflow-x: hidden; max-width: 100%; }
 
+    /* Cibles tactiles 44px — contrôles de la barre du haut */
+    .topbar button, .topbar a { min-height: 44px; display: inline-flex; align-items: center; }
+    #theme-toggle-mob, #lang-toggle-mob { min-height: 44px !important; min-width: 44px !important; }
+
     /* Tables: overflow-x scroll avec wrapper */
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .table-wrap table { min-width: 520px; }
@@ -439,6 +443,15 @@
 
   /* Indicateur "en ligne" : forcé sur l'accent vert (le point unique) */
   #dashboard #stat-online span[style*="#4caf50"] { background: var(--accent, #CCEB3C) !important; box-shadow: 0 0 6px var(--accent, #CCEB3C) !important; }
+
+  /* Mobile : empile toutes les grilles multi-colonnes du dashboard (graphes,
+     analytiques) sur une seule colonne — sinon contenu serré ou tronqué. */
+  @media (max-width: 640px) {
+    #dashboard [style*="grid-template-columns:1fr 1fr"],
+    #dashboard [style*="grid-template-columns: 1fr 1fr"],
+    #dashboard [style*="grid-template-columns:repeat(3,1fr)"],
+    #dashboard [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+  }
 
   /* Rôle marque (designer) : distribution réservée à l'agence — NE PAS retirer */
   body.role-designer .agency-only { display: none !important; }
