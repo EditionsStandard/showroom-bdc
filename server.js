@@ -56,9 +56,58 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
 
 const app = express();
-app.use(helmet({ contentSecurityPolicy: false })); // CSP off car inline scripts dans admin/portal
+// CSP : l'app utilise des scripts/handlers/styles inline → script-src/style-src
+// gardent 'unsafe-inline' (et script-src-attr pour les onclick). Mais on verrouille
+// le reste : connect-src 'self' (anti-exfiltration), object-src 'none',
+// base-uri 'self', frame-ancestors 'none' (anti-clickjacking), form-action 'self'.
+// Origines externes réelles : cdn.jsdelivr.net (lib QR), Google Fonts, images https
+// (Cloudinary). Testé sans violation sur admin/portal/commande.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrcAttr: ["'unsafe-inline'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'"],
+    }
+  }
+}));
 app.set('trust proxy', 1); // Railway runs behind a proxy — required for secure cookies
 const PORT = process.env.PORT || 3000;
+
+// ── Filet anti-requêtes-pendantes ────────────────────────────────────
+// Express 4 ne transmet PAS les rejets de promesse au middleware d'erreur :
+// un handler async qui throw/reject laisse la requête pendante jusqu'au
+// timeout du socket. On enrobe donc automatiquement chaque handler de route
+// pour rediriger toute erreur (sync ou async) vers le middleware d'erreur
+// global (défini en fin de fichier). Couvre toutes les routes, présentes et
+// futures, sans avoir à les enrober une par une.
+['get', 'post', 'put', 'delete', 'patch', 'all'].forEach(method => {
+  const original = app[method].bind(app);
+  app[method] = (path, ...handlers) => {
+    const wrapped = handlers.map(h =>
+      (typeof h === 'function' && h.length < 4)
+        ? function (req, res, next) {
+            try {
+              const ret = h(req, res, next);
+              if (ret && typeof ret.then === 'function') ret.catch(next);
+              return ret;
+            } catch (err) { next(err); }
+          }
+        : h
+    );
+    return original(path, ...wrapped);
+  };
+});
 
 // Stripe webhook needs the raw body for signature verification — must be registered before express.json()
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -111,10 +160,23 @@ app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   etag: true
 }));
-if (!process.env.SESSION_SECRET) console.warn('⚠️  SESSION_SECRET non défini — utilisez une valeur aléatoire en production');
+// Secret de session : jamais de valeur connue en production. Si SESSION_SECRET
+// n'est pas défini en prod, on génère un secret aléatoire au démarrage (au lieu
+// d'un secret codé en dur, qui permettrait de forger des cookies de session et
+// de contourner l'authentification). Conséquence : définir SESSION_SECRET, sinon
+// les sessions sont invalidées à chaque redémarrage.
+function resolveSessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    console.error('⚠️  SESSION_SECRET non défini en production — secret aléatoire généré (sessions invalidées à chaque redémarrage). DÉFINISSEZ SESSION_SECRET.');
+    return crypto.randomBytes(48).toString('hex');
+  }
+  console.warn('⚠️  SESSION_SECRET non défini — fallback de développement utilisé (ne pas utiliser en production).');
+  return 'showroom-dev-fallback-not-for-production';
+}
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
-  secret: process.env.SESSION_SECRET || (() => { if (process.env.NODE_ENV === 'production') { console.error('⚠️  SESSION_SECRET non défini — utiliser une valeur aléatoire en production!'); } return 'showroom-dev-fallback-not-for-production'; })(),
+  secret: resolveSessionSecret(),
   resave: false,
   saveUninitialized: false,
   name: 'sid',
@@ -149,6 +211,19 @@ function escHtml(str) {
 function cloudinaryOpt(url) {
   if (!url || !url.includes('res.cloudinary.com')) return url;
   return url.replace('/upload/', '/upload/q_auto,f_auto/');
+}
+
+// Nombre fini, négatif ramené à 0 (prix, MOQ, stock — jamais de valeur négative).
+function nonNeg(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// URL destinée à un href : n'autorise que http(s). Neutralise javascript:, data:,
+// etc. (sinon une URL javascript: stockée s'exécuterait au clic — XSS). Vide sinon.
+function safeHttpUrl(url) {
+  const s = String(url || '').trim();
+  return /^https?:\/\//i.test(s) ? s : '';
 }
 
 async function getSetting(key) {
@@ -377,7 +452,7 @@ app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
   await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, moq_strict||false, about_text||'', lookbook_url||'']);
+    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url)]);
   res.json({ id, name });
 });
 
@@ -385,7 +460,7 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency } = req.body;
     await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12 WHERE id=$13',
-      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', moq_qty||0, moq_amount||0, about_text||'', lookbook_url||'', default_currency||null, moq_strict||false, req.params.id]);
+      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -394,7 +469,7 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
 app.put('/api/brands/:brandId/lookbook', requireBrandScope('owner','agent','designer'), async (req, res) => {
   try {
     const { lookbook_url } = req.body;
-    await pool.query('UPDATE brands SET lookbook_url=$1 WHERE id=$2', [lookbook_url || '', req.params.brandId]);
+    await pool.query('UPDATE brands SET lookbook_url=$1 WHERE id=$2', [safeHttpUrl(lookbook_url), req.params.brandId]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -406,7 +481,9 @@ app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
+// QR codes réservés à l'agence (owner/agent) : la distribution/diffusion ne
+// passe pas par les marques, qui ne doivent pas pouvoir court-circuiter l'agence.
+app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent'), async (req, res) => {
   const r = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
@@ -483,7 +560,7 @@ app.post('/api/brands/:id/subscription-status', requireRole('owner'), async (req
   res.json({ ok: true });
 });
 
-app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('owner','agent','designer'), async (req, res) => {
+app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('owner','agent'), async (req, res) => {
   const { brandId, productId } = req.params;
   const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
@@ -492,7 +569,7 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('ow
   res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
 });
 
-app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent','designer'), async (req, res) => {
+app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent'), async (req, res) => {
   const b = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
@@ -530,13 +607,18 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
   const id = uuidv4();
   await pool.query(
     'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
   );
   res.json({ id });
 });
 
+// True when the current role is restricted to a single brand (designer, or agent with brand_id).
+function isBrandScoped(req) {
+  return req.userRole === 'designer' || (req.userRole === 'agent' && !!req.userBrandId);
+}
+
 async function checkProductBrandScope(req, res) {
-  if (req.userRole !== 'designer') return true;
+  if (!isBrandScoped(req)) return true;
   const p = await pool.query('SELECT brand_id FROM products WHERE id=$1', [req.params.id]);
   if (!p.rows[0] || p.rows[0].brand_id !== req.userBrandId) {
     res.status(403).json({ error: 'Accès refusé' });
@@ -551,7 +633,7 @@ app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req
     const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id } = req.body;
     await pool.query(
       'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14 WHERE id=$15',
-      [reference, description||'', color||'', sizes||'', price||0, price_retail||0, image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
+      [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -562,8 +644,8 @@ app.patch('/api/products/:id/prices', requireRole('owner','agent','designer'), a
     if (!await checkProductBrandScope(req, res)) return;
     const fields = [];
     const vals = [];
-    if (req.body.price !== undefined)        { fields.push(`price=$${vals.push(parseFloat(req.body.price)||0)}`); }
-    if (req.body.price_retail !== undefined) { fields.push(`price_retail=$${vals.push(parseFloat(req.body.price_retail)||0)}`); }
+    if (req.body.price !== undefined)        { fields.push(`price=$${vals.push(nonNeg(req.body.price))}`); }
+    if (req.body.price_retail !== undefined) { fields.push(`price_retail=$${vals.push(nonNeg(req.body.price_retail))}`); }
     if (!fields.length) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
     vals.push(req.params.id);
     await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals);
@@ -629,15 +711,31 @@ app.post('/api/brands/:brandId/products/collection-bulk', requireBrandScope('own
       return res.json({ ok: true, count: r.rowCount });
     }
     if (action === 'delete') {
-      // Supprime les produits sans commande, désactive ceux référencés par des commandes (FK)
-      const prods = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND collection_name=$2', [brandId, collection]);
-      let deleted = 0, deactivated = 0;
-      for (const p of prods.rows) {
-        const used = await pool.query('SELECT 1 FROM order_lines WHERE product_id=$1 LIMIT 1', [p.id]);
-        if (used.rows.length) { await pool.query('UPDATE products SET active=0 WHERE id=$1', [p.id]); deactivated++; }
-        else { await pool.query('DELETE FROM products WHERE id=$1', [p.id]); deleted++; }
+      // Supprime les produits sans commande, désactive ceux référencés par des commandes (FK).
+      // Deux requêtes ensemblistes atomiques (au lieu de 2N+1 requêtes en boucle).
+      const dbClient = await pool.connect();
+      try {
+        await dbClient.query('BEGIN');
+        const deact = await dbClient.query(
+          `UPDATE products SET active=0
+           WHERE brand_id=$1 AND collection_name=$2
+             AND EXISTS (SELECT 1 FROM order_lines ol WHERE ol.product_id = products.id)`,
+          [brandId, collection]
+        );
+        const del = await dbClient.query(
+          `DELETE FROM products
+           WHERE brand_id=$1 AND collection_name=$2
+             AND NOT EXISTS (SELECT 1 FROM order_lines ol WHERE ol.product_id = products.id)`,
+          [brandId, collection]
+        );
+        await dbClient.query('COMMIT');
+        return res.json({ ok: true, deleted: del.rowCount, deactivated: deact.rowCount });
+      } catch(e) {
+        await dbClient.query('ROLLBACK');
+        throw e;
+      } finally {
+        dbClient.release();
       }
-      return res.json({ ok: true, deleted, deactivated });
     }
     return res.status(400).json({ error: 'Action invalide' });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -789,10 +887,14 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
 
 app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkProductBrandScope(req, res)) return;
     const { stock_qty, stock_enabled } = req.body;
+    // Stock : entier >= 0, ou null si non renseigné (jamais de stock négatif)
+    const sq = (stock_qty === null || stock_qty === undefined || stock_qty === '')
+      ? null : Math.max(0, Math.floor(Number(stock_qty) || 0));
     await pool.query(
       'UPDATE products SET stock_qty=$1, stock_enabled=$2 WHERE id=$3',
-      [stock_qty ?? null, stock_enabled ?? false, req.params.id]
+      [sq, stock_enabled ?? false, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -863,7 +965,7 @@ app.get('/api/public/brands/:brandId/slots', async (req, res) => {
     if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
     days.push(d.toISOString().slice(0, 10));
   }
-  const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+  const times = APPOINTMENT_TIMES;
   const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
   const bookedSet = new Set(booked.rows.map(b => {
     const d = b.slot_date instanceof Date ? b.slot_date.toISOString().slice(0,10) : String(b.slot_date).slice(0,10);
@@ -876,24 +978,53 @@ app.get('/api/public/brands/:brandId/slots', async (req, res) => {
   res.json({ slots });
 });
 
+// Créneaux proposés (doit rester cohérent avec /api/public/brands/:brandId/slots)
+const APPOINTMENT_TIMES = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+function isValidAppointmentSlot(slot_date, slot_time) {
+  if (!APPOINTMENT_TIMES.includes(slot_time)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(slot_date)) return false;
+  const d = new Date(slot_date + 'T00:00:00');
+  if (isNaN(d)) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const max = new Date(today); max.setDate(max.getDate() + 22);
+  if (d < today || d > max) return false;          // dans la fenêtre proposée
+  if (d.getDay() === 0 || d.getDay() === 6) return false; // pas le week-end
+  return true;
+}
+
 app.post('/api/public/appointments', publicLimiter, async (req, res) => {
-  const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
-  if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
-    return res.status(400).json({ error: 'Données incomplètes' });
-  }
-  const id = uuidv4();
   try {
-    await pool.query(
-      'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, brand_id, client_name, client_email, client_phone||'', slot_date, slot_time, notes||'']
-    );
-  } catch(e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
-    throw e;
-  }
-  // Send confirmation emails (non-blocking)
-  sendAppointmentConfirmationEmail({ id, brand_id, client_name, client_email, client_phone: client_phone||'', slot_date, slot_time, notes: notes||'' }).catch(e => console.error('RDV email error:', e.message));
-  res.json({ ok: true, id });
+    const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
+    if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
+      return res.status(400).json({ error: 'Données incomplètes' });
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(client_email).trim())) {
+      return res.status(400).json({ error: 'Email invalide' });
+    }
+    if (!isValidAppointmentSlot(String(slot_date), String(slot_time))) {
+      return res.status(400).json({ error: 'Créneau invalide' });
+    }
+    const brand = await pool.query('SELECT 1 FROM brands WHERE id=$1', [brand_id]);
+    if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
+
+    const name = String(client_name).trim().slice(0, 200);
+    const email = String(client_email).trim().toLowerCase().slice(0, 200);
+    const phone = String(client_phone || '').trim().slice(0, 50);
+    const note = String(notes || '').trim().slice(0, 1000);
+    const id = uuidv4();
+    try {
+      await pool.query(
+        'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [id, brand_id, name, email, phone, slot_date, slot_time, note]
+      );
+    } catch(e) {
+      if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
+      throw e;
+    }
+    // Send confirmation emails (non-blocking)
+    sendAppointmentConfirmationEmail({ id, brand_id, client_name: name, client_email: email, client_phone: phone, slot_date, slot_time, notes: note }).catch(e => console.error('RDV email error:', e.message));
+    res.json({ ok: true, id });
+  } catch(e) { console.error('public appointment error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 async function sendAppointmentConfirmationEmail(appt) {
@@ -1079,9 +1210,21 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
 
 // Orders
 async function checkOrderBrandScope(req, res) {
-  if (req.userRole !== 'designer') return true;
+  if (!isBrandScoped(req)) return true;
   const o = await pool.query('SELECT brand_id FROM orders WHERE id=$1', [req.params.id]);
   if (!o.rows[0] || o.rows[0].brand_id !== req.userBrandId) {
+    res.status(403).json({ error: 'Accès refusé' });
+    return false;
+  }
+  return true;
+}
+
+// Buyers are shared across brands. A brand-scoped agent may only act on buyers
+// who have at least one order with their brand.
+async function checkBuyerBrandScope(req, res) {
+  if (!isBrandScoped(req)) return true;
+  const o = await pool.query('SELECT 1 FROM orders WHERE buyer_id=$1 AND brand_id=$2 LIMIT 1', [req.params.id, req.userBrandId]);
+  if (!o.rows.length) {
     res.status(403).json({ error: 'Accès refusé' });
     return false;
   }
@@ -1175,6 +1318,7 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
 
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const { status } = req.body;
     const orderId = req.params.id;
     const validStatuses = ['confirmed','validated','in_production','shipped','cancelled','archived'];
@@ -1200,6 +1344,7 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const r = await pool.query(
       'SELECT * FROM order_status_history WHERE order_id=$1 ORDER BY changed_at DESC',
       [req.params.id]
@@ -1210,6 +1355,7 @@ app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), asyn
 
 app.get('/api/orders/:id/events', requireRole('owner','agent','designer'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const r = await pool.query('SELECT * FROM order_events WHERE order_id=$1 ORDER BY created_at ASC', [req.params.id]);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -1217,6 +1363,7 @@ app.get('/api/orders/:id/events', requireRole('owner','agent','designer'), async
 
 app.post('/api/orders/:id/events', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const { note, event_type } = req.body;
     await addOrderEvent(req.params.id, event_type || 'note', note, req.session.staffUser?.name || req.session.admin && 'admin' || 'admin');
     res.json({ ok: true });
@@ -1225,6 +1372,7 @@ app.post('/api/orders/:id/events', requireRole('owner','agent'), async (req, res
 
 app.patch('/api/orders/:id/notes', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     await pool.query('UPDATE orders SET internal_notes=$1 WHERE id=$2', [req.body.notes || '', req.params.id]);
     await addOrderEvent(req.params.id, 'note', req.body.notes, req.session.staffUser?.name || (req.session.admin ? 'admin' : 'admin'));
     res.json({ ok: true });
@@ -1278,8 +1426,9 @@ async function sendOrderStatusEmail(orderId, status) {
 
 app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
-      SELECT o.id, o.created_at, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country,
+      SELECT o.id, o.order_number, o.created_at, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country,
              o.status, b.name as brand_name,
              ol.size, ol.quantity, ol.unit_price, ol.price_retail,
              p.reference, p.description, p.color
@@ -1287,8 +1436,9 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
       JOIN brands b ON o.brand_id=b.id
       JOIN order_lines ol ON ol.order_id=o.id
       JOIN products p ON ol.product_id=p.id
+      ${scoped ? 'WHERE o.brand_id = $1' : ''}
       ORDER BY o.created_at DESC, o.id, p.reference
-    `);
+    `, scoped ? [req.userBrandId] : []);
     const headers = ['Date','Référence commande','Client','Email','Société','Téléphone','Pays','Statut','Marque','Référence produit','Description','Couleur','Taille','Quantité','Prix HT','Prix PVC'];
     const rows = r.rows.map(row => [
       new Date(row.created_at).toLocaleDateString('fr-FR'),
@@ -1306,6 +1456,7 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT o.order_number, o.id, o.created_at, b.name as brand_name,
              o.client_name, o.client_email, o.client_company, o.client_country, o.status,
@@ -1313,9 +1464,10 @@ app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res)
       FROM orders o
       JOIN brands b ON o.brand_id = b.id
       LEFT JOIN order_lines ol ON ol.order_id = o.id
+      ${scoped ? 'WHERE o.brand_id = $1' : ''}
       GROUP BY o.id, b.name
       ORDER BY o.created_at DESC
-    `);
+    `, scoped ? [req.userBrandId] : []);
     const headers = ['Référence','Date','Marque','Client','Email','Société','Pays','Statut','Total HT'];
     const rows = r.rows.map(row => [
       row.order_number || row.id.slice(0,8).toUpperCase(),
@@ -1334,10 +1486,13 @@ app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT name, email, company, phone, country, instagram, created_at
-      FROM buyers ORDER BY created_at DESC
-    `);
+      FROM buyers
+      ${scoped ? 'WHERE id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}
+      ORDER BY created_at DESC
+    `, scoped ? [req.userBrandId] : []);
     const headers = ['Nom','Email','Société','Téléphone','Pays','Instagram','Inscrit le'];
     const rows = r.rows.map(row => [
       row.name, row.email, row.company || '', row.phone || '', row.country || '',
@@ -1355,7 +1510,9 @@ app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res)
 // Export commandes XLSX
 app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (req, res) => {
   if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
-  const { brand_id, status, from, to } = req.query;
+  const { status, from, to } = req.query;
+  // Agent scopé : forcer sa marque, ignorer tout brand_id fourni dans la query.
+  const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
   let q = `SELECT o.order_number, b.name as marque, o.client_name, o.client_company, o.client_email, o.client_country, o.status, o.total_amount, o.created_at,
     STRING_AGG(ol.reference || ' x' || ol.quantity || ' (' || ol.size || ')', ', ') as lignes
     FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines ol ON ol.order_id=o.id WHERE 1=1`;
@@ -1383,7 +1540,7 @@ app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (re
 // Export produits XLSX
 app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (req, res) => {
   if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
-  const { brand_id } = req.query;
+  const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
   let q = `SELECT b.name as marque, p.reference, p.description, p.color, p.sizes, p.price, p.price_retail, p.collection_name, p.category, p.composition, p.active FROM products p JOIN brands b ON b.id=p.brand_id WHERE 1=1`;
   const params = [];
   if (brand_id) { params.push(brand_id); q += ` AND p.brand_id=$${params.length}`; }
@@ -1405,17 +1562,20 @@ app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (
 
 app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
   try {
+    // Agent scopé : uniquement les acheteurs ayant commandé chez sa marque, montants limités à sa marque.
+    const scoped = isBrandScoped(req);
+    const joinFilter = scoped ? 'AND o.brand_id = $1' : '';
     const r = await pool.query(`
       SELECT b.id, b.email, b.name, b.company, b.last_seen_at,
              COUNT(DISTINCT o.id) as order_count,
              COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
              COUNT(DISTINCT o.brand_id) as brands_count
       FROM buyers b
-      LEFT JOIN orders o ON o.buyer_id = b.id
+      ${scoped ? 'JOIN' : 'LEFT JOIN'} orders o ON o.buyer_id = b.id ${joinFilter}
       LEFT JOIN order_lines ol ON ol.order_id = o.id
       GROUP BY b.id
       ORDER BY total_amount DESC
-    `);
+    `, scoped ? [req.userBrandId] : []);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1427,10 +1587,12 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
     if (!status || !validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Aucun identifiant fourni' });
     const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
+    const scoped = isBrandScoped(req);
     let updated = 0;
     for (const orderId of ids) {
-      const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
+      const prev = await pool.query('SELECT status, brand_id FROM orders WHERE id=$1', [orderId]);
       if (!prev.rows[0]) continue;
+      if (scoped && prev.rows[0].brand_id !== req.userBrandId) continue; // n'agit que sur sa marque
       const oldStatus = prev.rows[0].status || '';
       await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
       await pool.query(
@@ -1445,6 +1607,7 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
 
 app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
     await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -1465,12 +1628,14 @@ app.get('/api/orders/:id', requireRole('owner','agent','designer'), async (req, 
 
 // ── Agenda global ────────────────────────────────────────────────────
 app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res) => {
+  const scoped = isBrandScoped(req);
   const r = await pool.query(`
     SELECT a.*, b.name AS brand_name
     FROM appointments a
     JOIN brands b ON b.id = a.brand_id
+    ${scoped ? 'WHERE a.brand_id = $1' : ''}
     ORDER BY a.slot_date DESC, a.slot_time DESC
-  `);
+  `, scoped ? [req.userBrandId] : []);
   res.json(r.rows);
 });
 
@@ -1505,6 +1670,7 @@ app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (r
 // ── Magic link accès direct portail ──────────────────────────────────
 app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
     const buyer = b.rows[0];
@@ -1556,6 +1722,7 @@ app.get('/portal/access', async (req, res) => {
 
 app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const pdf = await generateOrderPDF(req.params.id);
     await sendOrderEmails(req.params.id, pdf);
     res.json({ ok: true });
@@ -1652,8 +1819,12 @@ app.post('/api/public/selection-pdf', async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
 async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
-  const validLines = (lines || []).filter(l => l.quantity > 0);
+  // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées)
+  const validLines = (lines || [])
+    .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)) }))
+    .filter(l => Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= MAX_LINE_QTY);
   if (!validLines.length) return { error: 'Aucune quantité saisie' };
   if (!buyer_signature) return { error: 'Signature requise' };
   if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
@@ -1689,19 +1860,31 @@ async function createOrder({ brand_id, client_name, client_email, client_company
       [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber]
     );
     for (const line of resolvedLines) {
+      // Décrément du stock si suivi : décrément atomique et conditionnel
+      // (verrou ligne + garde stock_qty >= quantité) → évite le sur-engagement
+      // et les conditions de course entre commandes simultanées.
+      if (line.product.stock_enabled && line.product.stock_qty !== null) {
+        const upd = await dbClient.query(
+          'UPDATE products SET stock_qty = stock_qty - $1 WHERE id=$2 AND stock_enabled=true AND stock_qty IS NOT NULL AND stock_qty >= $1',
+          [line.quantity, line.product_id]
+        );
+        if (upd.rowCount === 0) {
+          const err = new Error('stock_insuffisant');
+          err.stockRef = line.product.reference || line.product_id;
+          throw err;
+        }
+      }
       await dbClient.query(
         'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
         [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
       );
-      // Décrémenter le stock si activé
-      if (line.product.stock_enabled && line.product.stock_qty !== null) {
-        const newQty = Math.max(0, (line.product.stock_qty || 0) - line.quantity);
-        await dbClient.query('UPDATE products SET stock_qty=$1 WHERE id=$2', [newQty, line.product_id]);
-      }
     }
     await dbClient.query('COMMIT');
   } catch(e) {
     await dbClient.query('ROLLBACK');
+    if (e && e.message === 'stock_insuffisant') {
+      return { error: `Stock insuffisant pour la référence ${e.stockRef}. Rafraîchissez votre sélection.` };
+    }
     return { error: 'Erreur lors de la création de la commande' };
   } finally {
     dbClient.release();
@@ -1744,7 +1927,9 @@ app.post('/api/public/orders', publicLimiter, async (req, res) => {
 // ==================== SÉLECTION AGENT (préparée en RDV, confirmée par l'acheteur) ====================
 
 // 1) L'agent prépare une sélection pour un acheteur et lui envoie un lien
-app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agent','designer'), async (req, res) => {
+// Réservé à l'agence (owner/agent) : l'envoi d'une sélection est un contact
+// acheteur direct — une marque ne doit pas pouvoir solliciter les acheteurs.
+app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agent'), async (req, res) => {
   try {
     const { client_name, client_email, client_company, notes, items } = req.body;
     if (!client_email || !client_email.includes('@')) return res.status(400).json({ error: 'Email acheteur valide requis' });
@@ -1898,13 +2083,20 @@ app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
 app.post('/api/agent-selections/:token/save-as-template', requireRole('owner','agent'), async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
+  const sel = await pool.query('SELECT brand_id FROM agent_selections WHERE token=$1', [req.params.token]);
+  if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+  if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
   await pool.query('UPDATE agent_selections SET is_template=true, template_name=$1 WHERE token=$2', [name, req.params.token]);
   res.json({ ok: true });
 });
 
-// Lister les templates
+// Lister les templates (agent scopé : uniquement ceux de sa marque)
 app.get('/api/agent-selections/templates', requireRole('owner','agent','designer'), async (req, res) => {
-  const r = await pool.query(`SELECT token, template_name, brand_id, items_json, created_at, selection_number FROM agent_selections WHERE is_template=true ORDER BY created_at DESC`);
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(
+    `SELECT token, template_name, brand_id, items_json, created_at, selection_number FROM agent_selections WHERE is_template=true ${scoped ? 'AND brand_id=$1' : ''} ORDER BY created_at DESC`,
+    scoped ? [req.userBrandId] : []
+  );
   res.json(r.rows);
 });
 
@@ -1914,6 +2106,7 @@ app.post('/api/agent-selections/:token/use-template', requireRole('owner','agent
   const src = await pool.query('SELECT * FROM agent_selections WHERE token=$1 AND is_template=true', [req.params.token]);
   if (!src.rows[0]) return res.status(404).json({ error: 'Template introuvable' });
   const t = src.rows[0];
+  if (isBrandScoped(req) && t.brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
   const newToken = uuidv4();
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const numRes = await pool.query("SELECT nextval('selection_number_seq') as n");
@@ -2020,6 +2213,23 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erreur lors de l\'export' }); }
 });
 
+// RGPD — anonymise les commandes (conservation légale) puis supprime le compte,
+// le tout dans une transaction pour éviter un état incohérent en cas d'échec.
+async function anonymizeAndDeleteBuyer(buyerId) {
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query('BEGIN');
+    await dbClient.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
+    await dbClient.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    await dbClient.query('COMMIT');
+  } catch(e) {
+    await dbClient.query('ROLLBACK');
+    throw e;
+  } finally {
+    dbClient.release();
+  }
+}
+
 // RGPD — Suppression du compte (droit à l'oubli)
 app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
   try {
@@ -2031,9 +2241,7 @@ app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
     if (!buyer || !await bcrypt.compare(password, buyer.password_hash)) {
       return res.status(400).json({ error: 'Mot de passe incorrect' });
     }
-    // Anonymise les commandes existantes (conservation légale) puis supprime le compte
-    await pool.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
-    await pool.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    await anonymizeAndDeleteBuyer(buyerId);
     req.session.destroy(() => {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erreur lors de la suppression' }); }
@@ -2435,6 +2643,9 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
 // ── Analytics acheteurs enrichies ────────────────────────────────────
 app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    // Agent scopé : analytics restreintes à sa marque (pas de CA des autres marques).
+    const scoped = isBrandScoped(req);
+    const p = scoped ? [req.userBrandId] : [];
     const [topBuyers, inactiveBuyers, topBrands, recentActivity] = await Promise.all([
       // Top 10 acheteurs par montant commandé
       pool.query(`
@@ -2442,19 +2653,20 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
                COUNT(o.id) as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount
         FROM buyers b
-        LEFT JOIN orders o ON o.buyer_id = b.id
+        ${scoped ? 'JOIN' : 'LEFT JOIN'} orders o ON o.buyer_id = b.id ${scoped ? 'AND o.brand_id = $1' : ''}
         LEFT JOIN order_lines ol ON ol.order_id = o.id
         GROUP BY b.id, b.name, b.company, b.email, b.last_seen_at
         ORDER BY total_amount DESC LIMIT 10
-      `),
+      `, p),
       // Acheteurs inactifs > 30 jours
       pool.query(`
-        SELECT name, company, email, last_seen_at
-        FROM buyers
-        WHERE last_seen_at < NOW() - INTERVAL '30 days' OR last_seen_at IS NULL
-        ORDER BY last_seen_at ASC NULLS FIRST LIMIT 20
-      `),
-      // Top marques par CA
+        SELECT DISTINCT b.name, b.company, b.email, b.last_seen_at
+        FROM buyers b
+        ${scoped ? 'JOIN orders o ON o.buyer_id = b.id AND o.brand_id = $1' : ''}
+        WHERE b.last_seen_at < NOW() - INTERVAL '30 days' OR b.last_seen_at IS NULL
+        ORDER BY b.last_seen_at ASC NULLS FIRST LIMIT 20
+      `, p),
+      // Top marques par CA (limité à sa marque pour un agent scopé)
       pool.query(`
         SELECT br.name, COUNT(DISTINCT o.id) as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
@@ -2462,18 +2674,20 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
         FROM brands br
         LEFT JOIN orders o ON o.brand_id = br.id
         LEFT JOIN order_lines ol ON ol.order_id = o.id
+        ${scoped ? 'WHERE br.id = $1' : ''}
         GROUP BY br.id, br.name
         ORDER BY total_amount DESC
-      `),
+      `, p),
       // Activité 30 derniers jours (commandes par jour)
       pool.query(`
         SELECT DATE(created_at) as day, COUNT(*) as count,
                COALESCE(SUM(total_amount), 0) as amount
         FROM orders
         WHERE created_at >= NOW() - INTERVAL '30 days'
+        ${scoped ? 'AND brand_id = $1' : ''}
         GROUP BY DATE(created_at)
         ORDER BY day ASC
-      `)
+      `, p)
     ]);
     res.json({
       topBuyers: topBuyers.rows,
@@ -2712,6 +2926,10 @@ app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { country, active, minAmount } = req.query;
   const conditions = [];
   const params = [];
+  if (isBrandScoped(req)) {
+    params.push(req.userBrandId);
+    conditions.push(`id IN (SELECT buyer_id FROM orders WHERE brand_id = $${params.length} AND buyer_id IS NOT NULL)`);
+  }
   if (country) {
     params.push(country.toLowerCase());
     conditions.push(`LOWER(COALESCE(country,'')) = $${params.length}`);
@@ -2746,6 +2964,7 @@ app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
 // Tags et notes internes acheteur
 app.patch('/api/buyers/:id/tags-notes', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const { tags, internal_notes } = req.body;
     await pool.query('UPDATE buyers SET tags=$1, internal_notes=$2 WHERE id=$3',
       [tags || '', internal_notes || '', req.params.id]);
@@ -2754,7 +2973,12 @@ app.patch('/api/buyers/:id/tags-notes', requireRole('owner','agent'), async (req
 });
 
 app.get('/api/buyers/presence', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query(`SELECT id, last_seen_at FROM buyers WHERE last_seen_at > NOW() - INTERVAL '90 seconds'`);
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(
+    `SELECT id, last_seen_at FROM buyers WHERE last_seen_at > NOW() - INTERVAL '90 seconds'
+     ${scoped ? 'AND id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}`,
+    scoped ? [req.userBrandId] : []
+  );
   res.json(r.rows.map(b => b.id));
 });
 
@@ -2767,6 +2991,7 @@ app.post('/api/portal/ping', requireBuyerAuth, async (req, res) => {
 
 app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const { admin_notes } = req.body;
     await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
     res.json({ ok: true });
@@ -2775,6 +3000,7 @@ app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req,
 
 app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
     const buyer = b.rows[0];
@@ -2811,29 +3037,45 @@ app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json({ orders: [], buyers: [], selections: [] });
   const like = `%${q}%`;
+  // Agent scopé : la recherche ne remonte que les données de sa marque.
+  const scoped = isBrandScoped(req);
+  const bId = req.userBrandId;
   const [orders, buyers, selections] = await Promise.all([
     pool.query(`SELECT o.id, o.order_number, o.client_name, o.client_email, o.client_company, o.status, b.name as brand_name,
       SUM(ol.quantity*ol.unit_price) as total, o.created_at
       FROM orders o JOIN brands b ON o.brand_id=b.id LEFT JOIN order_lines ol ON ol.order_id=o.id
-      WHERE o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1 OR o.order_number ILIKE $1
-      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 5`, [like]),
+      WHERE (o.client_name ILIKE $1 OR o.client_email ILIKE $1 OR o.client_company ILIKE $1 OR o.order_number ILIKE $1)
+      ${scoped ? 'AND o.brand_id = $2' : ''}
+      GROUP BY o.id, b.name ORDER BY o.created_at DESC LIMIT 5`, scoped ? [like, bId] : [like]),
     pool.query(`SELECT id, name, email, company FROM buyers
-      WHERE name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1 LIMIT 5`, [like]),
+      WHERE (name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1)
+      ${scoped ? 'AND id IN (SELECT buyer_id FROM orders WHERE brand_id = $2 AND buyer_id IS NOT NULL)' : ''}
+      LIMIT 5`, scoped ? [like, bId] : [like]),
     pool.query(`SELECT id, selection_number, client_name, client_email FROM agent_selections
-      WHERE client_name ILIKE $1 OR client_email ILIKE $1 OR selection_number ILIKE $1
-      ORDER BY created_at DESC LIMIT 5`, [like]).catch(() => ({ rows: [] }))
+      WHERE (client_name ILIKE $1 OR client_email ILIKE $1 OR selection_number ILIKE $1)
+      ${scoped ? 'AND brand_id = $2' : ''}
+      ORDER BY created_at DESC LIMIT 5`, scoped ? [like, bId] : [like]).catch(() => ({ rows: [] }))
   ]);
   res.json({ orders: orders.rows, buyers: buyers.rows, selections: selections.rows });
 });
 
 app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
   try {
+    // Un agent rattaché à une marque ne voit que ses propres chiffres (pas le CA global du showroom).
+    const scoped = isBrandScoped(req);
+    const bId = req.userBrandId;
+    const oFilter = scoped ? 'AND o.brand_id = $1' : '';
+    const p = scoped ? [bId] : [];
     const [brandsR, ordersR, revenueR, buyersR, orders30R] = await Promise.all([
-      pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
-      pool.query(`SELECT COUNT(*) as orders_count FROM orders WHERE status NOT IN ('draft','cancelled','archived')`),
-      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue_total FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived')`),
-      pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
-      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders WHERE status NOT IN ('draft','cancelled') AND created_at >= NOW() - INTERVAL '30 days'`)
+      scoped
+        ? pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE id = $1`, p)
+        : pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
+      pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue_total FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      scoped
+        ? pool.query(`SELECT COUNT(DISTINCT o.buyer_id) as buyers_count FROM orders o WHERE o.buyer_id IS NOT NULL AND o.brand_id = $1`, p)
+        : pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
+      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE o.status NOT IN ('draft','cancelled') AND o.created_at >= NOW() - INTERVAL '30 days' ${oFilter}`, p)
     ]);
     res.json({
       brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
@@ -2852,6 +3094,7 @@ app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
 
 app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon') as month,
              DATE_TRUNC('month', o.created_at) as month_date,
@@ -2860,9 +3103,10 @@ app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req
       LEFT JOIN order_lines ol ON ol.order_id = o.id
       WHERE o.created_at >= NOW() - INTERVAL '6 months'
         AND o.status NOT IN ('draft', 'cancelled')
+        ${scoped ? 'AND o.brand_id = $1' : ''}
       GROUP BY DATE_TRUNC('month', o.created_at), TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon')
       ORDER BY month_date ASC
-    `);
+    `, scoped ? [req.userBrandId] : []);
     // Build a map of existing data
     const byMonth = {};
     r.rows.forEach(row => {
@@ -2891,7 +3135,7 @@ app.get('/api/portal/brands/:brandId/slots', requireBuyerAuth, async (req, res) 
     if (d.getDay() === 0 || d.getDay() === 6) continue;
     days.push(d.toISOString().slice(0, 10));
   }
-  const times = ['10:00','11:00','12:00','14:00','15:00','16:00','17:00'];
+  const times = APPOINTMENT_TIMES;
   const booked = await pool.query('SELECT slot_date, slot_time FROM appointments WHERE brand_id=$1', [req.params.brandId]);
   const bookedSet = new Set(booked.rows.map(b => {
     const d = b.slot_date instanceof Date ? b.slot_date.toISOString().slice(0,10) : String(b.slot_date).slice(0,10);
@@ -2984,6 +3228,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
 
 app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkBuyerBrandScope(req, res)) return;
     const { name, company, email, phone, country, password } = req.body;
     if (password) {
       if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
@@ -2998,6 +3243,9 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
 
 app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
+    // Un acheteur est partagé entre marques : un agent scopé ne peut pas supprimer
+    // un compte global (cela impacterait les commandes d'autres marques).
+    if (isBrandScoped(req)) return res.status(403).json({ error: 'Suppression réservée à un administrateur showroom.' });
     await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
     logAudit(req, 'delete_buyer', 'buyer', req.params.id, '');
     res.json({ ok: true });
@@ -3027,21 +3275,81 @@ app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','ag
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// ── Demandes de lien de partage (marque → agence) ───────────────────────────
+// La distribution est réservée à l'agence ; une marque peut demander un lien,
+// l'agence reçoit la demande puis génère/partage le lien elle-même.
+app.post('/api/brands/:brandId/share-request', emailLimiter, requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const message = String(req.body.message || '').trim().slice(0, 1000);
+    const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [req.params.brandId]);
+    if (!brand.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const requestedBy = req.session?.staffUser?.email || (req.session?.admin ? 'owner' : '');
+    await pool.query(
+      'INSERT INTO share_requests (id, brand_id, requested_by, message) VALUES ($1,$2,$3,$4)',
+      [uuidv4(), req.params.brandId, requestedBy, message]
+    );
+    // Notifie l'agence (push + email best-effort, non bloquant)
+    sendPushToAdmins('Demande de lien de partage', `${brand.rows[0].name}${requestedBy ? ' — ' + requestedBy : ''}`).catch(() => {});
+    (async () => {
+      const resendKey = process.env.RESEND_API_KEY;
+      const [showroomName, adminEmail, fromAddress] = await Promise.all([
+        getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
+      ]);
+      if (!resendKey || !adminEmail) return;
+      const resend = new Resend(resendKey);
+      await resend.emails.send({
+        from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+        to: [adminEmail],
+        subject: `Demande de lien de partage — ${brand.rows[0].name}`,
+        html: emailLayout({ showroomName, content: `
+          <p>La marque <strong>${escHtml(brand.rows[0].name)}</strong> demande un lien de partage.</p>
+          ${requestedBy ? `<p style="color:#888;font-size:13px">Demandé par : ${escHtml(requestedBy)}</p>` : ''}
+          ${message ? `<p style="background:#f6f6f6;padding:12px;border-radius:6px">${escHtml(message)}</p>` : ''}
+          <p style="color:#888;font-size:13px">Gérez les demandes depuis votre tableau de bord admin.</p>
+        ` })
+      });
+    })().catch(e => console.error('share-request notify:', e.message));
+    res.json({ ok: true });
+  } catch(e) { console.error('share-request:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Liste des demandes en attente (vue agence)
+app.get('/api/share-requests', requireRole('owner','agent'), async (req, res) => {
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(`
+    SELECT s.id, s.brand_id, s.requested_by, s.message, s.created_at, b.name as brand_name
+    FROM share_requests s JOIN brands b ON b.id = s.brand_id
+    WHERE s.status='pending' ${scoped ? 'AND s.brand_id = $1' : ''}
+    ORDER BY s.created_at DESC
+  `, scoped ? [req.userBrandId] : []);
+  res.json(r.rows);
+});
+
+// Marque une demande comme traitée
+app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (req, res) => {
+  try {
+    await pool.query("UPDATE share_requests SET status='handled' WHERE id=$1", [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
 app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'public', 'demande-acces.html')));
 
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
 app.post('/api/access-request', publicLimiter, async (req, res) => {
+ try {
   const { name, company, phone, email, country, instagram, website, message } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
   // Vérifier doublon (même email en pending)
   const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
   if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
   const id = uuidv4();
   await pool.query(
     'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() + INTERVAL \'30 days\')',
-    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), (website||'').trim(), (message||'').trim()]
+    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim()]
   );
   // Notifier l'admin
   const [showroomName, adminEmail, fromAddress] = await Promise.all([
@@ -3073,6 +3381,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
     }).catch(e => console.error('access-request notify:', e.message));
   }
   res.json({ ok: true });
+ } catch(e) { console.error('access-request error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) => {
@@ -3223,7 +3532,7 @@ app.post('/api/invite/:token', async (req, res) => {
 
 // ==================== BUYER ACCESS (magic link) ====================
 
-app.post('/api/buyer/request-link', async (req, res) => {
+app.post('/api/buyer/request-link', emailLimiter, async (req, res) => {
   const { brand_id, email } = req.body;
   if (!brand_id || !email) return res.status(400).json({ error: 'Email requis' });
 
@@ -4051,6 +4360,7 @@ app.post('/api/selections/draft', requireRole('owner', 'agent'), async (req, res
   try {
     const { brand_id, client_name, client_email, client_company, items_json, notes, draft_name } = req.body;
     if (!brand_id || !client_email) return res.status(400).json({ error: 'brand_id et client_email requis' });
+    if (isBrandScoped(req) && brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     const token = uuidv4();
     const expires = new Date(Date.now() + 90 * 24 * 3600 * 1000); // 90 jours
     await pool.query(
@@ -4081,7 +4391,11 @@ app.get('/api/selections/drafts', requireRole('owner', 'agent'), async (req, res
 
 app.delete('/api/selections/drafts/:token', requireRole('owner', 'agent'), async (req, res) => {
   try {
-    await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    if (isBrandScoped(req)) {
+      await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft' AND brand_id=$2", [req.params.token, req.userBrandId]);
+    } else {
+      await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4091,6 +4405,7 @@ app.post('/api/selections/drafts/:token/send', requireRole('owner', 'agent'), as
     const r = await pool.query("SELECT * FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
     const draft = r.rows[0];
     if (!draft) return res.status(404).json({ error: 'Brouillon introuvable' });
+    if (isBrandScoped(req) && draft.brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     const b = await pool.query('SELECT name FROM brands WHERE id=$1', [draft.brand_id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const seqSel = await pool.query("SELECT LPAD(nextval('selection_number_seq')::TEXT, 4, '0') AS num");
@@ -4179,7 +4494,9 @@ scheduleDailyReminders();
 // PWA assets
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.json')));
 app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent-manifest.json')));
-app.get('/sw.js', (req, res) => { res.setHeader('Service-Worker-Allowed', '/'); res.sendFile(path.join(__dirname, 'public', 'sw.js')); });
+// NB : /sw.js est servi plus haut (avec injection de APP_VERSION pour le cache-bust).
+// L'ancienne définition en double ici servait le fichier statique sans versionnage
+// (route morte, masquée par la première) → supprimée.
 
 // Agent PWA
 app.get('/agent', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent.html')));
@@ -4229,6 +4546,7 @@ app.post('/api/agent/logout', (req, res) => {
 // ── Reorder — dupliquer une commande existante ───────────────────────
 app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const src = await pool.query(
       'SELECT brand_id, buyer_id, client_name, client_email, client_company, client_phone, client_country, notes FROM orders WHERE id=$1',
       [req.params.id]
@@ -4303,8 +4621,7 @@ app.post('/api/portal/delete-account', requireBuyerAuth, async (req, res) => {
     if (!buyer || !await bcrypt.compare(password, buyer.password_hash)) {
       return res.status(400).json({ error: 'Mot de passe incorrect' });
     }
-    await pool.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
-    await pool.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    await anonymizeAndDeleteBuyer(buyerId);
     req.session.destroy(() => {});
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erreur suppression' }); }

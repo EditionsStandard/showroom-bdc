@@ -12,17 +12,23 @@
   :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px); background-size: 22px 22px; }
+  [data-theme="light"] body { background-image: radial-gradient(rgba(0,0,0,.07) 1px, transparent 1px); }
+  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 48px 40px; width: 100%; max-width: 380px; position: relative; overflow: hidden; }
+  /* Signature brute : filet accent plat en haut de la carte (sans glow) */
+  .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
   .logo-wrap { text-align: center; margin-bottom: 32px; position: relative; }
   .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
-  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 14px; letter-spacing: .02em; }
+  .logo-wrap .kicker { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .28em; color: var(--muted); margin-top: 16px; text-transform: uppercase; }
+  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 6px; letter-spacing: .02em; }
   .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
   label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
   input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .2s; }
   input:focus { border-color: var(--accent); }
   .field { margin-bottom: 16px; }
-  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; }
+  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 0; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: opacity .15s ease; }
+  .btn:hover:not(:disabled) { opacity: .85; }
   .btn:disabled { opacity: .5; cursor: default; }
   .btn-ghost { width: 100%; background: none; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 12px 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: border-color .2s, color .2s; }
   .btn-ghost:hover { border-color: var(--soft); color: var(--white); }
@@ -55,6 +61,7 @@
   <div class="logo-wrap">
     <button id="lang-toggle" onclick="toggleLang()">FR | EN</button>
     <img src="/logo.svg" alt="Editions Standard">
+    <div class="kicker">B2B Showroom</div>
     <h1 data-t="portal_title">Portail Acheteur</h1>
     <p>Editions Standard — Showroom</p>
   </div>

@@ -7,7 +7,7 @@
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DotGothic16&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
@@ -192,9 +192,17 @@
 
   /* ── Responsive mobile supplémentaire ── */
   @media (max-width: 768px) {
-    /* Sidebar: scroll horizontal en bas (déjà géré ci-dessus, renforcement) */
+    /* Barre du bas : scroll horizontal interne, clippée pour ne PAS provoquer
+       de débordement horizontal de la page (la barre est position:fixed). */
+    .sidebar { overflow-x: auto; overflow-y: hidden; max-width: 100vw; -webkit-overflow-scrolling: touch; }
     nav { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     nav a { min-width: 56px; }
+    /* garde-fou global : aucun débordement horizontal de page sur mobile */
+    html, body { overflow-x: hidden; max-width: 100%; }
+
+    /* Cibles tactiles 44px — contrôles de la barre du haut */
+    .topbar button, .topbar a { min-height: 44px; display: inline-flex; align-items: center; }
+    #theme-toggle-mob, #lang-toggle-mob { min-height: 44px !important; min-width: 44px !important; }
 
     /* Tables: overflow-x scroll avec wrapper */
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -367,6 +375,97 @@
   /* 7. Animation fadeIn entre sections */
   @keyframes fadeSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .section.active { animation: fadeSlide .2s ease-out; }
+
+  /* ============================================================
+     RAW / NOTHING — refonte visuelle (scopée #dashboard)
+     Monochrome brut : noir/blanc/gris, grille de points, typo
+     dot-matrix (DotGothic16), filets fins, aucun effet (ni dégradé,
+     ni glow, ni ombre). UN seul accent : le vert acide --accent,
+     utilisé avec parcimonie. Réversible : tout est préfixé #dashboard.
+     ============================================================ */
+  #dashboard {
+    counter-reset: statidx;
+    background-image: radial-gradient(#1c1c1c 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* Titre dot-matrix + libellé technique, séparé par un filet */
+  #dashboard > h1 { font-family: 'DotGothic16', monospace; display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  #dashboard > h1::after {
+    content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'DotGothic16', monospace;
+    font-size: 11px; letter-spacing: .26em; color: #4a4a4a; align-self: center;
+  }
+  #dashboard .dash-kicker { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .2em;
+    text-transform: uppercase; color: #6a6a6a; margin: 0 0 26px; padding-bottom: 18px; border-bottom: 1px solid #2c2c2c; }
+
+  /* Stats — modules plats, filet fin, index, gros chiffre dot-matrix */
+  #dashboard .stat {
+    counter-increment: statidx;
+    background: #000; border: 1px solid #2c2c2c; border-radius: 0;
+    box-shadow: none; transition: border-color .2s ease;
+  }
+  #dashboard .stat::before { display: none; }      /* supprime le filet coloré */
+  #dashboard .stat-icon { display: none; }          /* look brut, sans pastille colorée */
+  #dashboard .stat:hover { border-color: #444; }
+  #dashboard .stat::after {
+    content: '0' counter(statidx);
+    position: absolute; top: 14px; right: 16px;
+    font-family: 'DotGothic16', monospace; font-size: 12px; letter-spacing: .08em; color: #4a4a4a;
+  }
+  #dashboard .stat .num { font-family: 'DotGothic16', monospace; font-size: 40px; color: #fafafa; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+  #dashboard .stat .label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7a7a7a; font-weight: 400; }
+
+  /* Cartes — plates, filet fin, en-tête mono avec carré blanc */
+  #dashboard .card { background: #000; border: 1px solid #2c2c2c; border-radius: 0; box-shadow: none; }
+  /* neutralise les fonds dégradés verts inline (carte partage, diffusion marque) */
+  #dashboard .card[style*="linear-gradient"] { background: #000 !important; border-color: #2c2c2c !important; }
+  #dashboard .card > h3,
+  #dashboard .card > div > h3 {
+    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: #7a7a7a; display: flex; align-items: center; gap: 9px;
+  }
+  #dashboard .card > h3::before,
+  #dashboard .card > div > h3::before {
+    content: ''; width: 6px; height: 6px; border-radius: 0; flex-shrink: 0; background: #fafafa; box-shadow: none;
+  }
+
+  /* Sous-titre de groupe (Analytiques) — tiret accent (le seul vert) */
+  #dashboard > h3 { position: relative; padding-left: 26px; font-family: 'DotGothic16', monospace; font-weight: 400; }
+  #dashboard > h3::before {
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 2px; border-radius: 0; background: var(--accent, #CCEB3C);
+  }
+
+  /* Tableaux — séparateurs pointillés, survol monochrome discret */
+  #dashboard table td { border-bottom: 1px dotted #2c2c2c; }
+  #dashboard #recent-orders-table tbody tr { transition: background .12s ease; }
+  #dashboard #recent-orders-table tbody tr:hover { background: rgba(255,255,255,.03); }
+
+  /* Indicateur "en ligne" : forcé sur l'accent vert (le point unique) */
+  #dashboard #stat-online span[style*="#4caf50"] { background: var(--accent, #CCEB3C) !important; box-shadow: 0 0 6px var(--accent, #CCEB3C) !important; }
+
+  /* Mobile : empile toutes les grilles multi-colonnes du dashboard (graphes,
+     analytiques) sur une seule colonne — sinon contenu serré ou tronqué. */
+  @media (max-width: 640px) {
+    #dashboard [style*="grid-template-columns:1fr 1fr"],
+    #dashboard [style*="grid-template-columns: 1fr 1fr"],
+    #dashboard [style*="grid-template-columns:repeat(3,1fr)"],
+    #dashboard [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+  }
+
+  /* Rôle marque (designer) : distribution réservée à l'agence — NE PAS retirer */
+  body.role-designer .agency-only { display: none !important; }
+
+  /* Thème clair : adapte le brut au fond clair */
+  [data-theme="light"] #dashboard { background-image: radial-gradient(#e4e4e4 1px, transparent 1px); }
+  [data-theme="light"] #dashboard .stat,
+  [data-theme="light"] #dashboard .card { background: #fff; border-color: #e2e2e2; }
+  [data-theme="light"] #dashboard .stat .num { color: #111; }
+  [data-theme="light"] #dashboard .stat::after { color: #bbb; }
+  [data-theme="light"] #dashboard .card > h3::before,
+  [data-theme="light"] #dashboard .card > div > h3::before { background: #111; }
+  [data-theme="light"] #dashboard table td { border-bottom-color: #e2e2e2; }
+  [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(0,0,0,.03); }
 </style>
 <script>
 (function() {
@@ -449,6 +548,7 @@
   <!-- DASHBOARD -->
   <div id="dashboard" class="section active">
     <h1 data-t="h1_dashboard">Tableau de bord</h1>
+    <p class="dash-kicker" data-t="dash_kicker">Vue d'ensemble de votre showroom en temps réel</p>
     <div class="stats">
       <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
@@ -474,8 +574,8 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
-    <!-- Carte partage prospection -->
-    <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
+    <!-- Carte partage prospection — distribution réservée à l'agence -->
+    <div class="card agency-only" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <span style="font-size:18px">📤</span>
         <h3 style="margin:0;font-size:14px;color:var(--accent)">Partager le showroom</h3>
@@ -497,6 +597,12 @@
         </button>
       </div>
       <div id="share-preview" style="margin-top:10px;font-size:11px;color:#666;font-family:monospace;min-height:16px"></div>
+    </div>
+
+    <!-- Demandes de lien de partage émises par les marques (vue agence) -->
+    <div class="card agency-only" id="share-requests-card" style="display:none;margin-bottom:16px">
+      <h3 style="margin:0 0 12px;font-size:14px">Demandes de lien de partage</h3>
+      <div id="share-requests-list"></div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -557,7 +663,7 @@
   <div id="brands" class="section">
     <h1 data-t="h1_brands">Marques & Collections</h1>
     <button class="btn btn-primary" onclick="openBrandModal()" data-t="btn_new_brand">+ Nouvelle marque</button>
-    <button class="btn btn-secondary" id="btn-print-all-qr" onclick="printAllBrandsQR()">🖨️ Imprimer tous les QR (A4)</button>
+    <button class="btn btn-secondary agency-only" id="btn-print-all-qr" onclick="printAllBrandsQR()">🖨️ Imprimer tous les QR (A4)</button>
     <div style="height:20px"></div>
     <div class="brands-grid" id="brands-grid"></div>
   </div>
@@ -1104,7 +1210,7 @@
 
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="openAddProduct()" data-t="btn_add_ref">+ Ajouter référence</button>
-      <button class="btn btn-secondary btn-sm" onclick="printAllProductQR()" data-t="btn_print_qr">🖨️ Imprimer QR Codes</button>
+      <button class="btn btn-secondary btn-sm agency-only" onclick="printAllProductQR()" data-t="btn_print_qr">🖨️ Imprimer QR Codes</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadLinesheet()" data-t="btn_linesheet">📑 Télécharger linesheet</button>
       <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 <span data-t="btn_delete_selection">Supprimer la sélection</span> (<span id="bulk-count">0</span>)</button>
       <button class="btn btn-danger btn-sm" onclick="clearAllProducts()" data-t="btn_clear_collection">🗑 Vider collection</button>
@@ -1530,6 +1636,7 @@ const TRANSLATIONS = {
     logout: '⏻ Déconnexion',
     // Section headings
     h1_dashboard: 'Tableau de bord', h1_brands: 'Marques & Collections',
+    dash_kicker: 'Vue d\'ensemble de votre showroom en temps réel',
     h1_orders: 'Commandes', h1_settings: 'Paramètres', h1_staff: 'Comptes', h1_buyers: 'Acheteurs',
     // Stats
     stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'CA total HT',
@@ -1665,6 +1772,7 @@ const TRANSLATIONS = {
     logout: '⏻ Log out',
     // Section headings
     h1_dashboard: 'Dashboard', h1_brands: 'Brands & Collections',
+    dash_kicker: 'A real-time overview of your showroom',
     h1_orders: 'Orders', h1_settings: 'Settings', h1_staff: 'Accounts', h1_buyers: 'Buyers',
     // Stats
     stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Total revenue',
@@ -1882,6 +1990,8 @@ async function initUserRole() {
   }
   if (me.role === 'designer') {
     currentUserBrandId = me.brand_id || null;
+    // Distribution réservée à l'agence : masque QR / partage / invitations (classe .agency-only)
+    document.body.classList.add('role-designer');
     // Le designer n'a accès qu'à SA marque : on masque les onglets globaux sans données scopables
     document.getElementById('nav-buyers').style.display = 'none';
     document.getElementById('nav-stats').style.display = 'none';
@@ -2576,6 +2686,7 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 // Dashboard
 async function loadDashboard() {
   if (currentUserRole === 'designer') return loadDesignerDashboard();
+  loadShareRequests();
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
 
@@ -2660,13 +2771,13 @@ async function loadDashboard() {
   const maxBrand = Math.max(...sorted.map(e=>e[1]),1);
   const brandChart = document.getElementById('brand-revenue-chart');
   if (brandChart && sorted.length) {
-    brandChart.innerHTML = sorted.map(([name,val]) => `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="font-size:11px;color:#aaa;min-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-        <div style="flex:1;background:#1a1a1a;border-radius:3px;height:6px;overflow:hidden">
-          <div style="width:${Math.round(val/maxBrand*100)}%;height:100%;background:#CCEB3C;border-radius:3px"></div>
+    brandChart.innerHTML = sorted.map(([name,val],i) => `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Space Mono',monospace">
+        <div style="font-size:11px;color:#cfcfcf;min-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+        <div style="flex:1;background:#1c1c1c;height:1px;position:relative">
+          <div style="position:absolute;left:0;top:-2px;width:${Math.round(val/maxBrand*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>
         </div>
-        <div style="font-size:11px;color:#CCEB3C;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
+        <div style="font-size:11px;color:#7a7a7a;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
       </div>`).join('');
   }
 
@@ -2772,6 +2883,14 @@ async function loadDesignerDashboard() {
       ${stat('#a78bfa','#160a28', ca.toFixed(0) + ' €', en ? 'Revenue (HT)' : 'CA HT')}
       ${stat('#34d399','#062016', pending, en ? 'To process' : 'À traiter')}
     </div>
+    <div class="card" style="background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:18px">📨</span>
+        <h3 style="margin:0;font-size:14px;color:var(--accent,#CCEB3C)">${en ? 'Share your page' : 'Diffusion de votre fiche'}</h3>
+      </div>
+      <p style="font-size:12px;color:#888;margin-bottom:12px">${en ? 'Distribution is handled by the agency. Request a share link and the agency will prepare it for you.' : "La diffusion est gérée par l'agence. Demandez un lien de partage : l'agence le préparera pour vous."}</p>
+      <button class="btn btn-primary btn-sm" onclick="requestShareLink()">${en ? '📨 Request a share link' : '📨 Demander un lien de partage'}</button>
+    </div>
     <div class="card">
       <h3>${en ? 'Upcoming appointments' : 'Prochains rendez-vous'}</h3>
       <div class="table-wrap"><table>
@@ -2798,6 +2917,51 @@ async function loadDesignerDashboard() {
     </div>`;
 }
 
+// ── Demandes de lien de partage ──────────────────────────────────────
+// Côté marque : envoie une demande à l'agence (la diffusion reste gérée par l'agence).
+async function requestShareLink() {
+  const bid = currentUserBrandId;
+  if (!bid) { toast(currentLang === 'en' ? 'No brand linked' : 'Aucune marque associée', true); return; }
+  const message = prompt(currentLang === 'en'
+    ? 'Anything to tell the agency? (optional)'
+    : "Un message pour l'agence ? (optionnel)");
+  if (message === null) return; // annulé
+  try {
+    const r = await fetch(`/api/brands/${bid}/share-request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    if (r.ok) toast(currentLang === 'en' ? 'Request sent to the agency ✓' : "Demande envoyée à l'agence ✓");
+    else toast(currentLang === 'en' ? 'Send failed' : "Échec de l'envoi", true);
+  } catch(e) { toast(currentLang === 'en' ? 'Network error' : 'Erreur réseau', true); }
+}
+
+// Côté agence : liste les demandes en attente sur le dashboard.
+async function loadShareRequests() {
+  if (currentUserRole === 'designer') return;
+  const card = document.getElementById('share-requests-card');
+  const list = document.getElementById('share-requests-list');
+  if (!card || !list) return;
+  try {
+    const reqs = await fetch('/api/share-requests').then(r => r.json());
+    if (!Array.isArray(reqs) || !reqs.length) { card.style.display = 'none'; return; }
+    list.innerHTML = reqs.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #252525">
+        <div>
+          <div style="font-size:13px;color:#fff">${esc(s.brand_name)}</div>
+          <div style="font-size:11px;color:#888">${s.requested_by ? esc(s.requested_by) + ' · ' : ''}${s.message ? esc(s.message) : '—'}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="handleShareRequest('${s.id}')">✓ ${currentLang === 'en' ? 'Done' : 'Traité'}</button>
+      </div>`).join('');
+    card.style.display = '';
+  } catch(e) { card.style.display = 'none'; }
+}
+
+async function handleShareRequest(id) {
+  try { await fetch(`/api/share-requests/${id}/handle`, { method: 'POST' }); } catch(e) {}
+  loadShareRequests();
+}
+
 // Brands
 async function loadBrands() {
   const brands = await fetch('/api/brands').then(r => r.json());
@@ -2822,11 +2986,11 @@ async function loadBrands() {
       <h4>${b.name}</h4>
       <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
-        <button class="btn btn-secondary btn-sm" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
+        <button class="btn btn-secondary btn-sm agency-only" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
         <button class="btn btn-secondary btn-sm" onclick="shareShowroomBrand('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien showroom</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
-        <button class="btn btn-secondary btn-sm" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
+        <button class="btn btn-secondary btn-sm agency-only" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
         <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${b.name.replace(/'/g,"\\'")}')">📊 Stats</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}
@@ -4267,8 +4431,8 @@ function renderOrdersPage() {
       <td><input type="checkbox" class="order-check" data-id="${o.id}" onchange="updateBulkBar()"></td>
       <td style="font-size:11px;color:#888;font-family:monospace">${o.order_number || o.id.slice(0,8)}</td>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
-      <td><strong>${o.client_name||''}</strong><br><span style="font-size:11px;color:#888">${o.client_company||''}</span></td>
-      <td>${o.brand_name||''}</td>
+      <td><strong>${esc(o.client_name||'')}</strong><br><span style="font-size:11px;color:#888">${esc(o.client_company||'')}</span></td>
+      <td>${esc(o.brand_name||'')}</td>
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
@@ -4491,10 +4655,10 @@ function filterSelections() {
     return `<tr>
       <td style="font-family:monospace;font-size:12px;font-weight:700">${esc(s.selection_number||'—')}</td>
       <td style="font-size:11px;color:#888">${new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
-      <td><strong>${s.client_name||'—'}</strong></td>
-      <td style="font-size:12px">${s.client_email||'—'}</td>
-      <td style="font-size:12px;color:#888">${s.client_company||'—'}</td>
-      <td>${s.brand_name||''}</td>
+      <td><strong>${esc(s.client_name||'—')}</strong></td>
+      <td style="font-size:12px">${esc(s.client_email||'—')}</td>
+      <td style="font-size:12px;color:#888">${esc(s.client_company||'—')}</td>
+      <td>${esc(s.brand_name||'')}</td>
       <td style="text-align:center">${nItems} art.</td>
       <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span></td>
       <td style="font-size:11px;color:#888">${s.created_by||'—'}</td>
@@ -4623,17 +4787,17 @@ async function viewOrder(id) {
   if (notesAdminWrap) notesAdminWrap.style.display = readOnly ? 'none' : '';
 
   document.getElementById('mo-client').innerHTML =
-    `<strong>${o.client_name||''}</strong> — ${o.client_company||''}<br>` +
-    `<a href="mailto:${o.client_email}" style="color:#CCEB3C">${o.client_email||''}</a>` +
-    (o.client_phone ? ` · ${o.client_phone}` : '') +
-    (o.client_country ? `<br>${o.client_country}` : '');
+    `<strong>${esc(o.client_name||'')}</strong> — ${esc(o.client_company||'')}<br>` +
+    `<a href="mailto:${encodeURIComponent(o.client_email||'')}" style="color:#CCEB3C">${esc(o.client_email||'')}</a>` +
+    (o.client_phone ? ` · ${esc(o.client_phone)}` : '') +
+    (o.client_country ? `<br>${esc(o.client_country)}` : '');
 
   const total = lines.reduce((s, l) => s + (l.qty * parseFloat(l.unit_price||0)), 0);
   document.getElementById('mo-lines').innerHTML = lines.map(l => `
     <tr>
-      <td>${l.product_ref||''}</td>
-      <td>${l.color||'-'}</td>
-      <td>${l.size||'-'}</td>
+      <td>${esc(l.product_ref||'')}</td>
+      <td>${esc(l.color||'-')}</td>
+      <td>${esc(l.size||'-')}</td>
       <td style="text-align:center">${l.qty}</td>
       <td>${parseFloat(l.unit_price||0).toFixed(2)} €</td>
       <td><strong>${(l.qty * parseFloat(l.unit_price||0)).toFixed(2)} €</strong></td>
