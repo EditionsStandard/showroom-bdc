@@ -535,8 +535,13 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
   res.json({ id });
 });
 
+// True when the current role is restricted to a single brand (designer, or agent with brand_id).
+function isBrandScoped(req) {
+  return req.userRole === 'designer' || (req.userRole === 'agent' && !!req.userBrandId);
+}
+
 async function checkProductBrandScope(req, res) {
-  if (req.userRole !== 'designer') return true;
+  if (!isBrandScoped(req)) return true;
   const p = await pool.query('SELECT brand_id FROM products WHERE id=$1', [req.params.id]);
   if (!p.rows[0] || p.rows[0].brand_id !== req.userBrandId) {
     res.status(403).json({ error: 'Accès refusé' });
@@ -789,6 +794,7 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
 
 app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkProductBrandScope(req, res)) return;
     const { stock_qty, stock_enabled } = req.body;
     await pool.query(
       'UPDATE products SET stock_qty=$1, stock_enabled=$2 WHERE id=$3',
@@ -1079,7 +1085,7 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
 
 // Orders
 async function checkOrderBrandScope(req, res) {
-  if (req.userRole !== 'designer') return true;
+  if (!isBrandScoped(req)) return true;
   const o = await pool.query('SELECT brand_id FROM orders WHERE id=$1', [req.params.id]);
   if (!o.rows[0] || o.rows[0].brand_id !== req.userBrandId) {
     res.status(403).json({ error: 'Accès refusé' });
@@ -1175,6 +1181,7 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
 
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const { status } = req.body;
     const orderId = req.params.id;
     const validStatuses = ['confirmed','validated','in_production','shipped','cancelled','archived'];
@@ -1200,6 +1207,7 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const r = await pool.query(
       'SELECT * FROM order_status_history WHERE order_id=$1 ORDER BY changed_at DESC',
       [req.params.id]
@@ -1210,6 +1218,7 @@ app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), asyn
 
 app.get('/api/orders/:id/events', requireRole('owner','agent','designer'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const r = await pool.query('SELECT * FROM order_events WHERE order_id=$1 ORDER BY created_at ASC', [req.params.id]);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -1217,6 +1226,7 @@ app.get('/api/orders/:id/events', requireRole('owner','agent','designer'), async
 
 app.post('/api/orders/:id/events', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const { note, event_type } = req.body;
     await addOrderEvent(req.params.id, event_type || 'note', note, req.session.staffUser?.name || req.session.admin && 'admin' || 'admin');
     res.json({ ok: true });
@@ -1225,6 +1235,7 @@ app.post('/api/orders/:id/events', requireRole('owner','agent'), async (req, res
 
 app.patch('/api/orders/:id/notes', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     await pool.query('UPDATE orders SET internal_notes=$1 WHERE id=$2', [req.body.notes || '', req.params.id]);
     await addOrderEvent(req.params.id, 'note', req.body.notes, req.session.staffUser?.name || (req.session.admin ? 'admin' : 'admin'));
     res.json({ ok: true });
@@ -1445,6 +1456,7 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
 
 app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
     await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -1556,6 +1568,7 @@ app.get('/portal/access', async (req, res) => {
 
 app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const pdf = await generateOrderPDF(req.params.id);
     await sendOrderEmails(req.params.id, pdf);
     res.json({ ok: true });
@@ -2767,6 +2780,7 @@ app.post('/api/portal/ping', requireBuyerAuth, async (req, res) => {
 
 app.put('/api/orders/:id/admin-notes', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const { admin_notes } = req.body;
     await pool.query('UPDATE orders SET admin_notes=$1 WHERE id=$2', [admin_notes || '', req.params.id]);
     res.json({ ok: true });
@@ -4229,6 +4243,7 @@ app.post('/api/agent/logout', (req, res) => {
 // ── Reorder — dupliquer une commande existante ───────────────────────
 app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    if (!await checkOrderBrandScope(req, res)) return;
     const src = await pool.query(
       'SELECT brand_id, buyer_id, client_name, client_email, client_company, client_phone, client_country, notes FROM orders WHERE id=$1',
       [req.params.id]
