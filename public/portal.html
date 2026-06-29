@@ -81,10 +81,15 @@
   @media (max-width: 640px) { .profile-grid { grid-template-columns: 1fr; } .user-name { display: none; } }
   .wrap { width: 100%; max-width: 1600px; margin: 0 auto; padding: 36px 40px 60px; }
   h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
+  /* Marqueur accent éditorial — signature commune à tous les écrans */
+  h2.section-title::before { content: ''; display: inline-block; width: 5px; height: .82em; background: var(--accent); border-radius: 2px; margin-right: 13px; vertical-align: -1px; box-shadow: 0 0 10px rgba(204,235,60,.35); }
   .brand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; }
-  .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s; }
-  .brand-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .brand-cover { width: 100%; height: 200px; object-fit: cover; object-position: center top; display: block; background: var(--dark); }
+  .brand-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; transition: border-color .18s, transform .18s, box-shadow .18s; }
+  .brand-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0,0,0,.4); }
+  .brand-card:hover .brand-name { color: var(--accent); }
+  .brand-card:hover .brand-cover { transform: scale(1.04); }
+  .brand-name { transition: color .18s; }
+  .brand-cover { width: 100%; height: 200px; object-fit: cover; object-position: center top; display: block; background: var(--dark); transition: transform .4s ease; }
   .brand-cover-ph { width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
   .brand-info { padding: 18px 20px; }
   .brand-name { font-family: var(--dot), monospace; font-size: 19px; }
