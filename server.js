@@ -1416,17 +1416,20 @@ app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (
 
 app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
   try {
+    // Agent scopé : uniquement les acheteurs ayant commandé chez sa marque, montants limités à sa marque.
+    const scoped = isBrandScoped(req);
+    const joinFilter = scoped ? 'AND o.brand_id = $1' : '';
     const r = await pool.query(`
       SELECT b.id, b.email, b.name, b.company, b.last_seen_at,
              COUNT(DISTINCT o.id) as order_count,
              COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
              COUNT(DISTINCT o.brand_id) as brands_count
       FROM buyers b
-      LEFT JOIN orders o ON o.buyer_id = b.id
+      ${scoped ? 'JOIN' : 'LEFT JOIN'} orders o ON o.buyer_id = b.id ${joinFilter}
       LEFT JOIN order_lines ol ON ol.order_id = o.id
       GROUP BY b.id
       ORDER BY total_amount DESC
-    `);
+    `, scoped ? [req.userBrandId] : []);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1438,10 +1441,12 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
     if (!status || !validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Aucun identifiant fourni' });
     const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
+    const scoped = isBrandScoped(req);
     let updated = 0;
     for (const orderId of ids) {
-      const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
+      const prev = await pool.query('SELECT status, brand_id FROM orders WHERE id=$1', [orderId]);
       if (!prev.rows[0]) continue;
+      if (scoped && prev.rows[0].brand_id !== req.userBrandId) continue; // n'agit que sur sa marque
       const oldStatus = prev.rows[0].status || '';
       await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
       await pool.query(
@@ -2448,6 +2453,9 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
 // ── Analytics acheteurs enrichies ────────────────────────────────────
 app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    // Agent scopé : analytics restreintes à sa marque (pas de CA des autres marques).
+    const scoped = isBrandScoped(req);
+    const p = scoped ? [req.userBrandId] : [];
     const [topBuyers, inactiveBuyers, topBrands, recentActivity] = await Promise.all([
       // Top 10 acheteurs par montant commandé
       pool.query(`
@@ -2455,19 +2463,20 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
                COUNT(o.id) as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount
         FROM buyers b
-        LEFT JOIN orders o ON o.buyer_id = b.id
+        ${scoped ? 'JOIN' : 'LEFT JOIN'} orders o ON o.buyer_id = b.id ${scoped ? 'AND o.brand_id = $1' : ''}
         LEFT JOIN order_lines ol ON ol.order_id = o.id
         GROUP BY b.id, b.name, b.company, b.email, b.last_seen_at
         ORDER BY total_amount DESC LIMIT 10
-      `),
+      `, p),
       // Acheteurs inactifs > 30 jours
       pool.query(`
-        SELECT name, company, email, last_seen_at
-        FROM buyers
-        WHERE last_seen_at < NOW() - INTERVAL '30 days' OR last_seen_at IS NULL
-        ORDER BY last_seen_at ASC NULLS FIRST LIMIT 20
-      `),
-      // Top marques par CA
+        SELECT DISTINCT b.name, b.company, b.email, b.last_seen_at
+        FROM buyers b
+        ${scoped ? 'JOIN orders o ON o.buyer_id = b.id AND o.brand_id = $1' : ''}
+        WHERE b.last_seen_at < NOW() - INTERVAL '30 days' OR b.last_seen_at IS NULL
+        ORDER BY b.last_seen_at ASC NULLS FIRST LIMIT 20
+      `, p),
+      // Top marques par CA (limité à sa marque pour un agent scopé)
       pool.query(`
         SELECT br.name, COUNT(DISTINCT o.id) as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
@@ -2475,18 +2484,20 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
         FROM brands br
         LEFT JOIN orders o ON o.brand_id = br.id
         LEFT JOIN order_lines ol ON ol.order_id = o.id
+        ${scoped ? 'WHERE br.id = $1' : ''}
         GROUP BY br.id, br.name
         ORDER BY total_amount DESC
-      `),
+      `, p),
       // Activité 30 derniers jours (commandes par jour)
       pool.query(`
         SELECT DATE(created_at) as day, COUNT(*) as count,
                COALESCE(SUM(total_amount), 0) as amount
         FROM orders
         WHERE created_at >= NOW() - INTERVAL '30 days'
+        ${scoped ? 'AND brand_id = $1' : ''}
         GROUP BY DATE(created_at)
         ORDER BY day ASC
-      `)
+      `, p)
     ]);
     res.json({
       topBuyers: topBuyers.rows,
@@ -2842,12 +2853,21 @@ app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
 
 app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
   try {
+    // Un agent rattaché à une marque ne voit que ses propres chiffres (pas le CA global du showroom).
+    const scoped = isBrandScoped(req);
+    const bId = req.userBrandId;
+    const oFilter = scoped ? 'AND o.brand_id = $1' : '';
+    const p = scoped ? [bId] : [];
     const [brandsR, ordersR, revenueR, buyersR, orders30R] = await Promise.all([
-      pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
-      pool.query(`SELECT COUNT(*) as orders_count FROM orders WHERE status NOT IN ('draft','cancelled','archived')`),
-      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue_total FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived')`),
-      pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
-      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders WHERE status NOT IN ('draft','cancelled') AND created_at >= NOW() - INTERVAL '30 days'`)
+      scoped
+        ? pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE id = $1`, p)
+        : pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
+      pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue_total FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      scoped
+        ? pool.query(`SELECT COUNT(DISTINCT o.buyer_id) as buyers_count FROM orders o WHERE o.buyer_id IS NOT NULL AND o.brand_id = $1`, p)
+        : pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
+      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE o.status NOT IN ('draft','cancelled') AND o.created_at >= NOW() - INTERVAL '30 days' ${oFilter}`, p)
     ]);
     res.json({
       brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
@@ -2866,6 +2886,7 @@ app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
 
 app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon') as month,
              DATE_TRUNC('month', o.created_at) as month_date,
@@ -2874,9 +2895,10 @@ app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req
       LEFT JOIN order_lines ol ON ol.order_id = o.id
       WHERE o.created_at >= NOW() - INTERVAL '6 months'
         AND o.status NOT IN ('draft', 'cancelled')
+        ${scoped ? 'AND o.brand_id = $1' : ''}
       GROUP BY DATE_TRUNC('month', o.created_at), TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon')
       ORDER BY month_date ASC
-    `);
+    `, scoped ? [req.userBrandId] : []);
     // Build a map of existing data
     const byMonth = {};
     r.rows.forEach(row => {
