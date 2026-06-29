@@ -49,7 +49,10 @@
       input, select, textarea { font-size: 16px; }
       .btn { min-height: 44px; }
     }
-  </style>
+    /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
+</style>
   <script>
   (function() {
     const h = new Date().getHours();

@@ -39,6 +39,9 @@
     .slot-btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
     .btn { min-height: 44px; }
   }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 (function() {

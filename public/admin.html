@@ -466,6 +466,9 @@
   [data-theme="light"] #dashboard .card > div > h3::before { background: #111; }
   [data-theme="light"] #dashboard table td { border-bottom-color: #e2e2e2; }
   [data-theme="light"] #dashboard #recent-orders-table tbody tr:hover { background: rgba(0,0,0,.03); }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 (function() {

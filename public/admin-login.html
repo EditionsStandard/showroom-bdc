@@ -31,6 +31,9 @@
   .toggle { text-align: center; margin-top: 18px; }
   .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
   .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 (function() {

@@ -531,6 +531,9 @@
   .compare-col-desc { font-size: 11px; color: #888; margin-bottom: 8px; line-height: 1.5; }
   .compare-col-price { font-family: 'Space Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 700; }
   .compare-col-sizes { font-size: 11px; color: #aaa; margin-top: 4px; }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 (function() {

@@ -21,7 +21,10 @@
     p { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; text-transform: uppercase; letter-spacing: .1em; }
     .btn { display: inline-block; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px 28px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; text-decoration: none; transition: opacity .2s; }
     .btn:hover { opacity: .85; }
-  </style>
+    /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
+</style>
   <script>
   (function() {
     const h = new Date().getHours();

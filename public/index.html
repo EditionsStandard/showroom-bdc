@@ -45,6 +45,9 @@
     .brand-info { padding: 12px 14px; }
     .brand-name { font-size: 15px; }
   }
+  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  img[src*="logo.svg"]{filter:invert(1);}
+  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 // Auto clair/sombre selon l'heure (7h-19h = clair, sinon sombre) — exécuté avant le rendu pour éviter le flash
