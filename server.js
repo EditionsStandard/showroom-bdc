@@ -219,6 +219,13 @@ function nonNeg(v) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+// URL destinée à un href : n'autorise que http(s). Neutralise javascript:, data:,
+// etc. (sinon une URL javascript: stockée s'exécuterait au clic — XSS). Vide sinon.
+function safeHttpUrl(url) {
+  const s = String(url || '').trim();
+  return /^https?:\/\//i.test(s) ? s : '';
+}
+
 async function getSetting(key) {
   const r = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
   return r.rows[0]?.value || '';
@@ -445,7 +452,7 @@ app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
   await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', lookbook_url||'']);
+    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url)]);
   res.json({ id, name });
 });
 
@@ -453,7 +460,7 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency } = req.body;
     await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12 WHERE id=$13',
-      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', lookbook_url||'', default_currency||null, moq_strict||false, req.params.id]);
+      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -462,7 +469,7 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
 app.put('/api/brands/:brandId/lookbook', requireBrandScope('owner','agent','designer'), async (req, res) => {
   try {
     const { lookbook_url } = req.body;
-    await pool.query('UPDATE brands SET lookbook_url=$1 WHERE id=$2', [lookbook_url || '', req.params.brandId]);
+    await pool.query('UPDATE brands SET lookbook_url=$1 WHERE id=$2', [safeHttpUrl(lookbook_url), req.params.brandId]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -3342,7 +3349,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   const id = uuidv4();
   await pool.query(
     'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() + INTERVAL \'30 days\')',
-    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), (website||'').trim(), (message||'').trim()]
+    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim()]
   );
   // Notifier l'admin
   const [showroomName, adminEmail, fromAddress] = await Promise.all([
