@@ -13,17 +13,19 @@
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s; }
-  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; }
+  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 48px 40px; width: 100%; max-width: 380px; position: relative; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); box-shadow: 0 0 18px rgba(204,235,60,.4); }
   .logo-wrap { text-align: center; margin-bottom: 32px; }
   .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
-  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 14px; letter-spacing: .02em; }
+  .logo-wrap .kicker { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .28em; color: var(--muted); margin-top: 16px; text-transform: uppercase; }
+  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 6px; letter-spacing: .02em; }
   .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
   label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
   input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .2s; }
   input:focus { border-color: var(--accent); }
   .field { margin-bottom: 16px; }
-  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: opacity .2s; }
-  .btn:hover { opacity: .85; }
+  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 2px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: transform .15s ease, box-shadow .15s ease, opacity .2s; }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(204,235,60,.25); }
   .toggle { text-align: center; margin-top: 18px; }
   .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
   .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
@@ -42,6 +44,7 @@
 <div class="card">
   <div class="logo-wrap">
     <img src="/logo.svg" alt="Editions Standard">
+    <div class="kicker">CRM // Showroom</div>
     <h1>Editions Standard</h1>
     <p>Showroom — Administration</p>
   </div>
