@@ -3278,7 +3278,7 @@ app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','ag
 // ── Demandes de lien de partage (marque → agence) ───────────────────────────
 // La distribution est réservée à l'agence ; une marque peut demander un lien,
 // l'agence reçoit la demande puis génère/partage le lien elle-même.
-app.post('/api/brands/:brandId/share-request', requireBrandScope('owner','agent','designer'), async (req, res) => {
+app.post('/api/brands/:brandId/share-request', emailLimiter, requireBrandScope('owner','agent','designer'), async (req, res) => {
   try {
     const message = String(req.body.message || '').trim().slice(0, 1000);
     const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [req.params.brandId]);
@@ -3532,7 +3532,7 @@ app.post('/api/invite/:token', async (req, res) => {
 
 // ==================== BUYER ACCESS (magic link) ====================
 
-app.post('/api/buyer/request-link', async (req, res) => {
+app.post('/api/buyer/request-link', emailLimiter, async (req, res) => {
   const { brand_id, email } = req.body;
   if (!brand_id || !email) return res.status(400).json({ error: 'Email requis' });
 
