@@ -225,7 +225,6 @@
 
   /* ── Mode présentation ── */
   body.presentation-mode .header { display: none !important; }
-  body.presentation-mode .cart-bar { display: none !important; }
   body.presentation-mode .mobile-nav { display: none !important; }
   body.presentation-mode .header .nav { display: none; }
   body.presentation-mode #user-menu { display: none; }
@@ -256,11 +255,22 @@
     pointer-events: none; font-weight: 700; text-transform: uppercase;
   }
   body.presentation-mode .pres-indicator { display: block; }
-  /* Masquer prix + qtés en mode présentation */
-  body.presentation-mode .qty-row { display: none !important; }
-  body.presentation-mode .price-block { display: none !important; }
-  body.presentation-mode .product-price { display: none !important; }
-  body.presentation-mode .cart-badge { display: none !important; }
+  /* Interrupteur lookbook ↔ prise de commande (dans la présentation) */
+  .pres-toggle {
+    display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    z-index: var(--z-top); background: var(--dark); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 4px; padding: 8px 16px; font-size: 11px;
+    cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .06em;
+    font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.4); white-space: nowrap;
+  }
+  body.presentation-mode .pres-toggle { display: block; }
+  /* Showroom : par défaut prix + quantités + panier VISIBLES (prise de commande).
+     Sous-mode « lookbook » (interrupteur) → on masque prix, quantités et panier. */
+  body.presentation-mode.pres-lookbook .qty-row { display: none !important; }
+  body.presentation-mode.pres-lookbook .price-block { display: none !important; }
+  body.presentation-mode.pres-lookbook .product-price { display: none !important; }
+  body.presentation-mode.pres-lookbook .cart-bar { display: none !important; }
+  body.presentation-mode.pres-lookbook .cart-badge { display: none !important; }
   /* Showroom : épurer la carte (outils libre-service masqués) + grille lookbook */
   body.presentation-mode .compare-btn { display: none !important; }
   body.presentation-mode .fav-btn { display: none !important; }
@@ -1115,6 +1125,7 @@ function applyLang() {
 
 <!-- Bouton quitter présentation -->
 <button class="pres-exit" onclick="togglePresentation()">✕ Quitter la présentation</button>
+<button class="pres-toggle" id="pres-toggle-btn" onclick="togglePresLookbook()">🖼 Masquer prix &amp; qtés</button>
 <!-- Indicateur mode présentation -->
 <div class="pres-indicator">MODE PRÉSENTATION</div>
 <!-- Bouton Présenter (mobile uniquement) -->
@@ -2448,10 +2459,18 @@ function togglePresentationMode() {
     requestWakeLock(); // écran maintenu allumé pendant la présentation
     if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   } else {
+    document.body.classList.remove('pres-lookbook'); // réinitialise le sous-mode
     releaseWakeLock();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     window.scrollTo({ top: 0 });
   }
+}
+
+// Bascule lookbook (prix/qtés masqués) ↔ prise de commande (tout visible)
+function togglePresLookbook() {
+  const lookbook = document.body.classList.toggle('pres-lookbook');
+  const btn = document.getElementById('pres-toggle-btn');
+  if (btn) btn.innerHTML = lookbook ? '💲 Afficher prix &amp; qtés' : '🖼 Masquer prix &amp; qtés';
 }
 // Sortie du plein écran (touche Échap) → quitter proprement le mode présentation
 document.addEventListener('fullscreenchange', () => {
