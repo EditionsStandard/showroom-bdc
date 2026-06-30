@@ -1834,9 +1834,11 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
   res.json({ brand, products, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
-app.post('/api/public/selection-pdf', async (req, res) => {
+app.post('/api/public/selection-pdf', publicLimiter, async (req, res) => {
   try {
     const { brand_id, client_name, client_email, client_company, client_country, notes, lines } = req.body;
+    if (!brand_id) return res.status(400).json({ error: 'Marque requise' });
+    if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
     const bRes = await pool.query('SELECT * FROM brands WHERE id=$1', [brand_id]);
     const brand = bRes.rows[0];
     if (!brand) return res.status(404).json({ error: 'Marque introuvable' });
@@ -3569,9 +3571,12 @@ app.post('/api/invite/:token', async (req, res) => {
       'INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
       [id, cleanEmail, hash, name.trim(), (company||'').trim()]
     );
-    req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
-    res.json({ ok: true });
-    sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
+    // Régénération de session — anti session fixation (cohérent avec les autres logins)
+    req.session.regenerate(() => {
+      req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
+      res.json({ ok: true });
+      sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
+    });
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé. Connectez-vous directement sur le portail.' });
     res.status(500).json({ error: 'Erreur serveur.' });
