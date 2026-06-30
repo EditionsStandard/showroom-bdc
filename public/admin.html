@@ -2481,6 +2481,42 @@ async function loadProductStats() {
 
 // ── Rapport de ventes (partageable avec la marque) ──────────────────
 let _srBrandsLoaded = false;
+let _srData = null, _srBrandName = '';
+
+// Export CSV du rapport (séparateur ; pour Excel FR ; BOM pour les accents)
+function exportSalesReportCSV() {
+  if (!_srData) return;
+  const d = _srData, s = d.summary || {};
+  const avg = s.orders ? (s.revenue / s.orders) : 0;
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const num = n => String(Number(n) || 0).replace('.', ',');
+  const rows = [];
+  rows.push([q('Rapport de ventes'), q(_srBrandName)]);
+  rows.push([q('Généré le'), q(new Date().toLocaleString('fr-FR'))]);
+  rows.push([]);
+  rows.push([q('Indicateur'), q('Valeur')]);
+  rows.push([q('Commandes'), num(s.orders)]);
+  rows.push([q('Pièces'), num(s.units)]);
+  rows.push([q('CA HT (€)'), num(s.revenue)]);
+  rows.push([q('Panier moyen (€)'), num(avg)]);
+  rows.push([q('Acheteurs'), num(s.buyers)]);
+  rows.push([q('RDV showroom'), num(d.rdv)]);
+  rows.push([]);
+  rows.push([q('Top produits')]);
+  rows.push([q('Référence'), q('Désignation'), q('Pièces'), q('CA HT (€)')]);
+  (d.top || []).forEach(p => rows.push([q(p.reference), q(p.description), num(p.units), num(p.revenue)]));
+  rows.push([]);
+  rows.push([q('Évolution mensuelle')]);
+  rows.push([q('Mois'), q('Commandes'), q('CA HT (€)')]);
+  (d.monthly || []).forEach(m => rows.push([q(m.month), num(m.orders), num(m.revenue)]));
+  const csv = '﻿' + rows.map(r => r.join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `rapport-ventes-${(_srBrandName || 'marque').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 async function initSalesReport() {
   if (currentUserRole === 'designer') {            // designer : sa marque, sans sélecteur
     if (currentUserBrandId) loadSalesReport(currentUserBrandId);
@@ -2505,6 +2541,10 @@ async function loadSalesReport(forceBrandId) {
   try { d = await fetch(`/api/brands/${brandId}/sales-report`).then(r => r.json()); }
   catch(e) { content.innerHTML = `<p style="color:#e74c3c">Erreur de chargement.</p>`; return; }
   if (!d || d.error) { content.innerHTML = `<p style="color:#e74c3c">${esc((d&&d.error)||'Erreur')}</p>`; return; }
+  // Mémorise pour l'export CSV
+  _srData = d;
+  const _sel = document.getElementById('sr-brand');
+  _srBrandName = (_sel && _sel.selectedOptions[0] && _sel.value ? _sel.selectedOptions[0].textContent : '') || 'marque';
   const s = d.summary || {};
   const avg = s.orders ? (s.revenue / s.orders) : 0;
   const fmt = n => (Number(n)||0).toLocaleString('fr-FR');
@@ -2512,7 +2552,8 @@ async function loadSalesReport(forceBrandId) {
   const card = (label, val) => `<div class="card" style="flex:1;min-width:120px;padding:14px 16px">
     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.6px">${label}</div>
     <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">${val}</div></div>`;
-  let html = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+  let html = `<div style="text-align:right;margin-bottom:10px"><button class="btn btn-secondary btn-sm" onclick="exportSalesReportCSV()">⬇ Export CSV</button></div>`;
+  html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
     ${card('Commandes', fmt(s.orders))}${card('Pièces', fmt(s.units))}${card('CA HT', eur(s.revenue))}
     ${card('Panier moyen', eur(avg))}${card('Acheteurs', fmt(s.buyers))}${card('RDV showroom', fmt(d.rdv))}</div>`;
   html += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:18px">
