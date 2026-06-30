@@ -261,15 +261,22 @@
   body.presentation-mode .price-block { display: none !important; }
   body.presentation-mode .product-price { display: none !important; }
   body.presentation-mode .cart-badge { display: none !important; }
-  /* Bouton Présenter — mobile uniquement */
-  #present-btn { display: none; }
-  @media (max-width: 640px) {
-    #present-btn { display: block; }
-    body.presentation-mode #present-btn { display: block; }
+  /* Showroom : épurer la carte (outils libre-service masqués) + grille lookbook */
+  body.presentation-mode .compare-btn { display: none !important; }
+  body.presentation-mode .fav-btn { display: none !important; }
+  body.presentation-mode .img-count-badge { display: none !important; }
+  body.presentation-mode .products-grid { gap: 28px; }
+  body.presentation-mode .product-card { cursor: pointer; }
+  body.presentation-mode .product-img { height: 360px; }
+  body.presentation-mode .product-ref { font-size: 16px; }
+  body.presentation-mode .product-desc { font-size: 13px; line-height: 1.5; }
+  @media (min-width: 1024px) {
+    body.presentation-mode .products-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+    body.presentation-mode .product-img { height: 460px; }
   }
-  @media (min-width: 641px) {
-    #present-btn { display: none !important; }
-  }
+  /* Bouton Présenter — disponible sur toutes tailles (tablette/écran showroom) */
+  #present-btn { display: block; }
+  body.presentation-mode #present-btn { display: none !important; } /* on quitte via .pres-exit */
 
   /* ── Modal générique ── */
   .gmodal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: var(--z-modal); align-items: center; justify-content: center; padding: 20px; }
@@ -2429,19 +2436,29 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 // Escape handling consolidated in the single listener above
 
-// ── Mode présentation ─────────────────────────────────
-function togglePresentation() {
-  const on = document.body.classList.toggle('presentation-mode');
-  if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
-  if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
-}
+// ── Mode présentation (showroom) ──────────────────────
+// Une seule fonction : plein écran immersif + écran maintenu allumé.
+function togglePresentation() { togglePresentationMode(); }
 
 function togglePresentationMode() {
   const on = document.body.classList.toggle('presentation-mode');
   const btn = document.getElementById('present-btn');
   if (btn) btn.textContent = on ? '✕ Quitter' : '👁 Présenter';
-  if (on) requestWakeLock();
+  if (on) {
+    requestWakeLock(); // écran maintenu allumé pendant la présentation
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    releaseWakeLock();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    window.scrollTo({ top: 0 });
+  }
 }
+// Sortie du plein écran (touche Échap) → quitter proprement le mode présentation
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && document.body.classList.contains('presentation-mode')) {
+    togglePresentationMode();
+  }
+});
 
 // ── Toggle thème manuel ───────────────────────────────
 function toggleTheme() {
