@@ -1181,7 +1181,7 @@
 
 <!-- MODAL PRODUCTS -->
 <div class="modal-overlay" id="modal-products">
-  <div class="modal" style="max-width:1200px">
+  <div class="modal" style="max-width:1500px;padding:24px 20px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
       <span style="font-size:12px;color:#666;cursor:pointer" onclick="closeModal('modal-products')" data-t="nav_brands">Marques</span>
       <span style="color:#444">›</span>
@@ -1990,6 +1990,21 @@ document.querySelectorAll('nav a').forEach(a => {
   });
 });
 
+// Bascule programmatique vers une section (réutilise la logique de navigation ci-dessus).
+function showSection(name) {
+  const link = document.querySelector(`nav a[data-section="${name}"]`);
+  if (link) link.click();
+}
+
+// Réinitialise les filtres de la section Commandes puis ré-applique.
+function resetOrderFilters() {
+  const s = document.getElementById('orders-search'); if (s) s.value = '';
+  const b = document.getElementById('orders-filter-brand'); if (b) b.value = '';
+  const st = document.getElementById('orders-filter-status'); if (st) st.value = '';
+  const so = document.getElementById('orders-sort'); if (so) so.value = 'date_desc';
+  filterOrders();
+}
+
 let currentUserRole = null;
 let currentUserBrandId = null;
 async function initUserRole() {
@@ -2547,7 +2562,7 @@ function globalSearch(q) {
     let html = '';
     if (orders.length) {
       html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Commandes</div>`;
-      html += orders.map(o => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>openOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+      html += orders.map(o => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>viewOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
         <span style="font-size:18px">📋</span>
         <div><div style="font-size:13px;color:#eee"><strong>${esc(o.order_number||o.id.slice(0,8).toUpperCase())}</strong> — ${esc(o.client_name||'')} <span style="color:#555">${esc(o.brand_name||'')}</span></div><div style="font-size:11px;color:#666">${esc(o.client_email||'')} · <span class="badge badge-${o.status}">${o.status}</span></div></div>
       </div>`).join('');
