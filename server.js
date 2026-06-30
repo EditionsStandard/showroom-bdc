@@ -77,7 +77,8 @@ app.use(helmet({
       styleSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'"],
+      mediaSrc: ["'self'", "https://res.cloudinary.com", "blob:"], // lecture vidéo Cloudinary
+      connectSrc: ["'self'", "https://api.cloudinary.com"], // upload vidéo direct signé
     }
   }
 }));
@@ -589,7 +590,7 @@ app.get('/api/brands/:brandId/products', requireBrandScope('owner','agent','desi
 });
 
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   // Upsert: update existing product with same reference in this brand
   const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [req.params.brandId, reference]);
@@ -601,13 +602,14 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
     set('price', price > 0 ? price : undefined); set('price_retail', price_retail > 0 ? price_retail : undefined);
     set('image_url', image_url); set('collection_name', collection_name);
     set('category', category); set('composition', composition);
+    if (video_url !== undefined) { fields.push(`video_url=$${vals.push(video_url)}`); } // permet aussi de vider
     if (fields.length) { vals.push(eid); await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals); }
     return res.json({ id: eid, updated: true });
   }
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null]
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id,video_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'']
   );
   res.json({ id });
 });
@@ -630,10 +632,10 @@ async function checkProductBrandScope(req, res) {
 app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
   try {
     if (!await checkProductBrandScope(req, res)) return;
-    const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id } = req.body;
+    const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
     await pool.query(
-      'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14 WHERE id=$15',
-      [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, req.params.id]
+      'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14,video_url=$15 WHERE id=$16',
+      [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'', req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -936,6 +938,18 @@ app.get('/api/admin/cloudinary-check', requireRole('owner'), async (req, res) =>
   } catch(e) {
     res.json({ configured: cfg, test: { ok: false, error: e.message || String(e), http_code: e.http_code || null } });
   }
+});
+
+// Signature pour upload direct navigateur → Cloudinary (vidéos surtout) : évite de
+// faire transiter de gros fichiers par le serveur. On ne signe que folder + timestamp.
+app.get('/api/cloudinary-signature', requireRole('owner','agent','designer'), (req, res) => {
+  if (!process.env.CLOUDINARY_API_SECRET || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_CLOUD_NAME) {
+    return res.status(503).json({ error: 'Cloudinary non configuré' });
+  }
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = 'showroom/videos';
+  const signature = cloudinary.utils.api_sign_request({ timestamp, folder }, process.env.CLOUDINARY_API_SECRET);
+  res.json({ signature, timestamp, folder, apiKey: process.env.CLOUDINARY_API_KEY, cloudName: process.env.CLOUDINARY_CLOUD_NAME });
 });
 
 const uploadPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -2352,7 +2366,7 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
   try {
     const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, subscription_status, lookbook_url, default_currency FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
-    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
+    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load
     for (const prod of p.rows) {
       pool.query(

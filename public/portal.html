@@ -1221,6 +1221,7 @@ function applyLang() {
       <div id="drawer-color" class="drawer-meta"></div>
       <div id="drawer-composition" class="drawer-meta"></div>
       <div class="drawer-desc" id="drawer-desc"></div>
+      <div id="drawer-video" style="margin:12px 0"></div>
       <div id="drawer-stock-badge" style="display:none;margin-bottom:8px"></div>
       <div class="drawer-sep"></div>
       <div class="drawer-sizes-title" id="drawer-sizes-title">Quantités</div>
@@ -2056,6 +2057,7 @@ function renderProductsPage() {
     if (!imgs.length && p.image_url) imgs = [p.image_url];
     const imgsJson = esc(JSON.stringify(imgs));
     const imgBadge = imgs.length > 1 ? `<span class="img-count-badge">${imgs.length} 📷</span>` : '';
+    const videoBadge = p.video_url ? `<span class="img-count-badge" style="right:auto;left:8px">▶ Vidéo</span>` : '';
     const isNew = p.created_at && (nowMs - new Date(p.created_at).getTime()) < 30 * 24 * 3600 * 1000;
     const isFav = favorites.has(p.id);
     const badgeNew = isNew ? `<span class="badge-new">NEW</span>` : '';
@@ -2064,9 +2066,9 @@ function renderProductsPage() {
       ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
           <img class="product-img product-img-1" src="${esc(imgs[0])}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
           ${imgs[1] ? `<img class="product-img-2" src="${esc(imgs[1])}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
-          ${imgBadge}${badgeNew}${favBtn}
+          ${imgBadge}${videoBadge}${badgeNew}${favBtn}
          </div>`
-      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${badgeNew}${favBtn}</div>`;
+      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${videoBadge}${badgeNew}${favBtn}</div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
     const _isOutOfStock = p.stock_enabled && p.stock_qty === 0;
@@ -3011,6 +3013,25 @@ function openProductDrawer(productId) {
   document.getElementById('drawer-color').textContent = p.color ? t('coloris_label', p.color) : '';
   document.getElementById('drawer-composition').textContent = p.composition ? t('composition_label', p.composition) : '';
   document.getElementById('drawer-desc').textContent = sentenceCase(p.description || '');
+
+  // Vidéo (défilé/mannequin) — chargement paresseux : poster seul, rien ne se
+  // télécharge tant que l'acheteur ne lance pas la lecture (preload="none").
+  const videoEl = document.getElementById('drawer-video');
+  if (p.video_url) {
+    const src = p.video_url.includes('res.cloudinary.com')
+      ? p.video_url.replace('/upload/', '/upload/q_auto,w_720/') // rendu allégé pour l'acheteur
+      : p.video_url;
+    const poster = p.video_url.includes('res.cloudinary.com')
+      ? p.video_url.replace('/upload/', '/upload/so_0,w_720,q_auto/').replace(/\.[a-zA-Z0-9]+$/, '.jpg')
+      : '';
+    videoEl.innerHTML = `<video src="${esc(src)}" ${poster ? `poster="${esc(poster)}"` : ''} preload="none" muted playsinline controls
+      style="width:100%;max-height:60vh;border-radius:8px;background:#000;display:block"></video>
+      <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:6px">▶ Vidéo collection</div>`;
+    videoEl.style.display = 'block';
+  } else {
+    videoEl.innerHTML = '';
+    videoEl.style.display = 'none';
+  }
 
   // Gallery
   const prev = document.getElementById('drawer-prev');
