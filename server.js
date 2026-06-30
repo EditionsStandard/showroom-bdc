@@ -3772,19 +3772,24 @@ async function generateLinesheetPDF(brandId, seasonId) {
   // Cloudinary : on force un JPEG borné (PDFKit n'accepte que JPEG/PNG, pas webp).
   const imageBuffers = {};
   await Promise.all(prods.rows.map(async (p) => {
-    const img = getFirstImage(p);
-    if (!img) return;
+    let img = getFirstImage(p);
+    // tolère un objet {url|src|secure_url} au lieu d'une chaîne
+    if (img && typeof img === 'object') img = img.url || img.src || img.secure_url || null;
+    if (!img || typeof img !== 'string') return;
     try {
       if (img.startsWith('data:image')) {
         imageBuffers[p.id] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
       } else if (/^https?:\/\//i.test(img)) {
+        // PNG forcé : PDFKit n'accepte ni le webp ni le JPEG progressif (que Cloudinary
+        // peut servir). w_500 borne la taille. f_png garantit la compatibilité.
         const url = img.includes('res.cloudinary.com')
-          ? img.replace('/upload/', '/upload/w_400,h_400,c_limit,f_jpg,q_80/')
+          ? img.replace('/upload/', '/upload/w_500,c_limit,f_png/')
           : img;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (resp.ok) imageBuffers[p.id] = Buffer.from(await resp.arrayBuffer());
+        else console.error('[linesheet-img] HTTP', resp.status, url);
       }
-    } catch(e) { /* placeholder en repli */ }
+    } catch(e) { console.error('[linesheet-img] échec', p.reference || p.id, e.message); }
   }));
 
   let logoBuf = null;
