@@ -1666,6 +1666,29 @@
   </div>
 </div>
 
+<!-- MODAL FICHE ACHETEUR 360° -->
+<div class="modal-overlay" id="modal-buyer-profile">
+  <div class="modal" style="max-width:760px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">
+      <h3 style="margin:0">👤 <span id="bp-name"></span></h3>
+      <span id="bp-status" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px"></span>
+    </div>
+    <div id="bp-contact" style="font-size:13px;color:#aaa;margin-bottom:16px"></div>
+    <div id="bp-kpis" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Commandes</div>
+    <div class="table-wrap" style="margin-bottom:18px"><table style="margin:0"><thead><tr><th>N°</th><th>Date</th><th>Marque</th><th style="text-align:right">Total HT</th><th>Statut</th></tr></thead><tbody id="bp-orders"></tbody></table></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Rendez-vous</div>
+    <div id="bp-appts" style="margin-bottom:18px"></div>
+    <div id="bp-notes-wrap" style="display:none;background:var(--black);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🔒 Notes internes</div>
+      <div id="bp-notes" style="font-size:13px;color:#ccc;white-space:pre-wrap"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-buyer-profile')" data-t="btn_close">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -4640,6 +4663,7 @@ function renderBuyersPage() {
       <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
       <td style="font-size:11px;color:#666">${lastSeen}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#0a1f1a;color:#2ecc71;border:1px solid #2ecc7133" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${JSON.stringify(b)})">${t('btn_modify')}</button>
         <button class="btn btn-sm" style="background:#1a1a2a;color:#a78bfa;border:1px solid #a78bfa33" onclick="openBuyerTagsNotes(${JSON.stringify(b)})" title="Tags & notes internes">🏷 Tags</button>
         <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
@@ -5362,6 +5386,60 @@ async function submitCsvImport() {
     status.textContent = 'Erreur réseau : ' + e.message;
     submitBtn.disabled = false;
     submitBtn.style.opacity = '1';
+  }
+}
+
+// ── Fiche acheteur 360° ──────────────────────────────────────────────
+async function openBuyerProfile(id) {
+  openModal('modal-buyer-profile');
+  document.getElementById('bp-name').textContent = '…';
+  document.getElementById('bp-contact').textContent = '';
+  document.getElementById('bp-kpis').innerHTML = '';
+  document.getElementById('bp-orders').innerHTML = '';
+  document.getElementById('bp-appts').innerHTML = '';
+  document.getElementById('bp-notes-wrap').style.display = 'none';
+  let d;
+  try { d = await fetch('/api/admin/buyers/' + id + '/profile').then(r => r.json()); }
+  catch(e) { document.getElementById('bp-name').textContent = 'Erreur de chargement'; return; }
+  if (!d || d.error) { document.getElementById('bp-name').textContent = (d && d.error) || 'Erreur'; return; }
+  const b = d.buyer, orders = d.orders || [], appts = d.appointments || [];
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  const eur = n => (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+  const totalCA = orders.filter(o => o.status !== 'cancelled').reduce((s,o)=>s+(Number(o.total)||0),0);
+
+  document.getElementById('bp-name').textContent = b.name || b.email;
+  const st = document.getElementById('bp-status');
+  const isClient = orders.some(o => o.status !== 'cancelled');
+  st.textContent = isClient ? 'CLIENT' : 'PROSPECT';
+  st.style.background = isClient ? '#0a2a14' : '#2a230a';
+  st.style.color = isClient ? '#2ecc71' : '#e0b000';
+
+  document.getElementById('bp-contact').innerHTML =
+    `${esc(b.company||'—')} · <a href="mailto:${encodeURIComponent(b.email)}" style="color:#CCEB3C">${esc(b.email)}</a>` +
+    (b.phone ? ` · ${esc(b.phone)}` : '') + (b.country ? ` · ${esc(b.country)}` : '') +
+    (b.last_seen_at ? `<br><span style="font-size:11px;color:#666">Dernière visite : ${new Date(b.last_seen_at).toLocaleString(locale)}</span>` : '');
+
+  const kpi = (label, val) => `<div class="card" style="flex:1;min-width:110px;padding:12px 14px"><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px">${label}</div><div style="font-size:20px;font-weight:700;color:#fff;margin-top:3px">${val}</div></div>`;
+  document.getElementById('bp-kpis').innerHTML =
+    kpi('Commandes', orders.filter(o=>o.status!=='cancelled').length) + kpi('CA HT total', eur(totalCA)) + kpi('Rendez-vous', appts.length);
+
+  document.getElementById('bp-orders').innerHTML = orders.length ? orders.map(o => `<tr>
+    <td style="font-family:monospace;font-size:11px">${esc(o.order_number || o.id.slice(0,8))}</td>
+    <td>${new Date(o.created_at).toLocaleDateString(locale)}</td>
+    <td>${esc(o.brand_name||'')}</td>
+    <td style="text-align:right"><strong>${eur(o.total)}</strong></td>
+    <td><span class="badge badge-${(STATUS_BADGE&&STATUS_BADGE[o.status])||'confirmed'}">${(STATUS_LABEL?STATUS_LABEL():{})[o.status]||o.status}</span></td>
+  </tr>`).join('') : `<tr><td colspan="5" style="color:#666;text-align:center;padding:12px">Aucune commande</td></tr>`;
+
+  document.getElementById('bp-appts').innerHTML = appts.length ? appts.map(a => `<div style="display:flex;gap:10px;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid #1a1a1a">
+    <span style="color:#CCEB3C;font-weight:600;min-width:140px">${esc(a.slot_date)} · ${esc(a.slot_time)}</span>
+    <span style="color:#aaa">${esc(a.brand_name||'')}</span>
+    ${a.notes ? `<span style="color:#666;font-size:11px">— ${esc(a.notes)}</span>` : ''}
+  </div>`).join('') : `<div style="color:#666;font-size:13px">Aucun rendez-vous</div>`;
+
+  if (b.internal_notes) {
+    document.getElementById('bp-notes').textContent = b.internal_notes;
+    document.getElementById('bp-notes-wrap').style.display = 'block';
   }
 }
 
