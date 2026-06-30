@@ -2834,7 +2834,11 @@ function openCarousel(imgs, idx) {
 }
 
 function renderCarousel() {
-  document.getElementById('img-modal-src').src = carouselImgs[carouselIdx];
+  const mImg = document.getElementById('img-modal-src');
+  mImg.style.visibility = ''; // réinitialise si une image précédente avait échoué (onerror)
+  mImg.style.transform = '';
+  mImg.classList.remove('zoomed');
+  mImg.src = carouselImgs[carouselIdx];
   const n = carouselImgs.length;
   document.getElementById('img-prev').style.display = n > 1 ? 'flex' : 'none';
   document.getElementById('img-next').style.display = n > 1 ? 'flex' : 'none';
