@@ -225,7 +225,6 @@
 
   /* ── Mode présentation ── */
   body.presentation-mode .header { display: none !important; }
-  body.presentation-mode .cart-bar { display: none !important; }
   body.presentation-mode .mobile-nav { display: none !important; }
   body.presentation-mode .header .nav { display: none; }
   body.presentation-mode #user-menu { display: none; }
@@ -256,11 +255,8 @@
     pointer-events: none; font-weight: 700; text-transform: uppercase;
   }
   body.presentation-mode .pres-indicator { display: block; }
-  /* Masquer prix + qtés en mode présentation */
-  body.presentation-mode .qty-row { display: none !important; }
-  body.presentation-mode .price-block { display: none !important; }
-  body.presentation-mode .product-price { display: none !important; }
-  body.presentation-mode .cart-badge { display: none !important; }
+  /* Showroom : prix + quantités VISIBLES (prise de commande devant l'acheteur) ;
+     barre panier conservée pour voir le total et valider. */
   /* Showroom : épurer la carte (outils libre-service masqués) + grille lookbook */
   body.presentation-mode .compare-btn { display: none !important; }
   body.presentation-mode .fav-btn { display: none !important; }
