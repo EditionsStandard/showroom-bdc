@@ -3124,8 +3124,17 @@ function toggleBrightMode() {
 if (localStorage.getItem('bright_mode')) document.body.classList.add('bright-mode');
 
 // ── PWA — Service Worker ───────────────────────────────
+// Auto-mise à jour : quand une nouvelle version du SW prend la main
+// (skipWaiting + clients.claim côté sw.js), on recharge une fois la page pour
+// que tout le contenu passe par le nouveau SW. Évite d'avoir à vider le cache
+// manuellement après un déploiement.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').then(reg => { try { reg.update(); } catch(e) {} }).catch(() => {});
+  let _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swReloaded) return; _swReloaded = true;
+    location.reload();
+  });
 }
 
 // ── Logout complet ────────────────────────────────────
