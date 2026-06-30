@@ -2756,6 +2756,41 @@ app.get('/api/brands/:brandId/product-stats', requireBrandScope('owner','agent',
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Rapport de ventes agrégé par marque — partageable avec la marque (designer scopé
+// à sa marque ; owner/agent à n'importe quelle marque). Données agrégées : pas de
+// contacts acheteurs individuels (relations prospect gardées côté agence).
+app.get('/api/brands/:brandId/sales-report', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const bid = req.params.brandId;
+    const [summary, top, monthly, rdv] = await Promise.all([
+      pool.query(`SELECT COUNT(DISTINCT o.id)::int AS orders,
+                         COALESCE(SUM(ol.quantity),0)::int AS units,
+                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue,
+                         COUNT(DISTINCT o.client_email)::int AS buyers
+                  FROM orders o JOIN order_lines ol ON ol.order_id=o.id
+                  WHERE o.brand_id=$1 AND o.status <> 'cancelled'`, [bid]),
+      pool.query(`SELECT p.reference, p.description,
+                         SUM(ol.quantity)::int AS units,
+                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
+                  FROM order_lines ol
+                  JOIN orders o ON o.id=ol.order_id
+                  JOIN products p ON p.id=ol.product_id
+                  WHERE o.brand_id=$1 AND o.status <> 'cancelled'
+                  GROUP BY p.id, p.reference, p.description
+                  ORDER BY units DESC LIMIT 10`, [bid]),
+      pool.query(`SELECT to_char(date_trunc('month', o.created_at),'YYYY-MM') AS month,
+                         COUNT(DISTINCT o.id)::int AS orders,
+                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
+                  FROM orders o JOIN order_lines ol ON ol.order_id=o.id
+                  WHERE o.brand_id=$1 AND o.status <> 'cancelled'
+                        AND o.created_at > NOW() - INTERVAL '12 months'
+                  GROUP BY 1 ORDER BY 1`, [bid]),
+      pool.query(`SELECT COUNT(*)::int AS rdv FROM appointments WHERE brand_id=$1`, [bid])
+    ]);
+    res.json({ summary: summary.rows[0], top: top.rows, monthly: monthly.rows, rdv: rdv.rows[0].rdv });
+  } catch(e) { console.error('sales-report:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json([]);
