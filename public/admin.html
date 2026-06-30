@@ -4038,25 +4038,25 @@ async function handleVariantImageUpload(input, vi) {
   const files = Array.from(input.files);
   if (!files.length) return;
   toast(`Upload de ${files.length} photo(s)…`);
-  let added = 0, errors = 0;
+  let added = 0, errors = 0, lastErr = '';
   for (const file of files) {
     try {
       const fd = new FormData();
       fd.append('image', file);
       const r = await fetch('/api/upload-image', { method: 'POST', body: fd });
       const data = await r.json();
-      if (!r.ok || !data.url) throw new Error(data.error || 'Upload failed');
+      if (!r.ok || !data.url) throw new Error(data.detail || data.error || 'Upload failed');
       currentVariants[vi].images.push(data.url);
       added++;
     } catch(err) {
       console.error('Variant image error:', file.name, err.message);
-      errors++;
+      lastErr = err.message; errors++;
     }
   }
   input.value = '';
   renderVariantsList();
-  if (errors > 0 && added === 0) toast(`Erreur upload ${errors} fichier(s).`, true);
-  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s)`, true);
+  if (errors > 0 && added === 0) toast(`Erreur upload ${errors} fichier(s) : ${lastErr}`, true);
+  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s) : ${lastErr}`, true);
   else toast(`${added} photo(s) ajoutée(s)`);
 }
 
@@ -4116,25 +4116,25 @@ async function handleImageUpload(input) {
   const files = Array.from(input.files);
   if (!files.length) return;
   toast(`Upload de ${files.length} photo(s)…`);
-  let added = 0, errors = 0;
+  let added = 0, errors = 0, lastErr = '';
   for (const file of files) {
     try {
       const fd = new FormData();
       fd.append('image', file);
       const r = await fetch('/api/upload-image', { method: 'POST', body: fd });
       const data = await r.json();
-      if (!r.ok || !data.url) throw new Error(data.error || 'Upload failed');
+      if (!r.ok || !data.url) throw new Error(data.detail || data.error || 'Upload failed');
       currentImages.push(data.url);
       added++;
     } catch(err) {
       console.error('Image upload error:', file.name, err.message);
-      errors++;
+      lastErr = err.message; errors++;
     }
   }
   input.value = '';
   renderImagesGrid();
-  if (errors > 0 && added === 0) toast(`Erreur upload ${errors} fichier(s).`, true);
-  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s)`, true);
+  if (errors > 0 && added === 0) toast(`Erreur upload ${errors} fichier(s) : ${lastErr}`, true);
+  else if (errors > 0) toast(`${added} photo(s) ajoutée(s), ${errors} ignorée(s) : ${lastErr}`, true);
   else toast(`${added} photo(s) ajoutée(s)`);
 }
 

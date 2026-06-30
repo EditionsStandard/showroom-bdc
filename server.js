@@ -912,7 +912,29 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.si
     });
     res.json({ url: result.secure_url });
   } catch(e) {
-    console.error(e); res.status(500).json({ error: "Erreur serveur" });
+    // Les utilisateurs de cette route sont internes (owner/agent/designer) : on remonte
+    // le motif réel (ex. « Invalid api_key », « disabled account ») pour diagnostic.
+    console.error('[upload-image] Cloudinary:', e.message);
+    res.status(502).json({ error: "Échec de l'envoi de l'image", detail: e.message || String(e) });
+  }
+});
+
+// Diagnostic Cloudinary (owner) : indique si les variables d'env sont présentes et
+// tente un mini upload de test (PNG 1×1) pour révéler l'erreur exacte côté navigateur,
+// sans jamais exposer les secrets eux-mêmes.
+app.get('/api/admin/cloudinary-check', requireRole('owner'), async (req, res) => {
+  const cfg = {
+    cloud_name: !!process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: !!process.env.CLOUDINARY_API_KEY,
+    api_secret: !!process.env.CLOUDINARY_API_SECRET,
+    cloud_name_value: process.env.CLOUDINARY_CLOUD_NAME || null // le cloud_name n'est pas secret (visible dans chaque URL)
+  };
+  const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  try {
+    const r = await cloudinary.uploader.upload(tinyPng, { folder: 'showroom/_diag', public_id: 'cloudinary-check', overwrite: true });
+    res.json({ configured: cfg, test: { ok: true, secure_url: r.secure_url } });
+  } catch(e) {
+    res.json({ configured: cfg, test: { ok: false, error: e.message || String(e), http_code: e.http_code || null } });
   }
 });
 
