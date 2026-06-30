@@ -4028,11 +4028,31 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.description as product_name, p.color, ol.note
+    SELECT ol.*, p.reference, p.description as product_name, p.color, p.image_url, p.images, ol.note
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
   const lines = lRes.rows;
+
+  // Pré-chargement des vignettes produit (PNG borné → compatible PDFKit) pour le
+  // récapitulatif visuel. Dédupliqué par produit. Échec d'une image = simplement omise.
+  const lineImages = {};
+  await Promise.all([...new Set(lines.map(l => l.product_id))].map(async (pid) => {
+    const l = lines.find(x => x.product_id === pid);
+    let img = l.image_url;
+    if (!img && l.images) { try { const arr = JSON.parse(l.images); img = Array.isArray(arr) ? arr[0] : null; } catch(e) {} }
+    if (img && typeof img === 'object') img = img.url || img.src || img.secure_url || null;
+    if (!img || typeof img !== 'string') return;
+    try {
+      if (img.startsWith('data:image')) {
+        lineImages[pid] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+      } else if (/^https?:\/\//i.test(img)) {
+        const url = img.includes('res.cloudinary.com') ? img.replace('/upload/', '/upload/w_300,h_300,c_limit,f_png/') : img;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) lineImages[pid] = Buffer.from(await resp.arrayBuffer());
+      }
+    } catch(e) { console.error('[order-pdf-img]', l.reference || pid, e.message); }
+  }));
 
   const [showroomName, agentName, agentTitle, globalCgv] = await Promise.all([
     getSetting('showroom_name'), getSetting('agent_name'),
@@ -4209,6 +4229,34 @@ async function generateOrderPDF(orderId) {
 
     doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
       .text(`Document généré automatiquement — ${showroomName}`, 50, sigY + 130, { align: 'center', width: 495 });
+
+    // ── Récapitulatif visuel (photos des articles commandés) ──
+    const visualLines = lines.filter(l => lineImages[l.product_id]);
+    if (visualLines.length) {
+      doc.addPage();
+      doc.fontSize(14).fillColor('#0a0a0a').font('Helvetica-Bold').text('Récapitulatif visuel', 50, 50);
+      doc.fontSize(8.5).fillColor('#888').font('Helvetica')
+        .text(`${order.brand_name} — Commande N° ${order.order_number || orderId.slice(0,8).toUpperCase()}`, 50, 70);
+      doc.moveTo(50, 86).lineTo(545, 86).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+      const cardW = 156, gap = 11, imgH = 150;
+      const startX = 50;
+      let cx = startX, cy = 100, colIdx = 0;
+      visualLines.forEach(line => {
+        if (cy + imgH + 46 > 800) { doc.addPage(); cy = 50; cx = startX; colIdx = 0; }
+        doc.rect(cx, cy, cardW, imgH).fillColor('#f2f2f2').fill();
+        try { doc.image(lineImages[line.product_id], cx, cy, { fit: [cardW, imgH], align: 'center', valign: 'center' }); } catch(e) { /* format non supporté → fond gris */ }
+        let ty = cy + imgH + 5;
+        doc.fontSize(8.5).fillColor('#0a0a0a').font('Helvetica-Bold').text(line.reference || '', cx, ty, { width: cardW });
+        ty += 12;
+        const meta = [line.color, line.size].filter(Boolean).join(' · ');
+        if (meta) { doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(meta, cx, ty, { width: cardW }); ty += 10; }
+        doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text('Qté : ' + line.quantity, cx, ty, { width: cardW });
+        colIdx++;
+        if (colIdx >= 3) { colIdx = 0; cx = startX; cy += imgH + 46; }
+        else { cx += cardW + gap; }
+      });
+    }
 
     doc.end();
   });
