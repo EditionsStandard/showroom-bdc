@@ -2096,9 +2096,14 @@ window.addEventListener('online', () => {
 });
 window.addEventListener('offline', updateOfflineBanner);
 
-// Register Service Worker
+// Register Service Worker (auto-reload quand une nouvelle version prend la main)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').then(reg => { try { reg.update(); } catch(e) {} }).catch(() => {});
+  let _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swReloaded) return; _swReloaded = true;
+    location.reload();
+  });
 }
 
 init().then(() => {

@@ -206,19 +206,19 @@
   .msg.error { color: var(--accent); }
   .product-img { cursor: zoom-in; }
   .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 10px; pointer-events: none; letter-spacing: .04em; }
-  .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: var(--z-modal); flex-direction: column; align-items: center; justify-content: center; }
+  .img-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: var(--z-modal); flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
-  .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; }
-  .img-modal-main img { max-width: 92vw; max-height: 82vh; object-fit: contain; user-select: none; }
-  .img-close { position: absolute; top: 16px; right: 16px; color: var(--soft); font-size: 28px; background: none; border: none; cursor: pointer; line-height: 1; padding: 10px; z-index: var(--z-card); font-family: 'Inter', sans-serif; font-weight: 300; }
-  .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--soft); font-size: 40px; width: 56px; height: 80px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
-  .img-nav:active { color: #fff; }
-  .img-nav-prev { left: 4px; }
-  .img-nav-next { right: 4px; }
+  .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; overflow: hidden; }
+  .img-modal-main img { max-width: 100vw; max-height: 84vh; object-fit: contain; user-select: none; background: #fff; -webkit-user-drag: none; }
+  .img-close { position: absolute; top: 16px; right: 16px; color: #111; font-size: 28px; background: rgba(255,255,255,.7); border-radius: 50%; border: none; cursor: pointer; line-height: 1; padding: 8px 12px; z-index: var(--z-card); font-family: 'Inter', sans-serif; font-weight: 300; }
+  .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.65); border-radius: 50%; border: none; color: #111; font-size: 34px; width: 48px; height: 48px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
+  .img-nav:active { background: #eee; }
+  .img-nav-prev { left: 10px; }
+  .img-nav-next { right: 10px; }
   .img-dots { display: flex; gap: 8px; padding: 16px 0 8px; }
-  .img-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); border: none; cursor: pointer; padding: 0; transition: background .2s; }
-  .img-dot.active { background: var(--accent); }
-  .img-counter { color: var(--muted); font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
+  .img-dot { width: 6px; height: 6px; border-radius: 50%; background: #ccc; border: none; cursor: pointer; padding: 0; transition: background .2s; }
+  .img-dot.active { background: #111; }
+  .img-counter { color: #555; font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
 
   /* ── Mode présentation ── */
   body.presentation-mode .header { display: none !important; }
@@ -2834,7 +2834,11 @@ function openCarousel(imgs, idx) {
 }
 
 function renderCarousel() {
-  document.getElementById('img-modal-src').src = carouselImgs[carouselIdx];
+  const mImg = document.getElementById('img-modal-src');
+  mImg.style.visibility = ''; // réinitialise si une image précédente avait échoué (onerror)
+  mImg.style.transform = '';
+  mImg.classList.remove('zoomed');
+  mImg.src = carouselImgs[carouselIdx];
   const n = carouselImgs.length;
   document.getElementById('img-prev').style.display = n > 1 ? 'flex' : 'none';
   document.getElementById('img-next').style.display = n > 1 ? 'flex' : 'none';
@@ -3124,8 +3128,17 @@ function toggleBrightMode() {
 if (localStorage.getItem('bright_mode')) document.body.classList.add('bright-mode');
 
 // ── PWA — Service Worker ───────────────────────────────
+// Auto-mise à jour : quand une nouvelle version du SW prend la main
+// (skipWaiting + clients.claim côté sw.js), on recharge une fois la page pour
+// que tout le contenu passe par le nouveau SW. Évite d'avoir à vider le cache
+// manuellement après un déploiement.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').then(reg => { try { reg.update(); } catch(e) {} }).catch(() => {});
+  let _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swReloaded) return; _swReloaded = true;
+    location.reload();
+  });
 }
 
 // ── Logout complet ────────────────────────────────────

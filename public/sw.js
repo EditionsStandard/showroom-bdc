@@ -3,8 +3,10 @@ const CACHE_NAME = 'es-showroom-v1'; // sera remplacé dynamiquement par le serv
 const STATIC_ASSETS = [
   '/logo.svg',
   '/editions-showroom-b2b-portail',
-  '/portal-login.html',
-  'https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap'
+  '/portal-login.html'
+  // NB : les polices Google ne sont PAS pré-cachées ici — la CSP (connect-src 'self')
+  // bloque tout fetch cross-origin du service worker. Le navigateur les charge
+  // directement via le <link> (autorisé par style-src/font-src).
 ];
 
 // Install: pre-cache static assets
@@ -33,6 +35,12 @@ self.addEventListener('fetch', e => {
 
   // Ignorer les schémas non-http (chrome-extension://, etc.) — non cachables
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+  // Ne PAS intercepter les requêtes cross-origin (Google Fonts, jsdelivr…) : le
+  // fetch() du service worker est régi par connect-src 'self' et serait bloqué,
+  // cassant le chargement. On laisse le navigateur les charger directement (le
+  // <link>/<script> sont autorisés par style-src/font-src/script-src).
+  if (url.origin !== self.location.origin) return;
 
   // API brand/products: Network-first, cache fallback
   if (url.pathname.startsWith('/api/public/brands') || url.pathname === '/api/public/cgv') {
