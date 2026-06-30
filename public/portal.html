@@ -552,7 +552,7 @@
 const TRANSLATIONS = {
   fr: {
     nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
-    dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_logout: '⏻ Déconnexion',
+    dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_favs: '♡ Mes favoris', dd_logout: '⏻ Déconnexion',
     all_collections: 'Toutes collections', all_categories: 'Toutes catégories',
     cgv_section_title: 'Conditions générales de vente',
     prof_name_required: 'Nom requis.', prof_saved: 'Profil mis à jour ✓',
@@ -679,7 +679,7 @@ const TRANSLATIONS = {
   },
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
-    dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_logout: '⏻ Log out',
+    dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_favs: '♡ My favourites', dd_logout: '⏻ Log out',
     all_collections: 'All collections', all_categories: 'All categories',
     cgv_section_title: 'Terms & Conditions',
     prof_name_required: 'Name required.', prof_saved: 'Profile updated ✓',
@@ -825,7 +825,11 @@ function applyLang() {
   _sid('dd-catalog', T.dd_catalog);
   _sid('dd-orders', T.dd_orders);
   _sid('dd-profile', T.dd_profile);
+  _sid('dd-favs', T.dd_favs);
   _sid('dd-logout', T.dd_logout);
+  // Bouton thème : libellé = action vers l'autre thème (cohérent avec toggleTheme)
+  const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  _sid('dd-theme', _isDark ? T.theme_light : T.theme_dark);
   _sid('lang-btn', T.lang_btn);
   // Cart view static labels
   const backBtn = document.querySelector('#view-cart .back-btn');
@@ -964,7 +968,7 @@ function applyLang() {
       <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
-      <button class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
+      <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
       <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
       <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
       <div class="dropdown-sep"></div>
@@ -1458,8 +1462,16 @@ document.addEventListener('keydown', e => {
   closeCgvModal();
 });
 
-function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
-function closeUserMenu() { document.getElementById('user-menu').classList.remove('open'); }
+function toggleUserMenu() {
+  const open = document.getElementById('user-menu').classList.toggle('open');
+  const pb = document.getElementById('present-btn'); // évite le chevauchement avec le menu
+  if (pb) pb.style.visibility = open ? 'hidden' : '';
+}
+function closeUserMenu() {
+  document.getElementById('user-menu').classList.remove('open');
+  const pb = document.getElementById('present-btn');
+  if (pb) pb.style.visibility = '';
+}
 document.addEventListener('click', e => {
   if (!document.getElementById('user-menu').contains(e.target)) closeUserMenu();
 });
