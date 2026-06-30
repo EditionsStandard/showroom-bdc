@@ -261,15 +261,22 @@
   body.presentation-mode .price-block { display: none !important; }
   body.presentation-mode .product-price { display: none !important; }
   body.presentation-mode .cart-badge { display: none !important; }
-  /* Bouton Présenter — mobile uniquement */
-  #present-btn { display: none; }
-  @media (max-width: 640px) {
-    #present-btn { display: block; }
-    body.presentation-mode #present-btn { display: block; }
+  /* Showroom : épurer la carte (outils libre-service masqués) + grille lookbook */
+  body.presentation-mode .compare-btn { display: none !important; }
+  body.presentation-mode .fav-btn { display: none !important; }
+  body.presentation-mode .img-count-badge { display: none !important; }
+  body.presentation-mode .products-grid { gap: 28px; }
+  body.presentation-mode .product-card { cursor: pointer; }
+  body.presentation-mode .product-img { height: 360px; }
+  body.presentation-mode .product-ref { font-size: 16px; }
+  body.presentation-mode .product-desc { font-size: 13px; line-height: 1.5; }
+  @media (min-width: 1024px) {
+    body.presentation-mode .products-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+    body.presentation-mode .product-img { height: 460px; }
   }
-  @media (min-width: 641px) {
-    #present-btn { display: none !important; }
-  }
+  /* Bouton Présenter — disponible sur toutes tailles (tablette/écran showroom) */
+  #present-btn { display: block; }
+  body.presentation-mode #present-btn { display: none !important; } /* on quitte via .pres-exit */
 
   /* ── Modal générique ── */
   .gmodal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: var(--z-modal); align-items: center; justify-content: center; padding: 20px; }
@@ -552,7 +559,7 @@
 const TRANSLATIONS = {
   fr: {
     nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
-    dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_logout: '⏻ Déconnexion',
+    dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_favs: '♡ Mes favoris', dd_logout: '⏻ Déconnexion',
     all_collections: 'Toutes collections', all_categories: 'Toutes catégories',
     cgv_section_title: 'Conditions générales de vente',
     prof_name_required: 'Nom requis.', prof_saved: 'Profil mis à jour ✓',
@@ -679,7 +686,7 @@ const TRANSLATIONS = {
   },
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
-    dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_logout: '⏻ Log out',
+    dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_favs: '♡ My favourites', dd_logout: '⏻ Log out',
     all_collections: 'All collections', all_categories: 'All categories',
     cgv_section_title: 'Terms & Conditions',
     prof_name_required: 'Name required.', prof_saved: 'Profile updated ✓',
@@ -825,7 +832,11 @@ function applyLang() {
   _sid('dd-catalog', T.dd_catalog);
   _sid('dd-orders', T.dd_orders);
   _sid('dd-profile', T.dd_profile);
+  _sid('dd-favs', T.dd_favs);
   _sid('dd-logout', T.dd_logout);
+  // Bouton thème : libellé = action vers l'autre thème (cohérent avec toggleTheme)
+  const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  _sid('dd-theme', _isDark ? T.theme_light : T.theme_dark);
   _sid('lang-btn', T.lang_btn);
   // Cart view static labels
   const backBtn = document.querySelector('#view-cart .back-btn');
@@ -964,7 +975,7 @@ function applyLang() {
       <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
-      <button class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
+      <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
       <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
       <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
       <div class="dropdown-sep"></div>
@@ -1458,8 +1469,16 @@ document.addEventListener('keydown', e => {
   closeCgvModal();
 });
 
-function toggleUserMenu() { document.getElementById('user-menu').classList.toggle('open'); }
-function closeUserMenu() { document.getElementById('user-menu').classList.remove('open'); }
+function toggleUserMenu() {
+  const open = document.getElementById('user-menu').classList.toggle('open');
+  const pb = document.getElementById('present-btn'); // évite le chevauchement avec le menu
+  if (pb) pb.style.visibility = open ? 'hidden' : '';
+}
+function closeUserMenu() {
+  document.getElementById('user-menu').classList.remove('open');
+  const pb = document.getElementById('present-btn');
+  if (pb) pb.style.visibility = '';
+}
 document.addEventListener('click', e => {
   if (!document.getElementById('user-menu').contains(e.target)) closeUserMenu();
 });
@@ -2417,19 +2436,29 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 // Escape handling consolidated in the single listener above
 
-// ── Mode présentation ─────────────────────────────────
-function togglePresentation() {
-  const on = document.body.classList.toggle('presentation-mode');
-  if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
-  if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
-}
+// ── Mode présentation (showroom) ──────────────────────
+// Une seule fonction : plein écran immersif + écran maintenu allumé.
+function togglePresentation() { togglePresentationMode(); }
 
 function togglePresentationMode() {
   const on = document.body.classList.toggle('presentation-mode');
   const btn = document.getElementById('present-btn');
   if (btn) btn.textContent = on ? '✕ Quitter' : '👁 Présenter';
-  if (on) requestWakeLock();
+  if (on) {
+    requestWakeLock(); // écran maintenu allumé pendant la présentation
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    releaseWakeLock();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    window.scrollTo({ top: 0 });
+  }
 }
+// Sortie du plein écran (touche Échap) → quitter proprement le mode présentation
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && document.body.classList.contains('presentation-mode')) {
+    togglePresentationMode();
+  }
+});
 
 // ── Toggle thème manuel ───────────────────────────────
 function toggleTheme() {
