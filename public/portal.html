@@ -133,7 +133,7 @@
   .search-bar input:focus { border-color: var(--accent); }
   .collection-filters { display: none; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .collection-filters::-webkit-scrollbar { display: none; }
-  .col-filter { display: inline-flex; align-items: center; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: transparent; font-family: 'Space Mono', monospace; border-radius: 20px; transition: border-color .15s, color .15s, background .15s; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-filter { display: inline-flex; align-items: center; flex-shrink: 0; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: transparent; font-family: 'Space Mono', monospace; border-radius: 20px; transition: border-color .15s, color .15s, background .15s; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-filter:hover { border-color: var(--soft); color: var(--white); }
   .col-filter.active { border-color: var(--accent); color: var(--black); background: var(--accent); }
   .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: default; transition: border-color .15s, box-shadow .15s; }
@@ -209,7 +209,10 @@
   .img-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: var(--z-modal); flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
   .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; overflow: hidden; }
-  .img-modal-main img { max-width: 100vw; max-height: 84vh; object-fit: contain; user-select: none; background: #fff; -webkit-user-drag: none; }
+  .img-modal-main img { max-width: 100vw; max-height: 84vh; object-fit: contain; user-select: none; background: #fff; -webkit-user-drag: none; touch-action: none; cursor: zoom-in; transition: transform .1s ease-out; will-change: transform; }
+  .img-modal-main img.zoomed { cursor: grab; transition: none; }
+  .img-modal-main img.zoomed:active { cursor: grabbing; }
+  .img-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-family: 'Inter', sans-serif; font-size: 11px; color: #aaa; letter-spacing: .03em; pointer-events: none; white-space: nowrap; }
   .img-close { position: absolute; top: 16px; right: 16px; color: #111; font-size: 28px; background: rgba(255,255,255,.7); border-radius: 50%; border: none; cursor: pointer; line-height: 1; padding: 8px 12px; z-index: var(--z-card); font-family: 'Inter', sans-serif; font-weight: 300; }
   .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.65); border-radius: 50%; border: none; color: #111; font-size: 34px; width: 48px; height: 48px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
   .img-nav:active { background: #eee; }
@@ -1189,6 +1192,7 @@ function applyLang() {
   </div>
   <div class="img-dots" id="img-dots"></div>
   <div class="img-counter" id="img-counter"></div>
+  <div class="img-hint" id="img-hint"></div>
 </div>
 
 <!-- Product drawer -->
@@ -2833,12 +2837,25 @@ function openCarousel(imgs, idx) {
   renderCarousel();
 }
 
+// Variante Cloudinary à la volée (sinon URL inchangée) — qualité étagée.
+function cldTransform(url, t) {
+  return (url && url.includes('res.cloudinary.com')) ? url.replace('/upload/', '/upload/' + t + '/') : url;
+}
+
 function renderCarousel() {
   const mImg = document.getElementById('img-modal-src');
   mImg.style.visibility = ''; // réinitialise si une image précédente avait échoué (onerror)
-  mImg.style.transform = '';
-  mImg.classList.remove('zoomed');
-  mImg.src = carouselImgs[carouselIdx];
+  zoomReset(mImg);            // réinitialise zoom/translation à chaque image
+  const base = carouselImgs[carouselIdx];
+  // Plein écran : version nette bornée. Zoom : version haute résolution chargée à la demande.
+  mImg.dataset.hi = cldTransform(base, 'w_2400,c_limit,q_auto:good,f_auto');
+  mImg.dataset.hiLoaded = '';
+  mImg.src = cldTransform(base, 'w_1600,c_limit,q_auto:good,f_auto');
+  initImageZoom();
+  const hint = document.getElementById('img-hint');
+  if (hint) hint.textContent = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches)
+    ? 'Pincez ou double-tap pour zoomer'
+    : 'Molette ou double-clic pour zoomer';
   const n = carouselImgs.length;
   document.getElementById('img-prev').style.display = n > 1 ? 'flex' : 'none';
   document.getElementById('img-next').style.display = n > 1 ? 'flex' : 'none';
@@ -2855,8 +2872,119 @@ function carouselGo(delta) {
 }
 
 function closeCarousel() {
+  const mImg = document.getElementById('img-modal-src');
+  zoomReset(mImg);
   document.getElementById('img-modal').classList.remove('open');
-  document.getElementById('img-modal-src').src = '';
+  mImg.src = '';
+}
+
+// ── Zoom du visionneur plein écran (pincer/molette + glisser) ──────────
+const zoomState = { scale: 1, tx: 0, ty: 0 };
+let _zStartDist = 0, _zStartScale = 1, _panStartX = 0, _panStartY = 0, _panTx = 0, _panTy = 0, _isPanning = false, _lastTap = 0, _mouseDown = false;
+
+function zoomIsActive() { return zoomState.scale > 1.02; }
+function _zApply(img) {
+  img.style.transform = `translate(${zoomState.tx}px, ${zoomState.ty}px) scale(${zoomState.scale})`;
+  img.classList.toggle('zoomed', zoomState.scale > 1.02);
+}
+function zoomReset(img) {
+  zoomState.scale = 1; zoomState.tx = 0; zoomState.ty = 0;
+  if (img) { img.style.transform = ''; img.classList.remove('zoomed'); }
+}
+function _touchDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+function _touchMid(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+function _ensureHiRes(img) {
+  if (zoomState.scale > 1.2 && img.dataset.hi && !img.dataset.hiLoaded) {
+    img.dataset.hiLoaded = '1';
+    img.src = img.dataset.hi; // version haute résolution pour voir les détails
+  }
+}
+// Zoom en gardant le point (cx,cy) fixe sous le curseur/doigt
+function _zoomAt(img, newScale, cx, cy) {
+  newScale = Math.max(1, Math.min(4, newScale));
+  const rect = img.getBoundingClientRect();
+  const dx = cx - (rect.left + rect.width / 2);
+  const dy = cy - (rect.top + rect.height / 2);
+  const ratio = newScale / zoomState.scale;
+  if (newScale <= 1) { zoomState.scale = 1; zoomState.tx = 0; zoomState.ty = 0; }
+  else {
+    zoomState.tx -= dx * (ratio - 1);
+    zoomState.ty -= dy * (ratio - 1);
+    zoomState.scale = newScale;
+  }
+  _zApply(img);
+  _ensureHiRes(img);
+}
+
+function initImageZoom() {
+  const img = document.getElementById('img-modal-src');
+  if (!img || img._zoomInit) return;
+  img._zoomInit = true;
+
+  // Desktop : molette
+  img.addEventListener('wheel', e => {
+    e.preventDefault();
+    _zoomAt(img, zoomState.scale * (1 - e.deltaY * 0.0016), e.clientX, e.clientY);
+  }, { passive: false });
+
+  // Desktop : double-clic
+  img.addEventListener('dblclick', e => {
+    e.preventDefault();
+    zoomIsActive() ? zoomReset(img) : _zoomAt(img, 2.5, e.clientX, e.clientY);
+  });
+
+  // Desktop : glisser à la souris quand zoomé
+  img.addEventListener('mousedown', e => {
+    if (!zoomIsActive()) return;
+    e.preventDefault(); _mouseDown = true;
+    _panStartX = e.clientX; _panStartY = e.clientY; _panTx = zoomState.tx; _panTy = zoomState.ty;
+  });
+  window.addEventListener('mousemove', e => {
+    if (!_mouseDown) return;
+    zoomState.tx = _panTx + (e.clientX - _panStartX);
+    zoomState.ty = _panTy + (e.clientY - _panStartY);
+    _zApply(img);
+  });
+  window.addEventListener('mouseup', () => { _mouseDown = false; });
+
+  // Mobile : pincer + glisser + double-tap
+  img.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      _zStartDist = _touchDist(e.touches); _zStartScale = zoomState.scale;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - _lastTap < 300) {
+        e.preventDefault();
+        zoomIsActive() ? zoomReset(img) : _zoomAt(img, 2.5, e.touches[0].clientX, e.touches[0].clientY);
+      }
+      _lastTap = now;
+      if (zoomIsActive()) {
+        _isPanning = true;
+        _panStartX = e.touches[0].clientX; _panStartY = e.touches[0].clientY;
+        _panTx = zoomState.tx; _panTy = zoomState.ty;
+      }
+    }
+  }, { passive: false });
+
+  img.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && _zStartDist > 0) {
+      e.preventDefault();
+      const mid = _touchMid(e.touches);
+      _zoomAt(img, _zStartScale * (_touchDist(e.touches) / _zStartDist), mid.x, mid.y);
+    } else if (e.touches.length === 1 && _isPanning && zoomIsActive()) {
+      e.preventDefault();
+      zoomState.tx = _panTx + (e.touches[0].clientX - _panStartX);
+      zoomState.ty = _panTy + (e.touches[0].clientY - _panStartY);
+      _zApply(img);
+    }
+  }, { passive: false });
+
+  img.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+      _isPanning = false; _zStartDist = 0;
+      if (zoomState.scale < 1.05) zoomReset(img); // recolle à 1 si pincé en dessous
+    }
+  });
 }
 
 // ── Product Drawer ──────────────────────────────────────
@@ -3007,8 +3135,12 @@ document.getElementById('img-dots').addEventListener('click', e => {
 document.getElementById('img-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCarousel();
 });
-document.getElementById('img-modal').addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+document.getElementById('img-modal').addEventListener('touchstart', e => {
+  // Pas de navigation par swipe quand on est zoomé ou en multi-touch (pincer/pan)
+  touchStartX = (e.touches.length === 1 && !zoomIsActive()) ? e.touches[0].clientX : null;
+}, { passive: true });
 document.getElementById('img-modal').addEventListener('touchend', e => {
+  if (touchStartX === null || zoomIsActive()) return;
   const dx = e.changedTouches[0].clientX - touchStartX;
   if (Math.abs(dx) > 40) carouselGo(dx < 0 ? 1 : -1);
 }, { passive: true });
