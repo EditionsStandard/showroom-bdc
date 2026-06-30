@@ -1057,6 +1057,7 @@ app.post('/api/public/appointments', publicLimiter, async (req, res) => {
       if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
       throw e;
     }
+    airtableTouchStore(email).catch(() => {}); // reflète le RDV dans le CRM Airtable
     // Send confirmation emails (non-blocking)
     sendAppointmentConfirmationEmail({ id, brand_id, client_name: name, client_email: email, client_phone: phone, slot_date, slot_time, notes: note }).catch(e => console.error('RDV email error:', e.message));
     res.json({ ok: true, id });
@@ -2791,6 +2792,31 @@ app.get('/api/brands/:brandId/sales-report', requireBrandScope('owner','agent','
   } catch(e) { console.error('sales-report:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Fiche acheteur 360° : infos + commandes + RDV (vue relation, owner/agent).
+app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const bRes = await pool.query(
+      'SELECT id, email, name, company, phone, country, tags, internal_notes, created_at, last_seen_at FROM buyers WHERE id=$1',
+      [req.params.id]
+    );
+    const buyer = bRes.rows[0];
+    if (!buyer) return res.status(404).json({ error: 'Acheteur introuvable' });
+    const [orders, appts] = await Promise.all([
+      pool.query(`SELECT o.id, o.order_number, o.created_at, o.status, b.name AS brand_name,
+                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS total
+                  FROM orders o JOIN brands b ON b.id=o.brand_id
+                  LEFT JOIN order_lines ol ON ol.order_id=o.id
+                  WHERE o.buyer_id=$1 OR LOWER(o.client_email)=LOWER($2)
+                  GROUP BY o.id, b.name ORDER BY o.created_at DESC`, [req.params.id, buyer.email]),
+      pool.query(`SELECT a.id, a.slot_date, a.slot_time, a.notes, b.name AS brand_name
+                  FROM appointments a JOIN brands b ON b.id=a.brand_id
+                  WHERE LOWER(a.client_email)=LOWER($1)
+                  ORDER BY a.slot_date DESC, a.slot_time DESC`, [buyer.email])
+    ]);
+    res.json({ buyer, orders: orders.rows, appointments: appts.rows });
+  } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json([]);
@@ -3307,6 +3333,7 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
       [id, brand_id, buyer.name, buyer.email, buyer.phone||'', slot_date, slot_time, notes||'']
     );
     res.json({ ok: true, id });
+    airtableTouchStore(buyer.email).catch(() => {}); // reflète le RDV dans le CRM Airtable
   } catch(e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
     console.error(e); res.status(500).json({ error: "Erreur serveur" });
@@ -4546,6 +4573,27 @@ async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) 
       });
     } catch(e) { console.error('Airtable STORES patch error:', e.message); }
   }
+}
+
+// Touche la fiche STORE Airtable (Last Contact = aujourd'hui) sans rien écraser
+// d'autre — réutilise les champs connus. Sert à refléter l'activité showroom
+// (ex. prise de RDV) dans le CRM Airtable de l'agence.
+async function airtableTouchStore(clientEmail) {
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  if (!apiKey || !clientEmail) return;
+  const base = 'appquOEohNkpH6sbB';
+  const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+  try {
+    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${clientEmail.toLowerCase()}"&maxRecords=1`;
+    const sr = await fetch(searchUrl, { headers });
+    const sd = await sr.json();
+    const rec = sd.records && sd.records[0];
+    if (!rec) return;
+    await fetch(`https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm/${rec.id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ fields: { 'fldoXxM2cxB8pRWSj': new Date().toISOString().split('T')[0] } })
+    });
+  } catch(e) { console.error('Airtable touch error:', e.message); }
 }
 
 // ==================== SEASONS ====================
