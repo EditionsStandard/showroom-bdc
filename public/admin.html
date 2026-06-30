@@ -1295,6 +1295,19 @@
         <input type="hidden" id="p-img">
       </div>
 
+      <!-- Vidéo défilé (mannequin) -->
+      <div class="form-group" id="p-video-section">
+        <label>Vidéo <span style="color:#555;font-weight:400;font-size:11px">(défilé / mannequin — courte, ≤ 30 s recommandé)</span></label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+            🎬 Ajouter une vidéo
+            <input type="file" id="p-video-file" accept="video/*" style="display:none" onchange="handleVideoUpload(this)">
+          </label>
+          <span id="p-video-progress" style="font-size:12px;color:#888"></span>
+        </div>
+        <div id="p-video-preview" style="margin-top:4px"></div>
+      </div>
+
       <!-- Variantes couleur -->
       <div class="form-group">
         <label style="display:flex;align-items:center;justify-content:space-between">
@@ -3911,6 +3924,7 @@ async function toggleProductActive(id, newActive) {
 
 let currentImages = [];
 let currentVariants = []; // [{color, images:[]}]
+let currentVideoUrl = '';
 
 function resetProductForm() {
   currentImages = [];
@@ -3927,6 +3941,8 @@ function resetProductForm() {
   document.getElementById('p-price-retail').value = '';
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
+  currentVideoUrl = '';
+  renderVideoPreview();
   const stockEnabled = document.getElementById('edit-stock-enabled');
   if (stockEnabled) stockEnabled.checked = false;
   const stockQtyRow = document.getElementById('stock-qty-row');
@@ -3979,6 +3995,8 @@ function editProduct(p) {
   document.getElementById('p-price-retail').value = p.price_retail || '';
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
+  currentVideoUrl = p.video_url || '';
+  renderVideoPreview();
   // Stock
   const _stockEnabled = document.getElementById('edit-stock-enabled');
   if (_stockEnabled) _stockEnabled.checked = !!p.stock_enabled;
@@ -4175,7 +4193,8 @@ async function saveProduct() {
     price_retail: document.getElementById('p-price-retail').value,
     image_url: firstImg,
     images: currentImages,
-    variants: currentVariants
+    variants: currentVariants,
+    video_url: currentVideoUrl
   };
   let r;
   try {
@@ -4203,6 +4222,57 @@ async function saveProduct() {
     document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
     toast(id ? t('js_ref_updated') : t('js_ref_added'));
   } else toast(t('js_error'), true);
+}
+
+// ── Vidéo produit : upload direct signé vers Cloudinary (gros fichiers, hors serveur) ──
+function cldVideoPoster(url) {
+  // image d'aperçu générée par Cloudinary à partir de la 1re frame
+  if (!url || !url.includes('res.cloudinary.com')) return '';
+  return url.replace('/upload/', '/upload/so_0,w_400,q_auto/').replace(/\.[a-zA-Z0-9]+$/, '.jpg');
+}
+function renderVideoPreview() {
+  const el = document.getElementById('p-video-preview');
+  if (!el) return;
+  if (!currentVideoUrl) { el.innerHTML = '<span style="font-size:12px;color:#555">Aucune vidéo</span>'; return; }
+  el.innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <video src="${esc(currentVideoUrl)}#t=0.1" preload="metadata" muted playsinline controls style="max-width:220px;max-height:160px;border-radius:8px;background:#000"></video>
+    <button class="btn btn-danger btn-sm" type="button" onclick="removeVideo()">✕ Retirer la vidéo</button>
+  </div>`;
+}
+function removeVideo() { currentVideoUrl = ''; renderVideoPreview(); }
+
+async function handleVideoUpload(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('video/')) { toast('Fichier vidéo requis', true); return; }
+  if (file.size > 200 * 1024 * 1024) { toast('Vidéo trop lourde (max 200 Mo). Raccourcissez-la.', true); return; }
+  const prog = document.getElementById('p-video-progress');
+  try {
+    const sig = await (await fetch('/api/cloudinary-signature')).json();
+    if (!sig.signature) throw new Error(sig.error || 'Signature indisponible');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('api_key', sig.apiKey);
+    fd.append('timestamp', sig.timestamp);
+    fd.append('folder', sig.folder);
+    fd.append('signature', sig.signature);
+    const url = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/video/upload`);
+      xhr.upload.onprogress = e => { if (e.lengthComputable && prog) prog.textContent = `Envoi… ${Math.round(e.loaded / e.total * 100)}%`; };
+      xhr.onload = () => { try { const r = JSON.parse(xhr.responseText); r.secure_url ? resolve(r.secure_url) : reject(new Error(r.error?.message || 'Échec upload')); } catch(e) { reject(e); } };
+      xhr.onerror = () => reject(new Error('Erreur réseau'));
+      xhr.send(fd);
+    });
+    currentVideoUrl = url;
+    if (prog) prog.textContent = '✓ Vidéo prête';
+    renderVideoPreview();
+    toast('Vidéo ajoutée');
+  } catch(e) {
+    if (prog) prog.textContent = '';
+    toast('Échec de l\'envoi : ' + (e.message || ''), true);
+  }
 }
 
 function downloadCSVTemplate(e) {

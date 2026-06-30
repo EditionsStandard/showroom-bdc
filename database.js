@@ -227,6 +227,7 @@ async function init() {
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]'",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS variants TEXT DEFAULT '[]'",
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS cover_image TEXT DEFAULT ''",
     "ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0",
