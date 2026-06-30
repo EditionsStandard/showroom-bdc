@@ -1184,9 +1184,7 @@ function applyLang() {
       </div>
       <div>
         <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_time">Heure</label>
-        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
-          ${Array.from({length:19},(_,i)=>{const h=Math.floor(i/2)+9,m=i%2?'30':'00';return `<option value="${String(h).padStart(2,'0')}:${m}">${String(h).padStart(2,'0')}h${m}</option>`}).join('')}
-        </select>
+        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px"></select>
       </div>
     </div>
     <div style="margin-bottom:12px">
@@ -1430,7 +1428,18 @@ function openApptModal(brandId) {
   _apptBrandId = brandId;
   document.getElementById('appt-title').textContent = t('appt_title');
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('appt-date').value = today;
+  const dateEl = document.getElementById('appt-date');
+  dateEl.value = today;
+  dateEl.min = today; // pas de RDV dans le passé
+  // Créneaux horaires 9h00 → 18h00 (pas de 30 min) — générés ici (le select est vide en HTML)
+  const timeSel = document.getElementById('appt-time');
+  if (timeSel && !timeSel.options.length) {
+    timeSel.innerHTML = Array.from({ length: 19 }, (_, i) => {
+      const h = Math.floor(i / 2) + 9, m = i % 2 ? '30' : '00';
+      const hh = String(h).padStart(2, '0');
+      return `<option value="${hh}:${m}">${hh}h${m}</option>`;
+    }).join('');
+  }
   document.getElementById('appt-phone').value = '';
   document.getElementById('appt-notes').value = '';
   document.getElementById('modal-appt').classList.add('open');
