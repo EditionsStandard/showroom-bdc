@@ -2481,7 +2481,7 @@ async function loadProductStats() {
 
 // ── Rapport de ventes (partageable avec la marque) ──────────────────
 let _srBrandsLoaded = false;
-let _srData = null, _srBrandName = '';
+let _srData = null, _srBrandName = '', _srBrandId = '';
 
 // Export CSV du rapport (séparateur ; pour Excel FR ; BOM pour les accents)
 function exportSalesReportCSV() {
@@ -2541,8 +2541,9 @@ async function loadSalesReport(forceBrandId) {
   try { d = await fetch(`/api/brands/${brandId}/sales-report`).then(r => r.json()); }
   catch(e) { content.innerHTML = `<p style="color:#e74c3c">Erreur de chargement.</p>`; return; }
   if (!d || d.error) { content.innerHTML = `<p style="color:#e74c3c">${esc((d&&d.error)||'Erreur')}</p>`; return; }
-  // Mémorise pour l'export CSV
+  // Mémorise pour l'export CSV / PDF
   _srData = d;
+  _srBrandId = brandId;
   const _sel = document.getElementById('sr-brand');
   _srBrandName = (_sel && _sel.selectedOptions[0] && _sel.value ? _sel.selectedOptions[0].textContent : '') || 'marque';
   const s = d.summary || {};
@@ -2552,7 +2553,9 @@ async function loadSalesReport(forceBrandId) {
   const card = (label, val) => `<div class="card" style="flex:1;min-width:120px;padding:14px 16px">
     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.6px">${label}</div>
     <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">${val}</div></div>`;
-  let html = `<div style="text-align:right;margin-bottom:10px"><button class="btn btn-secondary btn-sm" onclick="exportSalesReportCSV()">⬇ Export CSV</button></div>`;
+  let html = `<div style="text-align:right;margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn btn-secondary btn-sm" onclick="exportSalesReportCSV()">⬇ Export CSV</button>
+    <button class="btn btn-secondary btn-sm" onclick="window.open('/api/brands/'+_srBrandId+'/sales-report/pdf','_blank')">📄 PDF</button></div>`;
   html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
     ${card('Commandes', fmt(s.orders))}${card('Pièces', fmt(s.units))}${card('CA HT', eur(s.revenue))}
     ${card('Panier moyen', eur(avg))}${card('Acheteurs', fmt(s.buyers))}${card('RDV showroom', fmt(d.rdv))}</div>`;
