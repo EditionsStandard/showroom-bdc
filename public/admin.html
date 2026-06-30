@@ -1505,6 +1505,10 @@
       <tbody id="mo-lines"></tbody>
     </table></div>
     <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:var(--black);border-radius:6px;margin-bottom:14px"></div>
+    <div id="mo-lines-edit-bar" style="display:none;margin-bottom:14px;text-align:right">
+      <span id="mo-lines-edit-hint" style="font-size:11px;color:#888;margin-right:10px"></span>
+      <button class="btn btn-primary btn-sm" onclick="saveOrderLines()">💾 Enregistrer les modifications</button>
+    </div>
 
     <!-- Notes -->
     <div id="mo-notes-wrap" style="display:none;margin-bottom:14px">
@@ -4896,19 +4900,27 @@ async function viewOrder(id) {
     (o.client_phone ? ` · ${esc(o.client_phone)}` : '') +
     (o.client_country ? `<br>${esc(o.client_country)}` : '');
 
-  const total = lines.reduce((s, l) => s + (l.qty * parseFloat(l.unit_price||0)), 0);
-  document.getElementById('mo-lines').innerHTML = lines.map(l => `
-    <tr>
-      <td>${esc(l.product_ref||'')}</td>
-      <td>${esc(l.color||'-')}</td>
-      <td>${esc(l.size||'-')}</td>
-      <td style="text-align:center">${l.qty}</td>
-      <td>${parseFloat(l.unit_price||0).toFixed(2)} €</td>
-      <td><strong>${(l.qty * parseFloat(l.unit_price||0)).toFixed(2)} €</strong></td>
-    </tr>
-  `).join('') || '<tr><td colspan="6" style="color:#666;text-align:center;padding:12px">Aucun article</td></tr>';
+  const canEditLines = currentUserRole !== 'designer';
+  document.getElementById('mo-lines').innerHTML = lines.map(l => {
+    const qty = Number(l.quantity) || 0;
+    const price = parseFloat(l.unit_price || 0);
+    const qtyCell = canEditLines
+      ? `<input type="number" min="0" step="1" value="${qty}" class="mo-line-qty" data-line="${l.id}" data-price="${price}" style="width:60px;padding:4px;text-align:center" oninput="recomputeOrderTotal()">
+         <button onclick="zeroLine(this)" title="Retirer l'article" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 4px">✕</button>`
+      : `${qty}`;
+    return `<tr>
+      <td>${esc(l.reference || '')}</td>
+      <td>${esc(l.product_color || '-')}</td>
+      <td>${esc(l.size || '-')}</td>
+      <td style="text-align:center;white-space:nowrap">${qtyCell}</td>
+      <td>${price.toFixed(2)} €</td>
+      <td><strong class="mo-line-total">${(qty * price).toFixed(2)} €</strong></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:#666;text-align:center;padding:12px">Aucun article</td></tr>';
 
-  document.getElementById('mo-total').textContent = 'Total HT : ' + total.toFixed(2) + ' €';
+  document.getElementById('mo-lines-edit-bar').style.display = (canEditLines && lines.length) ? 'block' : 'none';
+  document.getElementById('mo-lines-edit-hint').textContent = '';
+  recomputeOrderTotal();
 
   const notesWrap = document.getElementById('mo-notes-wrap');
   if (o.notes) {
@@ -4925,6 +4937,49 @@ async function viewOrder(id) {
   openModal('modal-order');
   loadOrderHistory(id);
   loadOrderTimeline(id);
+}
+
+// Recalcule le total + chaque ligne quand on édite les quantités (avant enregistrement).
+function recomputeOrderTotal() {
+  const inputs = document.querySelectorAll('#mo-lines .mo-line-qty');
+  let total = 0, changed = false, kept = 0;
+  inputs.forEach(inp => {
+    const qty = Math.max(0, Math.floor(Number(inp.value) || 0));
+    const price = parseFloat(inp.dataset.price || 0);
+    const row = inp.closest('tr');
+    const cell = row && row.querySelector('.mo-line-total');
+    if (cell) cell.textContent = (qty * price).toFixed(2) + ' €';
+    if (row) row.style.opacity = qty === 0 ? '.4' : '';
+    total += qty * price;
+    if (qty > 0) kept++;
+    if (qty !== Number(inp.defaultValue)) changed = true;
+  });
+  const totalEl = document.getElementById('mo-total');
+  if (totalEl) totalEl.textContent = 'Total HT : ' + total.toFixed(2) + ' €';
+  const hint = document.getElementById('mo-lines-edit-hint');
+  if (hint) hint.textContent = changed ? 'Modifications non enregistrées' : '';
+}
+
+function zeroLine(btn) {
+  const inp = btn.parentElement.querySelector('.mo-line-qty');
+  if (inp) { inp.value = 0; recomputeOrderTotal(); }
+}
+
+async function saveOrderLines() {
+  if (!_currentOrderId) return;
+  const inputs = [...document.querySelectorAll('#mo-lines .mo-line-qty')];
+  const lines = inputs.map(inp => ({ id: inp.dataset.line, quantity: Math.max(0, Math.floor(Number(inp.value) || 0)) }));
+  if (!lines.some(l => l.quantity > 0)) { toast('Une commande doit garder au moins un article. Annulez-la plutôt.', true); return; }
+  try {
+    const r = await fetch('/api/orders/' + _currentOrderId + '/lines', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines })
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Échec', true); return; }
+    toast('Commande mise à jour');
+    await viewOrder(_currentOrderId); // recharge l'état réel (lignes supprimées, stock ajusté)
+    if (typeof loadOrders === 'function') loadOrders();
+  } catch(e) { toast('Erreur réseau', true); }
 }
 
 async function loadOrderHistory(orderId) {

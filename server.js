@@ -3048,6 +3048,69 @@ app.put('/api/orders/:id/delivery-window', requireRole('owner','agent'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Modification d'une commande après envoi (agence) : ajuste les quantités et retire
+// des lignes. Le stock est réajusté de façon atomique (restitue l'ancien, applique
+// le nouveau). On ne touche pas aux prix (recalculés depuis les lignes).
+app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) => {
+  if (!await checkOrderBrandScope(req, res)) return;
+  const updates = Array.isArray(req.body.lines) ? req.body.lines : null;
+  if (!updates) return res.status(400).json({ error: 'Lignes invalides' });
+  // Map line_id -> nouvelle quantité (entier borné). Quantité 0 / ligne absente = suppression.
+  const wanted = {};
+  for (const u of updates) {
+    if (!u || !u.id) continue;
+    const q = Math.floor(Number(u.quantity));
+    wanted[u.id] = Number.isFinite(q) && q > 0 && q <= MAX_LINE_QTY ? q : 0;
+  }
+
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query('BEGIN');
+    // Lignes actuelles + état stock du produit (verrou ligne produit via FOR UPDATE indirect)
+    const cur = await dbClient.query(
+      `SELECT ol.id, ol.product_id, ol.quantity, p.stock_enabled, p.stock_qty, p.reference
+       FROM order_lines ol JOIN products p ON p.id = ol.product_id WHERE ol.order_id=$1`,
+      [req.params.id]
+    );
+    if (!cur.rows.length) { await dbClient.query('ROLLBACK'); return res.status(404).json({ error: 'Commande sans ligne' }); }
+
+    let remaining = 0;
+    for (const line of cur.rows) {
+      const newQty = (line.id in wanted) ? wanted[line.id] : line.quantity; // non fourni = inchangé
+      const tracked = line.stock_enabled && line.stock_qty !== null;
+      if (newQty === 0) {
+        if (tracked) await dbClient.query('UPDATE products SET stock_qty = stock_qty + $1 WHERE id=$2', [line.quantity, line.product_id]);
+        await dbClient.query('DELETE FROM order_lines WHERE id=$1', [line.id]);
+        continue;
+      }
+      const delta = newQty - line.quantity;
+      if (tracked && delta > 0) {
+        const upd = await dbClient.query(
+          'UPDATE products SET stock_qty = stock_qty - $1 WHERE id=$2 AND stock_qty IS NOT NULL AND stock_qty >= $1',
+          [delta, line.product_id]
+        );
+        if (upd.rowCount === 0) { await dbClient.query('ROLLBACK'); return res.status(409).json({ error: `Stock insuffisant pour ${line.reference}` }); }
+      } else if (tracked && delta < 0) {
+        await dbClient.query('UPDATE products SET stock_qty = stock_qty + $1 WHERE id=$2', [-delta, line.product_id]);
+      }
+      if (delta !== 0) await dbClient.query('UPDATE order_lines SET quantity=$1 WHERE id=$2', [newQty, line.id]);
+      remaining++;
+    }
+    if (remaining === 0) { await dbClient.query('ROLLBACK'); return res.status(400).json({ error: 'Une commande doit garder au moins une ligne. Annulez-la plutôt.' }); }
+    await dbClient.query('COMMIT');
+  } catch(e) {
+    await dbClient.query('ROLLBACK').catch(() => {});
+    console.error('[order-lines-edit]', e.message);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    dbClient.release();
+  }
+
+  logAudit(req, 'edit_order_lines', 'order', req.params.id, '');
+  const totRes = await pool.query('SELECT SUM(quantity * unit_price) AS total FROM order_lines WHERE order_id=$1', [req.params.id]);
+  res.json({ ok: true, total: parseFloat(totRes.rows[0]?.total || 0) });
+});
+
 app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkBuyerBrandScope(req, res)) return;
