@@ -1037,6 +1037,16 @@
         <option value="">— Choisir une marque —</option>
       </select>
     </div>
+    <div class="card" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:13px;color:#888">Période :</span>
+      <select id="sr-period" onchange="loadSalesReport()" style="padding:6px 12px;font-size:13px">
+        <option value="all">Depuis le début</option>
+        <option value="365">12 derniers mois</option>
+        <option value="90">90 derniers jours</option>
+        <option value="30">30 derniers jours</option>
+        <option value="ytd">Cette année</option>
+      </select>
+    </div>
     <div id="sr-content"><p style="color:#666;font-size:13px">Sélectionnez une marque pour afficher son rapport.</p></div>
     <p style="font-size:11px;color:#555;margin-top:16px">Données agrégées (commandes confirmées, hors annulées). Les coordonnées individuelles des acheteurs ne sont pas partagées.</p>
   </div>
@@ -2481,7 +2491,25 @@ async function loadProductStats() {
 
 // ── Rapport de ventes (partageable avec la marque) ──────────────────
 let _srBrandsLoaded = false;
-let _srData = null, _srBrandName = '', _srBrandId = '';
+let _srData = null, _srBrandName = '', _srBrandId = '', _srFrom = '', _srTo = '';
+
+// Traduit le sélecteur de période en plage de dates {from,to} (ISO) — vide = tout.
+function srPeriodRange() {
+  const p = document.getElementById('sr-period')?.value || 'all';
+  const today = new Date();
+  const iso = dt => dt.toISOString().slice(0, 10);
+  if (p === 'all') return { from: '', to: '' };
+  if (p === 'ytd') return { from: `${today.getFullYear()}-01-01`, to: iso(today) };
+  const days = parseInt(p) || 0;
+  const from = new Date(today); from.setDate(from.getDate() - days);
+  return { from: iso(from), to: iso(today) };
+}
+
+function openSalesReportPdf() {
+  if (!_srBrandId) return;
+  const qs = (_srFrom || _srTo) ? '?' + [_srFrom ? 'from=' + _srFrom : '', _srTo ? 'to=' + _srTo : ''].filter(Boolean).join('&') : '';
+  window.open('/api/brands/' + _srBrandId + '/sales-report/pdf' + qs, '_blank');
+}
 
 // Export CSV du rapport (séparateur ; pour Excel FR ; BOM pour les accents)
 function exportSalesReportCSV() {
@@ -2537,8 +2565,11 @@ async function loadSalesReport(forceBrandId) {
   if (!content) return;
   if (!brandId) { content.innerHTML = `<p style="color:#666;font-size:13px">Sélectionnez une marque pour afficher son rapport.</p>`; return; }
   content.innerHTML = `<p style="color:#666;font-size:13px">Chargement…</p>`;
+  const { from, to } = srPeriodRange();
+  _srFrom = from; _srTo = to;
+  const qs = (from || to) ? '?' + [from ? 'from=' + from : '', to ? 'to=' + to : ''].filter(Boolean).join('&') : '';
   let d;
-  try { d = await fetch(`/api/brands/${brandId}/sales-report`).then(r => r.json()); }
+  try { d = await fetch(`/api/brands/${brandId}/sales-report${qs}`).then(r => r.json()); }
   catch(e) { content.innerHTML = `<p style="color:#e74c3c">Erreur de chargement.</p>`; return; }
   if (!d || d.error) { content.innerHTML = `<p style="color:#e74c3c">${esc((d&&d.error)||'Erreur')}</p>`; return; }
   // Mémorise pour l'export CSV / PDF
@@ -2555,7 +2586,7 @@ async function loadSalesReport(forceBrandId) {
     <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">${val}</div></div>`;
   let html = `<div style="text-align:right;margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end">
     <button class="btn btn-secondary btn-sm" onclick="exportSalesReportCSV()">⬇ Export CSV</button>
-    <button class="btn btn-secondary btn-sm" onclick="window.open('/api/brands/'+_srBrandId+'/sales-report/pdf','_blank')">📄 PDF</button></div>`;
+    <button class="btn btn-secondary btn-sm" onclick="openSalesReportPdf()">📄 PDF</button></div>`;
   html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
     ${card('Commandes', fmt(s.orders))}${card('Pièces', fmt(s.units))}${card('CA HT', eur(s.revenue))}
     ${card('Panier moyen', eur(avg))}${card('Acheteurs', fmt(s.buyers))}${card('RDV showroom', fmt(d.rdv))}</div>`;
