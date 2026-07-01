@@ -2458,7 +2458,10 @@ async function handleAccessRequest(id, action) {
   if (!confirm(`Confirmer : ${label} cette demande ?`)) return;
   const r = await fetch(`/api/access-requests/${id}/${action}`, { method: 'POST' }).catch(() => null);
   if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
-  toast(action === 'approve' ? 'Demande approuvée — email envoyé à l\'acheteur' : 'Demande refusée');
+  const d = await r.json().catch(() => ({}));
+  toast(action === 'approve'
+    ? (d.reused ? 'Approuvée — compte déjà existant, nouveau mot de passe envoyé à l\'acheteur' : 'Demande approuvée — email envoyé à l\'acheteur')
+    : 'Demande refusée');
   loadAccessRequests();
   if (action === 'approve') loadDashboard();
 }

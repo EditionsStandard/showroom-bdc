@@ -3867,23 +3867,31 @@ app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) =
 });
 
 app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async (req, res) => {
+ try {
   const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
   if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
   const req2 = r.rows[0];
   if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
 
-  // Créer le compte acheteur avec mot de passe temporaire
+  // Créer (ou réutiliser) le compte acheteur avec un mot de passe temporaire.
+  // Un compte peut déjà exister (ré-inscription, test, approbation partielle
+  // antérieure) : dans ce cas on réinitialise son mot de passe au lieu
+  // d'échouer, sinon la demande resterait bloquée « en attente » pour toujours.
+  const email = String(req2.email || '').toLowerCase().trim();
   const tempPassword = crypto.randomBytes(4).toString('hex'); // ex: a3f9c12d
   const hash = await bcrypt.hash(tempPassword, 10);
-  const buyerId = uuidv4();
-  try {
+  const existing = await pool.query('SELECT id FROM buyers WHERE LOWER(email)=$1', [email]);
+  let buyerId, reused = false;
+  if (existing.rows.length) {
+    buyerId = existing.rows[0].id;
+    reused = true;
+    await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyerId]);
+  } else {
+    buyerId = uuidv4();
     await pool.query(
       'INSERT INTO buyers (id,email,password_hash,name,company,phone,country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [buyerId, req2.email, hash, req2.name, req2.company, req2.phone, req2.country]
+      [buyerId, email, hash, req2.name, req2.company, req2.phone, req2.country]
     );
-  } catch(e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
-    throw e;
   }
   await pool.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
   logAudit(req, 'approve_access_request', 'access_request', req.params.id, req2.email);
@@ -3927,7 +3935,8 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
       ` })
     }).catch(e => console.error('access-request approve email:', e.message));
   }
-  res.json({ ok: true });
+  res.json({ ok: true, reused });
+ } catch(e) { console.error('approve access request:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async (req, res) => {
