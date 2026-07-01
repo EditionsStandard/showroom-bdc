@@ -3075,8 +3075,12 @@ async function translateBatch(texts, lang) {
   const cached = await pool.query('SELECT source_hash, translated FROM content_translations WHERE lang=$1 AND source_hash = ANY($2)',
     [lang, jobs.map(j => j.hash)]);
   const cmap = Object.fromEntries(cached.rows.map(r => [r.source_hash, r.translated]));
-  jobs.forEach(j => { if (cmap[j.hash] != null) out[j.i] = cmap[j.hash]; });
-  const missing = jobs.filter(j => cmap[j.hash] == null);
+  // Une entrée dont la traduction == texte source est un ancien repli « empoisonné »
+  // (mis en cache pendant une panne de clé/crédits) : on l'ignore et on retraduit,
+  // pour que le portail se répare tout seul sans purge manuelle du cache.
+  const isReal = (j) => cmap[j.hash] != null && cmap[j.hash] !== j.text;
+  jobs.forEach(j => { if (isReal(j)) out[j.i] = cmap[j.hash]; });
+  const missing = jobs.filter(j => !isReal(j));
   if (!missing.length || !process.env.ANTHROPIC_API_KEY) return out;
 
   // Traduit un lot ; en cas d'échec, un seul nouvel essai avant repli.
@@ -3093,7 +3097,7 @@ async function translateBatch(texts, lang) {
       out[m.i] = val;
       // On ne met en cache que ce qui a réellement été traduit (≠ repli original).
       if (val !== m.text) {
-        pool.query('INSERT INTO content_translations (source_hash,lang,translated) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [m.hash, lang, val]).catch(() => {});
+        pool.query('INSERT INTO content_translations (source_hash,lang,translated) VALUES ($1,$2,$3) ON CONFLICT (source_hash,lang) DO UPDATE SET translated = EXCLUDED.translated', [m.hash, lang, val]).catch(() => {});
       }
     });
   }
@@ -3863,23 +3867,31 @@ app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) =
 });
 
 app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async (req, res) => {
+ try {
   const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
   if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
   const req2 = r.rows[0];
   if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
 
-  // Créer le compte acheteur avec mot de passe temporaire
+  // Créer (ou réutiliser) le compte acheteur avec un mot de passe temporaire.
+  // Un compte peut déjà exister (ré-inscription, test, approbation partielle
+  // antérieure) : dans ce cas on réinitialise son mot de passe au lieu
+  // d'échouer, sinon la demande resterait bloquée « en attente » pour toujours.
+  const email = String(req2.email || '').toLowerCase().trim();
   const tempPassword = crypto.randomBytes(4).toString('hex'); // ex: a3f9c12d
   const hash = await bcrypt.hash(tempPassword, 10);
-  const buyerId = uuidv4();
-  try {
+  const existing = await pool.query('SELECT id FROM buyers WHERE LOWER(email)=$1', [email]);
+  let buyerId, reused = false;
+  if (existing.rows.length) {
+    buyerId = existing.rows[0].id;
+    reused = true;
+    await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyerId]);
+  } else {
+    buyerId = uuidv4();
     await pool.query(
       'INSERT INTO buyers (id,email,password_hash,name,company,phone,country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [buyerId, req2.email, hash, req2.name, req2.company, req2.phone, req2.country]
+      [buyerId, email, hash, req2.name, req2.company, req2.phone, req2.country]
     );
-  } catch(e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Un compte existe déjà pour cet email.' });
-    throw e;
   }
   await pool.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
   logAudit(req, 'approve_access_request', 'access_request', req.params.id, req2.email);
@@ -3923,7 +3935,8 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
       ` })
     }).catch(e => console.error('access-request approve email:', e.message));
   }
-  res.json({ ok: true });
+  res.json({ ok: true, reused });
+ } catch(e) { console.error('approve access request:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async (req, res) => {
