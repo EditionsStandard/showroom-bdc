@@ -15,6 +15,7 @@
 <style>
   :root {
     --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#777; --soft:#bbb; --white:#f5f4f0; --accent:#CCEB3C;
+    --danger:#e74c3c; --success:#2ecc71; --warning:#e0b000;
     --dot:'DotGothic16','Space Mono',monospace;
     --z-base: 1;
     --z-card: 10;
@@ -30,6 +31,7 @@
   }
   [data-theme="light"] {
     --black:#f5f4f0; --dark:#fff; --mid:#eee; --border:#ddd; --muted:#888; --soft:#444; --white:#111; --accent:#6b8500;
+    --danger:#e74c3c; --success:#2ecc71; --warning:#e0b000;
   }
   [data-theme="light"] .cart-bar { background: #111; color: #fff; }
   [data-theme="light"] .cart-bar button { background: #CCEB3C; color: #111; }
@@ -60,7 +62,7 @@
   .header .nav a.nav-logout:hover { background: #e05e5e22; }
   /* ── User dropdown ── */
   .user-menu { position: relative; flex-shrink: 0; }
-  .user-btn { display: flex; align-items: center; gap: 9px; background: var(--accent); border: none; border-radius: 24px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; font-weight: 600; transition: opacity .15s; user-select: none; }
+  .user-btn { display: flex; align-items: center; gap: 9px; background: var(--accent); border: none; border-radius: 20px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; font-weight: 600; transition: opacity .15s; user-select: none; }
   .user-btn:hover { opacity: .85; }
   .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: #111; color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
   .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -152,13 +154,13 @@
   .price-ws { font-size: 15px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
   .price-retail-tag { font-size: 11px; font-family: 'Inter', sans-serif; color: var(--muted); }
   .price-retail-val { font-size: 12px; font-family: 'Inter', sans-serif; color: var(--soft); }
-  .price-margin { font-size: 11px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 3px; padding: 1px 5px; font-weight: 700; }
+  .price-margin { font-size: 11px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 4px; padding: 1px 5px; font-weight: 700; }
   .drawer-price-block { margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
   .drawer-price-ws { font-size: 20px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
   .drawer-price-retail { font-size: 13px; font-family: 'Inter', sans-serif; color: var(--muted); }
   .drawer-price-margin { font-size: 12px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 4px; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
   .stock-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; font-family:'Inter',sans-serif; }
-  .stock-badge.in { background:#1a3a1a; color:#4caf50; }
+  .stock-badge.in { background:#1a3a1a; color:#2ecc71; }
   .stock-badge.low { background:#3a2a0a; color:#ffa726; }
   .stock-badge.out { background:#3a1a1a; color:#f44336; }
   .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
@@ -198,7 +200,7 @@
   .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
   .order-status { display: inline-block; font-size: 10px; padding: 4px 12px; border-radius: 10px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Space Mono', monospace; margin-top: 8px; }
   .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
-  .order-status.validated { background: #1f3d1f; color: #5ec95e; }
+  .order-status.validated { background: #1f3d1f; color: #2ecc71; }
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
   .loader { text-align: center; padding: 60px; color: var(--muted); font-size: 14px; }
   .success-check { width:72px; height:72px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; color:var(--accent); }
@@ -354,7 +356,7 @@
   /* ── Favoris ── */
   .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: background .15s; z-index: var(--z-card); }
   .fav-btn:hover { background: rgba(0,0,0,.85); }
-  .fav-btn.active { color: #ff5c5c; }
+  .fav-btn.active { color: #e74c3c; }
   #view-favs { display: none; }
 
   /* ── Skeleton loaders ── */
@@ -390,7 +392,7 @@
   .drawer-gallery-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; padding: 0; background: #ddd; transition: background .2s; }
   .drawer-gallery-dot.active { background: #111; }
   .drawer-thumbs { display: flex; gap: 6px; padding: 10px 20px; overflow-x: auto; background: #fff; border-bottom: 1px solid var(--border); }
-  .drawer-thumb { width: 52px; height: 64px; object-fit: contain; background: #fff; border: 2px solid transparent; border-radius: 3px; cursor: pointer; flex-shrink: 0; }
+  .drawer-thumb { width: 52px; height: 64px; object-fit: contain; background: #fff; border: 2px solid transparent; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
   .drawer-thumb.active { border-color: #111; }
   .drawer-info { padding: 20px 20px 0; }
   .drawer-ref { font-family: var(--dot), monospace; font-size: 20px; margin-bottom: 6px; }
@@ -2305,8 +2307,8 @@ let moqBlocked = false;
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_qty')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
           </div>
-          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s ease"></div>
+          <div style="height:5px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .4s ease"></div>
           </div>
         </div>`);
       }
@@ -2321,8 +2323,8 @@ let moqBlocked = false;
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_amt')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
           </div>
-          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s ease"></div>
+          <div style="height:5px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .4s ease"></div>
           </div>
         </div>`);
       }
@@ -2870,7 +2872,7 @@ async function renderFavs() {
               ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
               ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;margin-top:2px">${esc(p.color)}</div>` : ''}
               <div style="margin-top:6px">${priceBlockHtml(p.price, p.price_retail, true)}</div>
-              <button onclick="event.stopPropagation();toggleFav('${p.id}')" style="background:none;border:none;color:#ff5c5c;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">♥ Retirer</button>
+              <button onclick="event.stopPropagation();toggleFav('${p.id}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">♥ Retirer</button>
             </div>
           </div>`;
         }).join('')}
