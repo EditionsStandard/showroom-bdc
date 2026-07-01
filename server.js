@@ -2636,7 +2636,7 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
       let rowY = infoY + 60;
       const col = { ref: 50, desc: 145, color: 295, size: 345, qty: 390, total: 455 };
       const colW = { ref: 90, desc: 145, color: 45, size: 40, qty: 30, total: 90 };
-      Object.values(byBrand).forEach(({ name: brandName, lines }) => {
+      Object.values(byBrand).forEach(({ name: brandName = 'Marque', lines }) => {
         if (rowY > 720) { doc.addPage(); rowY = 50; }
         doc.rect(50, rowY, 495, 20).fillColor('#0a0a0a').fill();
         doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold').text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
@@ -3186,7 +3186,7 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
       const col = { ref: 50, desc: 145, color: 295, size: 345, qty: 390, total: 455 };
       const colW = { ref: 90, desc: 145, color: 45, size: 40, qty: 30, total: 90 };
 
-      Object.values(byBrand).forEach(({ name: brandName, lines }) => {
+      Object.values(byBrand).forEach(({ name: brandName = 'Marque', lines }) => {
         if (rowY > 720) { doc.addPage(); rowY = 50; }
         doc.rect(50, rowY, 495, 20).fillColor('#0a0a0a').fill();
         doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold').text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
