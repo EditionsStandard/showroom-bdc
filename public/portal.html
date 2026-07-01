@@ -833,11 +833,41 @@ function t(key, ...args) {
   if (val === undefined) val = TRANSLATIONS.en[key]; // repli EN si clé absente
   return typeof val === 'function' ? val(...args) : val;
 }
-function setLang(lang) {
+// Charge (une fois) le dictionnaire d'interface pour une langue non native, en
+// traduisant les libellés anglais via Claude puis en cachant dans localStorage.
+async function ensureUiLang(lang) {
+  if (lang === 'fr' || lang === 'en' || TRANSLATIONS[lang]) return;
+  if (!CONTENT_TRANSLATE_LANGS.includes(lang)) return;
+  const en = TRANSLATIONS.en;
+  const strKeys = Object.keys(en).filter(k => typeof en[k] === 'string');
+  const buildDict = (map) => {
+    const dict = {};
+    strKeys.forEach(k => { dict[k] = map[k] || en[k]; });
+    Object.keys(en).forEach(k => { if (typeof en[k] === 'function') dict[k] = en[k]; }); // pluriels : version EN
+    return dict;
+  };
+  try {
+    const cached = JSON.parse(localStorage.getItem('ui_i18n_' + lang) || 'null');
+    if (cached && typeof cached === 'object') { TRANSLATIONS[lang] = buildDict(cached); return; }
+  } catch(e) {}
+  try {
+    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: strKeys.map(k => en[k]), lang }) });
+    const d = await r.json();
+    if (d && Array.isArray(d.translations)) {
+      const store = {};
+      strKeys.forEach((k, i) => { store[k] = d.translations[i] || en[k]; });
+      TRANSLATIONS[lang] = buildDict(store);
+      try { localStorage.setItem('ui_i18n_' + lang, JSON.stringify(store)); } catch(e) {}
+    }
+  } catch(e) { /* repli : uiDict() renverra EN */ }
+}
+
+async function setLang(lang) {
   currentLang = lang;
   localStorage.setItem('portal_lang', lang);
-  applyLang();
-  translateVisibleContent(); // traduit le contenu déjà affiché (bios, désignations)
+  applyLang();                 // affichage immédiat (EN si dict pas encore prêt)
+  translateVisibleContent();   // contenu marques (bios, désignations)
+  if (!TRANSLATIONS[lang]) { await ensureUiLang(lang); applyLang(); } // ré-applique dans la vraie langue
 }
 
 // Traduit le contenu marqué [data-tr] (texte original en attribut) vers la langue
@@ -1724,6 +1754,10 @@ async function init() {
   }
   try { applyLang(); } catch(e) { console.error('applyLang:', e); }
   renderBrandPicker();
+  // Langue non native mémorisée : charge son dictionnaire d'UI puis ré-applique.
+  if (currentLang !== 'fr' && currentLang !== 'en' && !TRANSLATIONS[currentLang]) {
+    ensureUiLang(currentLang).then(() => { try { applyLang(); } catch(e) {} });
+  }
   updateCartBar();
   // État de base de l'historique : "retour" reste dans le portail (catalogue)
   history.replaceState({ v: 'catalog', brand: null }, '', '/portal');

@@ -2941,7 +2941,7 @@ async function claudeTranslate(texts, langName) {
     headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4000,
+      max_tokens: 8000,
       messages: [{ role: 'user', content:
         `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
     }),
@@ -2989,7 +2989,7 @@ app.post('/api/portal/translate', requireBuyerAuth, async (req, res) => {
   try {
     const { texts, lang } = req.body;
     if (!Array.isArray(texts) || !lang || !TRANSLATE_LANGS[lang]) return res.status(400).json({ error: 'Requête invalide' });
-    const clipped = texts.slice(0, 120).map(t => String(t == null ? '' : t).slice(0, 4000));
+    const clipped = texts.slice(0, 300).map(t => String(t == null ? '' : t).slice(0, 4000));
     res.json({ translations: await translateBatch(clipped, lang) });
   } catch(e) { console.error('translate endpoint:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
