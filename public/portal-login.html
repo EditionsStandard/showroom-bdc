@@ -45,8 +45,8 @@
   .view { display: none; }
   .view.active { display: block; }
   .back-link { display: inline-block; margin-bottom: 20px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: underline; background: none; border: none; padding: 0; }
-  #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
-  #lang-toggle:hover { border-color: var(--accent); color: var(--white); }
+  #lang-select { position: absolute; top: 0; right: 0; background: var(--dark); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--soft); cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
+  #lang-select:hover { border-color: var(--accent); color: var(--white); }
   @media (max-width: 767px) {
     body { overflow-x: hidden; align-items: flex-start; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
     .card { padding: 32px 20px; }
@@ -67,7 +67,17 @@
 <body>
 <div class="card">
   <div class="logo-wrap">
-    <button id="lang-toggle" onclick="toggleLang()">FR | EN</button>
+    <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue">
+      <option value="fr">🌐 FR</option>
+      <option value="en">🌐 EN</option>
+      <option value="it">🌐 IT</option>
+      <option value="es">🌐 ES</option>
+      <option value="de">🌐 DE</option>
+      <option value="zh">🌐 中文</option>
+      <option value="ja">🌐 日本語</option>
+      <option value="ko">🌐 한국어</option>
+      <option value="th">🌐 ไทย</option>
+    </select>
     <img src="/logo.svg" alt="Editions Standard">
     <div class="kicker">B2B Showroom</div>
     <h1 data-t="portal_title">Portail Acheteur</h1>
@@ -150,6 +160,76 @@ const TRANSLATIONS = {
     pw_mismatch: 'Passwords do not match.',
     pw_updated: 'Password updated. Redirecting…',
     network_error: 'Network error, please try again.',
+  },
+  it: {
+    portal_title: 'Portale Acquirenti', email_label: 'Email', email_placeholder: 'tu@esempio.com',
+    password_label: 'Password', password_placeholder: '••••••••', login_btn: 'Accedi',
+    forgot_link: 'Password dimenticata?', back_link: '← Indietro', your_email_label: 'La tua email',
+    send_reset_btn: 'Invia il link', new_password_label: 'Nuova password', confirm_password_label: 'Conferma',
+    save_btn: 'Salva', login_error: 'Email o password non corretti.', email_required: 'Email obbligatoria.',
+    reset_success: 'Se esiste un account per questa email, riceverai un link tra pochi minuti.',
+    pw_too_short: 'La password deve contenere almeno 6 caratteri.', pw_mismatch: 'Le password non corrispondono.',
+    pw_updated: 'Password aggiornata. Reindirizzamento…', network_error: 'Errore di rete, riprova.',
+  },
+  es: {
+    portal_title: 'Portal de Compradores', email_label: 'Correo electrónico', email_placeholder: 'tu@ejemplo.com',
+    password_label: 'Contraseña', password_placeholder: '••••••••', login_btn: 'Iniciar sesión',
+    forgot_link: '¿Olvidaste tu contraseña?', back_link: '← Volver', your_email_label: 'Tu correo',
+    send_reset_btn: 'Enviar enlace', new_password_label: 'Nueva contraseña', confirm_password_label: 'Confirmar',
+    save_btn: 'Guardar', login_error: 'Correo o contraseña incorrectos.', email_required: 'Correo obligatorio.',
+    reset_success: 'Si existe una cuenta para este correo, recibirás un enlace en unos minutos.',
+    pw_too_short: 'La contraseña debe tener al menos 6 caracteres.', pw_mismatch: 'Las contraseñas no coinciden.',
+    pw_updated: 'Contraseña actualizada. Redirigiendo…', network_error: 'Error de red, inténtalo de nuevo.',
+  },
+  de: {
+    portal_title: 'Einkäuferportal', email_label: 'E-Mail', email_placeholder: 'du@beispiel.com',
+    password_label: 'Passwort', password_placeholder: '••••••••', login_btn: 'Anmelden',
+    forgot_link: 'Passwort vergessen?', back_link: '← Zurück', your_email_label: 'Ihre E-Mail',
+    send_reset_btn: 'Link senden', new_password_label: 'Neues Passwort', confirm_password_label: 'Bestätigen',
+    save_btn: 'Speichern', login_error: 'E-Mail oder Passwort falsch.', email_required: 'E-Mail erforderlich.',
+    reset_success: 'Falls ein Konto für diese E-Mail existiert, erhalten Sie in wenigen Minuten einen Link.',
+    pw_too_short: 'Das Passwort muss mindestens 6 Zeichen lang sein.', pw_mismatch: 'Die Passwörter stimmen nicht überein.',
+    pw_updated: 'Passwort aktualisiert. Weiterleitung…', network_error: 'Netzwerkfehler, bitte erneut versuchen.',
+  },
+  zh: {
+    portal_title: '采购门户', email_label: '邮箱', email_placeholder: 'you@example.com',
+    password_label: '密码', password_placeholder: '••••••••', login_btn: '登录',
+    forgot_link: '忘记密码？', back_link: '← 返回', your_email_label: '您的邮箱',
+    send_reset_btn: '发送重置链接', new_password_label: '新密码', confirm_password_label: '确认',
+    save_btn: '保存', login_error: '邮箱或密码错误。', email_required: '请输入邮箱。',
+    reset_success: '如果该邮箱已注册账户，您将在几分钟内收到链接。',
+    pw_too_short: '密码至少需要6个字符。', pw_mismatch: '两次输入的密码不一致。',
+    pw_updated: '密码已更新，正在跳转…', network_error: '网络错误，请重试。',
+  },
+  ja: {
+    portal_title: 'バイヤーポータル', email_label: 'メールアドレス', email_placeholder: 'you@example.com',
+    password_label: 'パスワード', password_placeholder: '••••••••', login_btn: 'ログイン',
+    forgot_link: 'パスワードをお忘れですか？', back_link: '← 戻る', your_email_label: 'メールアドレス',
+    send_reset_btn: 'リンクを送信', new_password_label: '新しいパスワード', confirm_password_label: '確認',
+    save_btn: '保存', login_error: 'メールアドレスまたはパスワードが正しくありません。', email_required: 'メールアドレスを入力してください。',
+    reset_success: 'このメールアドレスのアカウントが存在する場合、数分以内にリンクが届きます。',
+    pw_too_short: 'パスワードは6文字以上で入力してください。', pw_mismatch: 'パスワードが一致しません。',
+    pw_updated: 'パスワードを更新しました。リダイレクトします…', network_error: 'ネットワークエラーです。もう一度お試しください。',
+  },
+  ko: {
+    portal_title: '바이어 포털', email_label: '이메일', email_placeholder: 'you@example.com',
+    password_label: '비밀번호', password_placeholder: '••••••••', login_btn: '로그인',
+    forgot_link: '비밀번호를 잊으셨나요?', back_link: '← 뒤로', your_email_label: '이메일',
+    send_reset_btn: '링크 보내기', new_password_label: '새 비밀번호', confirm_password_label: '확인',
+    save_btn: '저장', login_error: '이메일 또는 비밀번호가 올바르지 않습니다.', email_required: '이메일이 필요합니다.',
+    reset_success: '해당 이메일로 계정이 있으면 몇 분 내에 링크를 받게 됩니다.',
+    pw_too_short: '비밀번호는 6자 이상이어야 합니다.', pw_mismatch: '비밀번호가 일치하지 않습니다.',
+    pw_updated: '비밀번호가 업데이트되었습니다. 이동 중…', network_error: '네트워크 오류입니다. 다시 시도해 주세요.',
+  },
+  th: {
+    portal_title: 'พอร์ทัลผู้ซื้อ', email_label: 'อีเมล', email_placeholder: 'you@example.com',
+    password_label: 'รหัสผ่าน', password_placeholder: '••••••••', login_btn: 'เข้าสู่ระบบ',
+    forgot_link: 'ลืมรหัสผ่าน?', back_link: '← กลับ', your_email_label: 'อีเมลของคุณ',
+    send_reset_btn: 'ส่งลิงก์', new_password_label: 'รหัสผ่านใหม่', confirm_password_label: 'ยืนยัน',
+    save_btn: 'บันทึก', login_error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', email_required: 'ต้องระบุอีเมล',
+    reset_success: 'หากมีบัญชีสำหรับอีเมลนี้ คุณจะได้รับลิงก์ภายในไม่กี่นาที',
+    pw_too_short: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', pw_mismatch: 'รหัสผ่านไม่ตรงกัน',
+    pw_updated: 'อัปเดตรหัสผ่านแล้ว กำลังเปลี่ยนเส้นทาง…', network_error: 'เกิดข้อผิดพลาดเครือข่าย โปรดลองอีกครั้ง',
   }
 };
 
@@ -163,12 +243,12 @@ function applyLang() {
   document.documentElement.lang = currentLang;
   document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
   document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
-  document.getElementById('lang-toggle').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+  const sel = document.getElementById('lang-select'); if (sel) sel.value = currentLang;
 }
 
-function toggleLang() {
-  currentLang = currentLang === 'fr' ? 'en' : 'fr';
-  localStorage.setItem('portal_lang', currentLang);
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('portal_lang', currentLang); // partagé avec le portail après connexion
   applyLang();
 }
 
