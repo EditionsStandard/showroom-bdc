@@ -873,6 +873,7 @@ function applyLang() {
   _sid('dd-favs', T.dd_favs);
   _sid('dd-logout', T.dd_logout);
   const _ls = document.getElementById('dd-lang-select'); if (_ls) _ls.value = currentLang;
+  const _ls2 = document.getElementById('lang-select'); if (_ls2) _ls2.value = currentLang;
   // Bouton thème : libellé = action vers l'autre thème (cohérent avec toggleTheme)
   const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   _sid('dd-theme', _isDark ? T.theme_light : T.theme_dark);
@@ -996,8 +997,19 @@ function applyLang() {
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
     <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
-    <button id="lang-btn" onclick="setLang(currentLang==='fr'?'en':'fr')" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:'Inter',sans-serif;letter-spacing:.06em">EN</button>
   </div>
+  <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue"
+    style="background:var(--dark);border:1px solid var(--border);border-radius:20px;padding:6px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif;flex-shrink:0;margin-right:8px">
+    <option value="fr">🌐 FR</option>
+    <option value="en">🌐 EN</option>
+    <option value="it">🌐 IT</option>
+    <option value="es">🌐 ES</option>
+    <option value="de">🌐 DE</option>
+    <option value="zh">🌐 中文</option>
+    <option value="ja">🌐 日本語</option>
+    <option value="ko">🌐 한국어</option>
+    <option value="th">🌐 ไทย</option>
+  </select>
   <div class="user-menu" id="user-menu">
     <div class="user-btn" onclick="toggleUserMenu()">
       <div class="user-avatar" id="user-avatar">?</div>
