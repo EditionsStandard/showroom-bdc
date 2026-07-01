@@ -5701,20 +5701,6 @@ async function loadBrandProductStats(brandId, brandName) {
   }
 }
 
-// ── Feature 5: Archivage saison ───────────────────────────────────────
-async function archiveRestoreSeason(seasonId, action) {
-  const label = action === 'archive' ? 'archiver' : 'restaurer';
-  if (!confirm(`Voulez-vous ${label} cette saison ?`)) return;
-  const r = await fetch(`/api/seasons/${seasonId}/${action}`, { method: 'POST' });
-  if (r.ok) {
-    toast(action === 'archive' ? 'Saison archivée' : 'Saison restaurée');
-    if (typeof loadSeasons === 'function') loadSeasons();
-    else loadBrands();
-  } else {
-    toast('Erreur lors de l\'opération', true);
-  }
-}
-
 // ── Session timeout ───────────────────────────────────────────────────
 let _sessionTimer, _warningTimer;
 let _sessionWarningEl = null;

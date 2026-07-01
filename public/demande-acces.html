@@ -172,9 +172,6 @@ const TR = {
     label_message: 'Message (optionnel)',
     country_choose: '— Choisir —',
     country_other: 'Autre',
-    placeholder_name: '',
-    placeholder_firstname: '',
-    placeholder_company: '',
     placeholder_email: 'jean@boutique.com',
     placeholder_phone: '+33 6 00 00 00 00',
     placeholder_message: 'Présentez votre boutique, vos axes de sélection…',
@@ -207,9 +204,6 @@ const TR = {
     label_message: 'Message (optional)',
     country_choose: '— Select —',
     country_other: 'Other',
-    placeholder_name: '',
-    placeholder_firstname: '',
-    placeholder_company: '',
     placeholder_email: 'jane@boutique.com',
     placeholder_phone: '+1 000 000 0000',
     placeholder_message: 'Tell us about your store and selection criteria…',
@@ -254,9 +248,8 @@ function applyLang() {
   document.getElementById('t-country-choose').textContent = t('country_choose');
   document.getElementById('t-country-other').textContent = t('country_other');
 
-  document.getElementById('f-name').placeholder = t('placeholder_name');
-  document.getElementById('f-firstname').placeholder = t('placeholder_firstname');
-  document.getElementById('f-company').placeholder = t('placeholder_company');
+  // Nom / Prénom / Société : pas d'exemple (le label suffit). On garde les
+  // placeholders uniquement sur les champs sensibles au format.
   document.getElementById('f-email').placeholder = t('placeholder_email');
   document.getElementById('f-phone').placeholder = t('placeholder_phone');
   document.getElementById('f-message').placeholder = t('placeholder_message');
