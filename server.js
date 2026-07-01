@@ -3703,6 +3703,8 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
     'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() + INTERVAL \'30 days\')',
     [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim()]
   );
+  // CRM Airtable : crée une fiche « Prospect » (non bloquant)
+  airtableUpsertProspect({ email: email.toLowerCase().trim(), name: name.trim(), company: (company||'').trim() }).catch(() => {});
   // Notifier l'admin
   const [showroomName, adminEmail, fromAddress] = await Promise.all([
     getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
@@ -4771,6 +4773,38 @@ async function airtableTouchStore(clientEmail) {
       body: JSON.stringify({ fields: { 'fldoXxM2cxB8pRWSj': new Date().toISOString().split('T')[0] } })
     });
   } catch(e) { console.error('Airtable touch error:', e.message); }
+}
+
+// Crée une fiche STORE « Prospect » dans Airtable (sur demande d'accès). Si la fiche
+// existe déjà, on ne rétrograde PAS (un client reste client) : on touche Last Contact.
+async function airtableUpsertProspect({ email, name, company }) {
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  if (!apiKey || !email) return;
+  const base = 'appquOEohNkpH6sbB';
+  const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${email.toLowerCase()}"&maxRecords=1`;
+    const sr = await fetch(searchUrl, { headers });
+    const sd = await sr.json();
+    if (sd.records && sd.records[0]) {
+      // Déjà présent → ne pas écraser le statut, juste dater le contact
+      await fetch(`https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm/${sd.records[0].id}`, {
+        method: 'PATCH', headers, body: JSON.stringify({ fields: { 'fldoXxM2cxB8pRWSj': today } })
+      });
+      return;
+    }
+    await fetch(`https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ typecast: true, fields: {
+        'fldbGIrhVTpvBBnZk': email,          // Email
+        'fldiiGOlzIQNvdGTh': company || '',   // Store name
+        'fldbnSDcnI2mb9qjj': name || '',      // Name Buyers
+        'fldNdh83yBoZONLhP': 'Prospect',      // Statut
+        'fldoXxM2cxB8pRWSj': today            // Last Contact
+      } })
+    });
+  } catch(e) { console.error('Airtable prospect upsert:', e.message); }
 }
 
 // ==================== SEASONS ====================
