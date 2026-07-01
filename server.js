@@ -2760,38 +2760,53 @@ app.get('/api/brands/:brandId/product-stats', requireBrandScope('owner','agent',
 // Rapport de ventes agrégé par marque — partageable avec la marque (designer scopé
 // à sa marque ; owner/agent à n'importe quelle marque). Données agrégées : pas de
 // contacts acheteurs individuels (relations prospect gardées côté agence).
-async function getSalesReportData(bid) {
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// Rapport agrégé, avec filtre de période optionnel (from/to sur o.created_at).
+async function getSalesReportData(bid, from, to) {
+  from = ISO_DATE.test(from || '') ? from : null;
+  to   = ISO_DATE.test(to   || '') ? to   : null;
+  // Clause date partagée par summary/top/monthly (mêmes paramètres $2/$3).
+  const params = [bid];
+  let dc = '';
+  if (from) { params.push(from); dc += ` AND o.created_at >= $${params.length}`; }
+  if (to)   { params.push(to);   dc += ` AND o.created_at < ($${params.length}::date + 1)`; } // to inclus
+  // Mensuel : plage filtrée si fournie, sinon 12 derniers mois par défaut.
+  const monthlyRange = (from || to) ? dc : ` AND o.created_at > NOW() - INTERVAL '12 months'`;
+  // RDV : compte sur la même période (created_at de la prise de RDV).
+  const aParams = [bid]; let adc = '';
+  if (from) { aParams.push(from); adc += ` AND created_at >= $${aParams.length}`; }
+  if (to)   { aParams.push(to);   adc += ` AND created_at < ($${aParams.length}::date + 1)`; }
+
   const [summary, top, monthly, rdv] = await Promise.all([
     pool.query(`SELECT COUNT(DISTINCT o.id)::int AS orders,
                        COALESCE(SUM(ol.quantity),0)::int AS units,
                        COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue,
                        COUNT(DISTINCT o.client_email)::int AS buyers
                 FROM orders o JOIN order_lines ol ON ol.order_id=o.id
-                WHERE o.brand_id=$1 AND o.status <> 'cancelled'`, [bid]),
+                WHERE o.brand_id=$1 AND o.status <> 'cancelled'${dc}`, params),
     pool.query(`SELECT p.reference, p.description,
                        SUM(ol.quantity)::int AS units,
                        COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
                 FROM order_lines ol
                 JOIN orders o ON o.id=ol.order_id
                 JOIN products p ON p.id=ol.product_id
-                WHERE o.brand_id=$1 AND o.status <> 'cancelled'
+                WHERE o.brand_id=$1 AND o.status <> 'cancelled'${dc}
                 GROUP BY p.id, p.reference, p.description
-                ORDER BY units DESC LIMIT 10`, [bid]),
+                ORDER BY units DESC LIMIT 10`, params),
     pool.query(`SELECT to_char(date_trunc('month', o.created_at),'YYYY-MM') AS month,
                        COUNT(DISTINCT o.id)::int AS orders,
                        COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
                 FROM orders o JOIN order_lines ol ON ol.order_id=o.id
-                WHERE o.brand_id=$1 AND o.status <> 'cancelled'
-                      AND o.created_at > NOW() - INTERVAL '12 months'
-                GROUP BY 1 ORDER BY 1`, [bid]),
-    pool.query(`SELECT COUNT(*)::int AS rdv FROM appointments WHERE brand_id=$1`, [bid])
+                WHERE o.brand_id=$1 AND o.status <> 'cancelled'${monthlyRange}
+                GROUP BY 1 ORDER BY 1`, params),
+    pool.query(`SELECT COUNT(*)::int AS rdv FROM appointments WHERE brand_id=$1${adc}`, aParams)
   ]);
-  return { summary: summary.rows[0], top: top.rows, monthly: monthly.rows, rdv: rdv.rows[0].rdv };
+  return { summary: summary.rows[0], top: top.rows, monthly: monthly.rows, rdv: rdv.rows[0].rdv, from, to };
 }
 
 app.get('/api/brands/:brandId/sales-report', requireBrandScope('owner','agent','designer'), async (req, res) => {
   try {
-    res.json(await getSalesReportData(req.params.brandId));
+    res.json(await getSalesReportData(req.params.brandId, req.query.from, req.query.to));
   } catch(e) { console.error('sales-report:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -2802,8 +2817,11 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
     const bRes = await pool.query('SELECT name FROM brands WHERE id=$1', [bid]);
     if (!bRes.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const brandName = bRes.rows[0].name;
-    const data = await getSalesReportData(bid);
+    const data = await getSalesReportData(bid, req.query.from, req.query.to);
     const showroomName = await getSetting('showroom_name');
+    const periodLabel = (data.from || data.to)
+      ? `Période : ${data.from || '…'} → ${data.to || "aujourd'hui"}`
+      : 'Période : depuis le début';
 
     let logoBuf = null;
     try {
@@ -2832,6 +2850,7 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
     if (logoBuf) doc.image(logoBuf, 50, 50, { width: 44, height: 44 });
     doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, logoBuf ? 106 : 50, 54, { lineBreak: false });
     doc.fontSize(10).fillColor('#888').font('Helvetica').text('Rapport de ventes', logoBuf ? 106 : 50, 78, { lineBreak: false });
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text(periodLabel, logoBuf ? 106 : 50, 92, { lineBreak: false });
     doc.fontSize(13).fillColor('#0a0a0a').font('Helvetica-Bold').text(brandName, 400, 56, { width: 145, align: 'right' });
     doc.fontSize(8).fillColor('#aaa').font('Helvetica').text(new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }), 400, 76, { width: 145, align: 'right' });
     doc.moveTo(50, 104).lineTo(545, 104).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
