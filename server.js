@@ -2760,36 +2760,131 @@ app.get('/api/brands/:brandId/product-stats', requireBrandScope('owner','agent',
 // Rapport de ventes agrégé par marque — partageable avec la marque (designer scopé
 // à sa marque ; owner/agent à n'importe quelle marque). Données agrégées : pas de
 // contacts acheteurs individuels (relations prospect gardées côté agence).
+async function getSalesReportData(bid) {
+  const [summary, top, monthly, rdv] = await Promise.all([
+    pool.query(`SELECT COUNT(DISTINCT o.id)::int AS orders,
+                       COALESCE(SUM(ol.quantity),0)::int AS units,
+                       COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue,
+                       COUNT(DISTINCT o.client_email)::int AS buyers
+                FROM orders o JOIN order_lines ol ON ol.order_id=o.id
+                WHERE o.brand_id=$1 AND o.status <> 'cancelled'`, [bid]),
+    pool.query(`SELECT p.reference, p.description,
+                       SUM(ol.quantity)::int AS units,
+                       COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
+                FROM order_lines ol
+                JOIN orders o ON o.id=ol.order_id
+                JOIN products p ON p.id=ol.product_id
+                WHERE o.brand_id=$1 AND o.status <> 'cancelled'
+                GROUP BY p.id, p.reference, p.description
+                ORDER BY units DESC LIMIT 10`, [bid]),
+    pool.query(`SELECT to_char(date_trunc('month', o.created_at),'YYYY-MM') AS month,
+                       COUNT(DISTINCT o.id)::int AS orders,
+                       COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
+                FROM orders o JOIN order_lines ol ON ol.order_id=o.id
+                WHERE o.brand_id=$1 AND o.status <> 'cancelled'
+                      AND o.created_at > NOW() - INTERVAL '12 months'
+                GROUP BY 1 ORDER BY 1`, [bid]),
+    pool.query(`SELECT COUNT(*)::int AS rdv FROM appointments WHERE brand_id=$1`, [bid])
+  ]);
+  return { summary: summary.rows[0], top: top.rows, monthly: monthly.rows, rdv: rdv.rows[0].rdv };
+}
+
 app.get('/api/brands/:brandId/sales-report', requireBrandScope('owner','agent','designer'), async (req, res) => {
   try {
-    const bid = req.params.brandId;
-    const [summary, top, monthly, rdv] = await Promise.all([
-      pool.query(`SELECT COUNT(DISTINCT o.id)::int AS orders,
-                         COALESCE(SUM(ol.quantity),0)::int AS units,
-                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue,
-                         COUNT(DISTINCT o.client_email)::int AS buyers
-                  FROM orders o JOIN order_lines ol ON ol.order_id=o.id
-                  WHERE o.brand_id=$1 AND o.status <> 'cancelled'`, [bid]),
-      pool.query(`SELECT p.reference, p.description,
-                         SUM(ol.quantity)::int AS units,
-                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
-                  FROM order_lines ol
-                  JOIN orders o ON o.id=ol.order_id
-                  JOIN products p ON p.id=ol.product_id
-                  WHERE o.brand_id=$1 AND o.status <> 'cancelled'
-                  GROUP BY p.id, p.reference, p.description
-                  ORDER BY units DESC LIMIT 10`, [bid]),
-      pool.query(`SELECT to_char(date_trunc('month', o.created_at),'YYYY-MM') AS month,
-                         COUNT(DISTINCT o.id)::int AS orders,
-                         COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS revenue
-                  FROM orders o JOIN order_lines ol ON ol.order_id=o.id
-                  WHERE o.brand_id=$1 AND o.status <> 'cancelled'
-                        AND o.created_at > NOW() - INTERVAL '12 months'
-                  GROUP BY 1 ORDER BY 1`, [bid]),
-      pool.query(`SELECT COUNT(*)::int AS rdv FROM appointments WHERE brand_id=$1`, [bid])
-    ]);
-    res.json({ summary: summary.rows[0], top: top.rows, monthly: monthly.rows, rdv: rdv.rows[0].rdv });
+    res.json(await getSalesReportData(req.params.brandId));
   } catch(e) { console.error('sales-report:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Version PDF du rapport de ventes — présentable, à envoyer à la marque.
+app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const bid = req.params.brandId;
+    const bRes = await pool.query('SELECT name FROM brands WHERE id=$1', [bid]);
+    if (!bRes.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const brandName = bRes.rows[0].name;
+    const data = await getSalesReportData(bid);
+    const showroomName = await getSetting('showroom_name');
+
+    let logoBuf = null;
+    try {
+      const svg2img = require('svg2img');
+      const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
+      logoBuf = await new Promise((resolve, reject) =>
+        svg2img(svgSrc, { width: 120, height: 120, preserveAspectRatio: true }, (err, buf) => err ? reject(err) : resolve(buf)));
+    } catch(e) { /* logo optionnel */ }
+
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => {
+      const pdf = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="rapport-ventes-${brandName.replace(/[^a-zA-Z0-9]+/g,'-')}.pdf"`);
+      res.send(pdf);
+    });
+
+    const eur = n => (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+    const fmt = n => (Number(n)||0).toLocaleString('fr-FR');
+    const s = data.summary || {};
+    const avg = s.orders ? s.revenue / s.orders : 0;
+
+    // En-tête
+    if (logoBuf) doc.image(logoBuf, 50, 50, { width: 44, height: 44 });
+    doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, logoBuf ? 106 : 50, 54, { lineBreak: false });
+    doc.fontSize(10).fillColor('#888').font('Helvetica').text('Rapport de ventes', logoBuf ? 106 : 50, 78, { lineBreak: false });
+    doc.fontSize(13).fillColor('#0a0a0a').font('Helvetica-Bold').text(brandName, 400, 56, { width: 145, align: 'right' });
+    doc.fontSize(8).fillColor('#aaa').font('Helvetica').text(new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }), 400, 76, { width: 145, align: 'right' });
+    doc.moveTo(50, 104).lineTo(545, 104).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+
+    // Cartes KPI (2 lignes de 3)
+    const kpis = [['Commandes', fmt(s.orders)], ['Pièces', fmt(s.units)], ['CA HT', eur(s.revenue)],
+                  ['Panier moyen', eur(avg)], ['Acheteurs', fmt(s.buyers)], ['RDV showroom', fmt(data.rdv)]];
+    let kx = 50, ky = 120;
+    const kw = 158, kh = 52, kgap = 10.5;
+    kpis.forEach((k, i) => {
+      doc.rect(kx, ky, kw, kh).fillColor('#f7f7f7').fill();
+      doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(k[0].toUpperCase(), kx + 10, ky + 9, { width: kw - 20 });
+      doc.fontSize(15).fillColor('#0a0a0a').font('Helvetica-Bold').text(k[1], kx + 10, ky + 24, { width: kw - 20 });
+      if ((i + 1) % 3 === 0) { kx = 50; ky += kh + kgap; } else { kx += kw + kgap; }
+    });
+
+    let y = ky + kh + 16;
+    // Top produits
+    doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text('Top produits (pièces commandées)', 50, y); y += 18;
+    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica');
+    doc.text('RÉFÉRENCE', 50, y).text('DÉSIGNATION', 150, y).text('PIÈCES', 400, y, { width: 60, align: 'right' }).text('CA HT', 470, y, { width: 75, align: 'right' });
+    y += 12; doc.moveTo(50, y).lineTo(545, y).strokeColor('#e0e0e0').lineWidth(0.5).stroke(); y += 6;
+    if ((data.top||[]).length) {
+      data.top.forEach((p, i) => {
+        if (i % 2 === 0) { doc.rect(50, y - 2, 495, 16).fillColor('#fafafa').fill(); }
+        const nm = (p.description || '').length > 42 ? p.description.slice(0, 40) + '…' : (p.description || '');
+        doc.fontSize(8.5).fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference || '', 50, y, { width: 95 });
+        doc.fillColor('#444').font('Helvetica').text(nm, 150, y, { width: 245 });
+        doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(fmt(p.units), 400, y, { width: 60, align: 'right' });
+        doc.fillColor('#444').font('Helvetica').text(eur(p.revenue), 470, y, { width: 75, align: 'right' });
+        y += 16;
+      });
+    } else { doc.fontSize(9).fillColor('#888').font('Helvetica').text('Aucune vente.', 50, y); y += 16; }
+
+    y += 14;
+    // Évolution mensuelle
+    if ((data.monthly||[]).length) {
+      doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text('Évolution mensuelle (CA HT)', 50, y); y += 18;
+      const max = Math.max(...data.monthly.map(m => m.revenue), 1);
+      data.monthly.forEach(m => {
+        if (y > 770) { doc.addPage(); y = 50; }
+        const barW = Math.round((m.revenue / max) * 300);
+        doc.fontSize(8).fillColor('#888').font('Helvetica').text(m.month, 50, y + 1, { width: 60 });
+        doc.rect(115, y, 300, 11).fillColor('#f0f0f0').fill();
+        doc.rect(115, y, barW, 11).fillColor('#1a1a1a').fill();
+        doc.fontSize(8).fillColor('#444').text(eur(m.revenue), 425, y + 1, { width: 120, align: 'right' });
+        y += 16;
+      });
+    }
+
+    doc.fontSize(7.5).fillColor('#bbb').font('Helvetica').text(`Données agrégées (commandes confirmées) — généré automatiquement par ${showroomName}`, 50, 800, { align: 'center', width: 495 });
+    doc.end();
+  } catch(e) { console.error('sales-report-pdf:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // Fiche acheteur 360° : infos + commandes + RDV (vue relation, owner/agent).
