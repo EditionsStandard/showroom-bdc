@@ -3075,8 +3075,12 @@ async function translateBatch(texts, lang) {
   const cached = await pool.query('SELECT source_hash, translated FROM content_translations WHERE lang=$1 AND source_hash = ANY($2)',
     [lang, jobs.map(j => j.hash)]);
   const cmap = Object.fromEntries(cached.rows.map(r => [r.source_hash, r.translated]));
-  jobs.forEach(j => { if (cmap[j.hash] != null) out[j.i] = cmap[j.hash]; });
-  const missing = jobs.filter(j => cmap[j.hash] == null);
+  // Une entrée dont la traduction == texte source est un ancien repli « empoisonné »
+  // (mis en cache pendant une panne de clé/crédits) : on l'ignore et on retraduit,
+  // pour que le portail se répare tout seul sans purge manuelle du cache.
+  const isReal = (j) => cmap[j.hash] != null && cmap[j.hash] !== j.text;
+  jobs.forEach(j => { if (isReal(j)) out[j.i] = cmap[j.hash]; });
+  const missing = jobs.filter(j => !isReal(j));
   if (!missing.length || !process.env.ANTHROPIC_API_KEY) return out;
 
   // Traduit un lot ; en cas d'échec, un seul nouvel essai avant repli.
@@ -3093,7 +3097,7 @@ async function translateBatch(texts, lang) {
       out[m.i] = val;
       // On ne met en cache que ce qui a réellement été traduit (≠ repli original).
       if (val !== m.text) {
-        pool.query('INSERT INTO content_translations (source_hash,lang,translated) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [m.hash, lang, val]).catch(() => {});
+        pool.query('INSERT INTO content_translations (source_hash,lang,translated) VALUES ($1,$2,$3) ON CONFLICT (source_hash,lang) DO UPDATE SET translated = EXCLUDED.translated', [m.hash, lang, val]).catch(() => {});
       }
     });
   }
