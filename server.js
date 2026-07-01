@@ -2951,6 +2951,9 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
 const TRANSLATE_LANGS = { en: 'English', it: 'Italian', es: 'Spanish', de: 'German',
   zh: 'Chinese (Simplified)', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 
+// Un seul appel Claude pour un petit lot de textes. Renvoie un tableau de même
+// longueur (les cases non traduites valent null). Lève une erreur en cas
+// d'échec dur (réseau, HTTP, JSON illisible) pour laisser le repli agir.
 async function claudeTranslate(texts, langName) {
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -2963,9 +2966,15 @@ async function claudeTranslate(texts, langName) {
     }),
     signal: AbortSignal.timeout(30000)
   });
-  if (!resp.ok) throw new Error('Anthropic HTTP ' + resp.status);
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.text()).slice(0, 300); } catch (_) {}
+    throw new Error('Anthropic HTTP ' + resp.status + (detail ? ' ' + detail : ''));
+  }
   const data = await resp.json();
-  const txt = (data.content && data.content[0] && data.content[0].text) || '[]';
+  if (data.stop_reason === 'max_tokens') throw new Error('réponse tronquée (max_tokens)');
+  let txt = (data.content && data.content[0] && data.content[0].text) || '[]';
+  txt = txt.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
   const m = txt.match(/\[[\s\S]*\]/);
   const arr = JSON.parse(m ? m[0] : txt);
   if (!Array.isArray(arr)) throw new Error('bad translation payload');
@@ -2973,6 +2982,9 @@ async function claudeTranslate(texts, langName) {
 }
 
 // Traduit une liste de textes vers `lang`, avec cache DB. Repli = texte original.
+// Découpe les textes manquants en petits lots : un lot en échec (JSON tronqué,
+// surcharge API…) n'impacte pas les autres langues ni les autres lots.
+const TRANSLATE_CHUNK = 25;
 async function translateBatch(texts, lang) {
   const langName = TRANSLATE_LANGS[lang];
   if (!langName) return texts.slice();
@@ -2988,16 +3000,30 @@ async function translateBatch(texts, lang) {
   const cmap = Object.fromEntries(cached.rows.map(r => [r.source_hash, r.translated]));
   jobs.forEach(j => { if (cmap[j.hash] != null) out[j.i] = cmap[j.hash]; });
   const missing = jobs.filter(j => cmap[j.hash] == null);
-  if (missing.length && process.env.ANTHROPIC_API_KEY) {
+  if (!missing.length || !process.env.ANTHROPIC_API_KEY) return out;
+
+  // Traduit un lot ; en cas d'échec, un seul nouvel essai avant repli.
+  async function runChunk(chunk) {
+    let tr;
     try {
-      const tr = await claudeTranslate(missing.map(m => m.text), langName);
-      missing.forEach((m, k) => {
-        const val = (tr[k] != null && String(tr[k]).trim()) ? String(tr[k]) : m.text;
-        out[m.i] = val;
+      tr = await claudeTranslate(chunk.map(m => m.text), langName);
+    } catch (e1) {
+      try { tr = await claudeTranslate(chunk.map(m => m.text), langName); }
+      catch (e2) { console.error(`[translate] ${lang} lot ${chunk.length} échec: ${e2.message}`); return; }
+    }
+    chunk.forEach((m, k) => {
+      const val = (tr[k] != null && String(tr[k]).trim()) ? String(tr[k]) : m.text;
+      out[m.i] = val;
+      // On ne met en cache que ce qui a réellement été traduit (≠ repli original).
+      if (val !== m.text) {
         pool.query('INSERT INTO content_translations (source_hash,lang,translated) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [m.hash, lang, val]).catch(() => {});
-      });
-    } catch(e) { console.error('[translate]', e.message); } // repli : texte original déjà en place
+      }
+    });
   }
+
+  const chunks = [];
+  for (let i = 0; i < missing.length; i += TRANSLATE_CHUNK) chunks.push(missing.slice(i, i + TRANSLATE_CHUNK));
+  await Promise.all(chunks.map(runChunk));
   return out;
 }
 
