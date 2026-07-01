@@ -2931,6 +2931,69 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
   } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// ==================== TRADUCTION DE CONTENU (Claude, avec cache) ============
+const TRANSLATE_LANGS = { en: 'English', it: 'Italian', es: 'Spanish', de: 'German',
+  zh: 'Chinese (Simplified)', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
+
+async function claudeTranslate(texts, langName) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content:
+        `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!resp.ok) throw new Error('Anthropic HTTP ' + resp.status);
+  const data = await resp.json();
+  const txt = (data.content && data.content[0] && data.content[0].text) || '[]';
+  const m = txt.match(/\[[\s\S]*\]/);
+  const arr = JSON.parse(m ? m[0] : txt);
+  if (!Array.isArray(arr)) throw new Error('bad translation payload');
+  return arr;
+}
+
+// Traduit une liste de textes vers `lang`, avec cache DB. Repli = texte original.
+async function translateBatch(texts, lang) {
+  const langName = TRANSLATE_LANGS[lang];
+  if (!langName) return texts.slice();
+  const out = texts.map(t => (t == null ? '' : String(t)));
+  const jobs = [];
+  out.forEach((text, i) => {
+    if (text.trim()) jobs.push({ i, text, hash: crypto.createHash('sha1').update(lang + '|' + text).digest('hex') });
+  });
+  if (!jobs.length) return out;
+  // Cache
+  const cached = await pool.query('SELECT source_hash, translated FROM content_translations WHERE lang=$1 AND source_hash = ANY($2)',
+    [lang, jobs.map(j => j.hash)]);
+  const cmap = Object.fromEntries(cached.rows.map(r => [r.source_hash, r.translated]));
+  jobs.forEach(j => { if (cmap[j.hash] != null) out[j.i] = cmap[j.hash]; });
+  const missing = jobs.filter(j => cmap[j.hash] == null);
+  if (missing.length && process.env.ANTHROPIC_API_KEY) {
+    try {
+      const tr = await claudeTranslate(missing.map(m => m.text), langName);
+      missing.forEach((m, k) => {
+        const val = (tr[k] != null && String(tr[k]).trim()) ? String(tr[k]) : m.text;
+        out[m.i] = val;
+        pool.query('INSERT INTO content_translations (source_hash,lang,translated) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [m.hash, lang, val]).catch(() => {});
+      });
+    } catch(e) { console.error('[translate]', e.message); } // repli : texte original déjà en place
+  }
+  return out;
+}
+
+app.post('/api/portal/translate', requireBuyerAuth, async (req, res) => {
+  try {
+    const { texts, lang } = req.body;
+    if (!Array.isArray(texts) || !lang || !TRANSLATE_LANGS[lang]) return res.status(400).json({ error: 'Requête invalide' });
+    const clipped = texts.slice(0, 120).map(t => String(t == null ? '' : t).slice(0, 4000));
+    res.json({ translations: await translateBatch(clipped, lang) });
+  } catch(e) { console.error('translate endpoint:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json([]);

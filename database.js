@@ -84,6 +84,17 @@ async function init() {
     );
   `).catch(() => {});
 
+  // Cache des traductions de contenu (bios, désignations…) — 1 appel API par texte/langue
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS content_translations (
+      source_hash TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      translated TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (source_hash, lang)
+    );
+  `).catch(() => {});
+
   // 2) Tables dépendantes (référencent brands/products/orders/buyers)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS product_stats (
