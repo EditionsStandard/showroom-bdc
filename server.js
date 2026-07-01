@@ -990,6 +990,49 @@ app.post('/api/admin/translate-cache/clear', requireRole('owner'), async (req, r
   } catch(e) { console.error('translate-cache clear:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Réplique fidèle de sentenceCase() du portail (public/portal.html) : indispensable
+// pour que les textes pré-traduits produisent le MÊME hash que ceux demandés à la
+// volée par le navigateur (sinon le cache ne serait jamais retrouvé).
+function srvSentenceCase(s) {
+  s = String(s || '');
+  if (!s) return s;
+  const letters = s.replace(/[^a-zA-Z]/g, '');
+  const upperRatio = letters.length ? (letters.replace(/[^A-Z]/g, '').length / letters.length) : 0;
+  if (upperRatio < 0.7) return s;
+  return s.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w)/g, c => c.toUpperCase());
+}
+
+// Pré-traduction complète du catalogue (owner) : remplit le cache pour les 8
+// langues d'un coup (bios de marques + désignations produits). Idempotent — ne
+// paie que ce qui manque encore ; si l'appel est coupé, recliquer reprend depuis
+// le cache. Peut prendre 1 à 2 min sur un gros catalogue.
+app.post('/api/admin/translate-warm', requireRole('owner'), async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(400).json({ error: 'ANTHROPIC_API_KEY absente dans Railway' });
+  try {
+    const [brands, prods] = await Promise.all([
+      pool.query("SELECT DISTINCT about_text FROM brands WHERE about_text IS NOT NULL AND about_text <> ''"),
+      pool.query("SELECT DISTINCT description FROM products WHERE COALESCE(active,1)=1 AND description IS NOT NULL AND description <> ''")
+    ]);
+    const set = new Set();
+    brands.rows.forEach(r => { const t = String(r.about_text || '').trim(); if (t) set.add(t.slice(0, 4000)); });
+    prods.rows.forEach(r => { const t = srvSentenceCase(r.description || '').trim(); if (t) set.add(t.slice(0, 4000)); });
+    const texts = [...set];
+    const langs = Object.keys(TRANSLATE_LANGS);
+    if (!texts.length) return res.json({ ok: true, texts: 0, langs: langs.length, added: 0, perLang: {}, note: 'Aucun texte à traduire (bios/désignations vides).' });
+    const before = (await pool.query('SELECT COUNT(*)::int n FROM content_translations')).rows[0].n;
+    const perLang = {};
+    for (const lang of langs) {
+      try { await translateBatch(texts, lang); perLang[lang] = 'ok'; }
+      catch(e) { perLang[lang] = e.message || 'échec'; console.error(`[warm] ${lang}: ${e.message}`); }
+    }
+    // Les INSERT du cache sont asynchrones (fire-and-forget) : petite pause pour
+    // que le comptage final reflète l'essentiel des écritures.
+    await new Promise(r => setTimeout(r, 1500));
+    const after = (await pool.query('SELECT COUNT(*)::int n FROM content_translations')).rows[0].n;
+    res.json({ ok: true, texts: texts.length, langs: langs.length, cached_before: before, cached_after: after, added: Math.max(0, after - before), perLang });
+  } catch(e) { console.error('translate-warm:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // Signature pour upload direct navigateur → Cloudinary (vidéos surtout) : évite de
 // faire transiter de gros fichiers par le serveur. On ne signe que folder + timestamp.
 app.get('/api/cloudinary-signature', requireRole('owner','agent','designer'), (req, res) => {
