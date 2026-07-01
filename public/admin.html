@@ -883,6 +883,7 @@
         <button class="btn btn-secondary btn-sm" onclick="testAirtable()">🔄 Tester la synchro Airtable</button>
         <button class="btn btn-secondary btn-sm" onclick="testCloudinary()">🖼️ Tester Cloudinary</button>
         <button class="btn btn-secondary btn-sm" onclick="testTranslate()">🌐 Tester les traductions</button>
+        <button class="btn btn-secondary btn-sm" onclick="warmTranslate()">🚀 Pré-traduire tout le catalogue</button>
         <button class="btn btn-secondary btn-sm" onclick="clearTranslateCache()">🧹 Vider le cache de traduction</button>
       </div>
       <div id="integration-result" style="font-size:12px;margin-top:10px"></div>
@@ -5386,6 +5387,21 @@ async function testTranslate() {
     const ok = Object.values(d.results || {}).filter(r => r.ok).length, tot = Object.keys(d.results || {}).length;
     el.innerHTML = `<div style="margin-bottom:6px">${ok}/${tot} langues OK · cache : ${d.cache_rows != null ? d.cache_rows : '?'} entrées</div>${rows}`;
   } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
+}
+async function warmTranslate() {
+  if (!confirm('Pré-traduire tout le catalogue (bios + désignations) dans les 8 langues ?\n\nNe traduit que ce qui manque encore (déjà en cache = gratuit). Peut prendre 1 à 2 min sur un gros catalogue — ne ferme pas la page.')) return;
+  const el = document.getElementById('integration-result');
+  el.innerHTML = '<span style="color:#888">Pré-traduction en cours… (peut durer 1–2 min, ne ferme pas la page)</span>';
+  try {
+    const d = await fetch('/api/admin/translate-warm', { method:'POST' }).then(r => r.json());
+    if (d.error) { el.innerHTML = `<span style="color:#e74c3c">❌ ${esc(d.error)}</span>`; return; }
+    if (!d.texts) { el.innerHTML = `<span style="color:#e0b000">⚠️ ${esc(d.note || 'Aucun texte à traduire.')}</span>`; return; }
+    const rows = Object.keys(d.perLang || {}).map(l => {
+      const name = TRANSLATE_LANG_NAMES[l] || l, v = d.perLang[l];
+      return v === 'ok' ? `<div style="color:#2ecc71">✅ ${name}</div>` : `<div style="color:#e74c3c">❌ ${name} — ${esc(v)}</div>`;
+    }).join('');
+    el.innerHTML = `<div style="margin-bottom:6px">🚀 ${d.texts} textes × ${d.langs} langues · ${d.added} nouvelles traductions ajoutées · cache : ${d.cached_after} entrées.</div>${rows}`;
+  } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau ou délai dépassé. Le cache est partiellement rempli — reclique pour reprendre (les textes déjà traduits ne sont pas repayés).</span>'; }
 }
 async function clearTranslateCache() {
   if (!confirm('Vider le cache de traduction ? Les textes seront retraduits à la prochaine consultation (utile pour effacer d\'anciens replis figés en français).')) return;
