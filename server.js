@@ -956,6 +956,40 @@ app.get('/api/admin/airtable-check', requireRole('owner'), async (req, res) => {
   } catch(e) { res.json({ configured: true, ok: false, error: e.message || String(e) }); }
 });
 
+// Diagnostic traduction (owner) : teste EN DIRECT chaque langue avec une phrase
+// témoin et remonte l'erreur exacte par langue (clé manquante, HTTP, JSON…).
+// Contourne le cache pour révéler la vraie cause quand « ça ne traduit pas ».
+app.get('/api/admin/translate-check', requireRole('owner'), async (req, res) => {
+  const configured = !!process.env.ANTHROPIC_API_KEY;
+  let cacheRows = null;
+  try { const c = await pool.query('SELECT COUNT(*)::int n FROM content_translations'); cacheRows = c.rows[0].n; } catch(_) {}
+  if (!configured) return res.json({ configured: false, cache_rows: cacheRows });
+  const sample = 'Nouvelle collection printemps, coupe ajustée en laine.';
+  const langs = Object.keys(TRANSLATE_LANGS);
+  const results = {};
+  await Promise.all(langs.map(async (lang) => {
+    try {
+      const tr = await claudeTranslate([sample], TRANSLATE_LANGS[lang]);
+      const val = tr && tr[0];
+      results[lang] = { ok: !!(val && String(val).trim() && val !== sample), sample: val || null };
+    } catch(e) { results[lang] = { ok: false, error: e.message || String(e) }; }
+  }));
+  res.json({ configured: true, cache_rows: cacheRows, results });
+});
+
+// Purge du cache de traduction (owner) : retire les entrées figées (dont les
+// anciens replis français) pour forcer une retraduction propre. ?lang=xx cible
+// une langue ; sans paramètre, vide toute la table.
+app.post('/api/admin/translate-cache/clear', requireRole('owner'), async (req, res) => {
+  const lang = (req.query.lang || req.body && req.body.lang || '').trim();
+  try {
+    const r = lang
+      ? await pool.query('DELETE FROM content_translations WHERE lang=$1', [lang])
+      : await pool.query('DELETE FROM content_translations');
+    res.json({ ok: true, deleted: r.rowCount, lang: lang || 'all' });
+  } catch(e) { console.error('translate-cache clear:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // Signature pour upload direct navigateur → Cloudinary (vidéos surtout) : évite de
 // faire transiter de gros fichiers par le serveur. On ne signe que folder + timestamp.
 app.get('/api/cloudinary-signature', requireRole('owner','agent','designer'), (req, res) => {

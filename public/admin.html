@@ -882,6 +882,8 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-secondary btn-sm" onclick="testAirtable()">🔄 Tester la synchro Airtable</button>
         <button class="btn btn-secondary btn-sm" onclick="testCloudinary()">🖼️ Tester Cloudinary</button>
+        <button class="btn btn-secondary btn-sm" onclick="testTranslate()">🌐 Tester les traductions</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearTranslateCache()">🧹 Vider le cache de traduction</button>
       </div>
       <div id="integration-result" style="font-size:12px;margin-top:10px"></div>
       <div class="sep"></div>
@@ -5365,6 +5367,34 @@ async function testCloudinary() {
     if (!cfg.api_key || !cfg.api_secret || !cfg.cloud_name) el.innerHTML = '<span style="color:#e0b000">⚠️ Cloudinary : variables manquantes dans Railway.</span>';
     else if (d.test && d.test.ok) el.innerHTML = '<span style="color:#2ecc71">✅ Cloudinary OK — upload de test réussi.</span>';
     else el.innerHTML = `<span style="color:#e74c3c">❌ Cloudinary : ${esc((d.test && d.test.error) || 'erreur')}</span>`;
+  } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
+}
+
+const TRANSLATE_LANG_NAMES = { en:'Anglais', it:'Italien', es:'Espagnol', de:'Allemand', zh:'Chinois', ja:'Japonais', ko:'Coréen', th:'Thaï' };
+async function testTranslate() {
+  const el = document.getElementById('integration-result');
+  el.innerHTML = '<span style="color:#888">Test des 8 langues en cours (appel Claude en direct)…</span>';
+  try {
+    const d = await fetch('/api/admin/translate-check').then(r => r.json());
+    if (!d.configured) { el.innerHTML = '<span style="color:#e0b000">⚠️ Traduction non configurée (ANTHROPIC_API_KEY absente dans Railway).</span>'; return; }
+    const rows = Object.keys(d.results || {}).map(l => {
+      const r = d.results[l], name = TRANSLATE_LANG_NAMES[l] || l;
+      return r.ok
+        ? `<div style="color:#2ecc71">✅ ${name} — « ${esc(r.sample || '')} »</div>`
+        : `<div style="color:#e74c3c">❌ ${name} — ${esc(r.error || 'échec')}</div>`;
+    }).join('');
+    const ok = Object.values(d.results || {}).filter(r => r.ok).length, tot = Object.keys(d.results || {}).length;
+    el.innerHTML = `<div style="margin-bottom:6px">${ok}/${tot} langues OK · cache : ${d.cache_rows != null ? d.cache_rows : '?'} entrées</div>${rows}`;
+  } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
+}
+async function clearTranslateCache() {
+  if (!confirm('Vider le cache de traduction ? Les textes seront retraduits à la prochaine consultation (utile pour effacer d\'anciens replis figés en français).')) return;
+  const el = document.getElementById('integration-result');
+  el.innerHTML = '<span style="color:#888">Purge du cache…</span>';
+  try {
+    const d = await fetch('/api/admin/translate-cache/clear', { method:'POST' }).then(r => r.json());
+    if (d.ok) el.innerHTML = `<span style="color:#2ecc71">✅ Cache vidé (${d.deleted} entrées supprimées). Les langues seront retraduites à la navigation.</span>`;
+    else el.innerHTML = `<span style="color:#e74c3c">❌ ${esc(d.error || 'erreur')}</span>`;
   } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
 }
 
