@@ -823,17 +823,45 @@ const TRANSLATIONS = {
   }
 };
 let currentLang = localStorage.getItem('portal_lang') || 'fr';
+// Langues d'interface réellement traduites (dictionnaire) ; les autres retombent sur EN
+// pour l'UI, mais le CONTENU (bios, désignations) est traduit à la volée par Claude.
+const CONTENT_TRANSLATE_LANGS = ['en','it','es','de','zh','ja','ko','th'];
+function uiDict() { return TRANSLATIONS[currentLang] || TRANSLATIONS.en; }
 function t(key, ...args) {
-  const val = TRANSLATIONS[currentLang][key];
+  const dict = uiDict();
+  let val = dict[key];
+  if (val === undefined) val = TRANSLATIONS.en[key]; // repli EN si clé absente
   return typeof val === 'function' ? val(...args) : val;
 }
 function setLang(lang) {
   currentLang = lang;
   localStorage.setItem('portal_lang', lang);
   applyLang();
+  translateVisibleContent(); // traduit le contenu déjà affiché (bios, désignations)
 }
+
+// Traduit le contenu marqué [data-tr] (texte original en attribut) vers la langue
+// courante via Claude (avec cache serveur). Repli = texte original. FR = source.
+let _trBusy = false;
+async function translateVisibleContent(root) {
+  root = root || document;
+  const els = [...root.querySelectorAll('[data-tr]')];
+  if (currentLang === 'fr') { els.forEach(el => { el.textContent = el.getAttribute('data-tr'); delete el.dataset.trLang; }); return; }
+  if (!CONTENT_TRANSLATE_LANGS.includes(currentLang)) return;
+  const todo = els.filter(el => el.dataset.trLang !== currentLang && (el.getAttribute('data-tr') || '').trim());
+  if (!todo.length || _trBusy) return;
+  _trBusy = true;
+  try {
+    const texts = todo.map(el => el.getAttribute('data-tr'));
+    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang: currentLang }) });
+    const d = await r.json();
+    if (d && d.translations) todo.forEach((el, i) => { el.textContent = d.translations[i] || el.getAttribute('data-tr'); el.dataset.trLang = currentLang; });
+  } catch(e) { /* repli silencieux : l'original reste affiché */ }
+  finally { _trBusy = false; }
+}
+
 function applyLang() {
-  const T = TRANSLATIONS[currentLang];
+  const T = uiDict();
   const _sid = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   _sid('nav-catalog', T.nav_catalog);
   _sid('nav-orders', T.nav_orders);
@@ -844,6 +872,7 @@ function applyLang() {
   _sid('dd-profile', T.dd_profile);
   _sid('dd-favs', T.dd_favs);
   _sid('dd-logout', T.dd_logout);
+  const _ls = document.getElementById('dd-lang-select'); if (_ls) _ls.value = currentLang;
   // Bouton thème : libellé = action vers l'autre thème (cohérent avec toggleTheme)
   const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   _sid('dd-theme', _isDark ? T.theme_light : T.theme_dark);
@@ -986,7 +1015,19 @@ function applyLang() {
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
       <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
-      <button id="dd-lang" class="dropdown-item" onclick="closeUserMenu();setLang(currentLang==='fr'?'en':'fr')" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐 FR / EN</button>
+      <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
+        <select id="dd-lang-select" onchange="setLang(this.value)" style="flex:1;background:var(--black);color:#fff;border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-family:inherit;font-size:12px;cursor:pointer">
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+          <option value="it">Italiano</option>
+          <option value="es">Español</option>
+          <option value="de">Deutsch</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="th">ไทย</option>
+        </select>
+      </div>
       <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
       <div class="dropdown-sep"></div>
       <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
@@ -1866,15 +1907,16 @@ function renderBrandPicker() {
       const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
       const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
       const idx = String(i + 1).padStart(2, '0');
-      const desc = b.about_text ? `<div class="brand-desc">${esc(b.about_text)}</div>` : '';
+      const desc = b.about_text ? `<div class="brand-desc" data-tr="${esc(b.about_text)}">${esc(b.about_text)}</div>` : '';
       const meta = [];
       if (b.moq_qty && Number(b.moq_qty) > 0) meta.push(`MOQ ${parseInt(b.moq_qty)}`);
       if (b.lookbook_url) meta.push('Lookbook');
       const metaHtml = meta.length ? `<div class="brand-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : '';
-      const cta = (currentLang === 'en' ? 'View collection' : 'Voir la collection') + ' →';
+      const cta = (currentLang === 'fr' ? 'Voir la collection' : 'View collection') + ' →';
       const seasonPill = b.season ? `<span class="brand-season">${esc(b.season)}</span>` : '';
       return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name-row"><div class="brand-name">${esc(b.name)}</div>${seasonPill}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
     }).join('') + '</div>';
+  translateVisibleContent(el); // bios traduites si langue ≠ FR
 }
 
 async function openBrand(brandId, _fromPop) {
@@ -2133,7 +2175,7 @@ function renderProductsPage() {
       ${img}${_cartBadge}
       <div class="product-info">
         <div class="product-ref" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" title="Voir la fiche produit">${esc(p.reference)}</div>
-        <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer">${esc(sentenceCase(p.description))}</div>
+        <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" data-tr="${esc(sentenceCase(p.description))}">${esc(sentenceCase(p.description))}</div>
         ${p.color ? `<div class="product-meta">${esc(p.color)}</div>` : ''}
         ${priceBlockHtml(p.price, p.price_retail, true)}
         ${stockBadgeHtml(p) ? `<div style="margin-top:6px">${stockBadgeHtml(p)}</div>` : ''}
@@ -2144,6 +2186,7 @@ function renderProductsPage() {
 
   // Cart badges + long press
   setTimeout(() => { refreshCartBadges(); initLongPress(); }, 0);
+  translateVisibleContent(el); // désignations traduites si langue ≠ FR
 
   // Infinite scroll sentinel
   if (scrollObserver) scrollObserver.disconnect();
@@ -3069,7 +3112,11 @@ function openProductDrawer(productId) {
   document.getElementById('drawer-collection').textContent = p.collection_name || '';
   document.getElementById('drawer-color').textContent = p.color ? t('coloris_label', p.color) : '';
   document.getElementById('drawer-composition').textContent = p.composition ? t('composition_label', p.composition) : '';
-  document.getElementById('drawer-desc').textContent = sentenceCase(p.description || '');
+  const _dDesc = document.getElementById('drawer-desc');
+  _dDesc.textContent = sentenceCase(p.description || '');
+  _dDesc.setAttribute('data-tr', sentenceCase(p.description || ''));
+  delete _dDesc.dataset.trLang;
+  translateVisibleContent(_dDesc.parentElement || document); // désignation produit traduite
 
   // Vidéo (défilé/mannequin) — chargement paresseux : poster seul, rien ne se
   // télécharge tant que l'acheteur ne lance pas la lecture (preload="none").
