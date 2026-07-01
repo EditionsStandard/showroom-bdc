@@ -940,6 +940,22 @@ app.get('/api/admin/cloudinary-check', requireRole('owner'), async (req, res) =>
   }
 });
 
+// Diagnostic synchro Airtable (owner) : vérifie la clé + l'accès à la table STORES
+// + l'existence des champs mappés (lecture 1 enregistrement, non destructif).
+app.get('/api/admin/airtable-check', requireRole('owner'), async (req, res) => {
+  const configured = !!process.env.AIRTABLE_API_KEY;
+  if (!configured) return res.json({ configured: false });
+  const base = 'appquOEohNkpH6sbB';
+  const fields = ['fldbGIrhVTpvBBnZk','fldiiGOlzIQNvdGTh','fldbnSDcnI2mb9qjj','fldNdh83yBoZONLhP','fldoXxM2cxB8pRWSj'];
+  const url = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?maxRecords=1&` + fields.map(f => 'fields%5B%5D=' + f).join('&');
+  try {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + process.env.AIRTABLE_API_KEY }, signal: AbortSignal.timeout(15000) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) return res.json({ configured: true, ok: true, sample: (d.records || []).length });
+    return res.json({ configured: true, ok: false, status: r.status, error: (d.error && (d.error.message || d.error.type)) || ('HTTP ' + r.status) });
+  } catch(e) { res.json({ configured: true, ok: false, error: e.message || String(e) }); }
+});
+
 // Signature pour upload direct navigateur → Cloudinary (vidéos surtout) : évite de
 // faire transiter de gros fichiers par le serveur. On ne signe que folder + timestamp.
 app.get('/api/cloudinary-signature', requireRole('owner','agent','designer'), (req, res) => {

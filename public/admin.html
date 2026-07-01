@@ -865,6 +865,14 @@
       <div id="currencies-list" style="margin-bottom:10px"></div>
       <button class="btn btn-secondary btn-sm" onclick="addCurrencyRow()" data-t="btn_add_currency">+ Ajouter une devise</button>
       <div class="sep"></div>
+      <h3>Intégrations</h3>
+      <p style="font-size:11px;color:#666;margin-bottom:10px">Vérifie que les connexions externes fonctionnent (clé + accès).</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="testAirtable()">🔄 Tester la synchro Airtable</button>
+        <button class="btn btn-secondary btn-sm" onclick="testCloudinary()">🖼️ Tester Cloudinary</button>
+      </div>
+      <div id="integration-result" style="font-size:12px;margin-top:10px"></div>
+      <div class="sep"></div>
       <h3 data-t="settings_security">Sécurité</h3>
       <div class="form-group" style="max-width:260px"><label data-t="s_admin_pass_label">Nouveau mot de passe admin</label><input id="s-admin-pass" type="password" data-tp="s_admin_pass_placeholder"></div>
       <button class="btn btn-primary" onclick="saveSettings()" data-t="btn_save">Enregistrer</button>
@@ -5323,6 +5331,29 @@ function collectCurrencies() {
     symbol: row.querySelector('[data-c-symbol]').value.trim(),
     rate: parseFloat(row.querySelector('[data-c-rate]').value) || 1
   })).filter(c => c.code);
+}
+
+async function testAirtable() {
+  const el = document.getElementById('integration-result');
+  el.innerHTML = '<span style="color:#888">Test Airtable en cours…</span>';
+  try {
+    const d = await fetch('/api/admin/airtable-check').then(r => r.json());
+    if (!d.configured) el.innerHTML = '<span style="color:#e0b000">⚠️ Airtable non configuré (AIRTABLE_API_KEY absente dans Railway).</span>';
+    else if (d.ok) el.innerHTML = '<span style="color:#2ecc71">✅ Airtable OK — clé, base et champs (Store name, Name Buyers, Email, Statut, Last Contact) accessibles.</span>';
+    else el.innerHTML = `<span style="color:#e74c3c">❌ Airtable : ${esc(d.error || 'erreur')}${d.status ? ' (HTTP ' + d.status + ')' : ''}</span>`;
+  } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
+}
+
+async function testCloudinary() {
+  const el = document.getElementById('integration-result');
+  el.innerHTML = '<span style="color:#888">Test Cloudinary en cours…</span>';
+  try {
+    const d = await fetch('/api/admin/cloudinary-check').then(r => r.json());
+    const cfg = d.configured || {};
+    if (!cfg.api_key || !cfg.api_secret || !cfg.cloud_name) el.innerHTML = '<span style="color:#e0b000">⚠️ Cloudinary : variables manquantes dans Railway.</span>';
+    else if (d.test && d.test.ok) el.innerHTML = '<span style="color:#2ecc71">✅ Cloudinary OK — upload de test réussi.</span>';
+    else el.innerHTML = `<span style="color:#e74c3c">❌ Cloudinary : ${esc((d.test && d.test.error) || 'erreur')}</span>`;
+  } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
 }
 
 async function saveSettings() {
