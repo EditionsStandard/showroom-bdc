@@ -44,7 +44,7 @@
 
   .main { margin-left: 220px; padding: 32px; min-height: 100vh; }
   .topbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 24px; gap: 12px; }
-  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #c0392b; border-radius: 0; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: 'Inter', sans-serif; letter-spacing: .04em; transition: background .15s, color .15s; }
+  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: none; border-radius: 0; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: 'Inter', sans-serif; letter-spacing: .04em; transition: background .15s, color .15s; }
   .btn-logout-top:hover { background: #e74c3c; color: #fff; }
 
   /* Sections */
@@ -91,8 +91,8 @@
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .form-group { margin-bottom: 14px; }
   label { display: block; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
-  input, textarea, select { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 0; padding: 10px 12px; color: #e0e0e0; font-size: 16px; outline: none; transition: border-color .2s; font-family: inherit; }
-  input:focus, textarea:focus, select:focus { border-color: #CCEB3C; }
+  input, textarea, select { width: 100%; background: transparent; border: none; border-bottom: 1px solid #333; border-radius: 0; padding: 10px 2px; color: #e0e0e0; font-size: 16px; outline: none; transition: border-color .2s; font-family: inherit; }
+  input:focus, textarea:focus, select:focus { border-bottom-color: #CCEB3C; }
   textarea { resize: vertical; min-height: 70px; }
 
   /* Table */
@@ -291,7 +291,7 @@
   /* ── Theme toggle ── */
   #theme-toggle {
     background: none;
-    border: 1px solid #252525;
+    border: none;
     border-radius: 0;
     padding: 5px 12px;
     cursor: pointer;
@@ -309,7 +309,7 @@
   /* ── Lang toggle ── */
   #lang-toggle {
     background: none;
-    border: 1px solid #252525;
+    border: none;
     border-radius: 0;
     padding: 5px 12px;
     cursor: pointer;
@@ -355,7 +355,7 @@
   [data-theme="light"] label { color: #888; }
   [data-theme="light"] input,
   [data-theme="light"] textarea,
-  [data-theme="light"] select { background: #f8f8fb; border-color: #ddd; color: #111; }
+  [data-theme="light"] select { background: transparent; border-color: #ccc; color: #111; }
   [data-theme="light"] input:focus,
   [data-theme="light"] textarea:focus,
   [data-theme="light"] select:focus { border-color: #CCEB3C; }
@@ -364,8 +364,8 @@
   [data-theme="light"] .modal-overlay { background: rgba(0,0,0,.5); }
   [data-theme="light"] .tag { background: #f3f8d9; color: #6b8500; }
   [data-theme="light"] .sep { background: #ddd; }
-  [data-theme="light"] .btn-secondary { background: #f0f0f0; color: #555; border-color: #d8d8d8; }
-  [data-theme="light"] .btn-secondary:hover { color: #111; border-color: #CCEB3C; }
+  [data-theme="light"] .btn-secondary { background: transparent; color: #777; }
+  [data-theme="light"] .btn-secondary:hover { color: #111; }
   [data-theme="light"] #toast { background: #2ecc71; color: #fff; }
   [data-theme="light"] #toast.error { background: #e74c3c; }
   @media (max-width: 768px) {
@@ -553,7 +553,7 @@
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
     <button id="lang-toggle" onclick="toggleLang()">🌐 EN</button>
-    <a id="logout-link" href="/admin/logout" style="display:block;margin-top:10px;padding:8px 14px;border:1px solid #c0392b;border-radius: 0;color:#e74c3c;font-size:12px;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#e74c3c';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='#e74c3c'" data-t="logout">⏻ Déconnexion</a>
+    <a id="logout-link" href="/admin/logout" style="display:block;margin-top:10px;padding:8px 0;border:none;border-radius:0;color:#e74c3c;font-size:12px;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#e74c3c';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='#e74c3c'" data-t="logout">⏻ Déconnexion</a>
   </div>
 </div>
 
@@ -561,18 +561,18 @@
   <div class="topbar">
     <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:360px;position:relative">
       <input id="global-search-input" type="text" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
-        style="width:100%;padding:7px 14px;border-radius: 0;border:1px solid #333;background:#0f0f0f;color:#fff;font-size:16px;font-family:inherit;outline:none">
+        style="width:100%;padding:7px 2px;border-radius:0;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font-size:16px;font-family:inherit;outline:none">
       <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1px solid #333;border-radius: 0;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius: 0;padding:6px 10px;font-size:11px;color:#aaa;cursor:pointer;min-height:36px;min-width:36px">☀️</button>
-      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius: 0;padding:6px 10px;font-size:11px;color:var(--accent);cursor:pointer;min-height:36px;min-width:36px">EN</button>
+      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:none;border-radius:0;padding:6px 10px;font-size:11px;color:#aaa;cursor:pointer;min-height:36px;min-width:36px">☀️</button>
+      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:none;border-radius:0;padding:6px 10px;font-size:11px;color:var(--accent);cursor:pointer;min-height:36px;min-width:36px">EN</button>
     </div>
-    <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius: 0;border:1px solid #333;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
+    <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius: 0;border:none;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       Portail
     </a>
-    <button id="btn-push-notif" onclick="initPushNotifications()" style="background:none;border:1px solid #333;border-radius: 0;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
+    <button id="btn-push-notif" onclick="initPushNotifications()" style="background:none;border:none;border-radius:0;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
     <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
@@ -739,14 +739,14 @@
       <!-- Filtres avancés -->
       <div class="card" style="padding:12px 16px;margin-bottom:12px">
         <div style="display:flex;gap:8px;margin-bottom:0;flex-wrap:wrap;align-items:center">
-          <input type="date" id="filter-date-from" onchange="applyOrderFilters()" title="Date de début" style="background:#0a0a0a;border:1px solid #333;border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
-          <input type="date" id="filter-date-to" onchange="applyOrderFilters()" title="Date de fin" style="background:#0a0a0a;border:1px solid #333;border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
-          <select id="filter-country" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <input type="date" id="filter-date-from" onchange="applyOrderFilters()" title="Date de début" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <input type="date" id="filter-date-to" onchange="applyOrderFilters()" title="Date de fin" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <select id="filter-country" onchange="applyOrderFilters()" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
             <option value="">Tous les pays</option>
           </select>
-          <input type="number" id="filter-amount-min" placeholder="Montant min" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
-          <input type="number" id="filter-amount-max" placeholder="Montant max" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
-          <button onclick="clearOrderFilters()" style="background:none;border:1px solid #333;border-radius: 0;padding:8px 12px;color:#888;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap" title="Effacer les filtres avancés">✕ Effacer</button>
+          <input type="number" id="filter-amount-min" placeholder="Montant min" onchange="applyOrderFilters()" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
+          <input type="number" id="filter-amount-max" placeholder="Montant max" onchange="applyOrderFilters()" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
+          <button onclick="clearOrderFilters()" style="background:none;border:none;border-radius:0;padding:8px 12px;color:#888;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap" title="Effacer les filtres avancés">✕ Effacer</button>
         </div>
       </div>
       <!-- Filters -->
@@ -996,15 +996,15 @@
       <h3 data-t="buyers_existing_title">Comptes acheteurs existants</h3>
       <!-- Filtres acheteurs -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
-        <select id="buyers-filter-country" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius: 0;color:var(--text,#e0e0e0)">
+        <select id="buyers-filter-country" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;color:var(--text,#e0e0e0)">
           <option value="">🌍 Tous les pays</option>
         </select>
-        <select id="buyers-filter-active" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius: 0;color:var(--text,#e0e0e0)">
+        <select id="buyers-filter-active" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;color:var(--text,#e0e0e0)">
           <option value="">Tous (actifs + inactifs)</option>
           <option value="active">Actifs (connectés &lt; 90j)</option>
           <option value="inactive">Inactifs (&gt; 90j ou jamais)</option>
         </select>
-        <input id="buyers-filter-amount" type="number" min="0" placeholder="Montant min (€)" oninput="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;width:160px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius: 0;color:var(--text,#e0e0e0)">
+        <input id="buyers-filter-amount" type="number" min="0" placeholder="Montant min (€)" oninput="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;width:160px;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;color:var(--text,#e0e0e0)">
         <span id="buyers-filter-count" style="font-size:12px;color:#666;margin-left:auto"></span>
         <button onclick="resetBuyersFilters()" class="btn btn-secondary btn-sm">✕ Reset</button>
       </div>
@@ -1571,7 +1571,7 @@
         <h3 id="mo-ref" style="margin:0;font-size:18px"></h3>
         <span id="mo-date" style="font-size:12px;color:#888"></span>
       </div>
-      <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius: 0;border:1px solid #333;cursor:pointer">
+      <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius:0;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">
         <option value="confirmed" data-t="status_confirmed_icon">🟡 Reçue</option>
         <option value="validated" data-t="status_validated_icon">🟢 Validée</option>
         <option value="in_production">⚙️ En production</option>
