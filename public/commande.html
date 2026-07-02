@@ -4,6 +4,7 @@
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<link rel="stylesheet" href="/fonts/doto.css">
 <title>Editions Standard B2B Showroom</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0a0a0a">
@@ -25,10 +26,10 @@
     --white: #f5f4f0;
     --accent: #CCEB3C;
     --accent2: #a8c220;
-    --dot: 'DotGothic16', 'Space Mono', monospace;
+    --dot: 'DotGothic16', 'Doto', 'Space Mono', monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; font-weight: 400;
+  body { font-family: 'Doto', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; font-weight: 400;
     background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size: 24px 24px; }
   [data-theme="light"] body { background-image: radial-gradient(rgba(0,0,0,.06) 1px, transparent 1px); }
 
@@ -110,7 +111,7 @@
   .page-pad { padding: 24px 20px 110px; }
   .form-section { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 24px 20px; margin-bottom: 2px; }
   @media (min-width: 768px) { .form-section { padding: 32px 40px; } }
-  .form-section h3 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--white); letter-spacing: .02em; }
+  .form-section h3 { font-family: 'Doto', 'Space Mono', monospace; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--white); letter-spacing: .02em; }
   .field { margin-bottom: 18px; }
   .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
   .field input, .field textarea { width: 100%; border: none; border-bottom: 1px solid var(--border); background: transparent; padding: 10px 0; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; color: var(--white); transition: border-color .2s; }
@@ -121,7 +122,7 @@
 
   /* ── Recap ── */
   .recap-card { background: var(--dark); border: 1px solid var(--border); padding: 20px; margin-bottom: 2px; }
-  .recap-card h4 { font-family: 'Space Mono', 'Courier New', monospace; font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--white); letter-spacing: .04em; }
+  .recap-card h4 { font-family: 'Doto', 'Space Mono', monospace; font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--white); letter-spacing: .04em; }
   .recap-table { width: 100%; border-collapse: collapse; }
   .recap-table th:nth-child(1) { width: 30%; }
   .recap-table th:nth-child(2) { width: 20%; }
@@ -153,11 +154,11 @@
   .btn-back { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 16px 20px; font-weight: 500; touch-action: manipulation; display: flex; align-items: center; gap: 6px; letter-spacing: .08em; text-transform: uppercase; font-family: 'Inter', sans-serif; }
 
   /* ── Confirm btn ── */
-  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-family: 'Space Mono', monospace; margin-top: 2px; transition: background .2s; }
+  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-family: 'Doto', 'Space Mono', monospace; margin-top: 2px; transition: background .2s; }
   .btn-confirm:disabled { background: #2a2a2a; color: #666; border: 1px solid #333; cursor: not-allowed; }
 
   /* ── Collection filters ── */
-  .col-filter { display: inline-block; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; margin-right: 6px; background: transparent; font-family: 'Space Mono', monospace; transition: border-color .15s, color .15s; white-space: nowrap; }
+  .col-filter { display: inline-block; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; margin-right: 6px; background: transparent; font-family: 'Doto', 'Space Mono', monospace; transition: border-color .15s, color .15s; white-space: nowrap; }
   .col-filter.active { border-color: var(--accent); color: var(--accent); }
 
   /* ── CGV + Signature ── */
@@ -301,16 +302,16 @@
   .landing-hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.6; }
   .landing-hero-overlay { position:absolute; inset:0; background:linear-gradient(to bottom, transparent 20%, rgba(10,10,10,.92)); }
   .landing-hero-content { position:relative; z-index:2; padding:24px 20px 28px; width:100%; }
-  .landing-brand { font-family:'Space Mono',monospace; font-size:28px; font-weight:700; color:var(--white); letter-spacing:.02em; line-height:1.1; }
+  .landing-brand { font-family:'Doto','Space Mono',monospace; font-size:28px; font-weight:700; color:var(--white); letter-spacing:.02em; line-height:1.1; }
   .landing-season { font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:.2em; margin-top:6px; margin-bottom:4px; }
   .landing-showroom { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.14em; }
   .landing-body { padding:24px 20px 0; }
   .landing-agent-card { background:var(--dark); border:1px solid var(--border); padding:18px 20px; display:flex; align-items:center; gap:16px; margin-bottom:16px; }
-  .landing-agent-avatar { width:44px; height:44px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:var(--black); flex-shrink:0; font-family:'Space Mono',monospace; }
+  .landing-agent-avatar { width:44px; height:44px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:var(--black); flex-shrink:0; font-family:'Doto','Space Mono',monospace; }
   .landing-agent-name { font-size:13px; font-weight:700; color:var(--white); }
   .landing-agent-title { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-top:2px; }
   .landing-agent-phone { font-size:11px; color:var(--accent); margin-top:4px; }
-  .landing-btn { display:block; width:100%; background:var(--accent); color:var(--black); border:none; padding:18px; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:.12em; text-transform:uppercase; font-family:'Space Mono',monospace; margin-top:6px; }
+  .landing-btn { display:block; width:100%; background:var(--accent); color:var(--black); border:none; padding:18px; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:.12em; text-transform:uppercase; font-family:'Doto','Space Mono',monospace; margin-top:6px; }
   .landing-moq { background:rgba(204,235,60,.06); border:1px solid rgba(204,235,60,.15); padding:12px 16px; margin-bottom:16px; font-size:11px; color:var(--accent); letter-spacing:.04em; line-height:1.6; display:none; }
   @media (min-width:768px) {
     .landing-hero { min-height:50vh; }
@@ -340,7 +341,7 @@
 
   /* ── Success improved ── */
   .success-check { width:64px; height:64px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:26px; color:var(--accent); }
-  .success-ref-big { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--white); letter-spacing:.06em; margin:12px 0 4px; }
+  .success-ref-big { font-family:'Doto','Space Mono',monospace; font-size:22px; font-weight:700; color:var(--white); letter-spacing:.06em; margin:12px 0 4px; }
   .success-brand-tag { display:inline-block; background:rgba(204,235,60,.1); border:1px solid rgba(204,235,60,.25); padding:4px 14px; font-size:10px; color:var(--accent); letter-spacing:.12em; text-transform:uppercase; margin-bottom:16px; }
   .success-next-steps { text-align:left; background:var(--dark); border:1px solid var(--border); padding:18px 20px; margin:20px 0; }
   .success-next-steps h4 { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.14em; margin-bottom:12px; }
@@ -566,7 +567,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h4 data-i18n="recap_sel" style="margin:0">Votre sélection</h4>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:2px;font-family:'Space Mono',monospace;letter-spacing:.04em">Tout effacer</button>
+        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:2px;font-family:'Doto','Space Mono',monospace;letter-spacing:.04em">Tout effacer</button>
         <button id="btn-dl-selection" onclick="downloadSelection()" style="background:none;border:1px solid var(--border);padding:6px 12px;font-size:10px;color:var(--soft);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;display:flex;align-items:center;gap:6px">📄 <span data-i18n="btn_dl_sel">Télécharger</span></button>
       </div>
     </div>
