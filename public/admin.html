@@ -72,6 +72,15 @@
   .btn-danger:hover { background: #e74c3c22; }
   .btn-sm { padding: 5px 10px; font-size: 11px; }
   .btn-green { background: #1a3a2a; color: #2ecc71; border: 1px solid #2ecc7133; }
+  /* Boutons "ghost" colorés (actions de ligne) — teintés, adaptés aux 2 thèmes */
+  .btn-ghost-green { background: #0a1f1a; color: #2ecc71; border: 1px solid #2ecc7133; }
+  .btn-ghost-violet { background: #1a1a2a; color: #a78bfa; border: 1px solid #a78bfa33; }
+  .btn-ghost-lime { background: #1a2500; color: #CCEB3C; border: 1px solid #CCEB3C33; }
+  .btn-ghost-blue { background: #0a1a2a; color: #60a5fa; border: 1px solid #60a5fa33; }
+  [data-theme="light"] .btn-ghost-green { background: #eafaf1; color: #1e8e50; border-color: #2ecc7144; }
+  [data-theme="light"] .btn-ghost-violet { background: #f3f0fb; color: #6d4fc4; border-color: #a78bfa55; }
+  [data-theme="light"] .btn-ghost-lime { background: #f4fadf; color: #5a7500; border-color: #a9c43266; }
+  [data-theme="light"] .btn-ghost-blue { background: #eaf3fd; color: #2270c8; border-color: #60a5fa55; }
   .btn-green:hover { background: #1e4530; }
 
   /* Forms */
@@ -253,6 +262,9 @@
 
     /* Boutons d'actions acheteurs: wrap */
     #buyers-body td:last-child { flex-wrap: wrap; gap: 4px; }
+
+    /* Carte du monde : liste sous la carte sur mobile */
+    #world-map-grid { grid-template-columns: 1fr !important; }
   }
 
   @media (max-width: 480px) {
@@ -669,6 +681,22 @@
           <table style="min-width:280px">
             <thead><tr><th>Marque</th><th>Cmds</th><th>CA</th><th>Acheteurs</th></tr></thead>
             <tbody id="top-brands-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARTE DU MONDE DES CLIENTS -->
+    <div class="card" id="world-map-card" style="margin-bottom:24px">
+      <h3 style="font-size:13px;margin-bottom:14px">🌍 Clients dans le monde</h3>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start" id="world-map-grid">
+        <div id="world-map-holder" style="min-height:200px">
+          <p style="font-size:12px;color:#555">Chargement de la carte…</p>
+        </div>
+        <div>
+          <table style="width:100%">
+            <thead><tr><th style="text-align:left">Pays</th><th>Clients</th><th style="text-align:right">CA</th></tr></thead>
+            <tbody id="world-map-list"><tr><td colspan="3" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -3022,6 +3050,82 @@ async function loadDashboard() {
 
   // Analytiques acheteurs enrichies (non-bloquant)
   loadBuyerStats();
+  loadWorldMap().catch(() => {});
+}
+
+// ── Carte du monde des clients ────────────────────────────────────────
+// Noms de pays (saisie libre FR/EN) → codes ISO alpha-2 du SVG /world-map.svg
+const COUNTRY_ISO = {
+  'france':'fr','belgique':'be','belgium':'be','suisse':'ch','switzerland':'ch','luxembourg':'lu',
+  'allemagne':'de','germany':'de','italie':'it','italy':'it','espagne':'es','spain':'es',
+  'royaume-uni':'gb','royaume uni':'gb','uk':'gb','united kingdom':'gb','angleterre':'gb','england':'gb',
+  'etats-unis':'us','etats unis':'us','usa':'us','united states':'us','united states of america':'us',
+  'canada':'ca','japon':'jp','japan':'jp','coree du sud':'kr','coree':'kr','south korea':'kr','korea':'kr',
+  'chine':'cn','china':'cn','hong kong':'hk','taiwan':'tw','thailande':'th','thailand':'th',
+  'singapour':'sg','singapore':'sg','australie':'au','australia':'au','pays-bas':'nl','pays bas':'nl','netherlands':'nl',
+  'portugal':'pt','autriche':'at','austria':'at','danemark':'dk','denmark':'dk','suede':'se','sweden':'se',
+  'norvege':'no','norway':'no','finlande':'fi','finland':'fi','grece':'gr','greece':'gr',
+  'irlande':'ie','ireland':'ie','pologne':'pl','poland':'pl','tchequie':'cz','republique tcheque':'cz','czech republic':'cz',
+  'emirats arabes unis':'ae','emirats':'ae','uae':'ae','dubai':'ae','qatar':'qa','koweit':'kw','kuwait':'kw',
+  'arabie saoudite':'sa','saudi arabia':'sa','liban':'lb','lebanon':'lb','israel':'il','turquie':'tr','turkey':'tr',
+  'maroc':'ma','morocco':'ma','tunisie':'tn','tunisia':'tn','egypte':'eg','egypt':'eg',
+  'afrique du sud':'za','south africa':'za','mexique':'mx','mexico':'mx','bresil':'br','brazil':'br',
+  'argentine':'ar','argentina':'ar','chili':'cl','chile':'cl','colombie':'co','colombia':'co',
+  'inde':'in','india':'in','indonesie':'id','indonesia':'id','malaisie':'my','malaysia':'my',
+  'philippines':'ph','vietnam':'vn','nouvelle-zelande':'nz','new zealand':'nz','russie':'ru','russia':'ru',
+  'ukraine':'ua','roumanie':'ro','romania':'ro','hongrie':'hu','hungary':'hu','croatie':'hr','croatia':'hr',
+  'slovenie':'si','slovenia':'si','slovaquie':'sk','slovakia':'sk','bulgarie':'bg','bulgaria':'bg',
+  'serbie':'rs','serbia':'rs','islande':'is','iceland':'is','monaco':'mc','andorre':'ad','andorra':'ad'
+};
+function countryToIso(name) {
+  const n = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return COUNTRY_ISO[n] || (n.length === 2 && /^[a-z]{2}$/.test(n) ? n : null);
+}
+
+let _worldSvgLoaded = false;
+async function loadWorldMap() {
+  const card = document.getElementById('world-map-card');
+  if (!card) return;
+  const r = await fetch('/api/admin/buyers-by-country').catch(() => null);
+  if (!r || !r.ok) { card.style.display = 'none'; return; } // designer scopé / erreur → on masque
+  const data = await r.json();
+  // Liste des pays (top 12)
+  const list = document.getElementById('world-map-list');
+  if (list) {
+    list.innerHTML = data.slice(0, 12).map(d => `<tr>
+      <td style="font-size:12px">${esc(d.country)}</td>
+      <td style="text-align:center;font-size:12px">${d.buyers || '—'}</td>
+      <td style="text-align:right;font-size:12px;color:${d.revenue > 0 ? 'var(--accent)' : 'var(--muted)'}">${d.revenue > 0 ? Math.round(d.revenue).toLocaleString('fr-FR') + ' €' : '—'}</td>
+    </tr>`).join('') || '<tr><td colspan="3" style="color:#555;font-size:12px;text-align:center">Aucun client avec pays renseigné</td></tr>';
+  }
+  // Carte (chargée une seule fois, ~150 Ko gzip)
+  const holder = document.getElementById('world-map-holder');
+  if (!_worldSvgLoaded) {
+    const svg = await fetch('/world-map.svg').then(x => x.ok ? x.text() : null).catch(() => null);
+    if (!svg) { holder.innerHTML = '<p style="font-size:12px;color:#555">Carte indisponible</p>'; return; }
+    holder.innerHTML = svg;
+    const el = holder.querySelector('svg');
+    el.setAttribute('style', 'width:100%;height:auto;display:block');
+    el.querySelectorAll('path').forEach(p => { p.style.fill = 'var(--mid)'; p.style.stroke = 'var(--border)'; p.style.strokeWidth = '.3'; });
+    _worldSvgLoaded = true;
+  }
+  const el = holder.querySelector('svg');
+  if (!el) return;
+  // Reset puis coloration par intensité de CA (repli : présence de clients)
+  el.querySelectorAll('path.wm-on').forEach(p => { p.classList.remove('wm-on'); p.style.fill = 'var(--mid)'; const t = p.querySelector('title'); if (t) t.remove(); });
+  const maxRev = Math.max(1, ...data.map(d => d.revenue || 0));
+  data.forEach(d => {
+    const iso = countryToIso(d.country);
+    if (!iso) return;
+    const path = el.querySelector('path#' + iso);
+    if (!path) return;
+    const k = d.revenue > 0 ? (0.35 + 0.65 * (d.revenue / maxRev)) : 0.25;
+    path.classList.add('wm-on');
+    path.style.fill = `rgba(204,235,60,${k.toFixed(2)})`;
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = `${d.country} — ${d.buyers} client(s) · ${d.orders} commande(s) · ${Math.round(d.revenue).toLocaleString('fr-FR')} €`;
+    path.appendChild(title);
+  });
 }
 
 async function loadBuyerStats() {
@@ -4580,7 +4684,7 @@ async function importCSV(input) {
     const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
 
     const normalizeHeader = h => h.trim().toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove accents
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
       .replace(/\s+/g, '_');
     const header = parseCSVLine(lines[0], sep).map(normalizeHeader);
     const idx = {
@@ -4765,11 +4869,11 @@ function renderBuyersPage() {
       <td style="text-align:right;font-weight:600;color:${total > 0 ? '#2ecc71' : '#555'}">${total > 0 ? total.toFixed(2) + ' €' : '—'}</td>
       <td style="font-size:11px;color:#666">${lastSeen}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-sm" style="background:#0a1f1a;color:#2ecc71;border:1px solid #2ecc7133" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
+        <button class="btn btn-sm btn-ghost-green" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
-        <button class="btn btn-sm" style="background:#1a1a2a;color:#a78bfa;border:1px solid #a78bfa33" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
-        <button class="btn btn-sm" style="background:#1a2500;color:#CCEB3C;border:1px solid #CCEB3C33" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
-        <button class="btn btn-sm" style="background:#0a1a2a;color:#60a5fa;border:1px solid #60a5fa33" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
+        <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
+        <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
+        <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;

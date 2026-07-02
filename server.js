@@ -2775,6 +2775,40 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
 });
 
 // ── Analytics acheteurs enrichies ────────────────────────────────────
+// Répartition géographique des clients : pays → acheteurs, commandes, CA.
+// Sert la carte du monde du dashboard. Le pays vient de la commande
+// (client_country) avec repli sur la fiche acheteur ; les acheteurs sans
+// commande comptent quand même dans buyer_count via leur fiche.
+app.get('/api/admin/buyers-by-country', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const scoped = isBrandScoped(req);
+    const p = scoped ? [req.userBrandId] : [];
+    const [buyers, orders] = await Promise.all([
+      pool.query(`SELECT TRIM(country) AS country, COUNT(*)::int AS buyers
+                  FROM buyers WHERE COALESCE(TRIM(country),'') <> '' GROUP BY TRIM(country)`),
+      pool.query(`
+        SELECT TRIM(COALESCE(NULLIF(TRIM(o.client_country),''), b.country, '')) AS country,
+               COUNT(DISTINCT o.id)::int AS orders,
+               COALESCE(SUM(ol.quantity * ol.unit_price), 0)::float AS revenue
+        FROM orders o
+        LEFT JOIN buyers b ON b.id = o.buyer_id
+        LEFT JOIN order_lines ol ON ol.order_id = o.id
+        WHERE o.status NOT IN ('draft','cancelled') ${scoped ? 'AND o.brand_id = $1' : ''}
+        GROUP BY 1
+      `, p)
+    ]);
+    const map = {};
+    buyers.rows.forEach(r => { map[r.country] = { country: r.country, buyers: r.buyers, orders: 0, revenue: 0 }; });
+    orders.rows.forEach(r => {
+      if (!r.country) return;
+      if (!map[r.country]) map[r.country] = { country: r.country, buyers: 0, orders: 0, revenue: 0 };
+      map[r.country].orders += r.orders;
+      map[r.country].revenue += r.revenue;
+    });
+    res.json(Object.values(map).sort((a, b) => b.revenue - a.revenue || b.buyers - a.buyers));
+  } catch(e) { console.error('buyers-by-country:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res) => {
   try {
     // Agent scopé : analytics restreintes à sa marque (pas de CA des autres marques).
