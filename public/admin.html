@@ -2969,6 +2969,18 @@ function updateOrderNavBadge(count) {
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
+// Fermeture standard des modales : Échap, ou clic sur le fond assombri
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const open = [...document.querySelectorAll('.modal-overlay.open')];
+    if (open.length) open[open.length - 1].classList.remove('open'); // la plus haute d'abord
+  }
+});
+document.addEventListener('click', e => {
+  if (e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('open')) {
+    e.target.classList.remove('open');
+  }
+});
 
 // Dashboard
 async function loadDashboard() {
