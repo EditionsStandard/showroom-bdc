@@ -1028,7 +1028,7 @@ function applyLang() {
     <h1>Showroom</h1>
   </div>
   <div class="nav">
-    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;background:none;border:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
+    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;appearance:none;-webkit-appearance:none;background:none;border:none;outline:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
@@ -1064,7 +1064,7 @@ function applyLang() {
       <div class="dropdown-sep"></div>
       <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
       <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Doto','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
-        <select id="dd-lang-select" onchange="setLang(this.value)" style="flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
+        <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
           <option value="fr">Français</option>
           <option value="en">English</option>
           <option value="it">Italiano</option>
