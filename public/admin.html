@@ -33,6 +33,10 @@
   nav a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #888; font-size: 13px; text-decoration: none; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
   nav a:hover, nav a.active { color: #fff; background: #1c1c1c; border-left-color: #CCEB3C; }
   nav a svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .6; transition: opacity .15s; }
+  nav a span.icon { display: none; }
+  /* Emojis résiduels des boutons/liens : rendus en niveaux de gris */
+  .btn:not(.btn-danger), .dropdown-item { filter: grayscale(1); }
+
   nav a:hover svg, nav a.active svg { opacity: 1; }
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid #252525; }
   .sidebar-footer a { color: #666; font-size: 12px; text-decoration: none; }
@@ -63,25 +67,25 @@
   .stat .label { font-size: 11px; color: #666; margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; }
 
   /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 0; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; }
-  .btn-primary { background: #CCEB3C; color: #111; font-weight: 600; }
-  .btn-primary:hover { background: #b8d62f; }
-  .btn-secondary { background: #1c1c1c; color: #aaa; border: 1px solid #333; }
-  .btn-secondary:hover { color: #fff; border-color: #555; }
-  .btn-danger { background: transparent; color: #e74c3c; border: 1px solid #e74c3c33; }
-  .btn-danger:hover { background: #e74c3c22; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 0; border: none; background: transparent; color: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; }
+  .btn-primary { background: var(--white); color: var(--black); font-weight: 600; }
+  .btn-primary:hover { opacity: .82; }
+  .btn-secondary { background: transparent; color: var(--muted); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  .btn-secondary:hover { color: var(--white); }
+  .btn-danger { background: transparent; color: #e74c3c; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  .btn-danger:hover { opacity: .7; }
   .btn-sm { padding: 5px 10px; font-size: 11px; }
-  .btn-green { background: #1a3a2a; color: #2ecc71; border: 1px solid #2ecc7133; }
+  .btn-green { background: transparent; color: #2ecc71; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
   /* Boutons "ghost" colorés (actions de ligne) — teintés, adaptés aux 2 thèmes */
-  .btn-ghost-green { background: #0a1f1a; color: #2ecc71; border: 1px solid #2ecc7133; }
-  .btn-ghost-violet { background: #1a1a2a; color: #a78bfa; border: 1px solid #a78bfa33; }
-  .btn-ghost-lime { background: #1a2500; color: #CCEB3C; border: 1px solid #CCEB3C33; }
-  .btn-ghost-blue { background: #0a1a2a; color: #60a5fa; border: 1px solid #60a5fa33; }
-  [data-theme="light"] .btn-ghost-green { background: #eafaf1; color: #1e8e50; border-color: #2ecc7144; }
-  [data-theme="light"] .btn-ghost-violet { background: #f3f0fb; color: #6d4fc4; border-color: #a78bfa55; }
-  [data-theme="light"] .btn-ghost-lime { background: #f4fadf; color: #5a7500; border-color: #a9c43266; }
-  [data-theme="light"] .btn-ghost-blue { background: #eaf3fd; color: #2270c8; border-color: #60a5fa55; }
-  .btn-green:hover { background: #1e4530; }
+  .btn-ghost-green { background: transparent; color: #2ecc71; border: none; }
+  .btn-ghost-violet { background: transparent; color: #a78bfa; border: none; }
+  .btn-ghost-lime { background: transparent; color: #9cb52e; border: none; }
+  .btn-ghost-blue { background: transparent; color: #60a5fa; border: none; }
+  [data-theme="light"] .btn-ghost-green { color: #1e8e50; }
+  [data-theme="light"] .btn-ghost-violet { color: #6d4fc4; }
+  [data-theme="light"] .btn-ghost-lime { color: #5a7500; }
+  [data-theme="light"] .btn-ghost-blue { color: #2270c8; }
+  .btn-green:hover { opacity: .7; }
 
   /* Forms */
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
@@ -155,8 +159,7 @@
       min-height: 52px; display: flex; align-items: center;
     }
     nav a:hover, nav a.active { border-left-color: transparent; border-top-color: #CCEB3C; background: #1c1c1c; }
-    nav a span.icon { font-size: 20px; }
-    nav a svg { display: none; }
+    nav a svg { display: block; width: 20px; height: 20px; }
 
     /* Main content */
     .main { margin-left: 0; padding: 16px 16px 80px; }
@@ -4882,7 +4885,7 @@ function renderBuyersPage() {
       <td style="font-size:11px;color:#666">${lastSeen}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm btn-ghost-green" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
-        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
         <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
         <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
         <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
