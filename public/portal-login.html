@@ -4,7 +4,7 @@
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="/fonts/doto.css">
+<link rel="stylesheet" href="/fonts/brand.css">
 <title>Editions Standard B2B Showroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,7 @@
   [data-theme="light"] { --black:#f5f4f0; --ink:#111111; --muted:rgba(17,17,17,.55);
     --line:rgba(17,17,17,.45); --line-soft:rgba(17,17,17,.14); --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Doto', 'Space Mono', monospace; color: var(--ink);
+  body { font-family: 'Plex Mono', 'Space Mono', monospace; color: var(--ink);
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
     padding: 40px 20px; background: var(--black); position: relative; }
   /* Fond image uploadé depuis Réglages (texte forcé en blanc + vignette pour la lisibilité) */
@@ -25,6 +25,8 @@
     background-size: cover; background-position: center; background-attachment: fixed; }
   body.with-bg::before { content:''; position: fixed; inset: 0; pointer-events: none;
     background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,.18) 25%, rgba(0,0,0,.6) 100%); }
+  /* Fond vidéo (mp4/webm uploadé dans Réglages) : plein écran derrière la vignette */
+  .bg-video { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -1; }
   .card { width: 100%; max-width: 340px; position: relative; }
   .logo-wrap { text-align: center; margin-bottom: 38px; position: relative; }
   .logo-wrap img { width: 76px; height: 76px; }
@@ -39,7 +41,7 @@
   input::placeholder { color: transparent; } /* épuré : pas d'exemple dans les champs de connexion */
   .field { margin-bottom: 30px; }
   .btn { width: 100%; background: transparent; border: 1px solid var(--line); color: var(--ink);
-    border-radius: 0; padding: 15px 10px 14px; font-size: 10px; font-weight: 400; cursor: pointer;
+    border-radius: 0; padding: 15px 10px 14px; font-size: 11px; font-weight: 400; cursor: pointer;
     margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; font-family: inherit;
     transition: background .25s, color .25s, opacity .15s; }
   .btn:hover:not(:disabled) { background: var(--ink); color: var(--black); }
@@ -279,14 +281,25 @@ function setLang(lang) {
 applyLang();
 
 // Fond d'écran personnalisé (uploadé depuis Admin → Réglages, changeable à volonté)
-fetch('/api/public/branding').then(r => r.json()).then(b => {
-  if (b && b.login_bg_url) {
+fetch("/api/public/branding").then(r => r.json()).then(b => {
+  if (!b || !b.login_bg_url) return;
+  const url = b.login_bg_url;
+  if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
+    // Fond video : lecture muette en boucle (autoplay mobile OK car muted+playsinline)
+    const v = document.createElement("video");
+    v.className = "bg-video";
+    v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+    v.src = url;
+    v.addEventListener("canplay", () => document.body.classList.add("with-bg"), { once: true });
+    document.body.prepend(v);
+  } else {
     const img = new Image();
     img.onload = () => {
-      document.body.style.backgroundImage = `url("${b.login_bg_url}")`;
-      document.body.classList.add('with-bg');
+      document.body.style.backgroundImage = `url("")`;
+      document.body.classList.add("with-bg");
     };
-    img.src = b.login_bg_url;
+    img.src = url;
   }
 }).catch(() => {});
 
