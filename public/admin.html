@@ -69,9 +69,9 @@
 
   /* Buttons */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 0; border: none; background: transparent; color: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; }
-  .btn-primary { background: var(--white); color: var(--black); font-weight: 600; }
+  .btn-primary { background: var(--white); color: var(--black); font-weight: 400; font-size: 11px; text-transform: uppercase; letter-spacing: .22em; }
   .btn-primary:hover { opacity: .82; }
-  .btn-secondary { background: transparent; color: var(--muted); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  .btn-secondary { background: transparent; color: var(--muted); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .16em; font-weight: 400; }
   .btn-secondary:hover { color: var(--white); }
   .btn-danger { background: transparent; color: #e74c3c; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
   .btn-danger:hover { opacity: .7; }
@@ -91,7 +91,7 @@
   /* Forms */
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .form-group { margin-bottom: 14px; }
-  label { display: block; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+  label { display: block; font-size: 9px; font-weight: 400; color: #888; text-transform: uppercase; letter-spacing: .24em; margin-bottom: 7px; }
   input, textarea, select { width: 100%; background: transparent; border: none; border-bottom: 1px solid #333; border-radius: 0; padding: 10px 2px; color: #e0e0e0; font-size: 16px; outline: none; transition: border-color .2s; font-family: inherit; }
   input:focus, textarea:focus, select:focus { border-bottom-color: #CCEB3C; }
   textarea { resize: vertical; min-height: 70px; }
@@ -165,7 +165,7 @@
 
     /* Main content */
     .main { margin-left: 0; padding: 16px 16px 80px; }
-    h1 { font-size: 18px; margin-bottom: 16px; }
+    h1 { font-size: 14px; margin-bottom: 16px; }
 
     /* Stats: 2 columns */
     .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -277,7 +277,7 @@
   @media (max-width: 480px) {
     .stats { grid-template-columns: 1fr; }
     .stat .num { font-size: 20px; }
-    h1 { font-size: 16px; }
+    h1 { font-size: 14px; }
   }
 
   @media (max-width: 640px) {
@@ -893,12 +893,12 @@
       </div>
       <div class="form-group"><label data-t="s_season_label">Saison en cours (pastille sur les cartes marque, ex. SS27)</label><input id="s-season" type="text" placeholder="SS27" maxlength="12"></div>
       <div class="form-group">
-        <label>Image de fond — pages de connexion & inscription</label>
-        <p style="font-size:11px;color:#666;margin:2px 0 8px">Visuel plein écran derrière le formulaire (peinture, campagne…). Changeable à tout moment. Sans image : fond uni selon le thème.</p>
+        <label>Fond — pages de connexion & inscription (image, GIF ou vidéo)</label>
+        <p style="font-size:11px;color:#666;margin:2px 0 8px">Visuel plein écran derrière le formulaire : photo, peinture, GIF animé ou vidéo (mp4/webm, lue en boucle sans son). Changeable à tout moment. Sans fond : couleur unie selon le thème.</p>
         <input type="hidden" id="s-login-bg">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <img id="s-login-bg-preview" src="" alt="" style="display:none;width:120px;height:68px;object-fit:cover;border:1px solid var(--border)">
-          <input type="file" id="s-login-bg-file" accept="image/*" style="display:none" onchange="uploadLoginBg(this.files[0])">
+          <input type="file" id="s-login-bg-file" accept="image/*,video/mp4,video/webm,video/quicktime" style="display:none" onchange="uploadLoginBg(this.files[0])">
           <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('s-login-bg-file').click()">🖼 Choisir une image</button>
           <button class="btn btn-secondary btn-sm" type="button" id="s-login-bg-remove" style="display:none" onclick="removeLoginBg()">✕ Retirer</button>
           <span id="s-login-bg-status" style="font-size:11px;color:#666"></span>
@@ -5547,7 +5547,11 @@ function setLoginBgUI(url) {
   document.getElementById('s-login-bg').value = url;
   const prev = document.getElementById('s-login-bg-preview');
   const rm = document.getElementById('s-login-bg-remove');
-  if (url) { prev.src = url; prev.style.display = ''; rm.style.display = ''; }
+  if (url) {
+    // Vidéo : Cloudinary génère une vignette jpg en remplaçant l'extension
+    prev.src = /\.(mp4|webm|mov)(\?|$)/i.test(url) ? url.replace(/\.(mp4|webm|mov)(\?|$)/i, '.jpg') : url;
+    prev.style.display = ''; rm.style.display = '';
+  }
   else { prev.style.display = 'none'; rm.style.display = 'none'; }
 }
 async function uploadLoginBg(file) {
@@ -5555,13 +5559,36 @@ async function uploadLoginBg(file) {
   const status = document.getElementById('s-login-bg-status');
   status.textContent = 'Envoi en cours…';
   try {
-    const fd = new FormData();
-    fd.append('image', file);
-    const d = await fetch('/api/upload-image?size=large', { method: 'POST', body: fd }).then(r => r.json());
-    if (d.error || !d.url) { status.textContent = ''; toast(d.error || 'Erreur upload', true); return; }
-    setLoginBgUI(d.url);
-    status.textContent = 'Image prête — clique « Enregistrer » pour appliquer.';
-  } catch(e) { status.textContent = ''; toast('Erreur réseau', true); }
+    let url;
+    if (file.type.startsWith('video/')) {
+      // Vidéo : upload direct Cloudinary signé (même mécanique que les vidéos produit)
+      if (file.size > 100 * 1024 * 1024) { status.textContent = ''; toast('Vidéo trop lourde (max 100 Mo) — privilégie un extrait court en boucle.', true); return; }
+      const sig = await (await fetch('/api/cloudinary-signature')).json();
+      if (!sig.signature) throw new Error(sig.error || 'Signature indisponible');
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', sig.apiKey);
+      fd.append('timestamp', sig.timestamp);
+      fd.append('folder', sig.folder);
+      fd.append('signature', sig.signature);
+      url = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/video/upload`);
+        xhr.upload.onprogress = e => { if (e.lengthComputable) status.textContent = `Envoi vidéo… ${Math.round(e.loaded / e.total * 100)}%`; };
+        xhr.onload = () => { try { const r = JSON.parse(xhr.responseText); r.secure_url ? resolve(r.secure_url) : reject(new Error(r.error?.message || 'Échec upload')); } catch(err) { reject(err); } };
+        xhr.onerror = () => reject(new Error('Erreur réseau'));
+        xhr.send(fd);
+      });
+    } else {
+      const fd = new FormData();
+      fd.append('image', file);
+      const d = await fetch('/api/upload-image?size=large', { method: 'POST', body: fd }).then(r => r.json());
+      if (d.error || !d.url) { status.textContent = ''; toast(d.error || 'Erreur upload', true); return; }
+      url = d.url;
+    }
+    setLoginBgUI(url);
+    status.textContent = 'Fond prêt — clique « Enregistrer » pour appliquer.';
+  } catch(e) { status.textContent = ''; toast(e.message || 'Erreur réseau', true); }
 }
 function removeLoginBg() {
   setLoginBgUI('');
