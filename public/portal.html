@@ -48,7 +48,7 @@
     filter: brightness(1.1) contrast(1.05);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s;
+  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 120px; transition: background .2s, color .2s;
     }
   .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
   .header-left { display: flex; align-items: center; gap: 14px; }
@@ -269,6 +269,18 @@
     font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.4); white-space: nowrap;
   }
   body.presentation-mode .pres-toggle { display: block; }
+  /* Mobile : les 3 pastilles fixes se chevauchaient → barre compacte, et
+     « Quitter » toujours accessible (sinon impossible de sortir du mode et de
+     retrouver la navigation du bas, masquée pendant la présentation). */
+  @media (max-width: 767px) {
+    /* nav basse + barre panier remontée : réserve de défilement suffisante */
+    html, body { padding-bottom: 190px; }
+    .pres-indicator { display: none !important; }
+    .pres-toggle { left: 8px; right: auto; transform: none; top: 8px; font-size: 9px;
+      padding: 9px 10px; max-width: 54vw; overflow: hidden; text-overflow: ellipsis; }
+    .pres-exit { top: 8px; right: 8px; font-size: 10px; padding: 9px 14px; z-index: calc(var(--z-top) + 1); }
+    body.presentation-mode .back-btn { margin-top: 46px; }
+  }
   /* Showroom : par défaut prix + quantités + panier VISIBLES (prise de commande).
      Sous-mode « lookbook » (interrupteur) → on masque prix, quantités et panier. */
   body.presentation-mode.pres-lookbook .qty-row { display: none !important; }
