@@ -474,7 +474,8 @@
     .search-bar { max-width: 100%; }
     .search-bar-sticky { position: sticky; top: 56px; z-index: var(--z-bar); background: var(--black); padding: 8px 0; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
     .collection-filters { flex-wrap: nowrap; padding-bottom: 4px; }
-    .cart-bar { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) 16px; }
+    /* Au-dessus de la nav mobile (sinon elle intercepte le bouton Voir ma sélection) */
+    .cart-bar { bottom: calc(54px + env(safe-area-inset-bottom)); padding: 12px 16px; }
     .cart-bar strong { font-size: 16px; }
     .cart-bar button { padding: 12px 18px; font-size: 12px; }
     .orders-grid { grid-template-columns: 1fr; }
