@@ -152,10 +152,11 @@
     }
     .sidebar-logo { display: none; }
     .sidebar-footer { display: none; }
-    nav { display: flex; flex-direction: row; padding: 0; flex: 1; }
+    nav { display: flex; flex-direction: row; padding: 0; flex: 1; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    nav::-webkit-scrollbar { display: none; }
     nav a {
-      flex: 1; flex-direction: column; gap: 2px; padding: 6px 4px;
-      font-size: 11px; text-align: center; border-left: none;
+      flex: 0 0 auto; min-width: 84px; flex-direction: column; gap: 3px; padding: 6px 10px;
+      font-size: 9px; text-align: center; border-left: none; white-space: nowrap;
       border-top: 3px solid transparent; justify-content: center;
       min-height: 52px; display: flex; align-items: center;
     }
@@ -256,6 +257,8 @@
 
     /* Topbar: masquer le portail sur mobile */
     .topbar { flex-wrap: wrap; gap: 8px; }
+    /* Recherche en pleine largeur sur mobile (sinon placeholder tronqué) */
+    .topbar > div:first-child { flex-basis: 100% !important; max-width: none !important; order: -1; }
 
     /* Cards: padding réduit */
     .card { padding: 14px 12px; }
