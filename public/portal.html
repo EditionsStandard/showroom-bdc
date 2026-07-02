@@ -16,7 +16,7 @@
   :root {
     --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#777; --soft:#bbb; --white:#f5f4f0; --accent:#CCEB3C;
     --danger:#e74c3c; --success:#2ecc71; --warning:#e0b000;
-    --dot:'DotGothic16','Space Mono',monospace;
+    --dot:'Space Mono','Courier New',monospace;
     --z-base: 1;
     --z-card: 10;
     --z-sticky: 20;
@@ -48,27 +48,27 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Space Mono', 'Courier New', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s;
-    background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size: 24px 24px; }
-  [data-theme="light"] html, [data-theme="light"] body { background-image: radial-gradient(rgba(0,0,0,.06) 1px, transparent 1px); }
+    }
   .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
   .header-left { display: flex; align-items: center; gap: 14px; }
-  .header-left img { width: 36px; height: 36px; border-radius: 6px; display: block; }
-  .header h1 { font-family: var(--dot), monospace; font-size: 22px; font-weight: 400; }
-  .header .nav { display: flex; gap: 22px; align-items: center; font-family: 'Inter', sans-serif; font-size: 13px; }
+  .header-left img { width: 36px; height: 36px; border-radius: 0; display: block; }
+  .header h1 { font-family: var(--dot), monospace; font-size: 12px; font-weight: 400; letter-spacing: .3em; text-transform: uppercase; }
+  .header .nav { display: flex; gap: 26px; align-items: center; font-family: inherit; font-size: 9px; text-transform: uppercase; letter-spacing: .22em; }
   .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .04em; }
-  .header .nav a.active { color: var(--accent); font-weight: 600; }
+  .header .nav a.active { color: var(--white); border-bottom: 1px solid var(--accent); padding-bottom: 3px; }
   .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
-  .header .nav a.nav-logout { color: #e05e5e; border: 1px solid #e05e5e44; border-radius: 20px; padding: 5px 12px; }
+  .header .nav a.nav-logout { color: #e05e5e; border: 1px solid #e05e5e44; border-radius: 0; padding: 5px 12px; }
   .header .nav a.nav-logout:hover { background: #e05e5e22; }
   /* ── User dropdown ── */
   .user-menu { position: relative; flex-shrink: 0; }
-  .user-btn { display: flex; align-items: center; gap: 9px; background: var(--accent); border: none; border-radius: 20px; padding: 6px 14px 6px 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; color: #111; font-weight: 600; transition: opacity .15s; user-select: none; }
-  .user-btn:hover { opacity: .85; }
-  .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: #111; color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .user-btn { display: flex; align-items: center; gap: 9px; background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 6px 14px 6px 6px; cursor: pointer; font-family: inherit; font-size: 11px; color: var(--white); letter-spacing: .06em; transition: border-color .15s; user-select: none; }
+  .user-btn:hover { border-color: var(--soft); }
+  
+  .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--white); color: var(--black); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
   .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .user-chevron { font-size: 9px; opacity: .6; transition: transform .2s; }
   .user-menu.open .user-chevron { transform: rotate(180deg); }
-  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 8px; min-width: 220px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: var(--z-dropdown); }
+  .user-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 0; min-width: 220px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: var(--z-dropdown); }
   .user-menu.open .user-dropdown { display: block; }
   .user-dropdown-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
   .user-dropdown-header .uname { font-size: 13px; font-weight: 600; color: var(--white); }
@@ -84,19 +84,19 @@
   .profile-grid .field-full { grid-column: 1 / -1; }
   @media (max-width: 640px) { .profile-grid { grid-template-columns: 1fr; } .user-name { display: none; } }
   .wrap { width: 100%; max-width: 1600px; margin: 0 auto; padding: 36px 40px 60px; }
-  h2.section-title { font-family: var(--dot), monospace; font-size: 26px; margin-bottom: 24px; font-weight: 400; }
+  h2.section-title { font-family: var(--dot), monospace; font-size: 15px; margin-bottom: 26px; font-weight: 400; letter-spacing: .28em; text-transform: uppercase; }
   /* Marqueur accent brut (carré plat) — signature commune à tous les écrans */
   h2.section-title::before { content: ''; display: inline-block; width: 9px; height: 9px; background: var(--accent); border-radius: 0; margin-right: 14px; vertical-align: 2px; }
   /* Cartes marque pleine largeur (une par ligne), style brut */
   .brand-grid { display: flex; flex-direction: column; gap: 14px; }
-  .brand-card { display: flex; align-items: stretch; background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; }
+  .brand-card { display: flex; align-items: stretch; background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; }
   .brand-card:hover { border-color: var(--accent); }
   .brand-card:hover .brand-name, .brand-card:hover .brand-cta { color: var(--accent); }
   .brand-cover { width: 300px; flex-shrink: 0; align-self: stretch; object-fit: cover; object-position: center; display: block; background: var(--dark); }
   .brand-cover-ph { width: 300px; flex-shrink: 0; align-self: stretch; min-height: 172px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
   .brand-info { flex: 1; min-width: 0; padding: 26px 32px; display: flex; flex-direction: column; justify-content: center; gap: 7px; position: relative; }
   .brand-name-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .brand-name { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; transition: color .18s; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 17px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; transition: color .18s; }
   .brand-season { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); padding: 2px 8px; line-height: 1.5; flex-shrink: 0; }
   .brand-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
@@ -110,7 +110,7 @@
   }
   .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Inter', sans-serif; letter-spacing: .06em; min-height: 44px; padding: 10px 0; display: inline-flex; align-items: center; }
   .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 24px; }
-  .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
+  .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; margin-bottom: 32px; }
   .brand-banner-cover { width: 100%; height: 260px; object-fit: cover; object-position: center top; display: block; }
   .brand-banner-info { padding: 24px 28px; }
   .brand-about { margin-bottom: 18px; }
@@ -121,32 +121,32 @@
   .brand-about-body p:last-child { margin-bottom: 0; }
   .brand-about-positioning { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 16px; padding-top: 14px; border-top: 1px dotted var(--border); }
   .brand-about-positioning strong { color: var(--soft); font-weight: 600; }
-  .brand-banner-moq { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 4px; margin-bottom: 14px; }
+  .brand-banner-moq { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 0; margin-bottom: 14px; }
   .brand-banner-cgv-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
   .brand-banner-cgv-title { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 16px; }
-  .cgv-brand-page { max-height: 320px; overflow-y: auto; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; }
+  .cgv-brand-page { max-height: 320px; overflow-y: auto; background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 20px 24px; }
   .cgv-accordion-body { display: none; margin-top: 12px; }
   .brand-banner-cgv-section.open .cgv-accordion-body { display: block; }
   .brand-banner-cgv-section.open .cgv-accordion-arrow { transform: rotate(180deg); display: inline-block; }
   .cgv-formatted { margin-top: 16px; }
   .search-bar { margin-bottom: 14px; max-width: 420px; }
   @media (min-width: 1024px) { .search-bar { max-width: 640px; } }
-  .search-bar input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; color: var(--white); font-size: 16px; font-family: 'Inter', sans-serif; outline: none; }
+  .search-bar input { width: 100%; background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 12px 16px; color: var(--white); font-size: 14px; font-family: inherit; letter-spacing: .04em; outline: none; }
   .search-bar input:focus { border-color: var(--accent); }
   .collection-filters { display: none; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .collection-filters::-webkit-scrollbar { display: none; }
-  .col-filter { display: inline-flex; align-items: center; flex-shrink: 0; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: transparent; font-family: 'Space Mono', monospace; border-radius: 20px; transition: border-color .15s, color .15s, background .15s; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-filter { display: inline-flex; align-items: center; flex-shrink: 0; padding: 7px 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: transparent; font-family: 'Space Mono', monospace; border-radius: 0; transition: border-color .15s, color .15s, background .15s; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-filter:hover { border-color: var(--soft); color: var(--white); }
   .col-filter.active { border-color: var(--accent); color: var(--black); background: var(--accent); }
-  .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: default; transition: border-color .15s, box-shadow .15s; }
-  .product-card:hover { border-color: var(--soft); box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+  .product-card { background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: default; transition: border-color .15s; }
+  .product-card:hover { border-color: var(--soft); }
   .product-img-wrap { position: relative; overflow: hidden; cursor: pointer; }
   .product-img { width: 100%; height: 280px; object-fit: contain; background: #fff; display: block; transition: opacity .3s; }
   .product-img-2 { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; opacity: 0; transition: opacity .3s; }
   .product-img-wrap:hover .product-img-1 { opacity: 0; }
   .product-img-wrap:hover .product-img-2 { opacity: 1; }
   .product-info { padding: 18px 20px; }
-  .product-ref { font-family: var(--dot), monospace; font-size: 17px; cursor: pointer; }
+  .product-ref { font-family: var(--dot), monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; }
   .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.8; }
   .product-meta { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 6px; }
   .product-price { font-size: 16px; color: var(--accent); margin-top: 10px; font-weight: 700; font-family: var(--dot), monospace; }
@@ -154,34 +154,34 @@
   .price-ws { font-size: 15px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
   .price-retail-tag { font-size: 11px; font-family: 'Inter', sans-serif; color: var(--muted); }
   .price-retail-val { font-size: 12px; font-family: 'Inter', sans-serif; color: var(--soft); }
-  .price-margin { font-size: 11px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 4px; padding: 1px 5px; font-weight: 700; }
+  .price-margin { font-size: 11px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 0; padding: 1px 5px; font-weight: 700; }
   .drawer-price-block { margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
   .drawer-price-ws { font-size: 20px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
   .drawer-price-retail { font-size: 13px; font-family: 'Inter', sans-serif; color: var(--muted); }
-  .drawer-price-margin { font-size: 12px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 4px; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
-  .stock-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; font-family:'Inter',sans-serif; }
+  .drawer-price-margin { font-size: 12px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 0; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
+  .stock-badge { font-size:11px; padding:2px 8px; border-radius: 0; font-weight:500; font-family:'Inter',sans-serif; }
   .stock-badge.in { background:#1a3a1a; color:#2ecc71; }
   .stock-badge.low { background:#3a2a0a; color:#ffa726; }
   .stock-badge.out { background:#3a1a1a; color:#f44336; }
   .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-  .qty-btn { width: 44px; height: 44px; min-width: 44px; background: var(--black); border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 16px; border-radius: 8px; }
+  .qty-btn { width: 44px; height: 44px; min-width: 44px; background: transparent; border: 1px solid var(--border); color: var(--white); cursor: pointer; font-size: 16px; border-radius: 0; }
   .qty-display { min-width: 28px; text-align: center; font-size: 15px; font-weight: 700; }
   .qty-display.active { color: var(--accent); }
   .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 18px 40px calc(18px + env(safe-area-inset-bottom)) 40px; display: flex; justify-content: space-between; align-items: center; z-index: var(--z-bar); }
   .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; }
-  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 8px; font-family: 'Space Mono', monospace; }
+  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 0; font-family: 'Space Mono', monospace; }
   .field { margin-bottom: 16px; }
-  .field label { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; font-family: 'Inter', sans-serif; }
-  .field input, .field select, .field textarea { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; color: var(--white); font-size: 16px; font-family: 'Inter', sans-serif; outline: none; }
+  .field label { display: block; font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .26em; margin-bottom: 8px; font-family: inherit; }
+  .field input, .field select, .field textarea { width: 100%; background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 12px 14px; color: var(--white); font-size: 15px; font-family: inherit; letter-spacing: .03em; outline: none; }
   .field input:focus, .field select:focus { border-color: var(--accent); }
-  .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; transition: border-color .15s; }
+  .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 0; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; transition: border-color .15s; }
   .cgv-box:hover { border-color: var(--accent); }
   .cgv-box h4 { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); font-weight: 400; margin: 0; }
   .cgv-box-icon { font-size: 12px; color: var(--muted); }
   /* CGV Modal */
   .cgv-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: var(--z-modal); align-items: center; justify-content: center; padding: 20px; }
   .cgv-modal-overlay.open { display: flex; }
-  .cgv-modal { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; width: 100%; max-width: 620px; max-height: 80vh; display: flex; flex-direction: column; }
+  .cgv-modal { background: var(--dark); border: 1px solid var(--border); border-radius: 0; width: 100%; max-width: 620px; max-height: 80vh; display: flex; flex-direction: column; }
   @media (max-width: 640px) { .cgv-modal { max-width: 95vw; margin: 0 auto; } }
   .cgv-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .cgv-modal-header h3 { font-family: var(--dot), monospace; font-size: 15px; font-weight: 400; color: var(--white); }
@@ -189,25 +189,26 @@
   .cgv-modal-close:hover { color: var(--white); }
   .cgv-modal-body { overflow-y: auto; padding: 20px 24px; flex: 1; }
   .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin: 18px 0; }
-  #sig-canvas { background: #fff; border-radius: 4px; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
-  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: .1em; text-transform: uppercase; border-radius: 8px; font-family: 'Space Mono', monospace; margin-top: 18px; max-width: 480px; }
+  #sig-canvas { background: #fff; border-radius: 0; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
+  .btn-confirm { width: 100%; background: transparent; color: var(--white); border: 1px solid var(--white); padding: 17px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; border-radius: 0; font-family: inherit; margin-top: 18px; max-width: 480px; transition: background .25s, color .25s; }
+  .btn-confirm:hover:not(:disabled) { background: var(--white); color: var(--black); }
   .btn-confirm:disabled { opacity: .4; cursor: default; }
   .checkout-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; }
   @media (max-width: 900px) { .checkout-layout { grid-template-columns: 1fr; } }
   @media (min-width: 1400px) { .checkout-layout { grid-template-columns: 1.4fr 1fr; } }
-  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; padding: 20px 22px; margin-bottom: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .order-card { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 20px 22px; margin-bottom: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
   .order-card:hover { border-color: var(--soft); background: var(--mid); }
   .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
-  .order-status { display: inline-block; font-size: 10px; padding: 4px 12px; border-radius: 10px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Space Mono', monospace; margin-top: 8px; }
+  .order-status { display: inline-block; font-size: 10px; padding: 4px 12px; border-radius: 0; text-transform: uppercase; letter-spacing: .08em; font-family: 'Space Mono', monospace; margin-top: 8px; }
   .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
   .order-status.validated { background: #1f3d1f; color: #2ecc71; }
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
   .loader { text-align: center; padding: 60px; color: var(--muted); font-size: 14px; }
   .success-check { width:72px; height:72px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; color:var(--accent); }
-  .msg { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 4px; margin-top: 14px; }
+  .msg { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 0; margin-top: 14px; }
   .msg.error { color: var(--accent); }
   .product-img { cursor: zoom-in; }
-  .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 10px; pointer-events: none; letter-spacing: .04em; }
+  .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 0; pointer-events: none; letter-spacing: .04em; }
   .img-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: var(--z-modal); flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
   .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; overflow: hidden; }
@@ -241,7 +242,7 @@
   .pres-exit {
     position: fixed; top: 10px; right: 12px; z-index: var(--z-top);
     background: var(--accent); border: none; color: #111;
-    border-radius: 4px; padding: 8px 16px; font-size: 11px;
+    border-radius: 0; padding: 8px 16px; font-size: 11px;
     cursor: pointer; font-family: 'Space Mono', monospace;
     letter-spacing: .06em; font-weight: 700; display: none;
     box-shadow: 0 2px 8px rgba(0,0,0,.4);
@@ -253,7 +254,7 @@
     z-index: var(--z-top); background: rgba(204,235,60,.15);
     border: 1px solid rgba(204,235,60,.5); color: var(--accent);
     font-family: 'Space Mono', monospace; font-size: 10px;
-    letter-spacing: .1em; padding: 6px 12px; border-radius: 4px;
+    letter-spacing: .1em; padding: 6px 12px; border-radius: 0;
     pointer-events: none; font-weight: 700; text-transform: uppercase;
   }
   body.presentation-mode .pres-indicator { display: block; }
@@ -261,7 +262,7 @@
   .pres-toggle {
     display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
     z-index: var(--z-top); background: var(--dark); border: 1px solid var(--accent);
-    color: var(--accent); border-radius: 4px; padding: 8px 16px; font-size: 11px;
+    color: var(--accent); border-radius: 0; padding: 8px 16px; font-size: 11px;
     cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .06em;
     font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.4); white-space: nowrap;
   }
@@ -293,12 +294,12 @@
   /* ── Modal générique ── */
   .gmodal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: var(--z-modal); align-items: center; justify-content: center; padding: 20px; }
   .gmodal-overlay.open { display: flex; }
-  .gmodal { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; width: 100%; max-width: 480px; padding: 28px 28px 24px; position: relative; }
+  .gmodal { background: var(--dark); border: 1px solid var(--border); border-radius: 0; width: 100%; max-width: 480px; padding: 28px 28px 24px; position: relative; }
   .gmodal-title { font-family: var(--dot), monospace; font-size: 17px; margin-bottom: 18px; }
   .gmodal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; font-family: 'Inter', sans-serif; }
   .gmodal-close:hover { color: var(--white); }
   .gmodal-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-  .gmodal-btn { flex: 1; background: var(--accent); color: var(--black); border: none; padding: 13px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .08em; text-transform: uppercase; border-radius: 4px; font-family: 'Space Mono', monospace; min-width: 120px; }
+  .gmodal-btn { flex: 1; background: var(--accent); color: var(--black); border: none; padding: 13px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .08em; text-transform: uppercase; border-radius: 0; font-family: 'Space Mono', monospace; min-width: 120px; }
   .gmodal-btn:disabled { opacity: .4; cursor: default; }
   .gmodal-btn.ghost { background: none; border: 1px solid var(--border); color: var(--soft); }
   .gmodal-btn.ghost:hover { border-color: var(--soft); color: var(--white); }
@@ -309,17 +310,17 @@
   .cart-line-note::placeholder { color: var(--border); }
 
   /* ── Badge nouveau ── */
-  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 10px; font-family: 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: var(--z-card); }
+  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 0; font-family: 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: var(--z-card); }
 
   /* ── Sort toolbar ── */
   .sort-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-  .sort-bar select { background: var(--dark); border: 1px solid var(--border); border-radius: 4px; color: var(--soft); font-size: 12px; padding: 7px 12px; font-family: 'Space Mono', monospace; cursor: pointer; outline: none; transition: border-color .15s; }
+  .sort-bar select { background: var(--dark); border: 1px solid var(--border); border-radius: 0; color: var(--soft); font-size: 12px; padding: 7px 12px; font-family: 'Space Mono', monospace; cursor: pointer; outline: none; transition: border-color .15s; }
   .sort-bar select:focus { border-color: var(--accent); }
   .price-range { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; }
-  .price-range input { width: 80px; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; color: var(--white); font-size: 12px; padding: 7px 10px; font-family: 'Inter', sans-serif; outline: none; }
+  .price-range input { width: 80px; background: var(--dark); border: 1px solid var(--border); border-radius: 0; color: var(--white); font-size: 12px; padding: 7px 10px; font-family: 'Inter', sans-serif; outline: none; }
   .price-range input:focus { border-color: var(--accent); }
   .view-toggle { display: flex; gap: 4px; margin-left: auto; }
-  .view-toggle button { background: none; border: 1px solid var(--border); border-radius: 4px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); transition: border-color .15s, color .15s; font-size: 16px; }
+  .view-toggle button { background: none; border: 1px solid var(--border); border-radius: 0; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); transition: border-color .15s, color .15s; font-size: 16px; }
   .view-toggle button.active { border-color: var(--accent); color: var(--accent); }
 
   /* ── List view ── */
@@ -333,20 +334,20 @@
   @media (max-width: 640px) { .view-toggle { display: none; } .price-range { display: none; } }
 
   /* ── Toast ── */
-  .toast { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--dark); border: 1px solid var(--accent); color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 20px; border-radius: 4px; z-index: 1000; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+  .toast { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--dark); border: 1px solid var(--accent); color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 20px; border-radius: 0; z-index: 1000; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* ── Global search ── */
   .global-search-wrap { margin-bottom: 24px; max-width: 480px; position: relative; }
-  .global-search-wrap input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; padding: 12px 40px 12px 42px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
+  .global-search-wrap input { width: 100%; background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 12px 40px 12px 42px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
   .global-search-wrap input:focus { border-color: var(--accent); }
   .global-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; pointer-events: none; }
   .global-search-clear { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; display: none; line-height: 1; }
   .global-search-clear.visible { display: block; }
   .global-search-results { margin-top: 16px; }
-  .global-result-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s; }
+  .global-result-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: var(--dark); border: 1px solid var(--border); border-radius: 0; margin-bottom: 8px; cursor: pointer; transition: border-color .15s; }
   .global-result-item:hover { border-color: var(--accent); }
-  .global-result-img { width: 48px; height: 56px; object-fit: contain; background: #fff; border-radius: 4px; flex-shrink: 0; }
+  .global-result-img { width: 48px; height: 56px; object-fit: contain; background: #fff; border-radius: 0; flex-shrink: 0; }
   .global-result-info { flex: 1; min-width: 0; }
   .global-result-ref { font-family: var(--dot), monospace; font-size: 14px; }
   .global-result-desc { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -361,12 +362,12 @@
 
   /* ── Skeleton loaders ── */
   @keyframes shimmer { from { background-position: -600px 0; } to { background-position: 600px 0; } }
-  .skeleton { background: linear-gradient(90deg, var(--mid) 25%, var(--border) 50%, var(--mid) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; border-radius: 4px; }
-  .skel-brand { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .skeleton { background: linear-gradient(90deg, var(--mid) 25%, var(--border) 50%, var(--mid) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; border-radius: 0; }
+  .skel-brand { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; }
   .skel-brand-cover { height: 200px; }
   .skel-brand-info { padding: 18px 20px; }
   .skel-brand-name { height: 16px; width: 60%; margin-bottom: 8px; }
-  .skel-product { background: var(--dark); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .skel-product { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; }
   .skel-product-img { height: 280px; }
   .skel-product-info { padding: 18px 20px; }
   .skel-product-ref { height: 14px; width: 55%; margin-bottom: 8px; }
@@ -392,7 +393,7 @@
   .drawer-gallery-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; padding: 0; background: #ddd; transition: background .2s; }
   .drawer-gallery-dot.active { background: #111; }
   .drawer-thumbs { display: flex; gap: 6px; padding: 10px 20px; overflow-x: auto; background: #fff; border-bottom: 1px solid var(--border); }
-  .drawer-thumb { width: 52px; height: 64px; object-fit: contain; background: #fff; border: 2px solid transparent; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+  .drawer-thumb { width: 52px; height: 64px; object-fit: contain; background: #fff; border: 2px solid transparent; border-radius: 0; cursor: pointer; flex-shrink: 0; }
   .drawer-thumb.active { border-color: #111; }
   .drawer-info { padding: 20px 20px 0; }
   .drawer-ref { font-family: var(--dot), monospace; font-size: 20px; margin-bottom: 6px; }
@@ -404,7 +405,7 @@
   .drawer-qty-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .drawer-size-label { font-family: 'Inter', sans-serif; font-size: 13px; min-width: 56px; color: var(--soft); }
   @media (max-width: 640px) {
-    .product-drawer { top: auto; left: 0; right: 0; width: 100%; height: 90vh; border-left: none; border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; }
+    .product-drawer { top: auto; left: 0; right: 0; width: 100%; height: 90vh; border-left: none; border-top: 1px solid var(--border); border-radius: 0; }
     .product-drawer.open { transform: translateY(0); }
     .product-drawer { transform: translateY(100%); }
     .drawer-gallery-main { height: 50vw; min-height: 200px; max-height: 280px; }
@@ -463,7 +464,7 @@
     .product-desc { font-size: 11px; line-height: 1.5; }
     .product-price { font-size: 14px; }
     .qty-row { gap: 4px; margin-top: 8px; flex-wrap: nowrap; }
-    .qty-btn { width: 34px; height: 34px; min-width: 34px; font-size: 18px; border-radius: 8px; }
+    .qty-btn { width: 34px; height: 34px; min-width: 34px; font-size: 18px; border-radius: 0; }
     .qty-display { min-width: 22px; font-size: 13px; }
     .qty-row span[style*="min-width:30px"] { min-width: 24px !important; font-size: 10px !important; }
     .brand-banner-cover { height: 140px; }
@@ -505,7 +506,7 @@
     position: absolute; top: 8px; left: 8px; z-index: var(--z-base);
     background: rgba(0,0,0,.55); border: 1px solid #444;
     color: #ccc; font-size: 11px; font-family: 'Space Mono', monospace;
-    padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    padding: 4px 8px; border-radius: 0; cursor: pointer;
     backdrop-filter: blur(4px); transition: background .15s, color .15s, border-color .15s;
     display: none;
   }
@@ -520,19 +521,20 @@
     background: #1a1a1a; border-top: 1px solid #333;
     padding: 12px 24px; display: flex; align-items: center;
     justify-content: space-between; gap: 12px; z-index: var(--z-bar);
-    transform: translateY(100%); transition: transform .25s ease;
+    transform: translateY(100%); transition: transform .25s ease, visibility .25s;
+    visibility: hidden;
   }
-  .compare-bar.visible { transform: translateY(0); }
+  .compare-bar.visible { transform: translateY(0); visibility: visible; }
   .compare-bar-items { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .compare-bar-chip {
-    background: #2a2a2a; border: 1px solid #444; border-radius: 4px;
+    background: #2a2a2a; border: 1px solid #444; border-radius: 0;
     padding: 4px 8px; font-size: 11px; font-family: 'Space Mono', monospace;
     color: #ccc; display: flex; align-items: center; gap: 6px;
   }
   .compare-bar-chip button { background: none; border: none; color: #888; cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
   .compare-bar-chip button:hover { color: #fff; }
   .compare-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
-  .compare-bar-actions button { padding: 8px 14px; font-size: 12px; font-family: 'Space Mono', monospace; border-radius: 8px; cursor: pointer; border: none; font-weight: 700; }
+  .compare-bar-actions button { padding: 8px 14px; font-size: 12px; font-family: 'Space Mono', monospace; border-radius: 0; cursor: pointer; border: none; font-weight: 700; }
   .btn-compare-go { background: var(--accent); color: #111; }
   .btn-compare-clear { background: #2a2a2a; color: #aaa; border: 1px solid #333 !important; }
   /* Cibles tactiles 44px sur mobile (barre comparateur) */
@@ -545,12 +547,12 @@
   #modal-compare { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:var(--z-modal); align-items:center; justify-content:center; padding:16px; }
   #modal-compare.open { display:flex; }
   .compare-modal-inner {
-    background: #111; border: 1px solid #2a2a2a; border-radius: 10px;
+    background: #111; border: 1px solid #2a2a2a; border-radius: 0;
     max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px;
   }
   .compare-modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
   .compare-cols { display: grid; gap: 16px; }
-  .compare-col { border: 1px solid #2a2a2a; border-radius: 8px; overflow: hidden; }
+  .compare-col { border: 1px solid #2a2a2a; border-radius: 0; overflow: hidden; }
   .compare-col img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
   .compare-col-info { padding: 12px; }
   .compare-col-ref { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
@@ -1024,14 +1026,14 @@ function applyLang() {
     <h1>Showroom</h1>
   </div>
   <div class="nav">
-    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
+    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius: 0;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif"></select>
     <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
     <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
   </div>
   <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue"
-    style="background:var(--dark);border:1px solid var(--border);border-radius:20px;padding:6px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif;flex-shrink:0;margin-right:8px">
+    style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:6px 10px;cursor:pointer;color:var(--soft);font-size:12px;font-weight:700;font-family:'Inter',sans-serif;flex-shrink:0;margin-right:8px">
     <option value="fr">🌐 FR</option>
     <option value="en">🌐 EN</option>
     <option value="it">🌐 IT</option>
@@ -1060,7 +1062,7 @@ function applyLang() {
       <div class="dropdown-sep"></div>
       <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
       <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
-        <select id="dd-lang-select" onchange="setLang(this.value)" style="flex:1;background:var(--black);color:#fff;border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-family:inherit;font-size:12px;cursor:pointer">
+        <select id="dd-lang-select" onchange="setLang(this.value)" style="flex:1;background:var(--black);color:#fff;border:1px solid var(--border);border-radius: 0;padding:4px 6px;font-family:inherit;font-size:12px;cursor:pointer">
           <option value="fr">Français</option>
           <option value="en">English</option>
           <option value="it">Italiano</option>
@@ -1090,10 +1092,10 @@ function applyLang() {
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
       <h2 class="section-title" style="margin-bottom:0">Ma sélection</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button id="export-pdf-btn" onclick="exportSelectionPdf()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📄 Exporter</button>
-        <button onclick="openModal('modal-email-sel')" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📧 Email</button>
-        <button onclick="openShareModal()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">🔗 Partager</button>
-        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
+        <button id="export-pdf-btn" onclick="exportSelectionPdf()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius: 0;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📄 Exporter</button>
+        <button onclick="openModal('modal-email-sel')" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius: 0;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📧 Email</button>
+        <button onclick="openShareModal()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius: 0;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">🔗 Partager</button>
+        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius: 0;padding:9px 14px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
       </div>
     </div>
     <div class="checkout-layout">
@@ -1123,7 +1125,7 @@ function applyLang() {
   <div id="view-orders" class="view-section" style="display:none;opacity:1">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
       <h2 class="section-title" style="margin-bottom:0">Mes commandes</h2>
-      <select id="orders-sort" onchange="applySortOrders()" style="background:var(--dark);border:1px solid var(--border);border-radius:4px;color:var(--soft);font-size:12px;padding:7px 12px;font-family:'Space Mono',monospace;cursor:pointer;outline:none">
+      <select id="orders-sort" onchange="applySortOrders()" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;color:var(--soft);font-size:12px;padding:7px 12px;font-family:'Space Mono',monospace;cursor:pointer;outline:none">
         <option value="date-desc">Date ↓</option>
         <option value="date-asc">Date ↑</option>
         <option value="amount-desc">Montant ↓</option>
@@ -1145,7 +1147,7 @@ function applyLang() {
   <div id="view-account" class="view-section" style="display:none;opacity:1;max-width:680px">
     <h2 class="section-title">Mon profil</h2>
 
-    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:24px">
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-bottom:24px">
       <h3 id="account-info-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
       <div class="profile-grid">
         <div class="field"><label data-field="prof-name">Prénom / Nom *</label><input id="prof-name" type="text" placeholder="Jean Dupont"></div>
@@ -1158,7 +1160,7 @@ function applyLang() {
       <div id="prof-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
 
-    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px">
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px">
       <h3 id="account-pw-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Changer le mot de passe</h3>
       <div class="profile-grid">
         <div class="field"><label data-field="pw-current">Mot de passe actuel</label><input id="pw-current" type="password" placeholder="••••••••"></div>
@@ -1168,12 +1170,12 @@ function applyLang() {
       <div id="pw-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
 
-    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:24px;margin-top:24px">
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-top:24px">
       <h3 id="gdpr-section-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
       <p id="gdpr-section-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <button id="gdpr-download-btn" class="btn-secondary" onclick="exportMyData()" style="font-size:13px;padding:8px 16px">⬇ Télécharger mes données</button>
-        <button id="gdpr-delete-btn" onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
+        <button id="gdpr-delete-btn" onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
       </div>
       <div id="gdpr-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
     </div>
@@ -1181,12 +1183,12 @@ function applyLang() {
 
   <!-- Modal suppression compte -->
   <div id="modal-delete-account" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center">
-    <div style="background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:400px;width:90%;margin:auto">
+    <div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:32px;max-width:400px;width:90%;margin:auto">
       <h3 id="delete-modal-title" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:#c0392b;margin-bottom:12px">⚠ Supprimer mon compte</h3>
       <p id="delete-modal-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.</p>
       <div class="field" style="margin-bottom:16px"><label id="delete-modal-pw-label">Confirmez avec votre mot de passe</label><input id="delete-account-pw" type="password" placeholder="••••••••"></div>
       <div style="display:flex;gap:12px">
-        <button id="delete-modal-confirm-btn" onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">Supprimer définitivement</button>
+        <button id="delete-modal-confirm-btn" onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">Supprimer définitivement</button>
         <button id="delete-modal-cancel-btn" onclick="closeDeleteAccount()" class="btn-secondary" style="flex:1;padding:10px">Annuler</button>
       </div>
       <div id="delete-account-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
@@ -1214,7 +1216,7 @@ function applyLang() {
 <!-- Indicateur mode présentation -->
 <div class="pres-indicator">MODE PRÉSENTATION</div>
 <!-- Bouton Présenter (mobile uniquement) -->
-<button id="present-btn" onclick="togglePresentationMode()" style="position:fixed;top:72px;right:12px;z-index:55;background:var(--dark);border:1px solid var(--border);color:var(--soft);border-radius:20px;padding:7px 14px;font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em">👁 Présenter</button>
+<button id="present-btn" onclick="togglePresentationMode()" style="position:fixed;top:72px;right:12px;z-index:55;background:var(--dark);border:1px solid var(--border);color:var(--soft);border-radius: 0;padding:7px 14px;font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:.04em">👁 Présenter</button>
 
 <!-- Modal : Envoyer sélection par email -->
 <div class="gmodal-overlay" id="modal-email-sel">
@@ -1222,7 +1224,7 @@ function applyLang() {
     <button class="gmodal-close" onclick="closeModal('modal-email-sel')" aria-label="Fermer">✕</button>
     <div class="gmodal-title" id="modal-email-sel-title">Envoyer la sélection par email</div>
     <div class="field"><label id="modal-email-to-label">Email destinataire</label><input id="email-sel-to" type="email" placeholder="acheteur@exemple.com"></div>
-    <div class="field"><label id="modal-email-msg-label">Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;resize:vertical"></textarea></div>
+    <div class="field"><label id="modal-email-msg-label">Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;resize:vertical"></textarea></div>
     <div id="email-sel-status" style="font-size:12px;font-family:'Inter',sans-serif;min-height:18px;margin-top:4px"></div>
     <div class="gmodal-actions">
       <button class="gmodal-btn ghost" id="modal-email-cancel-btn" onclick="closeModal('modal-email-sel')">Annuler</button>
@@ -1238,11 +1240,11 @@ function applyLang() {
     <div class="gmodal-title" id="modal-share-title">Partager la sélection</div>
     <p id="modal-share-desc" style="font-size:13px;font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
     <div style="display:flex;gap:8px">
-      <input id="share-link-input" type="text" readonly style="flex:1;background:var(--mid);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Inter',sans-serif;outline:none" value="">
-      <button id="modal-share-copy-btn" onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius:4px;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Mono',monospace;flex-shrink:0">Copier</button>
+      <input id="share-link-input" type="text" readonly style="flex:1;background:var(--mid);border:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Inter',sans-serif;outline:none" value="">
+      <button id="modal-share-copy-btn" onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius: 0;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Mono',monospace;flex-shrink:0">Copier</button>
     </div>
     <div style="margin-top:16px;text-align:center">
-      <div id="share-qr" style="display:inline-block;background:#fff;padding:12px;border-radius:6px"></div>
+      <div id="share-qr" style="display:inline-block;background:#fff;padding:12px;border-radius: 0"></div>
     </div>
   </div>
 </div>
@@ -1265,24 +1267,24 @@ function applyLang() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_date">Date</label>
-        <input type="date" id="appt-date" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+        <input type="date" id="appt-date" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius: 0;color:#fff;font-family:inherit;font-size:13px">
       </div>
       <div>
         <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_time">Heure</label>
-        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px"></select>
+        <select id="appt-time" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius: 0;color:#fff;font-family:inherit;font-size:13px"></select>
       </div>
     </div>
     <div style="margin-bottom:12px">
       <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_phone">Téléphone</label>
-      <input type="tel" id="appt-phone" placeholder="+33 6 …" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px">
+      <input type="tel" id="appt-phone" placeholder="+33 6 …" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius: 0;color:#fff;font-family:inherit;font-size:13px">
     </div>
     <div style="margin-bottom:20px">
       <label style="font-size:11px;color:#888;font-weight:600;display:block;margin-bottom:4px" data-t="appt_notes">Message</label>
-      <textarea id="appt-notes" rows="3" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius:6px;color:#fff;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+      <textarea id="appt-notes" rows="3" style="width:100%;box-sizing:border-box;padding:9px 12px;background:var(--black);border:1px solid #333;border-radius: 0;color:#fff;font-family:inherit;font-size:13px;resize:vertical"></textarea>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="document.getElementById('modal-appt').classList.remove('open')" style="padding:10px 18px;border-radius:6px;border:1px solid #333;background:transparent;color:#aaa;cursor:pointer;font-size:13px">Annuler</button>
-      <button onclick="submitAppt()" style="padding:10px 22px;border-radius:6px;border:none;background:var(--accent);color:#111;font-weight:700;cursor:pointer;font-size:13px;font-family:var(--dot),monospace;letter-spacing:.04em" data-t="appt_send">Confirmer</button>
+      <button onclick="document.getElementById('modal-appt').classList.remove('open')" style="padding:10px 18px;border-radius: 0;border:1px solid #333;background:transparent;color:#aaa;cursor:pointer;font-size:13px">Annuler</button>
+      <button onclick="submitAppt()" style="padding:10px 22px;border-radius: 0;border:none;background:var(--accent);color:#111;font-weight:700;cursor:pointer;font-size:13px;font-family:var(--dot),monospace;letter-spacing:.04em" data-t="appt_send">Confirmer</button>
     </div>
   </div>
 </div>
@@ -1312,14 +1314,14 @@ function applyLang() {
       <img id="drawer-img-main" class="drawer-gallery-main" src="" alt="" style="cursor:default" onerror="this.style.visibility='hidden'">
       <button class="drawer-gallery-nav drawer-gallery-prev" id="drawer-prev" onclick="drawerNav(-1)">‹</button>
       <button class="drawer-gallery-nav drawer-gallery-next" id="drawer-next" onclick="drawerNav(1)">›</button>
-      <button onclick="openCarousel(drawerImgs,drawerImgIdx)" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.45);border:none;border-radius:4px;color:#fff;font-size:16px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1" title="Agrandir">⤢</button>
+      <button onclick="openCarousel(drawerImgs,drawerImgIdx)" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.45);border:none;border-radius: 0;color:#fff;font-size:16px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1" title="Agrandir">⤢</button>
       <div class="drawer-gallery-dots" id="drawer-dots"></div>
     </div>
     <div id="drawer-thumbs" class="drawer-thumbs"></div>
     <div class="drawer-info">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <div class="drawer-ref" id="drawer-ref" style="margin-bottom:0"></div>
-        <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
+        <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border:1px solid var(--border);border-radius: 0;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
       </div>
       <div id="drawer-price"></div>
       <div id="drawer-collection" class="drawer-meta" style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)"></div>
@@ -1335,7 +1337,7 @@ function applyLang() {
   </div>
 </div>
 
-<div id="qr-toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);font-family:'Space Mono',monospace;font-size:13px;font-weight:700;padding:12px 22px;border-radius:6px;z-index:200;letter-spacing:.04em;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s"></div>
+<div id="qr-toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);font-family:'Space Mono',monospace;font-size:13px;font-weight:700;padding:12px 22px;border-radius: 0;z-index:200;letter-spacing:.04em;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s"></div>
 
 <!-- Barre comparateur (au-dessus de la cart-bar) -->
 <div class="compare-bar" id="compare-bar">
@@ -1429,7 +1431,7 @@ function showPortalToast(msg, err) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'portal-toast';
-    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;transition:opacity .3s;pointer-events:none;font-family:var(--dot),monospace;letter-spacing:.04em';
+    el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius: 0;font-size:13px;font-weight:600;z-index:9999;transition:opacity .3s;pointer-events:none;font-family:var(--dot),monospace;letter-spacing:.04em';
     document.body.appendChild(el);
   }
   el.textContent = msg;
@@ -1933,7 +1935,7 @@ function renderBrandPicker() {
   const el = document.getElementById('brand-picker');
   const greeting = me?.name ? t('greeting_hello', me.name.split(' ')[0]) : t('greeting_welcome');
   el.innerHTML = `
-    <div style="margin-bottom:28px;padding:20px 24px;background:var(--dark);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="margin-bottom:28px;padding:20px 24px;background:var(--dark);border:1px solid var(--border);border-radius: 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:4px">${greeting}</div>
         <div style="font-family:'Inter',sans-serif;font-size:13px;color:var(--muted)">${t('welcome_sub')}</div>
@@ -2000,7 +2002,7 @@ async function openBrand(brandId, _fromPop) {
   // N'affiche le lien que si l'URL est http(s) (neutralise un éventuel javascript: hérité)
   const lookbookUrlSafe = /^https?:\/\//i.test(String(currentBrand.lookbook_url || '').trim()) ? currentBrand.lookbook_url.trim() : '';
   const lookbookHtml = lookbookUrlSafe
-    ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius:4px;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
+    ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius: 0;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
     : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">` : '';
@@ -2014,7 +2016,7 @@ async function openBrand(brandId, _fromPop) {
         ${moqHtml}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${lookbookHtml||cgvHtml?'14px':'0'}">
           ${lookbookHtml}
-          <button onclick="openApptModal('${currentBrand.id}')" style="display:inline-flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--accent);background:rgba(204,235,60,.08);border:1px solid rgba(204,235,60,.3);border-radius:4px;padding:9px 16px;cursor:pointer;letter-spacing:.04em">📅 ${t('book_appointment')}</button>
+          <button onclick="openApptModal('${currentBrand.id}')" style="display:inline-flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--accent);background:rgba(204,235,60,.08);border:1px solid rgba(204,235,60,.3);border-radius: 0;padding:9px 16px;cursor:pointer;letter-spacing:.04em">📅 ${t('book_appointment')}</button>
         </div>
         ${cgvHtml}
       </div>
@@ -2177,7 +2179,7 @@ function renderProductsList(products) {
 function renderProductsPage() {
   const list = filteredProductsAll.slice(0, visibleProductCount);
   const el = document.getElementById('products-list');
-  if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Inter',sans-serif;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit">Réinitialiser les filtres</button></div>`; return; }
+  if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Inter',sans-serif;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius: 0;font-size:12px;cursor:pointer;font-family:inherit">Réinitialiser les filtres</button></div>`; return; }
   el.classList.toggle('list-view', productViewMode === 'list');
   const nowMs = Date.now();
   el.innerHTML = list.map(p => {
@@ -2307,8 +2309,8 @@ let moqBlocked = false;
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_qty')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
           </div>
-          <div style="height:5px;background:var(--border);border-radius:4px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .4s ease"></div>
+          <div style="height:5px;background:var(--border);border-radius: 0;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius: 0;transition:width .4s ease"></div>
           </div>
         </div>`);
       }
@@ -2323,8 +2325,8 @@ let moqBlocked = false;
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_amt')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
           </div>
-          <div style="height:5px;background:var(--border);border-radius:4px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .4s ease"></div>
+          <div style="height:5px;background:var(--border);border-radius: 0;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius: 0;transition:width .4s ease"></div>
           </div>
         </div>`);
       }
@@ -2338,7 +2340,7 @@ let moqBlocked = false;
         return `<div class="swipe-row" data-key="${esc(noteKey)}" style="position:relative;overflow:hidden;border-bottom:1px solid var(--border)">
           <div class="swipe-delete-bg" style="position:absolute;right:0;top:0;bottom:0;width:80px;background:#e55;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;pointer-events:none">✕</div>
           <div class="swipe-content" style="padding:10px 0;background:var(--black);position:relative;transition:transform .15s;display:flex;align-items:center;gap:12px">
-          ${l.image_url ? `<img src="${esc(l.image_url)}" alt="${esc(l.reference)}" loading="lazy" onerror="this.style.visibility='hidden'" style="width:52px;height:68px;object-fit:contain;background:#fff;border-radius:4px;flex-shrink:0;border:1px solid var(--border)">` : `<div style="width:52px;height:68px;background:var(--mid);border-radius:4px;flex-shrink:0"></div>`}
+          ${l.image_url ? `<img src="${esc(l.image_url)}" alt="${esc(l.reference)}" loading="lazy" onerror="this.style.visibility='hidden'" style="width:52px;height:68px;object-fit:contain;background:#fff;border-radius: 0;flex-shrink:0;border:1px solid var(--border)">` : `<div style="width:52px;height:68px;background:var(--mid);border-radius: 0;flex-shrink:0"></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-family:var(--dot),monospace;font-size:13px;margin-bottom:2px">${esc(l.reference)}</div>
             ${l.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif">${esc(l.color)}</div>` : ''}
@@ -2498,7 +2500,7 @@ async function loadPendingSelections() {
   if (!Array.isArray(data) || !data.length) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `<div style="margin-bottom:20px">
     <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px">${t('pending_sel_title')}</div>
-    ${data.map(s => `<div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);border-radius:8px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    ${data.map(s => `<div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);border-radius: 0;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div>
         <div style="font-family:'Inter',sans-serif;font-weight:600;font-size:14px">${esc(s.brand_name)}</div>
         <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft)">${t('pending_sel_pieces', s.piece_count)}</div>
@@ -2799,7 +2801,7 @@ function renderRecentlyViewed() {
   el.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${t('recently_viewed')}</div>
   <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
     ${items.map(p => `<div onclick="openProductDrawer('${p.id}')" style="flex-shrink:0;cursor:pointer;width:80px">
-      <div style="width:80px;height:100px;background:#fff;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
+      <div style="width:80px;height:100px;background:#fff;border-radius: 0;overflow:hidden;border:1px solid var(--border)">
         ${p.image_url ? `<img src="${esc(p.image_url)}" alt="${esc(p.reference||p.description||'Produit')}" style="width:100%;height:100%;object-fit:contain" loading="lazy" onerror="this.style.visibility='hidden'">` : `<div style="width:100%;height:100%;background:var(--mid)"></div>`}
       </div>
       <div style="font-size:10px;font-family:var(--dot),monospace;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(p.reference)}</div>
@@ -2865,7 +2867,7 @@ async function renderFavs() {
         ${b.products.map(p => {
           let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
           if (!imgs.length && p.image_url) imgs = [p.image_url];
-          return `<div style="background:var(--dark);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
+          return `<div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
             ${imgs[0] ? `<img src="${esc(imgs[0])}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
@@ -2926,7 +2928,7 @@ function renderOrdersList(data) {
     </div>`).join('');
   if (data.length > ORDERS_PER_PAGE) {
     const end = Math.min(start + ORDERS_PER_PAGE, data.length);
-    const btnStyle = "background:none;border:1px solid var(--border);color:var(--soft);border-radius:4px;padding:8px 16px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer";
+    const btnStyle = "background:none;border:1px solid var(--border);color:var(--soft);border-radius: 0;padding:8px 16px;font-size:12px;font-family:'Space Mono',monospace;cursor:pointer";
     list.innerHTML += `<div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:16px;grid-column:1/-1">
       ${ordersPage > 0 ? `<button onclick="ordersPage--;renderOrdersList(ordersData_sorted)" style="${btnStyle}">← Précédent</button>` : ''}
       <span style="color:var(--muted);font-size:12px;font-family:'Inter',sans-serif">${start+1}–${end} / ${data.length}</span>
@@ -3177,7 +3179,7 @@ function openProductDrawer(productId) {
       ? p.video_url.replace('/upload/', '/upload/so_0,w_720,q_auto/').replace(/\.[a-zA-Z0-9]+$/, '.jpg')
       : '';
     videoEl.innerHTML = `<video src="${esc(src)}" ${poster ? `poster="${esc(poster)}"` : ''} preload="none" muted playsinline controls
-      style="width:100%;max-height:60vh;border-radius:8px;background:#000;display:block"></video>
+      style="width:100%;max-height:60vh;border-radius: 0;background:#000;display:block"></video>
       <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:6px">▶ Vidéo collection</div>`;
     videoEl.style.display = 'block';
   } else {
@@ -3398,7 +3400,7 @@ function initLongPress() {
 (function initPullToRefresh() {
   let _pullStartY = 0, _pulling = false;
   const _pullIndicator = document.createElement('div');
-  _pullIndicator.style.cssText = 'position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);border-radius:20px;padding:6px 16px;font-size:11px;font-family:"Space Mono",monospace;opacity:0;transition:opacity .2s;z-index:100;pointer-events:none';
+  _pullIndicator.style.cssText = 'position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);border-radius: 0;padding:6px 16px;font-size:11px;font-family:"Space Mono",monospace;opacity:0;transition:opacity .2s;z-index:100;pointer-events:none';
   _pullIndicator.textContent = '↓ Actualiser';
   document.body.appendChild(_pullIndicator);
 
