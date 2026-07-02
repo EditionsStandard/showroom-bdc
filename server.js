@@ -427,7 +427,7 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 });
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season','login_bg_url'];
   for (let [key, value] of Object.entries(req.body)) {
     if (!allowed.includes(key)) continue;
     if (key === 'admin_password' && value && !value.startsWith('$2')) {
@@ -907,10 +907,12 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.si
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const slug = `img-${Date.now()}`;
+    // ?size=large : fonds plein écran (image de connexion) — limite élargie à 1920px
+    const max = req.query.size === 'large' ? 1920 : 1200;
     const result = await cloudinary.uploader.upload(base64, {
       folder: 'showroom/uploads',
       public_id: slug,
-      transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto' }]
+      transformation: [{ width: max, height: max, crop: 'limit', quality: 80, fetch_format: 'auto' }]
     });
     res.json({ url: result.secure_url });
   } catch(e) {
@@ -1904,6 +1906,16 @@ app.get('/api/public/orders/:id/pdf', async (req, res) => {
 app.get('/api/public/cgv', async (req, res) => {
   const cgv_text = await getSetting('cgv_text');
   res.json({ cgv_text });
+});
+
+// Habillage public des pages d'entrée (connexion / demande d'accès) : rien de
+// sensible ici — uniquement le nom du showroom et l'image de fond choisie
+// dans Réglages (changeable à tout moment par l'owner).
+app.get('/api/public/branding', async (req, res) => {
+  const [showroom_name, login_bg_url] = await Promise.all([
+    getSetting('showroom_name'), getSetting('login_bg_url')
+  ]);
+  res.json({ showroom_name: showroom_name || '', login_bg_url: login_bg_url || '' });
 });
 
 app.get('/api/public/brands/:brandId', async (req, res) => {

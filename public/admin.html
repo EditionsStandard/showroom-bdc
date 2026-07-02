@@ -885,6 +885,18 @@
         <div class="form-group"><label data-t="s_email_label">Email showroom (copie BDC)</label><input id="s-email" type="email"></div>
       </div>
       <div class="form-group"><label data-t="s_season_label">Saison en cours (pastille sur les cartes marque, ex. SS27)</label><input id="s-season" type="text" placeholder="SS27" maxlength="12"></div>
+      <div class="form-group">
+        <label>Image de fond — pages de connexion & inscription</label>
+        <p style="font-size:11px;color:#666;margin:2px 0 8px">Visuel plein écran derrière le formulaire (peinture, campagne…). Changeable à tout moment. Sans image : fond uni selon le thème.</p>
+        <input type="hidden" id="s-login-bg">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <img id="s-login-bg-preview" src="" alt="" style="display:none;width:120px;height:68px;object-fit:cover;border:1px solid var(--border)">
+          <input type="file" id="s-login-bg-file" accept="image/*" style="display:none" onchange="uploadLoginBg(this.files[0])">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('s-login-bg-file').click()">🖼 Choisir une image</button>
+          <button class="btn btn-secondary btn-sm" type="button" id="s-login-bg-remove" style="display:none" onclick="removeLoginBg()">✕ Retirer</button>
+          <span id="s-login-bg-status" style="font-size:11px;color:#666"></span>
+        </div>
+      </div>
       <div class="sep"></div>
       <h3 data-t="settings_email">Envoi des emails</h3>
       <p style="font-size:12px;color:#888;margin:-4px 0 12px">Les emails sont envoyés via Resend (configuré côté serveur). Indique simplement l'adresse expéditeur affichée aux destinataires.</p>
@@ -5416,6 +5428,7 @@ async function loadSettings() {
   document.getElementById('s-agent-title').value = s.agent_title || '';
   document.getElementById('s-agent-phone').value = s.agent_phone || '';
   document.getElementById('s-cgv-text').value = s.cgv_text || '';
+  setLoginBgUI(s.login_bg_url || '');
 
   let currencies = [];
   try { currencies = JSON.parse(s.currencies_json || '[]'); } catch(e) {}
@@ -5522,6 +5535,32 @@ async function clearTranslateCache() {
   } catch(e) { el.innerHTML = '<span style="color:#e74c3c">❌ Erreur réseau.</span>'; }
 }
 
+// ── Image de fond des pages de connexion/inscription ──────────────────
+function setLoginBgUI(url) {
+  document.getElementById('s-login-bg').value = url;
+  const prev = document.getElementById('s-login-bg-preview');
+  const rm = document.getElementById('s-login-bg-remove');
+  if (url) { prev.src = url; prev.style.display = ''; rm.style.display = ''; }
+  else { prev.style.display = 'none'; rm.style.display = 'none'; }
+}
+async function uploadLoginBg(file) {
+  if (!file) return;
+  const status = document.getElementById('s-login-bg-status');
+  status.textContent = 'Envoi en cours…';
+  try {
+    const fd = new FormData();
+    fd.append('image', file);
+    const d = await fetch('/api/upload-image?size=large', { method: 'POST', body: fd }).then(r => r.json());
+    if (d.error || !d.url) { status.textContent = ''; toast(d.error || 'Erreur upload', true); return; }
+    setLoginBgUI(d.url);
+    status.textContent = 'Image prête — clique « Enregistrer » pour appliquer.';
+  } catch(e) { status.textContent = ''; toast('Erreur réseau', true); }
+}
+function removeLoginBg() {
+  setLoginBgUI('');
+  document.getElementById('s-login-bg-status').textContent = 'Image retirée — clique « Enregistrer » pour appliquer.';
+}
+
 async function saveSettings() {
   const body = {
     showroom_name: document.getElementById('s-name').value,
@@ -5533,6 +5572,7 @@ async function saveSettings() {
     agent_phone: document.getElementById('s-agent-phone').value,
     cgv_text: document.getElementById('s-cgv-text').value,
     currencies_json: JSON.stringify(collectCurrencies()),
+    login_bg_url: document.getElementById('s-login-bg').value,
   };
   const pass = document.getElementById('s-admin-pass').value;
   if (pass) body.admin_password = pass;
