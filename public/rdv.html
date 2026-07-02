@@ -4,16 +4,16 @@
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="/fonts/doto.css">
+<link rel="stylesheet" href="/fonts/brand.css">
 <title>Editions Standard B2B Showroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Doto','Space Mono',monospace; }
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Plex Mono','Space Mono',monospace; }
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { font-family: 'Doto', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
+  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
   .wrap { width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 20px calc(60px + env(safe-area-inset-bottom)); }
   h1 { font-family: var(--dot), monospace; font-size: 24px; font-weight: 400; letter-spacing: .02em; margin-bottom: 6px; }
   .sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-bottom: 28px; text-transform: uppercase; letter-spacing: .1em; }
@@ -24,15 +24,15 @@
   .day-block { margin-bottom: 18px; }
   .day-label { font-family: var(--dot), monospace; font-size: 13px; color: var(--soft); margin-bottom: 8px; letter-spacing: .02em; }
   .slots { display: flex; flex-wrap: wrap; gap: 8px; }
-  .slot-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 8px 14px; font-size: 12px; letter-spacing: .04em; cursor: pointer; font-family: 'Doto', 'Space Mono', monospace; transition: border-color .15s, color .15s; }
+  .slot-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 2px; padding: 8px 14px; font-size: 12px; letter-spacing: .04em; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; transition: border-color .15s, color .15s; }
   .slot-btn.selected { border-color: var(--accent); color: var(--accent); }
-  .btn { display: block; width: 100%; background: var(--accent); color: var(--black); border: none; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .12em; text-transform: uppercase; border-radius: 2px; font-family: 'Doto', 'Space Mono', monospace; margin-top: 20px; }
+  .btn { display: block; width: 100%; background: var(--accent); color: var(--black); border: none; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .12em; text-transform: uppercase; border-radius: 2px; font-family: 'Plex Mono', 'Space Mono', monospace; margin-top: 20px; }
   .btn:disabled { opacity: .4; cursor: default; }
   .msg { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 16px; padding: 14px; background: var(--dark); border: 1px dotted var(--border); border-radius: 2px; }
   .msg.error { color: var(--accent); }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
   .success-check { width:56px; height:56px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px; color:var(--accent); }
-  #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Doto','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+  #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
   #lang-btn:hover { border-color:var(--accent); color:var(--white); }
   @media (max-width: 767px) {
     body { overflow-x: hidden; }

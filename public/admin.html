@@ -4,7 +4,7 @@
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="/fonts/doto.css">
+<link rel="stylesheet" href="/fonts/brand.css">
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,7 +28,7 @@
   /* Layout */
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: #111111; border-right: 1px solid #252525; display: flex; flex-direction: column; z-index: 10; }
   .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid #252525; }
-  .sidebar-logo h2 { font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; color: #fff; font-weight: 400; letter-spacing: .22em; text-transform: uppercase; }
+  .sidebar-logo h2 { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: #fff; font-weight: 400; letter-spacing: .22em; text-transform: uppercase; }
   .sidebar-logo p { font-size: 11px; color: #666; margin-top: 2px; }
   nav { flex: 1; padding: 12px 0; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #888; font-size: 13px; text-decoration: none; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
@@ -52,7 +52,7 @@
   .section { display: none; }
   .section.active { display: block; }
 
-  h1 { font-family: 'Doto', 'Space Mono', monospace; font-size: 14px; font-weight: 400; color: #fff; margin-bottom: 26px; letter-spacing: .28em; text-transform: uppercase; }
+  h1 { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 14px; font-weight: 400; color: #fff; margin-bottom: 26px; letter-spacing: .28em; text-transform: uppercase; }
   h3 { font-size: 15px; color: #fff; margin-bottom: 14px; }
 
   /* Cards */
@@ -64,7 +64,7 @@
   .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, #CCEB3C); }
   .stat-icon { width: 36px; height: 36px; border-radius: 0; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
   .stat-icon svg { width: 18px; height: 18px; color: var(--stat-color, #CCEB3C); }
-  .stat .num { font-family: 'Doto', 'Space Mono', monospace; font-size: 32px; font-weight: 400; color: #fff; line-height: 1; }
+  .stat .num { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 32px; font-weight: 400; color: #fff; line-height: 1; }
   .stat .label { font-size: 11px; color: #666; margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; }
 
   /* Buttons */
@@ -421,12 +421,12 @@
   }
 
   /* Titre dot-matrix + libellé technique, séparé par un filet */
-  #dashboard > h1 { font-family: 'Doto', 'Space Mono', monospace; display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  #dashboard > h1 { font-family: 'Plex Mono', 'Space Mono', monospace; display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
   #dashboard > h1::after {
-    content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'Doto', 'Space Mono', monospace;
+    content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'Plex Mono', 'Space Mono', monospace;
     font-size: 11px; letter-spacing: .26em; color: #4a4a4a; align-self: center;
   }
-  #dashboard .dash-kicker { font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; letter-spacing: .2em;
+  #dashboard .dash-kicker { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .2em;
     text-transform: uppercase; color: #6a6a6a; margin: 0 0 26px; padding-bottom: 18px; border-bottom: 1px solid #2c2c2c; }
 
   /* Stats — modules plats, filet fin, index, gros chiffre dot-matrix */
@@ -441,10 +441,10 @@
   #dashboard .stat::after {
     content: '0' counter(statidx);
     position: absolute; top: 14px; right: 16px;
-    font-family: 'Doto', 'Space Mono', monospace; font-size: 12px; letter-spacing: .08em; color: #4a4a4a;
+    font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; letter-spacing: .08em; color: #4a4a4a;
   }
-  #dashboard .stat .num { font-family: 'Doto', 'Space Mono', monospace; font-size: 40px; color: #fafafa; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
-  #dashboard .stat .label { font-family: 'Doto', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7a7a7a; font-weight: 400; }
+  #dashboard .stat .num { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 40px; color: #fafafa; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+  #dashboard .stat .label { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7a7a7a; font-weight: 400; }
 
   /* Cartes — plates, filet fin, en-tête mono avec carré blanc */
   #dashboard .card { background: #000; border: 1px solid #2c2c2c; border-radius: 0; box-shadow: none; }
@@ -452,7 +452,7 @@
   #dashboard .card[style*="linear-gradient"] { background: #000 !important; border-color: #2c2c2c !important; }
   #dashboard .card > h3,
   #dashboard .card > div > h3 {
-    font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+    font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em;
     text-transform: uppercase; color: #7a7a7a; display: flex; align-items: center; gap: 9px;
   }
   #dashboard .card > h3::before,
@@ -461,7 +461,7 @@
   }
 
   /* Sous-titre de groupe (Analytiques) — tiret accent (le seul vert) */
-  #dashboard > h3 { position: relative; padding-left: 26px; font-family: 'Doto', 'Space Mono', monospace; font-weight: 400; }
+  #dashboard > h3 { position: relative; padding-left: 26px; font-family: 'Plex Mono', 'Space Mono', monospace; font-weight: 400; }
   #dashboard > h3::before {
     content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
     width: 18px; height: 2px; border-radius: 0; background: var(--accent, #CCEB3C);
@@ -662,7 +662,7 @@
     </div>
 
     <!-- ANALYTIQUES ACHETEURS -->
-    <h3 style="font-family:'Doto','Space Mono',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
+    <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px" id="buyer-analytics-grid">
       <!-- Top Acheteurs -->
       <div class="card" style="margin-bottom:0">
@@ -733,9 +733,9 @@
 
     <!-- Sous-onglets -->
     <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">
-      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--white);padding:10px 20px;font-size:13px;font-family:'Doto','Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
-      <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Doto','Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
-      <button id="tab-templates-btn" onclick="switchOrderTab('templates')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Doto','Space Mono',monospace;cursor:pointer">⭐ Templates <span id="tab-tpl-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--white);padding:10px 20px;font-size:13px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-templates-btn" onclick="switchOrderTab('templates')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer">⭐ Templates <span id="tab-tpl-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
     </div>
 
     <!-- VUE COMMANDES -->
@@ -784,14 +784,14 @@
 
       <div id="bulk-bar" style="display:none;background:var(--accent);color:var(--black);padding:10px 16px;border-radius: 0;margin-bottom:12px;align-items:center;gap:12px">
         <span id="bulk-count" style="font-weight:700;font-size:13px"></span>
-        <select id="bulk-status" style="padding:6px 10px;border-radius: 0;border:none;font-family:'Doto','Space Mono',monospace;font-size:11px">
+        <select id="bulk-status" style="padding:6px 10px;border-radius: 0;border:none;font-family:'Plex Mono','Space Mono',monospace;font-size:11px">
           <option value="">Changer le statut…</option>
           <option value="confirmed">Reçue</option>
           <option value="validated">Validée</option>
           <option value="in_production">En production</option>
           <option value="shipped">Expédiée</option>
         </select>
-        <button onclick="applyBulkStatus()" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius: 0;font-family:'Doto','Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
+        <button onclick="applyBulkStatus()" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius: 0;font-family:'Plex Mono','Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
         <button onclick="clearBulkSelection()" aria-label="Annuler la sélection" style="background:transparent;border:none;color:var(--black);cursor:pointer;font-size:16px;margin-left:auto">✕</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
@@ -1241,7 +1241,7 @@
     <!-- Devise par défaut -->
     <div class="field" style="margin-top:12px">
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Devise par défaut</label>
-      <select id="brand-default-currency" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--white);border-radius: 0;padding:8px 10px;font-size:12px;font-family:'Doto','Space Mono',monospace">
+      <select id="brand-default-currency" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--white);border-radius: 0;padding:8px 10px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace">
         <option value="">Automatique (pays acheteur)</option>
         <option value="EUR">EUR €</option>
         <option value="USD">USD $</option>
@@ -3058,7 +3058,7 @@ async function loadDashboard() {
   const brandChart = document.getElementById('brand-revenue-chart');
   if (brandChart && sorted.length) {
     brandChart.innerHTML = sorted.map(([name,val],i) => `
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Doto','Space Mono',monospace">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Plex Mono','Space Mono',monospace">
         <div style="font-size:11px;color:#cfcfcf;min-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
         <div style="flex:1;background:#1c1c1c;height:1px;position:relative">
           <div style="position:absolute;left:0;top:-2px;width:${Math.round(val/maxBrand*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>

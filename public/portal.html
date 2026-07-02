@@ -7,7 +7,7 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="/fonts/doto.css">
+<link rel="stylesheet" href="/fonts/brand.css">
 <title>Editions Standard B2B Showroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
   :root {
     --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#777; --soft:#bbb; --white:#f5f4f0; --accent:#CCEB3C;
     --danger:#e74c3c; --success:#2ecc71; --warning:#e0b000;
-    --dot:'Doto','Space Mono',monospace;
+    --dot:'Plex Mono','Space Mono',monospace;
     --z-base: 1;
     --z-card: 10;
     --z-sticky: 20;
@@ -48,7 +48,7 @@
     filter: brightness(1.1) contrast(1.05);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { font-family: 'Doto', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s;
+  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 90px; transition: background .2s, color .2s;
     }
   .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
   .header-left { display: flex; align-items: center; gap: 14px; }
@@ -98,10 +98,10 @@
   .brand-info { flex: 1; min-width: 0; padding: 26px 32px; display: flex; flex-direction: column; justify-content: center; gap: 7px; position: relative; }
   .brand-name-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .brand-name { font-family: var(--dot), monospace; font-size: 17px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; transition: color .18s; }
-  .brand-season { font-family: 'Doto', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); padding: 2px 0; line-height: 1.5; flex-shrink: 0; }
+  .brand-season { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); padding: 2px 0; line-height: 1.5; flex-shrink: 0; }
   .brand-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Doto', 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-  .brand-cta { font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 8px; transition: color .18s; }
+  .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .brand-cta { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 8px; transition: color .18s; }
   .brand-idx { position: absolute; top: 16px; right: 20px; font-family: var(--dot), monospace; font-size: 12px; color: var(--muted); opacity: .55; letter-spacing: .1em; }
   @media (max-width: 720px) {
     .brand-card { flex-direction: column; min-height: 0; }
@@ -136,7 +136,7 @@
   .search-bar input:focus { border-bottom-color: var(--accent); }
   .collection-filters { display: none; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .collection-filters::-webkit-scrollbar { display: none; }
-  .col-filter { display: inline-flex; align-items: center; flex-shrink: 0; padding: 7px 2px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; border: none; border-bottom: 1px solid transparent; color: var(--muted); cursor: pointer; background: transparent; font-family: 'Doto', 'Space Mono', monospace; border-radius: 0; transition: color .15s, border-color .15s; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 14px; }
+  .col-filter { display: inline-flex; align-items: center; flex-shrink: 0; padding: 7px 2px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; border: none; border-bottom: 1px solid transparent; color: var(--muted); cursor: pointer; background: transparent; font-family: 'Plex Mono', 'Space Mono', monospace; border-radius: 0; transition: color .15s, border-color .15s; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 14px; }
   .col-filter:hover { color: var(--white); }
   .col-filter.active { color: var(--white); border-bottom-color: var(--accent); }
   .product-card { background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: default; transition: border-color .15s; }
@@ -171,7 +171,7 @@
   .qty-display.active { color: var(--accent); }
   .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 18px 40px calc(18px + env(safe-area-inset-bottom)) 40px; display: flex; justify-content: space-between; align-items: center; z-index: var(--z-bar); }
   .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; }
-  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 0; font-family: 'Doto', 'Space Mono', monospace; }
+  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; }
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .26em; margin-bottom: 8px; font-family: inherit; }
   .field input, .field select, .field textarea { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 12px 2px; color: var(--white); font-size: 15px; font-family: inherit; letter-spacing: .03em; outline: none; }
@@ -201,7 +201,7 @@
   .order-card { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 20px 22px; margin-bottom: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
   .order-card:hover { border-color: var(--soft); background: var(--mid); }
   .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
-  .order-status { display: inline-block; font-size: 10px; padding: 4px 12px; border-radius: 0; text-transform: uppercase; letter-spacing: .08em; font-family: 'Doto', 'Space Mono', monospace; margin-top: 8px; }
+  .order-status { display: inline-block; font-size: 10px; padding: 4px 12px; border-radius: 0; text-transform: uppercase; letter-spacing: .08em; font-family: 'Plex Mono', 'Space Mono', monospace; margin-top: 8px; }
   .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
   .order-status.validated { background: #1f3d1f; color: #2ecc71; }
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
@@ -245,7 +245,7 @@
     position: fixed; top: 10px; right: 12px; z-index: var(--z-top);
     background: var(--accent); border: none; color: #111;
     border-radius: 0; padding: 8px 16px; font-size: 11px;
-    cursor: pointer; font-family: 'Doto', 'Space Mono', monospace;
+    cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace;
     letter-spacing: .06em; font-weight: 700; display: none;
     box-shadow: 0 2px 8px rgba(0,0,0,.4);
   }
@@ -255,7 +255,7 @@
     display: none; position: fixed; top: 10px; left: 12px;
     z-index: var(--z-top); background: rgba(204,235,60,.15);
     border: 1px solid rgba(204,235,60,.5); color: var(--accent);
-    font-family: 'Doto', 'Space Mono', monospace; font-size: 10px;
+    font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px;
     letter-spacing: .1em; padding: 6px 12px; border-radius: 0;
     pointer-events: none; font-weight: 700; text-transform: uppercase;
   }
@@ -265,7 +265,7 @@
     display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
     z-index: var(--z-top); background: var(--dark); border: 1px solid var(--accent);
     color: var(--accent); border-radius: 0; padding: 8px 16px; font-size: 11px;
-    cursor: pointer; font-family: 'Doto', 'Space Mono', monospace; letter-spacing: .06em;
+    cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; letter-spacing: .06em;
     font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.4); white-space: nowrap;
   }
   body.presentation-mode .pres-toggle { display: block; }
@@ -301,7 +301,7 @@
   .gmodal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; font-family: 'Inter', sans-serif; }
   .gmodal-close:hover { color: var(--white); }
   .gmodal-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-  .gmodal-btn { flex: 1; background: var(--white); color: var(--black); border: none; padding: 13px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .22em; text-transform: uppercase; border-radius: 0; font-family: 'Doto', 'Space Mono', monospace; min-width: 120px; }
+  .gmodal-btn { flex: 1; background: var(--white); color: var(--black); border: none; padding: 13px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .22em; text-transform: uppercase; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; min-width: 120px; }
   .gmodal-btn:disabled { opacity: .4; cursor: default; }
   .gmodal-btn.ghost { background: none; border: none; color: var(--muted); }
   .gmodal-btn.ghost:hover { border-color: var(--soft); color: var(--white); }
@@ -312,11 +312,11 @@
   .cart-line-note::placeholder { color: var(--border); }
 
   /* ── Badge nouveau ── */
-  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 0; font-family: 'Doto', 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: var(--z-card); }
+  .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: var(--z-card); }
 
   /* ── Sort toolbar ── */
   .sort-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-  .sort-bar select { background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--soft); font-size: 12px; padding: 7px 2px; font-family: 'Doto', 'Space Mono', monospace; cursor: pointer; outline: none; transition: border-color .15s; }
+  .sort-bar select { background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--soft); font-size: 12px; padding: 7px 2px; font-family: 'Plex Mono', 'Space Mono', monospace; cursor: pointer; outline: none; transition: border-color .15s; }
   .sort-bar select:focus { border-color: var(--accent); }
   .price-range { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; }
   .price-range input { width: 74px; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--white); font-size: 12px; padding: 7px 2px; font-family: inherit; outline: none; }
@@ -507,7 +507,7 @@
   .compare-btn {
     position: absolute; top: 8px; left: 8px; z-index: var(--z-base);
     background: rgba(0,0,0,.55); border: 1px solid #444;
-    color: #ccc; font-size: 11px; font-family: 'Doto', 'Space Mono', monospace;
+    color: #ccc; font-size: 11px; font-family: 'Plex Mono', 'Space Mono', monospace;
     padding: 4px 8px; border-radius: 0; cursor: pointer;
     backdrop-filter: blur(4px); transition: background .15s, color .15s, border-color .15s;
     display: none;
@@ -530,13 +530,13 @@
   .compare-bar-items { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .compare-bar-chip {
     background: #2a2a2a; border: 1px solid #444; border-radius: 0;
-    padding: 4px 8px; font-size: 11px; font-family: 'Doto', 'Space Mono', monospace;
+    padding: 4px 8px; font-size: 11px; font-family: 'Plex Mono', 'Space Mono', monospace;
     color: #ccc; display: flex; align-items: center; gap: 6px;
   }
   .compare-bar-chip button { background: none; border: none; color: #888; cursor: pointer; font-size: 13px; padding: 0; line-height: 1; }
   .compare-bar-chip button:hover { color: #fff; }
   .compare-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
-  .compare-bar-actions button { padding: 8px 14px; font-size: 12px; font-family: 'Doto', 'Space Mono', monospace; border-radius: 0; cursor: pointer; border: none; font-weight: 700; }
+  .compare-bar-actions button { padding: 8px 14px; font-size: 12px; font-family: 'Plex Mono', 'Space Mono', monospace; border-radius: 0; cursor: pointer; border: none; font-weight: 700; }
   .btn-compare-go { background: var(--accent); color: #111; }
   .btn-compare-clear { background: #2a2a2a; color: #aaa; border: 1px solid #333 !important; }
   /* Cibles tactiles 44px sur mobile (barre comparateur) */
@@ -557,9 +557,9 @@
   .compare-col { border: 1px solid #2a2a2a; border-radius: 0; overflow: hidden; }
   .compare-col img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
   .compare-col-info { padding: 12px; }
-  .compare-col-ref { font-family: 'Doto', 'Space Mono', monospace; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .compare-col-ref { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
   .compare-col-desc { font-size: 11px; color: #888; margin-bottom: 8px; line-height: 1.5; }
-  .compare-col-price { font-family: 'Doto', 'Space Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 700; }
+  .compare-col-price { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 700; }
   .compare-col-sizes { font-size: 11px; color: #aaa; margin-top: 4px; }
   /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
   img[src*="logo.svg"]{filter:invert(1);}
@@ -1063,7 +1063,7 @@ function applyLang() {
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
       <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
-      <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Doto','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
+      <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
         <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
           <option value="fr">Français</option>
           <option value="en">English</option>
@@ -1076,7 +1076,7 @@ function applyLang() {
           <option value="th">ไทย</option>
         </select>
       </div>
-      <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Doto','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
+      <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
       <div class="dropdown-sep"></div>
       <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
     </div>
@@ -1094,10 +1094,10 @@ function applyLang() {
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
       <h2 class="section-title" style="margin-bottom:0">Ma sélection</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button id="export-pdf-btn" onclick="exportSelectionPdf()" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Doto','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📄 Exporter</button>
-        <button onclick="openModal('modal-email-sel')" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Doto','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📧 Email</button>
-        <button onclick="openShareModal()" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Doto','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">🔗 Partager</button>
-        <button onclick="clearCart()" style="background:none;border:none;color:var(--muted);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Doto','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
+        <button id="export-pdf-btn" onclick="exportSelectionPdf()" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📄 Exporter</button>
+        <button onclick="openModal('modal-email-sel')" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📧 Email</button>
+        <button onclick="openShareModal()" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">🔗 Partager</button>
+        <button onclick="clearCart()" style="background:none;border:none;color:var(--muted);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
       </div>
     </div>
     <div class="checkout-layout">
@@ -1127,7 +1127,7 @@ function applyLang() {
   <div id="view-orders" class="view-section" style="display:none;opacity:1">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
       <h2 class="section-title" style="margin-bottom:0">Mes commandes</h2>
-      <select id="orders-sort" onchange="applySortOrders()" style="background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;color:var(--soft);font-size:12px;padding:7px 2px;font-family:'Doto','Space Mono',monospace;cursor:pointer;outline:none">
+      <select id="orders-sort" onchange="applySortOrders()" style="background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;color:var(--soft);font-size:12px;padding:7px 2px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;outline:none">
         <option value="date-desc">Date ↓</option>
         <option value="date-asc">Date ↑</option>
         <option value="amount-desc">Montant ↓</option>
@@ -1218,7 +1218,7 @@ function applyLang() {
 <!-- Indicateur mode présentation -->
 <div class="pres-indicator">MODE PRÉSENTATION</div>
 <!-- Bouton Présenter (mobile uniquement) -->
-<button id="present-btn" onclick="togglePresentationMode()" style="position:fixed;top:72px;right:12px;z-index:55;background:none;border:none;color:var(--soft);border-radius: 0;padding:7px 14px;font-size:11px;font-family:'Doto','Space Mono',monospace;cursor:pointer;letter-spacing:.04em">👁 Présenter</button>
+<button id="present-btn" onclick="togglePresentationMode()" style="position:fixed;top:72px;right:12px;z-index:55;background:none;border:none;color:var(--soft);border-radius: 0;padding:7px 14px;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em">👁 Présenter</button>
 
 <!-- Modal : Envoyer sélection par email -->
 <div class="gmodal-overlay" id="modal-email-sel">
@@ -1243,7 +1243,7 @@ function applyLang() {
     <p id="modal-share-desc" style="font-size:13px;font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
     <div style="display:flex;gap:8px">
       <input id="share-link-input" type="text" readonly style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Inter',sans-serif;outline:none" value="">
-      <button id="modal-share-copy-btn" onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius: 0;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Doto','Space Mono',monospace;flex-shrink:0">Copier</button>
+      <button id="modal-share-copy-btn" onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius: 0;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace;flex-shrink:0">Copier</button>
     </div>
     <div style="margin-top:16px;text-align:center">
       <div id="share-qr" style="display:inline-block;background:#fff;padding:12px;border-radius: 0"></div>
@@ -1339,7 +1339,7 @@ function applyLang() {
   </div>
 </div>
 
-<div id="qr-toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);font-family:'Doto','Space Mono',monospace;font-size:13px;font-weight:700;padding:12px 22px;border-radius: 0;z-index:200;letter-spacing:.04em;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s"></div>
+<div id="qr-toast" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);font-family:'Plex Mono','Space Mono',monospace;font-size:13px;font-weight:700;padding:12px 22px;border-radius: 0;z-index:200;letter-spacing:.04em;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s"></div>
 
 <!-- Barre comparateur (au-dessus de la cart-bar) -->
 <div class="compare-bar" id="compare-bar">
@@ -1354,7 +1354,7 @@ function applyLang() {
 <div id="modal-compare">
   <div class="compare-modal-inner">
     <div class="compare-modal-header">
-      <h3 style="margin:0;font-family:'Doto','Space Mono',monospace;font-size:16px">Comparaison produits</h3>
+      <h3 style="margin:0;font-family:'Plex Mono','Space Mono',monospace;font-size:16px">Comparaison produits</h3>
       <button onclick="closeCompareModal()" aria-label="Fermer la comparaison" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">✕</button>
     </div>
     <div class="compare-cols" id="compare-cols"></div>
@@ -2930,7 +2930,7 @@ function renderOrdersList(data) {
     </div>`).join('');
   if (data.length > ORDERS_PER_PAGE) {
     const end = Math.min(start + ORDERS_PER_PAGE, data.length);
-    const btnStyle = "background:none;border:none;color:var(--soft);border-radius:0;padding:8px 8px;font-size:12px;font-family:'Doto','Space Mono',monospace;cursor:pointer";
+    const btnStyle = "background:none;border:none;color:var(--soft);border-radius:0;padding:8px 8px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer";
     list.innerHTML += `<div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:16px;grid-column:1/-1">
       ${ordersPage > 0 ? `<button onclick="ordersPage--;renderOrdersList(ordersData_sorted)" style="${btnStyle}">← Précédent</button>` : ''}
       <span style="color:var(--muted);font-size:12px;font-family:'Inter',sans-serif">${start+1}–${end} / ${data.length}</span>
