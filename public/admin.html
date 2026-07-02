@@ -4,10 +4,11 @@
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/fonts/doto.css">
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DotGothic16&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   /* Source de vérité couleurs (les var(--*) étaient utilisées sans être définies). */
   :root {
@@ -27,12 +28,16 @@
   /* Layout */
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: #111111; border-right: 1px solid #252525; display: flex; flex-direction: column; z-index: 10; }
   .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid #252525; }
-  .sidebar-logo h2 { font-family: 'DotGothic16', monospace; font-size: 16px; color: #fff; font-weight: 400; letter-spacing: .02em; }
+  .sidebar-logo h2 { font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; color: #fff; font-weight: 400; letter-spacing: .22em; text-transform: uppercase; }
   .sidebar-logo p { font-size: 11px; color: #666; margin-top: 2px; }
   nav { flex: 1; padding: 12px 0; }
   nav a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #888; font-size: 13px; text-decoration: none; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
   nav a:hover, nav a.active { color: #fff; background: #1c1c1c; border-left-color: #CCEB3C; }
   nav a svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .6; transition: opacity .15s; }
+  nav a span.icon { display: none; }
+  /* Emojis résiduels des boutons/liens : rendus en niveaux de gris */
+  .btn:not(.btn-danger), .dropdown-item { filter: grayscale(1); }
+
   nav a:hover svg, nav a.active svg { opacity: 1; }
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid #252525; }
   .sidebar-footer a { color: #666; font-size: 12px; text-decoration: none; }
@@ -40,55 +45,55 @@
 
   .main { margin-left: 220px; padding: 32px; min-height: 100vh; }
   .topbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 24px; gap: 12px; }
-  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #c0392b; border-radius: 4px; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: 'Inter', sans-serif; letter-spacing: .04em; transition: background .15s, color .15s; }
+  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: none; border-radius: 0; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: 'Inter', sans-serif; letter-spacing: .04em; transition: background .15s, color .15s; }
   .btn-logout-top:hover { background: #e74c3c; color: #fff; }
 
   /* Sections */
   .section { display: none; }
   .section.active { display: block; }
 
-  h1 { font-family: 'DotGothic16', monospace; font-size: 24px; font-weight: 400; color: #fff; margin-bottom: 24px; letter-spacing: .02em; }
+  h1 { font-family: 'Doto', 'Space Mono', monospace; font-size: 14px; font-weight: 400; color: #fff; margin-bottom: 26px; letter-spacing: .28em; text-transform: uppercase; }
   h3 { font-size: 15px; color: #fff; margin-bottom: 14px; }
 
   /* Cards */
-  .card { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .card { background: #111111; border: 1px solid #252525; border-radius: 0; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 
   /* Stats */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat { background: linear-gradient(135deg, #111 60%, rgba(204,235,60,.03) 100%); border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .stat { background: linear-gradient(135deg, #111 60%, rgba(204,235,60,.03) 100%); border: 1px solid #252525; border-radius: 0; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, #CCEB3C); }
-  .stat-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .stat-icon { width: 36px; height: 36px; border-radius: 0; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
   .stat-icon svg { width: 18px; height: 18px; color: var(--stat-color, #CCEB3C); }
-  .stat .num { font-family: 'DotGothic16', monospace; font-size: 32px; font-weight: 400; color: #fff; line-height: 1; }
+  .stat .num { font-family: 'Doto', 'Space Mono', monospace; font-size: 32px; font-weight: 400; color: #fff; line-height: 1; }
   .stat .label { font-size: 11px; color: #666; margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; }
 
   /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; }
-  .btn-primary { background: #CCEB3C; color: #111; font-weight: 600; }
-  .btn-primary:hover { background: #b8d62f; }
-  .btn-secondary { background: #1c1c1c; color: #aaa; border: 1px solid #333; }
-  .btn-secondary:hover { color: #fff; border-color: #555; }
-  .btn-danger { background: transparent; color: #e74c3c; border: 1px solid #e74c3c33; }
-  .btn-danger:hover { background: #e74c3c22; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 0; border: none; background: transparent; color: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; }
+  .btn-primary { background: var(--white); color: var(--black); font-weight: 600; }
+  .btn-primary:hover { opacity: .82; }
+  .btn-secondary { background: transparent; color: var(--muted); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  .btn-secondary:hover { color: var(--white); }
+  .btn-danger { background: transparent; color: #e74c3c; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  .btn-danger:hover { opacity: .7; }
   .btn-sm { padding: 5px 10px; font-size: 11px; }
-  .btn-green { background: #1a3a2a; color: #2ecc71; border: 1px solid #2ecc7133; }
+  .btn-green { background: transparent; color: #2ecc71; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
   /* Boutons "ghost" colorés (actions de ligne) — teintés, adaptés aux 2 thèmes */
-  .btn-ghost-green { background: #0a1f1a; color: #2ecc71; border: 1px solid #2ecc7133; }
-  .btn-ghost-violet { background: #1a1a2a; color: #a78bfa; border: 1px solid #a78bfa33; }
-  .btn-ghost-lime { background: #1a2500; color: #CCEB3C; border: 1px solid #CCEB3C33; }
-  .btn-ghost-blue { background: #0a1a2a; color: #60a5fa; border: 1px solid #60a5fa33; }
-  [data-theme="light"] .btn-ghost-green { background: #eafaf1; color: #1e8e50; border-color: #2ecc7144; }
-  [data-theme="light"] .btn-ghost-violet { background: #f3f0fb; color: #6d4fc4; border-color: #a78bfa55; }
-  [data-theme="light"] .btn-ghost-lime { background: #f4fadf; color: #5a7500; border-color: #a9c43266; }
-  [data-theme="light"] .btn-ghost-blue { background: #eaf3fd; color: #2270c8; border-color: #60a5fa55; }
-  .btn-green:hover { background: #1e4530; }
+  .btn-ghost-green { background: transparent; color: #2ecc71; border: none; }
+  .btn-ghost-violet { background: transparent; color: #a78bfa; border: none; }
+  .btn-ghost-lime { background: transparent; color: #9cb52e; border: none; }
+  .btn-ghost-blue { background: transparent; color: #60a5fa; border: none; }
+  [data-theme="light"] .btn-ghost-green { color: #1e8e50; }
+  [data-theme="light"] .btn-ghost-violet { color: #6d4fc4; }
+  [data-theme="light"] .btn-ghost-lime { color: #5a7500; }
+  [data-theme="light"] .btn-ghost-blue { color: #2270c8; }
+  .btn-green:hover { opacity: .7; }
 
   /* Forms */
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
   .form-group { margin-bottom: 14px; }
   label { display: block; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
-  input, textarea, select { width: 100%; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px 12px; color: #e0e0e0; font-size: 16px; outline: none; transition: border-color .2s; font-family: inherit; }
-  input:focus, textarea:focus, select:focus { border-color: #CCEB3C; }
+  input, textarea, select { width: 100%; background: transparent; border: none; border-bottom: 1px solid #333; border-radius: 0; padding: 10px 2px; color: #e0e0e0; font-size: 16px; outline: none; transition: border-color .2s; font-family: inherit; }
+  input:focus, textarea:focus, select:focus { border-bottom-color: #CCEB3C; }
   textarea { resize: vertical; min-height: 70px; }
 
   /* Table */
@@ -100,7 +105,7 @@
 
   /* Brand card grid */
   .brands-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-  .brand-card { background: #111111; border: 1px solid #252525; border-radius: 12px; padding: 20px; position: relative; }
+  .brand-card { background: #111111; border: 1px solid #252525; border-radius: 0; padding: 20px; position: relative; }
   .brand-card h4 { font-size: 16px; color: #fff; margin-bottom: 4px; }
   .brand-card .brand-meta { font-size: 11px; color: #666; }
   .brand-card .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
@@ -108,17 +113,17 @@
   /* Modal */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
-  .modal { background: #111111; border: 1px solid #252525; border-radius: 16px; padding: 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+  .modal { background: #111111; border: 1px solid #252525; border-radius: 0; padding: 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
   .modal h3 { margin-bottom: 20px; font-size: 17px; color: #fff; }
   .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
   /* QR Modal */
   .qr-box { text-align: center; padding: 20px 0; }
-  .qr-box img { width: 220px; height: 220px; border-radius: 12px; background: #fff; padding: 10px; }
+  .qr-box img { width: 220px; height: 220px; border-radius: 0; background: #fff; padding: 10px; }
   .qr-url { font-size: 11px; color: #888; margin-top: 10px; word-break: break-all; }
 
   /* Status badge */
-  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 0; font-size: 11px; font-weight: 600; }
   .badge-confirmed     { background: #2a2a10; color: #e0c000; }
   .badge-validated     { background: #1a3a2a; color: #2ecc71; }
   .badge-in_production { background: #0a1e3a; color: #60a5fa; }
@@ -128,11 +133,11 @@
   .badge-draft { background: #2a2a1a; color: #f39c12; }
 
   /* Toast */
-  #toast { position: fixed; bottom: 24px; right: 24px; background: #2ecc71; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 999; transform: translateY(100px); transition: transform .3s; }
+  #toast { position: fixed; bottom: 24px; right: 24px; background: #2ecc71; color: #fff; padding: 12px 20px; border-radius: 0; font-size: 13px; font-weight: 600; z-index: 999; transform: translateY(100px); transition: transform .3s; }
   #toast.show { transform: translateY(0); }
   #toast.error { background: #e74c3c; }
 
-  .tag { display: inline-block; background: #1c1c1c; color: #aaa; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin: 1px; }
+  .tag { display: inline-block; background: #1c1c1c; color: #aaa; font-size: 10px; padding: 2px 7px; border-radius: 0; margin: 1px; }
 
   .sep { height: 1px; background: #252525; margin: 24px 0; }
 
@@ -155,8 +160,7 @@
       min-height: 52px; display: flex; align-items: center;
     }
     nav a:hover, nav a.active { border-left-color: transparent; border-top-color: #CCEB3C; background: #1c1c1c; }
-    nav a span.icon { font-size: 20px; }
-    nav a svg { display: none; }
+    nav a svg { display: block; width: 20px; height: 20px; }
 
     /* Main content */
     .main { margin-left: 0; padding: 16px 16px 80px; }
@@ -186,7 +190,7 @@
     /* Modal: full screen on mobile */
     .modal-overlay { align-items: flex-end; padding: 0; }
     .modal {
-      border-radius: 16px 16px 0 0; max-width: 100%; width: 100%;
+      border-radius: 0; max-width: 100%; width: 100%;
       max-height: 92vh; padding: 24px 16px 32px;
     }
 
@@ -232,7 +236,7 @@
     /* Modals: plein écran */
     .modal-overlay { align-items: flex-end; padding: 0; }
     .modal {
-      border-radius: 16px 16px 0 0;
+      border-radius: 0;
       max-width: 100% !important;
       width: 100%;
       max-height: 92vh;
@@ -288,8 +292,8 @@
   /* ── Theme toggle ── */
   #theme-toggle {
     background: none;
-    border: 1px solid #252525;
-    border-radius: 20px;
+    border: none;
+    border-radius: 0;
     padding: 5px 12px;
     cursor: pointer;
     color: #888;
@@ -306,8 +310,8 @@
   /* ── Lang toggle ── */
   #lang-toggle {
     background: none;
-    border: 1px solid #252525;
-    border-radius: 20px;
+    border: none;
+    border-radius: 0;
     padding: 5px 12px;
     cursor: pointer;
     color: #888;
@@ -341,7 +345,7 @@
   [data-theme="light"] h3 { color: #111; }
   [data-theme="light"] .card { background: #ffffff; border-color: #ddd; }
   [data-theme="light"] .stat { background: #ffffff; border-color: #ddd; }
-  [data-theme="light"] .stat .num { color: #CCEB3C; }
+  [data-theme="light"] .stat .num { color: #6b8500; }
   [data-theme="light"] .stat .label { color: #888; }
   [data-theme="light"] th { color: #888; border-bottom-color: #ddd; }
   [data-theme="light"] td { border-bottom-color: #f0f0f0; color: #111; }
@@ -352,7 +356,7 @@
   [data-theme="light"] label { color: #888; }
   [data-theme="light"] input,
   [data-theme="light"] textarea,
-  [data-theme="light"] select { background: #f8f8fb; border-color: #ddd; color: #111; }
+  [data-theme="light"] select { background: transparent; border-color: #ccc; color: #111; }
   [data-theme="light"] input:focus,
   [data-theme="light"] textarea:focus,
   [data-theme="light"] select:focus { border-color: #CCEB3C; }
@@ -361,8 +365,8 @@
   [data-theme="light"] .modal-overlay { background: rgba(0,0,0,.5); }
   [data-theme="light"] .tag { background: #f3f8d9; color: #6b8500; }
   [data-theme="light"] .sep { background: #ddd; }
-  [data-theme="light"] .btn-secondary { background: #f0f0f0; color: #555; border-color: #d8d8d8; }
-  [data-theme="light"] .btn-secondary:hover { color: #111; border-color: #CCEB3C; }
+  [data-theme="light"] .btn-secondary { background: transparent; color: #777; }
+  [data-theme="light"] .btn-secondary:hover { color: #111; }
   [data-theme="light"] #toast { background: #2ecc71; color: #fff; }
   [data-theme="light"] #toast.error { background: #e74c3c; }
   @media (max-width: 768px) {
@@ -373,7 +377,7 @@
 
   /* ── Skeleton loader ── */
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-  .skeleton { background: linear-gradient(90deg,#222 25%,#2a2a2a 50%,#222 75%); background-size:200%; animation:shimmer 1.2s infinite; border-radius:4px; color:transparent!important; }
+  .skeleton { background: linear-gradient(90deg,#222 25%,#2a2a2a 50%,#222 75%); background-size:200%; animation:shimmer 1.2s infinite; border-radius: 0; color:transparent!important; }
   [data-theme="light"] .skeleton { background: linear-gradient(90deg,#e0e0e0 25%,#f0f0f0 50%,#e0e0e0 75%); background-size:200%; animation:shimmer 1.2s infinite; }
 
   /* ── Desktop UX improvements ── */
@@ -403,7 +407,7 @@
   /* ============================================================
      RAW / NOTHING — refonte visuelle (scopée #dashboard)
      Monochrome brut : noir/blanc/gris, grille de points, typo
-     dot-matrix (DotGothic16), filets fins, aucun effet (ni dégradé,
+     mono éditorial (Space Mono), filets fins, aucun effet (ni dégradé,
      ni glow, ni ombre). UN seul accent : le vert acide --accent,
      utilisé avec parcimonie. Réversible : tout est préfixé #dashboard.
      ============================================================ */
@@ -414,12 +418,12 @@
   }
 
   /* Titre dot-matrix + libellé technique, séparé par un filet */
-  #dashboard > h1 { font-family: 'DotGothic16', monospace; display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  #dashboard > h1 { font-family: 'Doto', 'Space Mono', monospace; display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
   #dashboard > h1::after {
-    content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'DotGothic16', monospace;
+    content: 'CRM // SHOWROOM'; margin-left: auto; font-family: 'Doto', 'Space Mono', monospace;
     font-size: 11px; letter-spacing: .26em; color: #4a4a4a; align-self: center;
   }
-  #dashboard .dash-kicker { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .2em;
+  #dashboard .dash-kicker { font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; letter-spacing: .2em;
     text-transform: uppercase; color: #6a6a6a; margin: 0 0 26px; padding-bottom: 18px; border-bottom: 1px solid #2c2c2c; }
 
   /* Stats — modules plats, filet fin, index, gros chiffre dot-matrix */
@@ -434,10 +438,10 @@
   #dashboard .stat::after {
     content: '0' counter(statidx);
     position: absolute; top: 14px; right: 16px;
-    font-family: 'DotGothic16', monospace; font-size: 12px; letter-spacing: .08em; color: #4a4a4a;
+    font-family: 'Doto', 'Space Mono', monospace; font-size: 12px; letter-spacing: .08em; color: #4a4a4a;
   }
-  #dashboard .stat .num { font-family: 'DotGothic16', monospace; font-size: 40px; color: #fafafa; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
-  #dashboard .stat .label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7a7a7a; font-weight: 400; }
+  #dashboard .stat .num { font-family: 'Doto', 'Space Mono', monospace; font-size: 40px; color: #fafafa; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+  #dashboard .stat .label { font-family: 'Doto', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #7a7a7a; font-weight: 400; }
 
   /* Cartes — plates, filet fin, en-tête mono avec carré blanc */
   #dashboard .card { background: #000; border: 1px solid #2c2c2c; border-radius: 0; box-shadow: none; }
@@ -445,7 +449,7 @@
   #dashboard .card[style*="linear-gradient"] { background: #000 !important; border-color: #2c2c2c !important; }
   #dashboard .card > h3,
   #dashboard .card > div > h3 {
-    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+    font-family: 'Doto', 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: .16em;
     text-transform: uppercase; color: #7a7a7a; display: flex; align-items: center; gap: 9px;
   }
   #dashboard .card > h3::before,
@@ -454,7 +458,7 @@
   }
 
   /* Sous-titre de groupe (Analytiques) — tiret accent (le seul vert) */
-  #dashboard > h3 { position: relative; padding-left: 26px; font-family: 'DotGothic16', monospace; font-weight: 400; }
+  #dashboard > h3 { position: relative; padding-left: 26px; font-family: 'Doto', 'Space Mono', monospace; font-weight: 400; }
   #dashboard > h3::before {
     content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
     width: 18px; height: 2px; border-radius: 0; background: var(--accent, #CCEB3C);
@@ -528,7 +532,7 @@
 <div class="sidebar">
   <div class="sidebar-logo">
     <div style="display:flex;align-items:center;gap:10px">
-      <img src="/logo.svg" style="width:40px;height:40px;border-radius:6px;flex-shrink:0">
+      <img src="/logo.svg" style="width:40px;height:40px;border-radius: 0;flex-shrink:0">
       <div>
         <h2 style="font-size:13px">Editions Standard</h2>
         <p>Showroom BDC</p>
@@ -542,7 +546,7 @@
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
-    <a data-section="access-requests" id="nav-access-requests"><span class="icon">🔔</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
+    <a data-section="access-requests" id="nav-access-requests"><span class="icon">🔔</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius: 0;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
     <a data-section="stats" id="nav-stats"><span class="icon">📊</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
     <a data-section="agenda" id="nav-agenda"><span class="icon">📅</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
     <a data-section="sales-report" id="nav-sales-report"><span class="icon">📈</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg> <span>Rapport ventes</span></a>
@@ -550,7 +554,7 @@
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
     <button id="lang-toggle" onclick="toggleLang()">🌐 EN</button>
-    <a id="logout-link" href="/admin/logout" style="display:block;margin-top:10px;padding:8px 14px;border:1px solid #c0392b;border-radius:4px;color:#e74c3c;font-size:12px;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#e74c3c';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='#e74c3c'" data-t="logout">⏻ Déconnexion</a>
+    <a id="logout-link" href="/admin/logout" style="display:block;margin-top:10px;padding:8px 0;border:none;border-radius:0;color:#e74c3c;font-size:12px;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#e74c3c';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='#e74c3c'" data-t="logout">⏻ Déconnexion</a>
   </div>
 </div>
 
@@ -558,18 +562,18 @@
   <div class="topbar">
     <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:360px;position:relative">
       <input id="global-search-input" type="text" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
-        style="width:100%;padding:7px 14px;border-radius:20px;border:1px solid #333;background:#0f0f0f;color:#fff;font-size:16px;font-family:inherit;outline:none">
-      <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1px solid #333;border-radius:8px;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
+        style="width:100%;padding:7px 2px;border-radius:0;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font-size:16px;font-family:inherit;outline:none">
+      <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1px solid #333;border-radius: 0;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:1px solid #333;border-radius:20px;padding:6px 10px;font-size:11px;color:#aaa;cursor:pointer;min-height:36px;min-width:36px">☀️</button>
-      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:1px solid #333;border-radius:20px;padding:6px 10px;font-size:11px;color:var(--accent);cursor:pointer;min-height:36px;min-width:36px">EN</button>
+      <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:none;border-radius:0;padding:6px 10px;font-size:11px;color:#aaa;cursor:pointer;min-height:36px;min-width:36px">☀️</button>
+      <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:none;border-radius:0;padding:6px 10px;font-size:11px;color:var(--accent);cursor:pointer;min-height:36px;min-width:36px">EN</button>
     </div>
-    <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid #333;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
+    <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius: 0;border:none;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       Portail
     </a>
-    <button id="btn-push-notif" onclick="initPushNotifications()" style="background:none;border:1px solid #333;border-radius:20px;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
+    <button id="btn-push-notif" onclick="initPushNotifications()" style="background:none;border:none;border-radius:0;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
     <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
@@ -617,7 +621,7 @@
         </button>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:4px" onchange="updateShareLinks()">
+        <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius: 0" onchange="updateShareLinks()">
           <option value="">Invitation par marque…</option>
         </select>
         <button class="btn btn-primary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')" disabled style="opacity:.4">
@@ -655,7 +659,7 @@
     </div>
 
     <!-- ANALYTIQUES ACHETEURS -->
-    <h3 style="font-family:'DotGothic16',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
+    <h3 style="font-family:'Doto','Space Mono',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px" id="buyer-analytics-grid">
       <!-- Top Acheteurs -->
       <div class="card" style="margin-bottom:0">
@@ -726,9 +730,9 @@
 
     <!-- Sous-onglets -->
     <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">
-      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--white);padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
-      <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
-      <button id="tab-templates-btn" onclick="switchOrderTab('templates')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;cursor:pointer">⭐ Templates <span id="tab-tpl-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-orders-btn" onclick="switchOrderTab('orders')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--white);padding:10px 20px;font-size:13px;font-family:'Doto','Space Mono',monospace;cursor:pointer;font-weight:700">Commandes <span id="tab-orders-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-selections-btn" onclick="switchOrderTab('selections')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Doto','Space Mono',monospace;cursor:pointer">Sélections envoyées <span id="tab-sel-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
+      <button id="tab-templates-btn" onclick="switchOrderTab('templates')" style="background:none;border:none;border-bottom:2px solid transparent;color:#888;padding:10px 20px;font-size:13px;font-family:'Doto','Space Mono',monospace;cursor:pointer">⭐ Templates <span id="tab-tpl-count" style="font-size:11px;color:#888;margin-left:4px"></span></button>
     </div>
 
     <!-- VUE COMMANDES -->
@@ -736,14 +740,14 @@
       <!-- Filtres avancés -->
       <div class="card" style="padding:12px 16px;margin-bottom:12px">
         <div style="display:flex;gap:8px;margin-bottom:0;flex-wrap:wrap;align-items:center">
-          <input type="date" id="filter-date-from" onchange="applyOrderFilters()" title="Date de début" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
-          <input type="date" id="filter-date-to" onchange="applyOrderFilters()" title="Date de fin" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
-          <select id="filter-country" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <input type="date" id="filter-date-from" onchange="applyOrderFilters()" title="Date de début" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <input type="date" id="filter-date-to" onchange="applyOrderFilters()" title="Date de fin" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
+          <select id="filter-country" onchange="applyOrderFilters()" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;flex:1;min-width:130px">
             <option value="">Tous les pays</option>
           </select>
-          <input type="number" id="filter-amount-min" placeholder="Montant min" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
-          <input type="number" id="filter-amount-max" placeholder="Montant max" onchange="applyOrderFilters()" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
-          <button onclick="clearOrderFilters()" style="background:none;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#888;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap" title="Effacer les filtres avancés">✕ Effacer</button>
+          <input type="number" id="filter-amount-min" placeholder="Montant min" onchange="applyOrderFilters()" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
+          <input type="number" id="filter-amount-max" placeholder="Montant max" onchange="applyOrderFilters()" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);border-radius: 0;padding:8px 10px;color:#e0e0e0;font-size:12px;font-family:inherit;outline:none;width:110px">
+          <button onclick="clearOrderFilters()" style="background:none;border:none;border-radius:0;padding:8px 12px;color:#888;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap" title="Effacer les filtres avancés">✕ Effacer</button>
         </div>
       </div>
       <!-- Filters -->
@@ -775,16 +779,16 @@
       <!-- Stats rapides -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="orders-stats"></div>
 
-      <div id="bulk-bar" style="display:none;background:var(--accent);color:var(--black);padding:10px 16px;border-radius:4px;margin-bottom:12px;align-items:center;gap:12px">
+      <div id="bulk-bar" style="display:none;background:var(--accent);color:var(--black);padding:10px 16px;border-radius: 0;margin-bottom:12px;align-items:center;gap:12px">
         <span id="bulk-count" style="font-weight:700;font-size:13px"></span>
-        <select id="bulk-status" style="padding:6px 10px;border-radius:4px;border:none;font-family:'Space Mono',monospace;font-size:11px">
+        <select id="bulk-status" style="padding:6px 10px;border-radius: 0;border:none;font-family:'Doto','Space Mono',monospace;font-size:11px">
           <option value="">Changer le statut…</option>
           <option value="confirmed">Reçue</option>
           <option value="validated">Validée</option>
           <option value="in_production">En production</option>
           <option value="shipped">Expédiée</option>
         </select>
-        <button onclick="applyBulkStatus()" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
+        <button onclick="applyBulkStatus()" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius: 0;font-family:'Doto','Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
         <button onclick="clearBulkSelection()" aria-label="Annuler la sélection" style="background:transparent;border:none;color:var(--black);cursor:pointer;font-size:16px;margin-left:auto">✕</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
@@ -993,15 +997,15 @@
       <h3 data-t="buyers_existing_title">Comptes acheteurs existants</h3>
       <!-- Filtres acheteurs -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
-        <select id="buyers-filter-country" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius:6px;color:var(--text,#e0e0e0)">
+        <select id="buyers-filter-country" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;color:var(--text,#e0e0e0)">
           <option value="">🌍 Tous les pays</option>
         </select>
-        <select id="buyers-filter-active" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius:6px;color:var(--text,#e0e0e0)">
+        <select id="buyers-filter-active" onchange="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;min-width:140px;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;color:var(--text,#e0e0e0)">
           <option value="">Tous (actifs + inactifs)</option>
           <option value="active">Actifs (connectés &lt; 90j)</option>
           <option value="inactive">Inactifs (&gt; 90j ou jamais)</option>
         </select>
-        <input id="buyers-filter-amount" type="number" min="0" placeholder="Montant min (€)" oninput="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;width:160px;background:var(--input-bg,#0a0a0a);border:1px solid #333;border-radius:6px;color:var(--text,#e0e0e0)">
+        <input id="buyers-filter-amount" type="number" min="0" placeholder="Montant min (€)" oninput="applyBuyersFilters()" style="padding:6px 10px;font-size:12px;width:160px;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;color:var(--text,#e0e0e0)">
         <span id="buyers-filter-count" style="font-size:12px;color:#666;margin-left:auto"></span>
         <button onclick="resetBuyersFilters()" class="btn btn-secondary btn-sm">✕ Reset</button>
       </div>
@@ -1158,7 +1162,7 @@
         <button class="btn btn-danger btn-sm" id="brand-logo-clear" onclick="clearBrandImg('brand-logo','brand-logo-preview','brand-logo-clear')" style="display:none">✕ Supprimer</button>
       </div>
       <div id="brand-logo-preview" style="display:none;margin-top:6px">
-        <img id="brand-logo-thumb" src="" style="max-height:80px;max-width:200px;object-fit:contain;border-radius:6px;border:1px solid #333;background:var(--input-bg);padding:4px">
+        <img id="brand-logo-thumb" src="" style="max-height:80px;max-width:200px;object-fit:contain;border-radius: 0;border:1px solid #333;background:var(--input-bg);padding:4px">
       </div>
       <input type="hidden" id="brand-logo">
     </div>
@@ -1174,7 +1178,7 @@
         <button class="btn btn-danger btn-sm" id="brand-thumbnail-clear" onclick="clearBrandImg('brand-thumbnail','brand-thumbnail-preview','brand-thumbnail-clear')" style="display:none">✕ Supprimer</button>
       </div>
       <div id="brand-thumbnail-preview" style="display:none;margin-top:6px">
-        <img id="brand-thumbnail-thumb" src="" style="max-height:100px;width:200px;object-fit:cover;border-radius:8px;border:1px solid #333">
+        <img id="brand-thumbnail-thumb" src="" style="max-height:100px;width:200px;object-fit:cover;border-radius: 0;border:1px solid #333">
       </div>
       <input type="hidden" id="brand-thumbnail">
     </div>
@@ -1190,7 +1194,7 @@
         <button class="btn btn-danger btn-sm" id="brand-cover-clear" onclick="clearBrandImg('brand-cover','brand-cover-preview','brand-cover-clear')" style="display:none">✕ Supprimer</button>
       </div>
       <div id="brand-cover-preview" style="display:none;margin-top:6px">
-        <img id="brand-cover-thumb" src="" style="max-height:120px;width:100%;object-fit:cover;border-radius:8px;border:1px solid #333">
+        <img id="brand-cover-thumb" src="" style="max-height:120px;width:100%;object-fit:cover;border-radius: 0;border:1px solid #333">
       </div>
       <input type="hidden" id="brand-cover">
     </div>
@@ -1234,7 +1238,7 @@
     <!-- Devise par défaut -->
     <div class="field" style="margin-top:12px">
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Devise par défaut</label>
-      <select id="brand-default-currency" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--white);border-radius:4px;padding:8px 10px;font-size:12px;font-family:'Space Mono',monospace">
+      <select id="brand-default-currency" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--white);border-radius: 0;padding:8px 10px;font-size:12px;font-family:'Doto','Space Mono',monospace">
         <option value="">Automatique (pays acheteur)</option>
         <option value="EUR">EUR €</option>
         <option value="USD">USD $</option>
@@ -1443,7 +1447,7 @@
       <p style="font-size:11px;color:#666;margin-top:4px">Créé dans Stripe → Produits → Prix récurrent.</p>
     </div>
     <button class="btn btn-primary btn-sm" style="margin-bottom:10px;width:100%" onclick="generateCheckoutLink()">🔗 Générer le lien d'abonnement</button>
-    <div id="billing-link-result" style="display:none;margin-bottom:10px;font-size:12px;word-break:break-all;background:#1a1a2a;padding:10px;border-radius:8px"></div>
+    <div id="billing-link-result" style="display:none;margin-bottom:10px;font-size:12px;word-break:break-all;background:#1a1a2a;padding:10px;border-radius: 0"></div>
 
     <div class="sep"></div>
     <button class="btn btn-secondary btn-sm" style="width:100%;margin-bottom:8px" onclick="setSubscriptionStatus('active')">✅ Activer manuellement</button>
@@ -1511,7 +1515,7 @@
     </div>
 
     <div id="invite-has-link" style="display:none">
-      <div style="background:var(--black);border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <div style="background:var(--black);border-radius: 0;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
         <span id="invite-url" style="flex:1;font-size:12px;color:#aaa;word-break:break-all;font-family:'Courier New',monospace"></span>
         <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()" data-t="btn_copy" style="flex-shrink:0">📋 Copier</button>
       </div>
@@ -1525,7 +1529,7 @@
       </div>
 
       <div style="border-top:1px solid var(--border);padding-top:14px">
-        <div id="invite-regen-confirm" style="display:none;background:var(--input-bg);border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px">
+        <div id="invite-regen-confirm" style="display:none;background:var(--input-bg);border:1px solid #333;border-radius: 0;padding:12px;margin-bottom:10px">
           <p style="font-size:12px;color:#aaa;margin-bottom:10px" data-t="invite_regenerate_note">Régénérer invalide l'ancien lien immédiatement.</p>
           <div style="display:flex;gap:8px">
             <button class="btn btn-danger btn-sm" onclick="confirmRegenerate()" data-t="btn_confirm_regen">✓ Confirmer</button>
@@ -1568,7 +1572,7 @@
         <h3 id="mo-ref" style="margin:0;font-size:18px"></h3>
         <span id="mo-date" style="font-size:12px;color:#888"></span>
       </div>
-      <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid #333;cursor:pointer">
+      <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius:0;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">
         <option value="confirmed" data-t="status_confirmed_icon">🟡 Reçue</option>
         <option value="validated" data-t="status_validated_icon">🟢 Validée</option>
         <option value="in_production">⚙️ En production</option>
@@ -1579,7 +1583,7 @@
     </div>
 
     <!-- Client -->
-    <div style="background:var(--black);border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:13px">
+    <div style="background:var(--black);border-radius: 0;padding:14px 16px;margin-bottom:14px;font-size:13px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px">Client</div>
       <div id="mo-client"></div>
     </div>
@@ -1590,7 +1594,7 @@
       <thead><tr><th data-t="th_ref">Référence</th><th data-t="th_color">Couleur</th><th data-t="th_size">Taille</th><th data-t="th_qty">Qté</th><th data-t="th_unit_price">P.U. HT</th><th data-t="th_total_ht">Total HT</th></tr></thead>
       <tbody id="mo-lines"></tbody>
     </table></div>
-    <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:var(--black);border-radius:6px;margin-bottom:14px"></div>
+    <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:var(--black);border-radius: 0;margin-bottom:14px"></div>
     <div id="mo-lines-edit-bar" style="display:none;margin-bottom:14px;text-align:right">
       <span id="mo-lines-edit-hint" style="font-size:11px;color:#888;margin-right:10px"></span>
       <button class="btn btn-primary btn-sm" onclick="saveOrderLines()">💾 Enregistrer les modifications</button>
@@ -1599,21 +1603,21 @@
     <!-- Notes -->
     <div id="mo-notes-wrap" style="display:none;margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Notes acheteur</div>
-      <div id="mo-notes" style="font-size:13px;color:#aaa;background:var(--black);padding:12px;border-radius:8px;line-height:1.6"></div>
+      <div id="mo-notes" style="font-size:13px;color:#aaa;background:var(--black);padding:12px;border-radius: 0;line-height:1.6"></div>
     </div>
 
     <!-- Notes internes admin -->
     <div id="mo-delivery-wrap" style="margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🚚 Fenêtre de livraison</div>
       <div style="display:flex;gap:8px">
-        <input id="mo-delivery-window" type="text" maxlength="120" placeholder="ex. Janvier – Février 2027" style="flex:1;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;font-family:inherit">
+        <input id="mo-delivery-window" type="text" maxlength="120" placeholder="ex. Janvier – Février 2027" style="flex:1;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius: 0;padding:10px;color:#ccc;font-size:13px;font-family:inherit">
         <button class="btn btn-sm" style="background:#222;color:#aaa" onclick="saveDeliveryWindow()">💾</button>
       </div>
     </div>
 
     <div id="mo-admin-notes-wrap" style="margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🔒 Notes internes (admin uniquement)</div>
-      <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
+      <textarea id="mo-admin-notes" rows="3" placeholder="Remarques internes, suivi, négociation…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius: 0;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
       <button class="btn btn-sm" style="margin-top:6px;background:#222;color:#aaa" onclick="saveAdminNotes()">💾 Sauvegarder note</button>
     </div>
 
@@ -1623,7 +1627,7 @@
       <div id="order-timeline" style="font-size:12px;margin-bottom:12px"></div>
       <!-- Ajouter une note interne -->
       <div id="mo-add-note-wrap" style="display:flex;gap:8px;align-items:flex-start">
-        <textarea id="mo-event-note" rows="2" placeholder="Ajouter une note interne…" style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;color:#ccc;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+        <textarea id="mo-event-note" rows="2" placeholder="Ajouter une note interne…" style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius: 0;padding:8px 10px;color:#ccc;font-size:12px;font-family:inherit;resize:vertical"></textarea>
         <button class="btn btn-secondary btn-sm" onclick="addOrderNote()" style="white-space:nowrap;margin-top:2px">💬 Ajouter</button>
       </div>
       <!-- Historique statuts (legacy) -->
@@ -1669,7 +1673,7 @@
     <p id="relance-subtitle" style="font-size:12px;color:#888;margin-bottom:16px"></p>
     <div class="form-group">
       <label style="font-size:11px;font-weight:600;letter-spacing:.5px;color:#666;text-transform:uppercase">Message personnalisé <span style="color:#555;font-weight:400">(optionnel)</span></label>
-      <textarea id="relance-message" rows="4" placeholder="Laissez vide pour utiliser le message standard…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius:8px;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
+      <textarea id="relance-message" rows="4" placeholder="Laissez vide pour utiliser le message standard…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius: 0;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-relance')">Annuler</button>
@@ -1707,10 +1711,10 @@
     </div>
     <div id="csv-modal-preview" style="display:none;margin-bottom:12px">
       <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Aperçu (3 premières lignes)</div>
-      <div id="csv-preview-content" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:10px 12px;font-size:11px;font-family:monospace;color:#aaa;overflow-x:auto;white-space:pre;max-height:120px;overflow-y:auto"></div>
+      <div id="csv-preview-content" style="background:#0a0a0a;border:1px solid #333;border-radius: 0;padding:10px 12px;font-size:11px;font-family:monospace;color:#aaa;overflow-x:auto;white-space:pre;max-height:120px;overflow-y:auto"></div>
       <div id="csv-preview-count" style="font-size:11px;color:#666;margin-top:6px"></div>
     </div>
-    <div id="csv-modal-status" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+    <div id="csv-modal-status" style="display:none;padding:10px 14px;border-radius: 0;font-size:13px;margin-bottom:12px"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-csv-import')">Annuler</button>
       <button class="btn btn-primary" id="btn-csv-import-submit" onclick="submitCsvImport()" disabled style="opacity:.5">Importer</button>
@@ -1744,7 +1748,7 @@
   <div class="modal" style="max-width:760px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">
       <h3 style="margin:0">👤 <span id="bp-name"></span></h3>
-      <span id="bp-status" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px"></span>
+      <span id="bp-status" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius: 0"></span>
     </div>
     <div id="bp-contact" style="font-size:13px;color:#aaa;margin-bottom:16px"></div>
     <div id="bp-kpis" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px"></div>
@@ -1752,7 +1756,7 @@
     <div class="table-wrap" style="margin-bottom:18px"><table style="margin:0"><thead><tr><th>N°</th><th>Date</th><th>Marque</th><th style="text-align:right">Total HT</th><th>Statut</th></tr></thead><tbody id="bp-orders"></tbody></table></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Rendez-vous</div>
     <div id="bp-appts" style="margin-bottom:18px"></div>
-    <div id="bp-notes-wrap" style="display:none;background:var(--black);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+    <div id="bp-notes-wrap" style="display:none;background:var(--black);border-radius: 0;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🔒 Notes internes</div>
       <div id="bp-notes" style="font-size:13px;color:#ccc;white-space:pre-wrap"></div>
     </div>
@@ -2297,7 +2301,7 @@ function renderWeekCalendar(appointments) {
                 const dateStr = d.toISOString().split('T')[0];
                 const rdvs = appointments.filter(a => a.slot_date === dateStr && parseInt(a.slot_time) === h);
                 return `<td style="border:1px solid var(--border);padding:2px;height:52px;vertical-align:top">
-                  ${rdvs.map(rdv => `<div style="background:var(--accent);color:#000;border-radius:4px;padding:2px 4px;font-size:10px;margin-bottom:2px;cursor:pointer;overflow:hidden" title="${esc(rdv.client_name)}">${esc((rdv.client_name||'').split(' ')[0])}</div>`).join('')}
+                  ${rdvs.map(rdv => `<div style="background:var(--accent);color:#000;border-radius: 0;padding:2px 4px;font-size:10px;margin-bottom:2px;cursor:pointer;overflow:hidden" title="${esc(rdv.client_name)}">${esc((rdv.client_name||'').split(' ')[0])}</div>`).join('')}
                 </td>`;
               }).join('')}
             </tr>
@@ -2340,7 +2344,7 @@ function renderCalendar(appointments) {
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = today.getFullYear() === _calYear && today.getMonth() === _calMonth && today.getDate() === d;
     const hasAppts = !!apptDays[d];
-    html += `<div onclick="showCalDay(${d})" style="min-height:44px;padding:4px;border-radius:6px;cursor:pointer;border:1px solid ${isToday ? '#CCEB3C' : '#252525'};background:${isToday ? '#1e2a0a' : '#111'};display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='${isToday ? '#1e2a0a' : '#111'}'">
+    html += `<div onclick="showCalDay(${d})" style="min-height:44px;padding:4px;border-radius: 0;cursor:pointer;border:1px solid ${isToday ? '#CCEB3C' : '#252525'};background:${isToday ? '#1e2a0a' : '#111'};display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='${isToday ? '#1e2a0a' : '#111'}'">
       <span style="font-size:12px;font-weight:${isToday ? '700' : '400'};color:${isToday ? '#CCEB3C' : '#ccc'}">${d}</span>
       ${hasAppts ? `<span style="width:6px;height:6px;border-radius:50%;background:#CCEB3C;display:block"></span>` : ''}
     </div>`;
@@ -2359,7 +2363,7 @@ function showCalDay(day) {
   if (!appts.length) {
     body.innerHTML = '<p style="color:#555;font-size:13px">Aucun rendez-vous ce jour.</p>';
   } else {
-    body.innerHTML = appts.map(a => `<div style="padding:10px 14px;border:1px solid #252525;border-radius:8px;margin-bottom:8px;display:flex;gap:14px;align-items:flex-start">
+    body.innerHTML = appts.map(a => `<div style="padding:10px 14px;border:1px solid #252525;border-radius: 0;margin-bottom:8px;display:flex;gap:14px;align-items:flex-start">
       <div style="min-width:48px;font-weight:700;font-size:13px;color:#CCEB3C">${a.slot_time}</div>
       <div>
         <div style="font-weight:600;font-size:13px">${esc(a.client_name||'')}</div>
@@ -2668,7 +2672,7 @@ async function loadSalesReport(forceBrandId) {
     html += `<div class="card" style="padding:12px 16px"><div style="font-size:13px;font-weight:700;margin-bottom:10px">Évolution mensuelle (CA HT)</div>` +
       d.monthly.map(m => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12px">
         <span style="width:64px;color:#888">${esc(m.month)}</span>
-        <div style="flex:1;background:#1a1a1a;border-radius:4px;height:18px;overflow:hidden"><div style="width:${Math.round(m.revenue/max*100)}%;height:100%;background:#CCEB3C"></div></div>
+        <div style="flex:1;background:#1a1a1a;border-radius: 0;height:18px;overflow:hidden"><div style="width:${Math.round(m.revenue/max*100)}%;height:100%;background:#CCEB3C"></div></div>
         <span style="width:96px;text-align:right;color:#ccc">${eur(m.revenue)}</span>
         <span style="width:56px;text-align:right;color:#666">${fmt(m.orders)} cmd</span></div>`).join('') + `</div>`;
   }
@@ -2680,8 +2684,8 @@ function filterProductStats() {
   const list = brand ? _allProductStats.filter(p => p.brand_name === brand) : _allProductStats;
   document.getElementById('stats-subtitle').textContent = `${list.length} produit(s)`;
   document.getElementById('stats-body').innerHTML = list.length ? list.map((p, i) => {
-    const barViews = p.views > 0 ? `<div style="display:inline-block;width:${Math.min(p.views,50)*2}px;height:4px;background:#CCEB3C;border-radius:4px;margin-left:6px;vertical-align:middle"></div>` : '';
-    const barCart = p.cart_adds > 0 ? `<div style="display:inline-block;width:${Math.min(p.cart_adds,50)*2}px;height:4px;background:#60a5fa;border-radius:4px;margin-left:6px;vertical-align:middle"></div>` : '';
+    const barViews = p.views > 0 ? `<div style="display:inline-block;width:${Math.min(p.views,50)*2}px;height:4px;background:#CCEB3C;border-radius: 0;margin-left:6px;vertical-align:middle"></div>` : '';
+    const barCart = p.cart_adds > 0 ? `<div style="display:inline-block;width:${Math.min(p.cart_adds,50)*2}px;height:4px;background:#60a5fa;border-radius: 0;margin-left:6px;vertical-align:middle"></div>` : '';
     return `<tr>
       <td style="text-align:center;color:#555;font-size:11px">${i+1}</td>
       <td><strong style="font-size:12px">${p.reference}</strong><br><span style="font-size:11px;color:#666">${p.description||''} · ${p.color||''}</span></td>
@@ -2949,7 +2953,7 @@ function updateOrderNavBadge(count) {
     if (navOrders) {
       badge = document.createElement('span');
       badge.id = 'orders-nav-badge';
-      badge.style.cssText = 'background:#CCEB3C;color:#111;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700;display:inline-block';
+      badge.style.cssText = 'background:#CCEB3C;color:#111;border-radius: 0;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700;display:inline-block';
       navOrders.appendChild(badge);
     }
   }
@@ -3051,7 +3055,7 @@ async function loadDashboard() {
   const brandChart = document.getElementById('brand-revenue-chart');
   if (brandChart && sorted.length) {
     brandChart.innerHTML = sorted.map(([name,val],i) => `
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Space Mono',monospace">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Doto','Space Mono',monospace">
         <div style="font-size:11px;color:#cfcfcf;min-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
         <div style="flex:1;background:#1c1c1c;height:1px;position:relative">
           <div style="position:absolute;left:0;top:-2px;width:${Math.round(val/maxBrand*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>
@@ -3172,9 +3176,9 @@ async function loadBuyerStats() {
           const daysAgo = lastSeen ? Math.floor((now - lastSeen) / 86400000) : null;
           let badge = '';
           if (!lastSeen || daysAgo > 60) {
-            badge = '<span style="background:#3a1a1a;color:#e74c3c;border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+60j</span>';
+            badge = '<span style="background:#3a1a1a;color:#e74c3c;border-radius: 0;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+60j</span>';
           } else if (daysAgo > 30) {
-            badge = '<span style="background:#2a1a00;color:#f39c12;border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+30j</span>';
+            badge = '<span style="background:#2a1a00;color:#f39c12;border-radius: 0;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+30j</span>';
           }
           const seenStr = lastSeen ? lastSeen.toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR') : 'Jamais';
           return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1e1e1e">
@@ -3324,10 +3328,10 @@ async function loadBrands() {
   grid.innerHTML = brands.map(b => {
     const logoSrc = b.logo || b.logo_url || '';
     const logoHtml = logoSrc
-      ? `<img src="${logoSrc}" style="height:48px;max-width:120px;object-fit:contain;margin-bottom:10px;border-radius:4px">`
-      : `<div style="width:48px;height:48px;background:#2a2a2a;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🏷️</div>`;
+      ? `<img src="${logoSrc}" style="height:48px;max-width:120px;object-fit:contain;margin-bottom:10px;border-radius: 0">`
+      : `<div style="width:48px;height:48px;background:#2a2a2a;border-radius: 0;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🏷️</div>`;
     const coverHtml = b.cover_image
-      ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius:8px 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
+      ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius: 0 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
     const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,about_text:b.about_text||''}).replace(/'/g,"&#39;");
     const subBadge = {
@@ -3836,7 +3840,7 @@ async function printAllProductQR() {
     body{font-family:sans-serif;margin:0;padding:20px}
     h2{margin:0 0 16px;font-size:16px}
     .grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start}
-    .card{border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center;width:150px;page-break-inside:avoid}
+    .card{border:1px solid #ddd;border-radius: 0;padding:10px;text-align:center;width:150px;page-break-inside:avoid}
     .card img{width:130px;height:130px}
     .collection{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-top:5px}
     .ref{font-weight:bold;font-size:12px;margin-top:2px}
@@ -3943,8 +3947,8 @@ function renderAgentSelProducts() {
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const thumb = src
-      ? `<img src="${src}" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius:4px;background:#fff;cursor:zoom-in">`
-      : `<div style="width:48px;height:62px;background:#222;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#555;font-size:18px">🏷️</div>`;
+      ? `<img src="${src}" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius: 0;background:#fff;cursor:zoom-in">`
+      : `<div style="width:48px;height:62px;background:#222;border-radius: 0;display:flex;align-items:center;justify-content:center;color:#555;font-size:18px">🏷️</div>`;
     return `<tr><td>${thumb}</td><td><strong>${esc(p.reference)}</strong></td><td style="font-size:12px;color:#aaa">${esc(p.description||'')}</td><td style="white-space:nowrap">${Number(p.price).toFixed(2)} €</td><td>${qtyCell}</td></tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
 }
@@ -4044,7 +4048,7 @@ function renderProductsTable(products) {
     let _thumbImgs = [];
     try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
-    const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius:4px;object-fit:cover;vertical-align:middle">` : '—';
+    const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle">` : '—';
     const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
@@ -4062,9 +4066,9 @@ function renderProductsTable(products) {
         if (!p.stock_enabled) return '—';
         const qty = p.stock_qty;
         if (qty === null || qty === undefined) return '—';
-        if (qty === 0) return '<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;background:#3a1a1a;color:#f44336">Rupture</span>';
-        if (qty <= 5) return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;background:#3a2a0a;color:#ffa726">⚠ ${qty}</span>`;
-        return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;background:#1a3a1a;color:#2ecc71">${qty} en stock</span>`;
+        if (qty === 0) return '<span style="font-size:11px;padding:2px 8px;border-radius: 0;font-weight:500;background:#3a1a1a;color:#f44336">Rupture</span>';
+        if (qty <= 5) return `<span style="font-size:11px;padding:2px 8px;border-radius: 0;font-weight:500;background:#3a2a0a;color:#ffa726">⚠ ${qty}</span>`;
+        return `<span style="font-size:11px;padding:2px 8px;border-radius: 0;font-weight:500;background:#1a3a1a;color:#2ecc71">${qty} en stock</span>`;
       })()}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-sm prod-action" data-action="edit" data-id="${p.id}" title="Modifier" aria-label="Modifier">✏️</button>
@@ -4145,7 +4149,7 @@ function inlineEditPrice(productId, field, cell) {
   const current = parseFloat(cell.textContent) || 0;
   const label = field === 'price_retail' ? 'Prix retail conseillé' : 'Prix wholesale HT';
   cell.innerHTML = `<input type="number" step="0.01" min="0" value="${current.toFixed(2)}"
-    style="width:80px;background:var(--dark,#111);border:1px solid var(--accent,#CCEB3C);border-radius:4px;color:inherit;font-size:12px;padding:3px 6px;font-family:inherit"
+    style="width:80px;background:var(--dark,#111);border:1px solid var(--accent,#CCEB3C);border-radius: 0;color:inherit;font-size:12px;padding:3px 6px;font-family:inherit"
     onclick="event.stopPropagation()"
     onkeydown="if(event.key==='Enter')event.target.blur();if(event.key==='Escape'){loadProducts(currentBrandId,currentBrandName);}"
     onblur="saveInlinePrice('${productId}','${field}',this,event.target.closest('td'))">`;
@@ -4349,12 +4353,12 @@ function renderVariantsList() {
     return;
   }
   list.innerHTML = currentVariants.map((v, i) => `
-    <div style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:12px">
+    <div style="background:#161616;border:1px solid #2a2a2a;border-radius: 0;padding:12px">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
         <input class="variant-color-input" type="text" placeholder="Nom de la couleur (ex: Noir, Écru…)"
           value="${esc(v.color)}" oninput="currentVariants[${i}].color=this.value"
-          style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;color:#fff;font-size:14px">
-        <button onclick="removeVariant(${i})" aria-label="Supprimer cette variante" style="background:#c0392b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">✕</button>
+          style="flex:1;background:#0a0a0a;border:1px solid #2a2a2a;border-radius: 0;padding:8px 10px;color:#fff;font-size:14px">
+        <button onclick="removeVariant(${i})" aria-label="Supprimer cette variante" style="background:#c0392b;color:#fff;border:none;border-radius: 0;padding:6px 10px;cursor:pointer;font-size:13px">✕</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
@@ -4366,7 +4370,7 @@ function renderVariantsList() {
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${v.images.map((src, j) => `
           <div style="position:relative">
-            <img src="${src}" style="height:60px;width:60px;object-fit:cover;border-radius:4px;border:1px solid #333">
+            <img src="${src}" style="height:60px;width:60px;object-fit:cover;border-radius: 0;border:1px solid #333">
             <button onclick="removeVariantImage(${i},${j})" style="position:absolute;top:-5px;right:-5px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0">✕</button>
           </div>`).join('')}
         ${!v.images.length ? '<span style="color:#444;font-size:11px">Aucune photo</span>' : ''}
@@ -4410,8 +4414,8 @@ function renderImagesGrid() {
   const grid = document.getElementById('p-images-grid');
   grid.innerHTML = currentImages.map((src, i) => `
     <div style="position:relative;display:inline-block">
-      <img src="${src}" style="height:72px;width:72px;object-fit:cover;border-radius:6px;border:1px solid #333">
-      ${i === 0 ? '<span style="position:absolute;bottom:2px;left:2px;background:#CCEB3C;color:#111;font-size:9px;padding:1px 4px;border-radius:4px;font-weight:600">1ère</span>' : ''}
+      <img src="${src}" style="height:72px;width:72px;object-fit:cover;border-radius: 0;border:1px solid #333">
+      ${i === 0 ? '<span style="position:absolute;bottom:2px;left:2px;background:#CCEB3C;color:#111;font-size:9px;padding:1px 4px;border-radius: 0;font-weight:600">1ère</span>' : ''}
       <button onclick="removeImage(${i})" style="position:absolute;top:-6px;right:-6px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;padding:0">✕</button>
     </div>
   `).join('');
@@ -4548,7 +4552,7 @@ function renderVideoPreview() {
   if (!el) return;
   if (!currentVideoUrl) { el.innerHTML = '<span style="font-size:12px;color:#555">Aucune vidéo</span>'; return; }
   el.innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <video src="${esc(currentVideoUrl)}#t=0.1" preload="metadata" muted playsinline controls style="max-width:220px;max-height:160px;border-radius:8px;background:#000"></video>
+    <video src="${esc(currentVideoUrl)}#t=0.1" preload="metadata" muted playsinline controls style="max-width:220px;max-height:160px;border-radius: 0;background:#000"></video>
     <button class="btn btn-danger btn-sm" type="button" onclick="removeVideo()">✕ Retirer la vidéo</button>
   </div>`;
 }
@@ -4715,7 +4719,7 @@ async function importCSV(input) {
     };
 
     if (idx.reference === -1) {
-      resultDiv.innerHTML = `<div style="color:#e74c3c;font-size:13px;background:#3a1a1a;padding:10px 14px;border-radius:8px">
+      resultDiv.innerHTML = `<div style="color:#e74c3c;font-size:13px;background:#3a1a1a;padding:10px 14px;border-radius: 0">
         ❌ Colonne "reference" introuvable.<br>
         <span style="color:#888">Colonnes détectées : ${header.join(', ')}</span>
       </div>`;
@@ -4748,12 +4752,12 @@ async function importCSV(input) {
     input.value = '';
     refreshProducts();
     const color = errors > 0 ? '#f39c12' : '#2ecc71';
-    resultDiv.innerHTML = `<div style="color:${color};font-size:13px;background:${color}22;padding:10px 14px;border-radius:8px">
+    resultDiv.innerHTML = `<div style="color:${color};font-size:13px;background:${color}22;padding:10px 14px;border-radius: 0">
       ✅ ${success} référence(s) importée(s)${errors > 0 ? ` — ⚠️ ${errors} erreur(s)` : ''}
     </div>`;
     setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
   } catch(e) {
-    resultDiv.innerHTML = `<div style="color:#e74c3c;font-size:13px;background:#3a1a1a;padding:10px 14px;border-radius:8px">❌ Erreur : ${e.message}</div>`;
+    resultDiv.innerHTML = `<div style="color:#e74c3c;font-size:13px;background:#3a1a1a;padding:10px 14px;border-radius: 0">❌ Erreur : ${e.message}</div>`;
     input.value = '';
   }
 }
@@ -4882,7 +4886,7 @@ function renderBuyersPage() {
       <td style="font-size:11px;color:#666">${lastSeen}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm btn-ghost-green" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
-        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
         <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
         <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
         <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
@@ -5770,7 +5774,7 @@ function renderTagsPreview() {
   const tags = val.split(',').map(t => t.trim()).filter(Boolean);
   const colors = ['#1e3a5f','#3a1e5f','#1e3a1e','#3a2a00','#3a1a1a','#1a3a3a'];
   document.getElementById('btags-preview').innerHTML = tags.map((tag, i) =>
-    `<span class="tag" style="background:${colors[i % colors.length]};color:#ddd;font-size:11px;padding:3px 9px;border-radius:12px;margin:2px">${esc(tag)}</span>`
+    `<span class="tag" style="background:${colors[i % colors.length]};color:#ddd;font-size:11px;padding:3px 9px;border-radius: 0;margin:2px">${esc(tag)}</span>`
   ).join('');
 }
 
@@ -5859,10 +5863,10 @@ function resetSessionTimer() {
 function showSessionWarning() {
   if (_sessionWarningEl) return;
   _sessionWarningEl = document.createElement('div');
-  _sessionWarningEl.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#1a1a1a;border:1px solid #CCEB3C;border-radius:12px;padding:16px 20px;z-index:9999;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.6)';
+  _sessionWarningEl.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#1a1a1a;border:1px solid #CCEB3C;border-radius: 0;padding:16px 20px;z-index:9999;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.6)';
   _sessionWarningEl.innerHTML = `
     <div style="font-size:13px;color:#e0e0e0;margin-bottom:10px">⏱ Votre session expire dans <strong style="color:#CCEB3C">5 minutes</strong> en raison d'inactivité.</div>
-    <button onclick="dismissSessionWarning()" style="background:#CCEB3C;color:#111;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Rester connecté</button>
+    <button onclick="dismissSessionWarning()" style="background:#CCEB3C;color:#111;border:none;border-radius: 0;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Rester connecté</button>
   `;
   document.body.appendChild(_sessionWarningEl);
 }

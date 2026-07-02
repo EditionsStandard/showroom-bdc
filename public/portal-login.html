@@ -4,6 +4,7 @@
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/fonts/doto.css">
 <title>Editions Standard B2B Showroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +16,7 @@
   [data-theme="light"] { --black:#f5f4f0; --ink:#111111; --muted:rgba(17,17,17,.55);
     --line:rgba(17,17,17,.45); --line-soft:rgba(17,17,17,.14); --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; color: var(--ink);
+  body { font-family: 'Doto', 'Space Mono', monospace; color: var(--ink);
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
     padding: 40px 20px; background: var(--black); position: relative; }
   /* Fond image uploadé depuis Réglages (texte forcé en blanc + vignette pour la lisibilité) */
@@ -65,7 +66,7 @@
     text-transform: uppercase; letter-spacing: .24em; background: none; border: none; padding: 0; font-family: inherit; }
   .back-link:hover { color: var(--ink); }
   #lang-select { position: absolute; top: -6px; right: 0; background: transparent;
-    border: 1px solid var(--line-soft); border-radius: 0; padding: 5px 8px; font-size: 10px;
+    border: none; appearance: none; -webkit-appearance: none; border-radius: 0; padding: 5px 8px; font-size: 10px;
     color: var(--muted); cursor: pointer; font-family: inherit; letter-spacing: .08em;
     transition: border-color .2s, color .2s; }
   #lang-select:hover { border-color: var(--line); color: var(--ink); }
