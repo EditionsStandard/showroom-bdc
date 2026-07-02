@@ -9,53 +9,75 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Space Mono',monospace; }
-  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
+  /* ── Langage minimaliste éditorial : micro-labels, champs soulignés, bouton filaire ── */
+  :root { --black:#0a0a0a; --white:#ffffff; --ink:#ffffff; --muted:rgba(255,255,255,.55);
+    --line:rgba(255,255,255,.38); --line-soft:rgba(255,255,255,.16); --accent:#CCEB3C; }
+  [data-theme="light"] { --black:#f5f4f0; --ink:#111111; --muted:rgba(17,17,17,.55);
+    --line:rgba(17,17,17,.45); --line-soft:rgba(17,17,17,.14); --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Space Mono', 'Courier New', monospace; color: var(--white); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
-    background:
-      radial-gradient(120% 90% at 70% 25%, rgba(90,140,40,.22), transparent 55%),
-      linear-gradient(160deg, #0c120a 0%, #070707 62%);
-    background-attachment: fixed; }
-  [data-theme="light"] body { background:
-      radial-gradient(120% 90% at 70% 25%, rgba(120,160,55,.30), transparent 55%),
-      linear-gradient(160deg, #18230f 0%, #0c0f08 62%); }
-  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 48px 40px; width: 100%; max-width: 380px; position: relative; overflow: hidden; }
-  /* Signature brute : filet accent plat en haut de la carte (sans glow) */
-  .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
-  .logo-wrap { text-align: center; margin-bottom: 32px; position: relative; }
-  .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
-  .logo-wrap .kicker { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .28em; color: var(--muted); margin-top: 16px; text-transform: uppercase; }
-  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 6px; letter-spacing: .02em; }
-  .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
-  label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
-  input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .2s; }
-  input:focus { border-color: var(--accent); }
-  .field { margin-bottom: 16px; }
-  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 8px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: opacity .15s ease; }
-  .btn:hover:not(:disabled) { opacity: .85; }
+  body { font-family: 'Space Mono', 'Courier New', monospace; color: var(--ink);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px; background: var(--black); position: relative; }
+  /* Fond image uploadé depuis Réglages (texte forcé en blanc + vignette pour la lisibilité) */
+  body.with-bg { --ink:#ffffff; --muted:rgba(255,255,255,.6); --line:rgba(255,255,255,.45);
+    --line-soft:rgba(255,255,255,.2); --accent:#CCEB3C;
+    background-size: cover; background-position: center; background-attachment: fixed; }
+  body.with-bg::before { content:''; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,.18) 25%, rgba(0,0,0,.6) 100%); }
+  .card { width: 100%; max-width: 340px; position: relative; }
+  .logo-wrap { text-align: center; margin-bottom: 38px; position: relative; }
+  .logo-wrap img { width: 76px; height: 76px; }
+  .logo-wrap .kicker { font-size: 9px; letter-spacing: .3em; color: var(--muted); margin-top: 14px; text-transform: uppercase; }
+  .logo-wrap h1 { font-size: 12px; color: var(--ink); font-weight: 400; margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; }
+  .logo-wrap p { color: var(--muted); font-size: 8.5px; margin-top: 6px; text-transform: uppercase; letter-spacing: .22em; }
+  label { display: block; color: var(--muted); font-size: 8.5px; font-weight: 400; text-transform: uppercase; letter-spacing: .26em; margin-bottom: 9px; }
+  input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line);
+    border-radius: 0; padding: 6px 1px 10px; color: var(--ink); font-size: 14px;
+    font-family: inherit; letter-spacing: .04em; outline: none; transition: border-color .25s; }
+  input:focus { border-bottom-color: var(--ink); }
+  input::placeholder { color: transparent; } /* épuré : pas d'exemple dans les champs de connexion */
+  .field { margin-bottom: 30px; }
+  .btn { width: 100%; background: transparent; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 0; padding: 15px 10px 14px; font-size: 10px; font-weight: 400; cursor: pointer;
+    margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; font-family: inherit;
+    transition: background .25s, color .25s, opacity .15s; }
+  .btn:hover:not(:disabled) { background: var(--ink); color: var(--black); }
+  body.with-bg .btn:hover:not(:disabled) { color: #0a0a0a; }
   .btn:disabled { opacity: .5; cursor: default; }
-  .btn-ghost { width: 100%; background: none; border: 1px solid var(--border); color: var(--soft); border-radius: 8px; padding: 12px 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Space Mono', monospace; transition: border-color .2s, color .2s; }
-  .btn-ghost:hover { border-color: var(--soft); color: var(--white); }
-  .alert { border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
-  .alert-error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; }
-  .alert-success { background: #0a1a0a; border: 1px solid #27ae6033; color: #2ecc71; }
-  .toggle { text-align: center; margin-top: 18px; }
-  .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .btn-ghost { width: 100%; background: none; border: 1px solid var(--line-soft); color: var(--muted);
+    border-radius: 0; padding: 13px 10px 12px; font-size: 10px; font-weight: 400; cursor: pointer;
+    margin-top: 8px; letter-spacing: .3em; text-transform: uppercase; font-family: inherit;
+    transition: border-color .2s, color .2s; }
+  .btn-ghost:hover { border-color: var(--line); color: var(--ink); }
+  .alert { border: 1px solid var(--line-soft); border-left: 2px solid currentColor;
+    padding: 12px 14px; font-size: 11px; margin-bottom: 26px; letter-spacing: .04em; line-height: 1.7; }
+  .alert-error { color: #e07a6a; }
+  .alert-success { color: #7fbf7f; }
+  [data-theme="light"] body:not(.with-bg) .alert-error { color: #b3402e; }
+  [data-theme="light"] body:not(.with-bg) .alert-success { color: #1e7a45; }
+  .toggle { text-align: center; margin-top: 26px; }
+  .toggle a { display: block; color: var(--muted); font-size: 9px; text-decoration: none; cursor: pointer;
+    text-transform: uppercase; letter-spacing: .24em; padding: 7px 0; transition: color .2s; }
+  .toggle a:hover { color: var(--ink); }
   .view { display: none; }
   .view.active { display: block; }
-  .back-link { display: inline-block; margin-bottom: 20px; color: var(--muted); font-size: 11px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: underline; background: none; border: none; padding: 0; }
-  #lang-select { position: absolute; top: 0; right: 0; background: var(--dark); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--soft); cursor: pointer; font-family: 'Space Mono', monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
-  #lang-select:hover { border-color: var(--accent); color: var(--white); }
+  .back-link { display: inline-block; margin-bottom: 24px; color: var(--muted); font-size: 9px; cursor: pointer;
+    text-transform: uppercase; letter-spacing: .24em; background: none; border: none; padding: 0; font-family: inherit; }
+  .back-link:hover { color: var(--ink); }
+  #lang-select { position: absolute; top: -6px; right: 0; background: transparent;
+    border: 1px solid var(--line-soft); border-radius: 0; padding: 5px 8px; font-size: 10px;
+    color: var(--muted); cursor: pointer; font-family: inherit; letter-spacing: .08em;
+    transition: border-color .2s, color .2s; }
+  #lang-select:hover { border-color: var(--line); color: var(--ink); }
+  #lang-select option { background: #111; color: #fff; }
   @media (max-width: 767px) {
-    body { overflow-x: hidden; align-items: flex-start; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
-    .card { padding: 32px 20px; }
+    body { overflow-x: hidden; padding: 32px 18px calc(24px + env(safe-area-inset-bottom)); }
     input { font-size: 16px; }
-    .btn, .btn-ghost { min-height: 44px; }
+    .btn, .btn-ghost { min-height: 46px; }
   }
-  /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
+  /* Logo : SVG noir chargé en <img> → blanc sur fond sombre/image via filtre */
   img[src*="logo.svg"]{filter:invert(1);}
-  [data-theme="light"] img[src*="logo.svg"]{filter:none;}
+  [data-theme="light"] body:not(.with-bg) img[src*="logo.svg"]{filter:none;}
 </style>
 <script>
 (function() {
@@ -95,6 +117,7 @@
     </form>
     <div class="toggle">
       <a onclick="showView('forgot')" data-t="forgot_link">Mot de passe oublié ?</a>
+      <a href="/demande-acces" data-t="request_access_link">Demander un accès</a>
     </div>
   </div>
 
@@ -124,7 +147,7 @@ const TRANSLATIONS = {
     password_label: 'Mot de passe',
     password_placeholder: '••••••••',
     login_btn: 'Connexion',
-    forgot_link: 'Mot de passe oublié ?',
+    forgot_link: 'Mot de passe oublié ?', request_access_link: "Demander un accès",
     back_link: '← Retour',
     your_email_label: 'Votre email',
     send_reset_btn: 'Envoyer le lien',
@@ -146,7 +169,7 @@ const TRANSLATIONS = {
     password_label: 'Password',
     password_placeholder: '••••••••',
     login_btn: 'Log in',
-    forgot_link: 'Forgot password?',
+    forgot_link: 'Forgot password?', request_access_link: "Request access",
     back_link: '← Back',
     your_email_label: 'Your email',
     send_reset_btn: 'Send reset link',
@@ -164,7 +187,7 @@ const TRANSLATIONS = {
   it: {
     portal_title: 'Portale Acquirenti', email_label: 'Email', email_placeholder: 'tu@esempio.com',
     password_label: 'Password', password_placeholder: '••••••••', login_btn: 'Accedi',
-    forgot_link: 'Password dimenticata?', back_link: '← Indietro', your_email_label: 'La tua email',
+    forgot_link: 'Password dimenticata?', request_access_link: "Richiedi l'accesso", back_link: '← Indietro', your_email_label: 'La tua email',
     send_reset_btn: 'Invia il link', new_password_label: 'Nuova password', confirm_password_label: 'Conferma',
     save_btn: 'Salva', login_error: 'Email o password non corretti.', email_required: 'Email obbligatoria.',
     reset_success: 'Se esiste un account per questa email, riceverai un link tra pochi minuti.',
@@ -174,7 +197,7 @@ const TRANSLATIONS = {
   es: {
     portal_title: 'Portal de Compradores', email_label: 'Correo electrónico', email_placeholder: 'tu@ejemplo.com',
     password_label: 'Contraseña', password_placeholder: '••••••••', login_btn: 'Iniciar sesión',
-    forgot_link: '¿Olvidaste tu contraseña?', back_link: '← Volver', your_email_label: 'Tu correo',
+    forgot_link: '¿Olvidaste tu contraseña?', request_access_link: "Solicitar acceso", back_link: '← Volver', your_email_label: 'Tu correo',
     send_reset_btn: 'Enviar enlace', new_password_label: 'Nueva contraseña', confirm_password_label: 'Confirmar',
     save_btn: 'Guardar', login_error: 'Correo o contraseña incorrectos.', email_required: 'Correo obligatorio.',
     reset_success: 'Si existe una cuenta para este correo, recibirás un enlace en unos minutos.',
@@ -184,7 +207,7 @@ const TRANSLATIONS = {
   de: {
     portal_title: 'Einkäuferportal', email_label: 'E-Mail', email_placeholder: 'du@beispiel.com',
     password_label: 'Passwort', password_placeholder: '••••••••', login_btn: 'Anmelden',
-    forgot_link: 'Passwort vergessen?', back_link: '← Zurück', your_email_label: 'Ihre E-Mail',
+    forgot_link: 'Passwort vergessen?', request_access_link: "Zugang anfragen", back_link: '← Zurück', your_email_label: 'Ihre E-Mail',
     send_reset_btn: 'Link senden', new_password_label: 'Neues Passwort', confirm_password_label: 'Bestätigen',
     save_btn: 'Speichern', login_error: 'E-Mail oder Passwort falsch.', email_required: 'E-Mail erforderlich.',
     reset_success: 'Falls ein Konto für diese E-Mail existiert, erhalten Sie in wenigen Minuten einen Link.',
@@ -194,7 +217,7 @@ const TRANSLATIONS = {
   zh: {
     portal_title: '采购门户', email_label: '邮箱', email_placeholder: 'you@example.com',
     password_label: '密码', password_placeholder: '••••••••', login_btn: '登录',
-    forgot_link: '忘记密码？', back_link: '← 返回', your_email_label: '您的邮箱',
+    forgot_link: '忘记密码？', request_access_link: "申请访问", back_link: '← 返回', your_email_label: '您的邮箱',
     send_reset_btn: '发送重置链接', new_password_label: '新密码', confirm_password_label: '确认',
     save_btn: '保存', login_error: '邮箱或密码错误。', email_required: '请输入邮箱。',
     reset_success: '如果该邮箱已注册账户，您将在几分钟内收到链接。',
@@ -204,7 +227,7 @@ const TRANSLATIONS = {
   ja: {
     portal_title: 'バイヤーポータル', email_label: 'メールアドレス', email_placeholder: 'you@example.com',
     password_label: 'パスワード', password_placeholder: '••••••••', login_btn: 'ログイン',
-    forgot_link: 'パスワードをお忘れですか？', back_link: '← 戻る', your_email_label: 'メールアドレス',
+    forgot_link: 'パスワードをお忘れですか？', request_access_link: "アクセスをリクエスト", back_link: '← 戻る', your_email_label: 'メールアドレス',
     send_reset_btn: 'リンクを送信', new_password_label: '新しいパスワード', confirm_password_label: '確認',
     save_btn: '保存', login_error: 'メールアドレスまたはパスワードが正しくありません。', email_required: 'メールアドレスを入力してください。',
     reset_success: 'このメールアドレスのアカウントが存在する場合、数分以内にリンクが届きます。',
@@ -214,7 +237,7 @@ const TRANSLATIONS = {
   ko: {
     portal_title: '바이어 포털', email_label: '이메일', email_placeholder: 'you@example.com',
     password_label: '비밀번호', password_placeholder: '••••••••', login_btn: '로그인',
-    forgot_link: '비밀번호를 잊으셨나요?', back_link: '← 뒤로', your_email_label: '이메일',
+    forgot_link: '비밀번호를 잊으셨나요?', request_access_link: "액세스 요청", back_link: '← 뒤로', your_email_label: '이메일',
     send_reset_btn: '링크 보내기', new_password_label: '새 비밀번호', confirm_password_label: '확인',
     save_btn: '저장', login_error: '이메일 또는 비밀번호가 올바르지 않습니다.', email_required: '이메일이 필요합니다.',
     reset_success: '해당 이메일로 계정이 있으면 몇 분 내에 링크를 받게 됩니다.',
@@ -224,7 +247,7 @@ const TRANSLATIONS = {
   th: {
     portal_title: 'พอร์ทัลผู้ซื้อ', email_label: 'อีเมล', email_placeholder: 'you@example.com',
     password_label: 'รหัสผ่าน', password_placeholder: '••••••••', login_btn: 'เข้าสู่ระบบ',
-    forgot_link: 'ลืมรหัสผ่าน?', back_link: '← กลับ', your_email_label: 'อีเมลของคุณ',
+    forgot_link: 'ลืมรหัสผ่าน?', request_access_link: "ขอสิทธิ์เข้าถึง", back_link: '← กลับ', your_email_label: 'อีเมลของคุณ',
     send_reset_btn: 'ส่งลิงก์', new_password_label: 'รหัสผ่านใหม่', confirm_password_label: 'ยืนยัน',
     save_btn: 'บันทึก', login_error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', email_required: 'ต้องระบุอีเมล',
     reset_success: 'หากมีบัญชีสำหรับอีเมลนี้ คุณจะได้รับลิงก์ภายในไม่กี่นาที',
@@ -253,6 +276,18 @@ function setLang(lang) {
 }
 
 applyLang();
+
+// Fond d'écran personnalisé (uploadé depuis Admin → Réglages, changeable à volonté)
+fetch('/api/public/branding').then(r => r.json()).then(b => {
+  if (b && b.login_bg_url) {
+    const img = new Image();
+    img.onload = () => {
+      document.body.style.backgroundImage = `url("${b.login_bg_url}")`;
+      document.body.classList.add('with-bg');
+    };
+    img.src = b.login_bg_url;
+  }
+}).catch(() => {});
 
 let resetToken = null;
 
