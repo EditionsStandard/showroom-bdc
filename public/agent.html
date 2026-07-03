@@ -6,73 +6,97 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ES Agent">
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
   <link rel="manifest" href="/agent-manifest.json">
   <meta name="theme-color" content="#CCEB3C">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="/fonts/brand.css">
-<title>ES Agent — Showroom</title>
+  <title>Espace Agent — Editions Standard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DotGothic16&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --black: #0a0a0a; --white: #f5f5f5; --dark: #141414; --border: #262626;
-      --accent: #CCEB3C; --muted: #666; --soft: #999; --input-bg: #1a1a1a;
-      --dot: 'DotGothic16';
-    }
-    [data-theme="light"] {
-      --black: #f5f5f5; --white: #0a0a0a; --dark: #ebebeb; --border: #d0d0d0;
-      --muted: #888; --soft: #555; --input-bg: #e0e0e0;
-    }
+    /* ── Langage minimaliste éditorial : micro-labels, champs soulignés, boutons filaires, hairlines ── */
+    :root { --black:#0a0a0a; --white:#ffffff; --ink:#ffffff; --muted:rgba(255,255,255,.55);
+      --line:rgba(255,255,255,.38); --line-soft:rgba(255,255,255,.16); --accent:#CCEB3C; }
+    [data-theme="light"] { --black:#f5f4f0; --ink:#111111; --muted:rgba(17,17,17,.55);
+      --line:rgba(17,17,17,.45); --line-soft:rgba(17,17,17,.14); --accent:#6b8500; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: var(--black); color: var(--white);
+      background: var(--black); color: var(--ink);
       font-family: 'Plex Mono', 'Space Mono', monospace;
-      min-height: 100vh;
-      padding: 40px 20px calc(40px + env(safe-area-inset-bottom));
-      max-width: 480px; margin: 0 auto;
+      min-height: 100vh; max-width: 360px; margin: 0 auto;
+      padding: 52px 22px calc(40px + env(safe-area-inset-bottom));
+      letter-spacing: .02em;
     }
+
+    /* Logo SVG chargé en <img> → blanc sur fond sombre via filtre, noir en thème clair */
+    img[src*="logo.svg"] { filter: invert(1); }
+    [data-theme="light"] img[src*="logo.svg"] { filter: none; }
+
+    /* ── Écran connexion ── */
+    .logo-area { text-align: center; margin-bottom: 44px; }
+    .logo-area img { width: 68px; height: 68px; }
+    .logo-area .kicker { font-size: 9px; letter-spacing: .3em; color: var(--muted); margin-top: 14px; text-transform: uppercase; }
+    .logo-area h1 { font-size: 12px; color: var(--ink); font-weight: 400; margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; }
+
+    label { display: block; color: var(--muted); font-size: 8.5px; font-weight: 400; text-transform: uppercase; letter-spacing: .26em; margin-bottom: 9px; }
     input {
-      width: 100%; background: var(--input-bg); border: 1px solid var(--border);
-      color: var(--white); border-radius: 2px; padding: 14px 16px;
-      font-size: 16px; font-family: inherit; outline: none;
-      transition: border-color .15s;
+      width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line);
+      border-radius: 0; padding: 6px 1px 10px; color: var(--ink); font-size: 14px;
+      font-family: inherit; letter-spacing: .04em; outline: none; transition: border-color .25s;
     }
-    input:focus { border-color: var(--accent); }
-    .btn-primary {
-      width: 100%; background: var(--accent); color: #111; border: none;
-      padding: 16px; font-size: 13px; font-weight: 700; font-family: inherit;
-      border-radius: 2px; cursor: pointer; margin-top: 14px;
-      letter-spacing: .08em; text-transform: uppercase; min-height: 52px;
+    input:focus { border-bottom-color: var(--ink); }
+    input::placeholder { color: transparent; } /* épuré : pas d'exemple dans les champs */
+    .field { margin-bottom: 30px; }
+
+    .btn {
+      width: 100%; background: transparent; border: 1px solid var(--line); color: var(--ink);
+      border-radius: 0; padding: 15px 10px 14px; font-size: 11px; font-weight: 400; cursor: pointer;
+      margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; font-family: inherit;
+      transition: background .25s, color .25s, opacity .15s;
     }
-    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-secondary {
-      background: none; border: 1px solid var(--border); color: var(--muted);
-      padding: 8px 14px; border-radius: 2px; cursor: pointer;
-      font-size: 11px; font-family: inherit; letter-spacing: .04em;
+    .btn:hover:not(:disabled) { background: var(--ink); color: var(--black); }
+    .btn:disabled { opacity: .5; cursor: default; }
+
+    .err { color: #e07a6a; font-size: 11px; margin-top: 14px; letter-spacing: .04em; line-height: 1.6; }
+    [data-theme="light"] .err { color: #b3402e; }
+
+    /* ── Écran marques ── */
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+    .header .brand-mark { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--ink); }
+    .header .agent-name { font-size: 9px; color: var(--muted); margin-top: 6px; letter-spacing: .2em; text-transform: uppercase; }
+    .logout-link {
+      background: none; border: none; color: var(--muted); font-size: 9px; letter-spacing: .24em;
+      text-transform: uppercase; cursor: pointer; font-family: inherit; padding: 4px 0; transition: color .2s; white-space: nowrap;
     }
-    .card { background: var(--dark); border: 1px solid var(--border); border-radius: 2px; padding: 20px; }
-    .brand-card {
-      display: flex; align-items: center; gap: 16px; padding: 16px;
-      border: 1px solid var(--border); border-radius: 2px; margin-bottom: 12px;
-      cursor: pointer; text-decoration: none; color: var(--white);
-      transition: border-color .15s; min-height: 80px;
+    .logout-link:hover { color: var(--ink); }
+
+    .section-label { font-size: 8.5px; color: var(--muted); letter-spacing: .28em; text-transform: uppercase; margin-bottom: 8px; }
+
+    .brand-row {
+      display: flex; align-items: center; gap: 16px; padding: 20px 2px;
+      border-bottom: 1px solid var(--line-soft); text-decoration: none; color: var(--ink);
+      transition: opacity .15s;
     }
-    .brand-card:active { border-color: var(--accent); background: var(--dark); }
-    .brand-logo { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 2px; flex-shrink: 0; }
+    .brand-row:first-of-type { border-top: 1px solid var(--line-soft); }
+    .brand-row:active { opacity: .55; }
+    .brand-logo { width: 44px; height: 44px; object-fit: contain; background: #fff; flex-shrink: 0; }
     .brand-logo-ph {
-      width: 56px; height: 56px; background: var(--input-bg); border-radius: 2px;
-      flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 22px;
+      width: 44px; height: 44px; background: transparent; border: 1px solid var(--line-soft);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--muted);
     }
-    .brand-name { font-size: 13px; font-weight: 700; letter-spacing: .06em; }
-    .brand-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
-    .err { color: #e55; font-size: 12px; margin-top: 8px; }
-    .logo-area { text-align: center; margin-bottom: 36px; padding-top: 20px; }
-    .logo-es { font-family: var(--dot), monospace; font-size: 36px; color: var(--accent); letter-spacing: .1em; }
-    .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: .25em; text-transform: uppercase; margin-top: 6px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-    .header-title .es { font-family: var(--dot), monospace; font-size: 22px; color: var(--accent); }
-    .header-title .agent-name { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .section-label { font-size: 10px; color: var(--muted); letter-spacing: .15em; text-transform: uppercase; margin-bottom: 14px; }
+    .brand-name { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+    .brand-sub { font-size: 9px; color: var(--muted); margin-top: 5px; letter-spacing: .18em; text-transform: uppercase; }
+    .brand-arrow { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+    .empty { color: var(--muted); font-size: 11px; text-align: center; padding: 56px 0; letter-spacing: .1em; text-transform: uppercase; line-height: 2; }
+
+    @media (hover: hover) { .brand-row:hover { opacity: .6; } }
+    @media (max-width: 767px) {
+      body { padding: 40px 20px calc(28px + env(safe-area-inset-bottom)); }
+      input { font-size: 16px; }
+      .btn { min-height: 48px; }
+    }
   </style>
 </head>
 <body>
@@ -80,25 +104,24 @@
 <!-- LOGIN -->
 <div id="screen-login">
   <div class="logo-area">
-    <div class="logo-es">ES</div>
-    <div class="logo-sub">Agent Showroom</div>
+    <img src="/logo.svg" alt="Editions Standard">
+    <div class="kicker">B2B Showroom</div>
+    <h1>Espace Agent</h1>
   </div>
-  <div class="card">
-    <input type="email" id="login-email" placeholder="Email" autocomplete="email" autocapitalize="none">
-    <input type="password" id="login-pw" placeholder="Mot de passe" autocomplete="current-password" style="margin-top:10px">
-    <div id="login-err" class="err" style="display:none"></div>
-    <button class="btn-primary" id="login-btn" onclick="doLogin()">Se connecter</button>
-  </div>
+  <div class="field"><label>Email</label><input type="email" id="login-email" autocomplete="email" autocapitalize="none" autofocus></div>
+  <div class="field"><label>Mot de passe</label><input type="password" id="login-pw" autocomplete="current-password"></div>
+  <div id="login-err" class="err" style="display:none"></div>
+  <button class="btn" id="login-btn" onclick="doLogin()">Connexion</button>
 </div>
 
 <!-- BRANDS -->
 <div id="screen-brands" style="display:none">
   <div class="header">
-    <div class="header-title">
-      <div class="es">ES Agent</div>
+    <div>
+      <div class="brand-mark">Espace Agent</div>
       <div class="agent-name" id="agent-name"></div>
     </div>
-    <button class="btn-secondary" onclick="doLogout()">Déconnexion</button>
+    <button class="logout-link" onclick="doLogout()">Déconnexion</button>
   </div>
   <div class="section-label">Choisir une marque</div>
   <div id="brands-list"></div>
@@ -107,7 +130,7 @@
 <script>
 (function() {
   const h = new Date().getHours();
-  if (h >= 7 && h < 20) document.documentElement.setAttribute('data-theme','light');
+  document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
 })();
 
 function esc(s) {
@@ -134,12 +157,12 @@ async function doLogin() {
     } else {
       err.textContent = 'Email ou mot de passe incorrect.';
       err.style.display = 'block';
-      btn.disabled = false; btn.textContent = 'Se connecter';
+      btn.disabled = false; btn.textContent = 'Connexion';
     }
   } catch(e) {
     err.textContent = 'Erreur réseau — vérifiez votre connexion.';
     err.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Se connecter';
+    btn.disabled = false; btn.textContent = 'Connexion';
   }
 }
 
@@ -149,19 +172,20 @@ function showBrands(data) {
   document.getElementById('agent-name').textContent = data.name || data.email || '';
   const list = document.getElementById('brands-list');
   if (!data.brands || !data.brands.length) {
-    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:48px 0">Aucune marque assignée.<br>Contactez l\'administrateur.</div>';
+    list.innerHTML = '<div class="empty">Aucune marque assignée.<br>Contactez l\'administrateur.</div>';
     return;
   }
   list.innerHTML = data.brands.map(b => {
     const logo = (b.logo || b.logo_url)
       ? `<img class="brand-logo" src="${esc(b.logo||b.logo_url)}" alt="">`
-      : `<div class="brand-logo-ph">🏷</div>`;
-    return `<a class="brand-card" href="/commande/${esc(b.id)}">
+      : `<div class="brand-logo-ph">◈</div>`;
+    return `<a class="brand-row" href="/commande/${esc(b.id)}">
       ${logo}
       <div style="flex:1;min-width:0">
         <div class="brand-name">${esc(b.name)}</div>
-        <div class="brand-sub">Saisir une commande →</div>
+        <div class="brand-sub">Saisir une commande</div>
       </div>
+      <div class="brand-arrow">→</div>
     </a>`;
   }).join('');
 }
@@ -178,7 +202,7 @@ async function doLogout() {
   document.getElementById('screen-brands').style.display = 'none';
   document.getElementById('screen-login').style.display = 'block';
   document.getElementById('login-btn').disabled = false;
-  document.getElementById('login-btn').textContent = 'Se connecter';
+  document.getElementById('login-btn').textContent = 'Connexion';
   document.getElementById('login-email').value = '';
   document.getElementById('login-pw').value = '';
 }

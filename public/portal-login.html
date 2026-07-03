@@ -296,7 +296,7 @@ fetch("/api/public/branding").then(r => r.json()).then(b => {
   } else {
     const img = new Image();
     img.onload = () => {
-      document.body.style.backgroundImage = `url("")`;
+      document.body.style.backgroundImage = `url("${url}")`;
       document.body.classList.add("with-bg");
     };
     img.src = url;

@@ -1310,7 +1310,7 @@
       <button class="btn btn-primary btn-sm" onclick="openAddProduct()" data-t="btn_add_ref">+ Ajouter référence</button>
       <button class="btn btn-secondary btn-sm agency-only" onclick="printAllProductQR()" data-t="btn_print_qr">🖨️ Imprimer QR Codes</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadLinesheet()" data-t="btn_linesheet">📑 Télécharger linesheet</button>
-      <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 <span data-t="btn_delete_selection">Supprimer la sélection</span> (<span id="bulk-count">0</span>)</button>
+      <button class="btn btn-danger btn-sm" id="bulk-delete-btn" style="display:none" onclick="bulkDeleteProducts()">🗑 <span data-t="btn_delete_selection">Supprimer la sélection</span> (<span id="product-bulk-count">0</span>)</button>
       <button class="btn btn-danger btn-sm" onclick="clearAllProducts()" data-t="btn_clear_collection">🗑 Vider collection</button>
       <button class="btn btn-danger btn-sm" onclick="clearAllPhotos()" data-t="btn_clear_photos">🖼️ Vider photos</button>
     </div>
@@ -4068,7 +4068,7 @@ function renderProductsTable(products) {
     const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
-      <td><span class="drag-handle" draggable="true" data-drag-id="${p.id}" style="cursor:grab;padding:0 6px;color:#555;user-select:none">⠿</span><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateBulkBar()" style="width:auto"></td>
+      <td><span class="drag-handle" draggable="true" data-drag-id="${p.id}" style="cursor:grab;padding:0 6px;color:#555;user-select:none">⠿</span><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateProductBulkBar()" style="width:auto"></td>
       <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
       <td><strong>${p.reference}</strong></td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.description||''}">${p.description||'—'}</td>
@@ -4095,7 +4095,7 @@ function renderProductsTable(products) {
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="10" style="color:#666;text-align:center;padding:20px">${t('no_ref')}</td></tr>`;
-  updateBulkBar();
+  updateProductBulkBar();
   initProductDrag();
 }
 
@@ -4157,7 +4157,7 @@ async function saveProductOrder(productId, beforeProductId) {
 
 function toggleSelectAll(cb) {
   document.querySelectorAll('.product-checkbox').forEach(c => c.checked = cb.checked);
-  updateBulkBar();
+  updateProductBulkBar();
 }
 
 function inlineEditPrice(productId, field, cell) {
@@ -4215,10 +4215,10 @@ async function saveInlinePrice(productId, field, input, cell) {
   }
 }
 
-function updateBulkBar() {
+function updateProductBulkBar() {
   const checked = document.querySelectorAll('.product-checkbox:checked');
   const btn = document.getElementById('bulk-delete-btn');
-  const count = document.getElementById('bulk-count');
+  const count = document.getElementById('product-bulk-count');
   if (btn) { btn.style.display = checked.length > 0 ? 'inline-flex' : 'none'; }
   if (count) count.textContent = checked.length;
   const allCb = document.getElementById('select-all-products');
