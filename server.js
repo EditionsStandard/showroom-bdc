@@ -2263,15 +2263,26 @@ app.get('/api/selection/:token', async (req, res) => {
     const b = await pool.query('SELECT id, name, logo, logo_url, cgv_text, moq_qty, moq_amount FROM brands WHERE id=$1', [sel.brand_id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const items = JSON.parse(sel.items_json || '[]');
-    const ids = items.map(i => i.product_id);
-    const prods = await pool.query('SELECT id, reference, description, color, price, price_retail, image_url, images FROM products WHERE id = ANY($1)', [ids]);
+    const ids = [...new Set(items.map(i => i.product_id))];
+    const prods = await pool.query('SELECT id, reference, description, color, composition, price, price_retail, image_url, images, sizes FROM products WHERE id = ANY($1)', [ids]);
     const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
-    const lines = items.map(i => ({ ...i, product: pmap[i.product_id] })).filter(l => l.product);
+    // Regroupe par référence : le client choisit lui-même les quantités par taille.
+    // Les quantités éventuellement pré-remplies par l'agent servent de valeurs de départ.
+    const byProduct = {};
+    for (const it of items) {
+      const p = pmap[it.product_id]; if (!p) continue;
+      if (!byProduct[it.product_id]) byProduct[it.product_id] = { product: p, preset: {} };
+      const sz = (it.size || '').toString();
+      byProduct[it.product_id].preset[sz] = (byProduct[it.product_id].preset[sz] || 0) + (parseInt(it.quantity) || 0);
+    }
+    const references = ids.map(id => byProduct[id]).filter(Boolean);
+    const lines = items.map(i => ({ ...i, product: pmap[i.product_id] })).filter(l => l.product); // compat
     const existingBuyer = await pool.query('SELECT 1 FROM buyers WHERE email=$1', [sel.client_email]);
     res.json({
       brand: b.rows[0],
       client: { name: sel.client_name, email: sel.client_email, company: sel.client_company },
       notes: sel.notes,
+      references,
       lines,
       account_exists: existingBuyer.rows.length > 0
     });
@@ -2309,13 +2320,30 @@ app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
       buyer = { id, email, name: sel.client_name || '', company: sel.client_company || '', phone: '', country: '' };
     }
 
-    // Lignes : on part de la sélection stockée, en appliquant d'éventuels ajustements de quantité
+    // Lignes : le client fixe lui-même les quantités par taille. On valide chaque ligne
+    // contre les références de la sélection et leurs tailles réellement disponibles.
     const stored = JSON.parse(sel.items_json || '[]');
-    const adjust = Array.isArray(lines) ? Object.fromEntries(lines.map(l => [l.product_id + '|' + (l.size||''), parseInt(l.quantity) || 0])) : null;
-    const finalLines = stored.map(i => ({
-      product_id: i.product_id, size: i.size || '',
-      quantity: adjust ? (adjust[i.product_id + '|' + (i.size||'')] ?? i.quantity) : i.quantity
-    })).filter(l => l.quantity > 0);
+    const selectedIds = new Set(stored.map(i => i.product_id));
+    const prodRows = (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1)', [[...selectedIds]])).rows;
+    const sizeMap = Object.fromEntries(prodRows.map(p => [p.id, (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean)]));
+    const submitted = Array.isArray(lines) ? lines : stored; // repli : quantités stockées si rien n'est fourni
+    // Agrège par product_id|size et ne garde que le valide
+    const agg = {};
+    for (const l of submitted) {
+      const pid = l.product_id;
+      if (!selectedIds.has(pid)) continue;                       // uniquement les références de la sélection
+      const sz = (l.size || '').toString();
+      const validSizes = sizeMap[pid] || [];
+      if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
+      const q = parseInt(l.quantity) || 0;
+      if (q <= 0) continue;
+      agg[pid + '|' + sz] = (agg[pid + '|' + sz] || 0) + q;
+    }
+    const finalLines = Object.entries(agg).map(([k, quantity]) => {
+      const idx = k.lastIndexOf('|');
+      return { product_id: k.slice(0, idx), size: k.slice(idx + 1), quantity };
+    });
+    if (!finalLines.length) return res.status(400).json({ error: 'Veuillez indiquer au moins une quantité.' });
 
     const result = await createOrder({
       brand_id: sel.brand_id, client_name: buyer.name || sel.client_name, client_email: email,
