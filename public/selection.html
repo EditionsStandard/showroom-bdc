@@ -10,42 +10,41 @@
     :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; }
     [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; }
     * { box-sizing: border-box; }
-    html, body { margin:0; background:var(--black); color:var(--white); font-family:'Plex Mono','Space Mono',monospace;
-      background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size: 24px 24px; }
-    [data-theme="light"] html, [data-theme="light"] body { background-image: radial-gradient(rgba(0,0,0,.06) 1px, transparent 1px); }
+    html, body { margin:0; background:var(--black); color:var(--white); font-family:'Plex Mono','Space Mono',monospace; background-size: 24px 24px; }
+    [data-theme="light"] html, [data-theme="light"] body { }
     .wrap { max-width:760px; margin:0 auto; padding:24px 16px 120px; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:8px; }
     .head img { height:40px; max-width:120px; object-fit:contain; }
     h1 { font-size:22px; margin:0; }
     .sub { color:var(--soft); font-size:13px; margin:4px 0 24px; }
     .line { display:flex; gap:12px; align-items:center; background:var(--dark); border:1px solid var(--border); border-radius:0; padding:10px 12px; margin-bottom:8px; }
-    .line img { width:56px; height:72px; object-fit:contain; background:#fff; border-radius:2px; flex-shrink:0; }
-    .line .ph { width:56px; height:72px; background:var(--input-bg); border-radius:2px; flex-shrink:0; }
+    .line img { width:56px; height:72px; object-fit:contain; background:#fff; border-radius:0; flex-shrink:0; }
+    .line .ph { width:56px; height:72px; background:var(--input-bg); border-radius:0; flex-shrink:0; }
     .line .info { flex:1; min-width:0; }
     .line .ref { font-weight:700; font-size:14px; }
     .line .desc { font-size:12px; color:var(--soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .line .price { font-size:12px; color:var(--accent); margin-top:2px; }
     .qty { display:flex; align-items:center; gap:6px; }
-    .qty button { width:32px; height:32px; border-radius: 8px; border:1px solid var(--border); background:var(--input-bg); color:var(--white); font-size:18px; cursor:pointer; }
-    .qty input { width:46px; text-align:center; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:2px; height:32px; font-size:14px; }
+    .qty button { width:32px; height:32px; border-radius:0; border:1px solid var(--border); background:var(--input-bg); color:var(--white); font-size:18px; cursor:pointer; }
+    .qty input { width:46px; text-align:center; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:0; height:32px; font-size:14px; }
     .card { background:var(--dark); border:1px solid var(--border); border-radius:0; padding:16px; margin-top:18px; }
     label { display:block; font-size:10px; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.08em; font-family:'Plex Mono','Space Mono',monospace; }
-    input[type=email], input[type=text], input[type=password] { width:100%; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:2px; padding:10px 12px; font-size:14px; outline:none; }
+    input[type=email], input[type=text], input[type=password] { width:100%; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:0; padding:10px 12px; font-size:14px; outline:none; }
     input[type=email]:focus, input[type=text]:focus, input[type=password]:focus { border-color:var(--accent); }
     input[readonly] { color:var(--muted); }
     .field { margin-bottom:12px; }
-    .cgv { font-size:12px; color:var(--soft); max-height:120px; overflow:auto; border:1px solid var(--border); border-radius:4px; padding:10px; margin-bottom:10px; white-space:pre-wrap; background:var(--input-bg); }
+    .cgv { font-size:12px; color:var(--soft); max-height:120px; overflow:auto; border:1px solid var(--border); border-radius:0; padding:10px; margin-bottom:10px; white-space:pre-wrap; background:var(--input-bg); }
     .chk { display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--white); }
-    #sig { width:100%; height:140px; background:#fff; border-radius:4px; touch-action:none; cursor:crosshair; }
+    #sig { width:100%; height:140px; background:#fff; border-radius:0; touch-action:none; cursor:crosshair; }
     .sigbar { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
     .link { color:var(--accent); cursor:pointer; font-size:12px; background:none; border:none; }
     .bar { position:fixed; bottom:0; left:0; right:0; background:var(--accent); color:#111; display:flex; justify-content:space-between; align-items:center; padding:14px 18px calc(14px + env(safe-area-inset-bottom)); }
     .bar strong { font-size:17px; }
-    .bar button { background:#111; color:#fff; border:none; padding:13px 22px; border-radius: 8px; font-weight:700; cursor:pointer; font-size:14px; font-family:'Plex Mono','Space Mono',monospace; }
+    .bar button { background:#111; color:#fff; border:none; padding:13px 22px; border-radius:0; font-weight:700; cursor:pointer; font-size:14px; font-family:'Plex Mono','Space Mono',monospace; }
     .bar button:disabled { opacity:.5; cursor:not-allowed; }
     .msg { padding:40px 16px; text-align:center; color:var(--soft); }
     .err { color:#e07a7a; }
-    #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+    #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:0; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
   @media (max-width: 767px) {
     body { overflow-x: hidden; }
     /* Cibles tactiles 44px + anti-zoom iOS (16px) */
@@ -204,7 +203,7 @@ function render() {
     <div class="head">${logo}<h1>${esc(b.name)}</h1></div>
     <div class="sub">${t('sub_prepared', esc(clientName))}</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <button onclick="clearAllLines()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:2px;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">${t('clear_all') || 'Tout effacer'}</button>
+      <button onclick="clearAllLines()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">${t('clear_all') || 'Tout effacer'}</button>
     </div>
     ${linesHtml}
     <div class="card">
@@ -291,7 +290,7 @@ async function confirmSelection() {
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
-  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:var(--accent);color:#111;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer">${t('success_cta')}</button></div>`;
+  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:var(--accent);color:#111;border:none;padding:12px 24px;border-radius:0;font-weight:700;cursor:pointer">${t('success_cta')}</button></div>`;
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

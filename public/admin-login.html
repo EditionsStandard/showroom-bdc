@@ -8,30 +8,29 @@
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DotGothic16&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'DotGothic16','Plex Mono','Space Mono',monospace; }
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'Plex Mono','Space Mono',monospace; }
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s;
-    background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px); background-size: 22px 22px; }
-  [data-theme="light"] html, [data-theme="light"] body { background-image: radial-gradient(rgba(0,0,0,.07) 1px, transparent 1px); }
+  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s; background-size: 22px 22px; }
+  [data-theme="light"] html, [data-theme="light"] body { }
   .card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 48px 40px; width: 100%; max-width: 380px; position: relative; overflow: hidden; }
   .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
   .logo-wrap { text-align: center; margin-bottom: 32px; }
-  .logo-wrap img { width: 64px; height: 64px; border-radius: 8px; }
+  .logo-wrap img { width: 64px; height: 64px; border-radius:0; }
   .logo-wrap .kicker { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .28em; color: var(--muted); margin-top: 16px; text-transform: uppercase; }
   .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 6px; letter-spacing: .02em; }
-  .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .1em; }
-  label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Inter', sans-serif; }
-  input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius: 2px; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color .2s; }
+  .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Plex Mono','Space Mono',monospace; text-transform: uppercase; letter-spacing: .1em; }
+  label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Plex Mono','Space Mono',monospace; }
+  input { width: 100%; background: var(--black); border: 1px solid var(--border); border-radius:0; padding: 12px 14px; color: var(--white); font-size: 14px; font-family: 'Plex Mono','Space Mono',monospace; outline: none; transition: border-color .2s; }
   input:focus { border-color: var(--accent); }
   .field { margin-bottom: 16px; }
-  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius: 8px; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; transition: opacity .2s; }
+  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius:0; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; transition: opacity .2s; }
   .btn:hover { opacity: .85; }
   .toggle { text-align: center; margin-top: 18px; }
-  .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Inter', sans-serif; }
-  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius: 2px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Inter', sans-serif; }
+  .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; }
+  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius:0; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Plex Mono','Space Mono',monospace; }
   /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
   img[src*="logo.svg"]{filter:invert(1);}
   [data-theme="light"] img[src*="logo.svg"]{filter:none;}
