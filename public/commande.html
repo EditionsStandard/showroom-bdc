@@ -1148,7 +1148,7 @@ function sentenceCase(s) {
 }
 
 // ── Render ────────────────────────────────────────────
-function renderProducts(products) {
+function _origRenderProducts(products) {
   const container = document.getElementById('products-container');
   if (!products.length) { container.innerHTML = '<div class="loader">' + T('no_products') + '</div>'; return; }
 
@@ -2211,7 +2211,6 @@ async function toggleFavorite(pid) {
 }
 
 // Inject favorite button into each product card after render
-const _origRenderProducts = renderProducts;
 function renderProducts(products) {
   _origRenderProducts(products);
   // Add heart button overlay on each product header
