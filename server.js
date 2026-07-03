@@ -3713,7 +3713,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
   const showroomName = await getSetting('showroom_name');
   const fromAddress = await getSetting('smtp_from');
   const fromField = fromAddress || 'showroom@editionsstandard.com';
-  const portalUrl = `${getBaseUrl(req)}/portal-login`;
+  const portalUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
   const isEn = lang === 'en';
 
   await resend.emails.send({
