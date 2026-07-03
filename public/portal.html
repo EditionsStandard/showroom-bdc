@@ -1473,17 +1473,18 @@ function formatAbout(text) {
     else { body.push(blocks[i++]); }
   }
   let html = '<div class="brand-about">';
-  if (location) html += `<div class="brand-about-location">${esc(location)}</div>`;
-  if (tagline) html += `<div class="brand-about-tagline">${esc(tagline)}</div>`;
-  if (body.length) html += `<div class="brand-about-body">${body.map(p => `<p>${esc(p)}</p>`).join('')}</div>`;
+  // data-tr = texte source FR ; traduit par translateVisibleContent() quand langue ≠ FR
+  if (location) html += `<div class="brand-about-location" data-tr="${esc(location)}">${esc(location)}</div>`;
+  if (tagline) html += `<div class="brand-about-tagline" data-tr="${esc(tagline)}">${esc(tagline)}</div>`;
+  if (body.length) html += `<div class="brand-about-body">${body.map(p => `<p data-tr="${esc(p)}">${esc(p)}</p>`).join('')}</div>`;
   if (positioning) {
     const colonIdx = positioning.indexOf(':');
     if (colonIdx !== -1) {
       const label = positioning.slice(0, colonIdx + 1);
       const content = positioning.slice(colonIdx + 1).trim();
-      html += `<div class="brand-about-positioning"><strong>${esc(label)}</strong> ${esc(content)}</div>`;
+      html += `<div class="brand-about-positioning"><strong data-tr="${esc(label)}">${esc(label)}</strong> <span data-tr="${esc(content)}">${esc(content)}</span></div>`;
     } else {
-      html += `<div class="brand-about-positioning">${esc(positioning)}</div>`;
+      html += `<div class="brand-about-positioning" data-tr="${esc(positioning)}">${esc(positioning)}</div>`;
     }
   }
   html += '</div>';
@@ -2073,6 +2074,7 @@ async function openBrand(brandId, _fromPop) {
   buildCategoryFilters(currentProducts);
   renderRecentlyViewed();
   applyProductFilters();
+  translateVisibleContent(container); // traduit la bio de la marque si langue ≠ FR
 }
 
 let activeCollections = new Set(['__all__']);
