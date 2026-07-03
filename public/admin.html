@@ -2431,7 +2431,10 @@ function filterAgenda() {
       <td style="font-size:12px"><a href="mailto:${esc(a.client_email)}" style="color:#CCEB3C">${esc(a.client_email)}</a>${a.client_phone?`<br>${esc(a.client_phone)}`:''}
       </td>
       <td style="font-size:11px;color:#888">${esc(a.notes||'—')}</td>
-      <td>${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" aria-label="Supprimer le rendez-vous" onclick="deleteAppt('${a.id}')">✕</button>` : ''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" title="Lien visioconférence" onclick="setApptVideo('${a.id}')">${a.video_link ? '🎥 Visio ✓' : '🎥 Visio'}</button>
+        ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" aria-label="Supprimer le rendez-vous" onclick="deleteAppt('${a.id}')">✕</button>` : ''}
+      </td>
     </tr>`;
   }).join('') : `<tr><td colspan="7" style="text-align:center;color:#555;padding:32px">Aucun rendez-vous</td></tr>`;
 }
@@ -2439,6 +2442,23 @@ async function deleteAppt(id) {
   if (!confirm('Supprimer ce rendez-vous ?')) return;
   const r = await fetch('/api/admin/appointments/' + id, { method: 'DELETE' });
   if (r.ok) { _allAgenda = _allAgenda.filter(a => a.id !== id); filterAgenda(); toast('RDV supprimé'); }
+}
+async function setApptVideo(id) {
+  const appt = _allAgenda.find(a => a.id === id);
+  const current = (appt && appt.video_link) || '';
+  const link = prompt('Lien visioconférence (Zoom, Meet, Teams…)\nLaisser vide pour retirer le lien :', current);
+  if (link === null) return; // annulé
+  const url = link.trim();
+  if (url && !/^https?:\/\//i.test(url)) { toast('Le lien doit commencer par http:// ou https://'); return; }
+  const r = await fetch('/api/admin/appointments/' + id, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ video_link: url })
+  });
+  if (!r.ok) { toast('Erreur enregistrement'); return; }
+  const data = await r.json().catch(() => ({}));
+  if (appt) appt.video_link = url;
+  filterAgenda();
+  toast(!url ? 'Lien visio retiré' : (data.emailed ? 'Lien visio enregistré et envoyé au client ✓' : 'Lien visio enregistré ✓'));
 }
 
 let _arTab = 'pending';

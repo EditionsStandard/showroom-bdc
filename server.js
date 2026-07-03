@@ -1799,6 +1799,58 @@ app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (r
   } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Définir / retirer le lien visioconférence d'un rendez-vous (owner/agent/designer, borné à leur marque)
+app.put('/api/admin/appointments/:id', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    const url = String(req.body?.video_link || '').trim();
+    if (url && !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Le lien doit commencer par http(s)://' });
+    const cur = await pool.query('SELECT * FROM appointments WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+    if ((req.userRole === 'agent' || req.userRole === 'designer') && req.userBrandId && cur.rows[0].brand_id !== req.userBrandId) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+    await pool.query('UPDATE appointments SET video_link=$1 WHERE id=$2', [url, req.params.id]);
+    // Envoie le lien au client dès qu'il est défini (non bloquant si l'email échoue)
+    let emailed = false;
+    if (url) {
+      emailed = await sendAppointmentVideoEmail({ ...cur.rows[0], video_link: url }).catch(e => { console.error('RDV visio email:', e.message); return false; });
+    }
+    res.json({ ok: true, emailed });
+  } catch(e) { console.error('appt video-link:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Email : envoi du lien visioconférence au client
+async function sendAppointmentVideoEmail(appt) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return false;
+  const [showroomName, fromAddress, agentName, agentPhone] = await Promise.all([
+    getSetting('showroom_name'), getSetting('smtp_from'), getSetting('agent_name'), getSetting('agent_phone')
+  ]);
+  const from = fromAddress || 'showroom@editionsstandard.com';
+  const resend = new Resend(resendKey);
+  const brandRes = await pool.query('SELECT name FROM brands WHERE id=$1', [appt.brand_id]);
+  const brandName = brandRes.rows[0]?.name || showroomName;
+  const dateStr = appt.slot_date instanceof Date
+    ? appt.slot_date.toLocaleDateString('fr-FR')
+    : String(appt.slot_date).slice(0,10).split('-').reverse().join('/');
+  const content = `
+    <p>Bonjour <strong>${escHtml(appt.client_name)}</strong>,</p>
+    <p>Votre rendez-vous avec <strong>${escHtml(brandName)}</strong> le <strong>${escHtml(dateStr)}</strong> à <strong>${escHtml(appt.slot_time)}</strong> se tiendra en <strong>visioconférence</strong>.</p>
+    <p style="margin:22px 0">
+      <a href="${escHtml(appt.video_link)}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:13px 26px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a>
+    </p>
+    <p style="font-size:12px;color:#888;word-break:break-all">${escHtml(appt.video_link)}</p>
+    <p style="margin-top:28px">À bientôt,<br><strong>${escHtml(agentName || showroomName)}</strong>${agentPhone ? `<br>${escHtml(agentPhone)}` : ''}</p>
+  `;
+  await resend.emails.send({
+    from: `${showroomName} <${from}>`,
+    to: [appt.client_email],
+    subject: `Lien visioconférence — votre rendez-vous ${brandName}`,
+    html: emailLayout({ showroomName, brandName, content })
+  });
+  return true;
+}
+
 // ── Magic link accès direct portail ──────────────────────────────────
 app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), async (req, res) => {
   try {
@@ -5116,6 +5168,7 @@ async function sendAppointmentReminders() {
         <h2 style="font-size:18px;margin:0 0 16px">Rappel de rendez-vous</h2>
         <p>Bonjour ${escHtml(appt.client_name)},</p>
         <p>Nous vous rappelons votre rendez-vous <strong>demain ${dateStr}</strong> à <strong>${appt.slot_time}</strong> avec <strong>${escHtml(appt.brand_name)}</strong>.</p>
+        ${appt.video_link ? `<p style="margin:18px 0"><a href="${escHtml(appt.video_link)}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}
         <p style="color:#999;font-size:12px">Pour toute modification, contactez-nous directement.</p>
       ` });
       await resend.emails.send({
@@ -5404,7 +5457,7 @@ init().then(() => {
             from: `${showroomName} <noreply@editionsstandard.com>`,
             to: [rdv.client_email],
             subject: `Rappel — Rendez-vous ${showroomName} demain`,
-            html: `<p>Bonjour ${rdv.client_name},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${agentPhone ? `<p>Contact : ${agentPhone}</p>` : ''}<p>À demain !</p>`
+            html: `<p>Bonjour ${rdv.client_name},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${rdv.video_link ? `<p style="margin:16px 0"><a href="${rdv.video_link}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}${agentPhone ? `<p>Contact : ${agentPhone}</p>` : ''}<p>À demain !</p>`
           })
         }).catch(e => console.error('[rdv-email-error]', e.message));
 
