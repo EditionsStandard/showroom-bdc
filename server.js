@@ -1470,6 +1470,8 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
     if (['validated','in_production','shipped'].includes(status)) {
       sendOrderStatusEmail(orderId, status).catch(e => console.error('status email error:', e.message));
     }
+    // Copie email au propriétaire (modification / annulation de commande)
+    notifyOwnerOrder(orderId, status === 'cancelled' ? 'Commande annulée' : 'Statut de commande modifié', `${oldStatus || '—'} → ${status} (par ${changedBy})`).catch(() => {});
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1733,6 +1735,15 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
       ).catch(e => console.error('bulk history insert error:', e.message));
       updated++;
     }
+    // Copie email au propriétaire : un résumé pour l'action groupée
+    if (updated > 0) {
+      notifyOwner(
+        `${updated} commande(s) — statut « ${status} »`,
+        `<p><strong>Modification groupée de statut</strong></p>
+         <p style="font-size:13px">${updated} commande(s) passée(s) au statut <strong>${escHtml(status)}</strong> par ${escHtml(changedBy)}.</p>
+         <p style="font-size:12px;color:#888">Détails dans votre admin → Commandes.</p>`
+      ).catch(() => {});
+    }
     res.json({ updated });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -1740,6 +1751,8 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
 app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;
+    // Copie email au propriétaire AVANT suppression (la commande n'existera plus après)
+    await notifyOwnerOrder(req.params.id, 'Commande supprimée');
     await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
     await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -2098,6 +2111,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   // Push notification Web Push vers admins
   const brandNameForPush = (await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]).catch(() => ({ rows: [] }))).rows[0]?.name || '';
   sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`).catch(e => console.error('[push-order-error]', e.message));
+  notifyOwnerOrder(orderId, 'Nouvelle commande').catch(() => {}); // copie email au propriétaire
 
   return { order_id: orderId, total: orderTotal };
 }
@@ -2155,6 +2169,7 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
   const resend = new Resend(resendKey);
   const showroomName = await getSetting('showroom_name');
   const fromField = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
+  const ownerEmail = await getSetting('showroom_email'); // copie (BCC) au propriétaire
   // Lookup buyer lang if not provided
   if (!lang) {
     const bLang = await pool.query('SELECT lang FROM buyers WHERE email=$1', [email.toLowerCase().trim()]).catch(() => ({ rows: [] }));
@@ -2165,6 +2180,7 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
+    ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
     subject: isEn
       ? `Your ${brandName} selection${numLabel} — to confirm`
       : `Votre sélection ${brandName}${numLabel} — à valider`,
@@ -2188,6 +2204,51 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
   });
 }
 
+// ── Notifications email au propriétaire (traçabilité sélections & commandes) ──
+async function notifyOwner(subject, contentHtml) {
+  try {
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return;
+    const [ownerEmail, showroomName, fromAddress] = await Promise.all([
+      getSetting('showroom_email'), getSetting('showroom_name'), getSetting('smtp_from')
+    ]);
+    if (!ownerEmail) return; // pas d'adresse propriétaire configurée dans Réglages
+    const resend = new Resend(resendKey);
+    await resend.emails.send({
+      from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [ownerEmail],
+      subject,
+      html: emailLayout({ showroomName, content: contentHtml })
+    });
+  } catch(e) { console.error('notifyOwner:', e.message); }
+}
+
+async function notifyOwnerOrder(orderId, actionLabel, extraNote) {
+  try {
+    const o = (await pool.query(
+      `SELECT o.*, b.name AS brand_name,
+              COALESCE((SELECT SUM(ol.quantity * ol.unit_price) FROM order_lines ol WHERE ol.order_id=o.id),0) AS total
+       FROM orders o JOIN brands b ON b.id=o.brand_id WHERE o.id=$1`, [orderId]
+    )).rows[0];
+    if (!o) return;
+    const num = o.order_number || o.id.slice(0, 8);
+    await notifyOwner(
+      `${actionLabel} — ${o.client_company || o.client_name || ''} (${o.brand_name})`,
+      `<p><strong>${escHtml(actionLabel)}</strong></p>
+       ${extraNote ? `<p style="color:#666;font-size:13px">${escHtml(extraNote)}</p>` : ''}
+       <table style="margin:14px 0;font-size:13px;border-collapse:collapse">
+         <tr><td style="padding:3px 14px 3px 0;color:#888">N°</td><td><strong>${escHtml(num)}</strong></td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Client</td><td>${escHtml(o.client_name||'')}${o.client_company?(' — '+escHtml(o.client_company)):''}</td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Email</td><td>${escHtml(o.client_email||'')}</td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Marque</td><td>${escHtml(o.brand_name)}</td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Total</td><td><strong>${Number(o.total).toFixed(2)} € HT</strong></td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Statut</td><td>${escHtml(o.status||'')}</td></tr>
+       </table>
+       <p style="font-size:12px;color:#888">Détails dans votre admin → Commandes.</p>`
+    );
+  } catch(e) { console.error('notifyOwnerOrder:', e.message); }
+}
+
 // 2) L'acheteur ouvre le lien : page de confirmation
 app.get('/selection/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'selection.html')));
 
@@ -2202,15 +2263,26 @@ app.get('/api/selection/:token', async (req, res) => {
     const b = await pool.query('SELECT id, name, logo, logo_url, cgv_text, moq_qty, moq_amount FROM brands WHERE id=$1', [sel.brand_id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const items = JSON.parse(sel.items_json || '[]');
-    const ids = items.map(i => i.product_id);
-    const prods = await pool.query('SELECT id, reference, description, color, price, price_retail, image_url, images FROM products WHERE id = ANY($1)', [ids]);
+    const ids = [...new Set(items.map(i => i.product_id))];
+    const prods = await pool.query('SELECT id, reference, description, color, composition, price, price_retail, image_url, images, sizes FROM products WHERE id = ANY($1)', [ids]);
     const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
-    const lines = items.map(i => ({ ...i, product: pmap[i.product_id] })).filter(l => l.product);
+    // Regroupe par référence : le client choisit lui-même les quantités par taille.
+    // Les quantités éventuellement pré-remplies par l'agent servent de valeurs de départ.
+    const byProduct = {};
+    for (const it of items) {
+      const p = pmap[it.product_id]; if (!p) continue;
+      if (!byProduct[it.product_id]) byProduct[it.product_id] = { product: p, preset: {} };
+      const sz = (it.size || '').toString();
+      byProduct[it.product_id].preset[sz] = (byProduct[it.product_id].preset[sz] || 0) + (parseInt(it.quantity) || 0);
+    }
+    const references = ids.map(id => byProduct[id]).filter(Boolean);
+    const lines = items.map(i => ({ ...i, product: pmap[i.product_id] })).filter(l => l.product); // compat
     const existingBuyer = await pool.query('SELECT 1 FROM buyers WHERE email=$1', [sel.client_email]);
     res.json({
       brand: b.rows[0],
       client: { name: sel.client_name, email: sel.client_email, company: sel.client_company },
       notes: sel.notes,
+      references,
       lines,
       account_exists: existingBuyer.rows.length > 0
     });
@@ -2248,13 +2320,30 @@ app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
       buyer = { id, email, name: sel.client_name || '', company: sel.client_company || '', phone: '', country: '' };
     }
 
-    // Lignes : on part de la sélection stockée, en appliquant d'éventuels ajustements de quantité
+    // Lignes : le client fixe lui-même les quantités par taille. On valide chaque ligne
+    // contre les références de la sélection et leurs tailles réellement disponibles.
     const stored = JSON.parse(sel.items_json || '[]');
-    const adjust = Array.isArray(lines) ? Object.fromEntries(lines.map(l => [l.product_id + '|' + (l.size||''), parseInt(l.quantity) || 0])) : null;
-    const finalLines = stored.map(i => ({
-      product_id: i.product_id, size: i.size || '',
-      quantity: adjust ? (adjust[i.product_id + '|' + (i.size||'')] ?? i.quantity) : i.quantity
-    })).filter(l => l.quantity > 0);
+    const selectedIds = new Set(stored.map(i => i.product_id));
+    const prodRows = (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1)', [[...selectedIds]])).rows;
+    const sizeMap = Object.fromEntries(prodRows.map(p => [p.id, (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean)]));
+    const submitted = Array.isArray(lines) ? lines : stored; // repli : quantités stockées si rien n'est fourni
+    // Agrège par product_id|size et ne garde que le valide
+    const agg = {};
+    for (const l of submitted) {
+      const pid = l.product_id;
+      if (!selectedIds.has(pid)) continue;                       // uniquement les références de la sélection
+      const sz = (l.size || '').toString();
+      const validSizes = sizeMap[pid] || [];
+      if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
+      const q = parseInt(l.quantity) || 0;
+      if (q <= 0) continue;
+      agg[pid + '|' + sz] = (agg[pid + '|' + sz] || 0) + q;
+    }
+    const finalLines = Object.entries(agg).map(([k, quantity]) => {
+      const idx = k.lastIndexOf('|');
+      return { product_id: k.slice(0, idx), size: k.slice(idx + 1), quantity };
+    });
+    if (!finalLines.length) return res.status(400).json({ error: 'Veuillez indiquer au moins une quantité.' });
 
     const result = await createOrder({
       brand_id: sel.brand_id, client_name: buyer.name || sel.client_name, client_email: email,
@@ -3567,6 +3656,7 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
 
   logAudit(req, 'edit_order_lines', 'order', req.params.id, '');
   const totRes = await pool.query('SELECT SUM(quantity * unit_price) AS total FROM order_lines WHERE order_id=$1', [req.params.id]);
+  notifyOwnerOrder(req.params.id, 'Commande modifiée (quantités)').catch(() => {}); // copie email au propriétaire
   res.json({ ok: true, total: parseFloat(totRes.rows[0]?.total || 0) });
 });
 
@@ -5096,10 +5186,23 @@ app.get('/api/selections/drafts', requireRole('owner', 'agent'), async (req, res
 
 app.delete('/api/selections/drafts/:token', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    // Récupère la sélection avant suppression pour la copie email au propriétaire
+    const sel = (await pool.query("SELECT a.*, b.name AS brand_name FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1 AND a.status='draft'", [req.params.token])).rows[0];
     if (isBrandScoped(req)) {
       await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft' AND brand_id=$2", [req.params.token, req.userBrandId]);
     } else {
       await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    }
+    if (sel && (!isBrandScoped(req) || sel.brand_id === req.userBrandId)) {
+      notifyOwner(
+        `Sélection supprimée — ${sel.client_company || sel.client_name || ''} (${sel.brand_name})`,
+        `<p><strong>Brouillon de sélection supprimé</strong></p>
+         <table style="margin:14px 0;font-size:13px;border-collapse:collapse">
+           <tr><td style="padding:3px 14px 3px 0;color:#888">Client</td><td>${escHtml(sel.client_name||'')}${sel.client_company?(' — '+escHtml(sel.client_company)):''}</td></tr>
+           <tr><td style="padding:3px 14px 3px 0;color:#888">Email</td><td>${escHtml(sel.client_email||'')}</td></tr>
+           <tr><td style="padding:3px 14px 3px 0;color:#888">Marque</td><td>${escHtml(sel.brand_name)}</td></tr>
+         </table>`
+      ).catch(() => {});
     }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }

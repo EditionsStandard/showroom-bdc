@@ -27,13 +27,13 @@
     .qty { display:flex; align-items:center; gap:6px; }
     .qty button { width:32px; height:32px; border-radius:0; border:1px solid var(--border); background:var(--input-bg); color:var(--white); font-size:18px; cursor:pointer; }
     .qty input { width:46px; text-align:center; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:0; height:32px; font-size:14px; }
-    .card { background:var(--dark); border:1px solid var(--border); border-radius:0; padding:16px; margin-top:18px; }
-    label { display:block; font-size:10px; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.08em; font-family:'Plex Mono','Space Mono',monospace; }
-    input[type=email], input[type=text], input[type=password] { width:100%; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:0; padding:10px 12px; font-size:14px; outline:none; }
-    input[type=email]:focus, input[type=text]:focus, input[type=password]:focus { border-color:var(--accent); }
+    .card { background:transparent; border:none; border-top:1px solid var(--border); border-radius:0; padding:20px 2px; margin-top:0; }
+    label { display:block; font-size:8.5px; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.22em; font-family:'Plex Mono','Space Mono',monospace; }
+    input[type=email], input[type=text], input[type=password] { width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--white); border-radius:0; padding:7px 1px 9px; font-size:14px; outline:none; letter-spacing:.03em; transition:border-color .25s; }
+    input[type=email]:focus, input[type=text]:focus, input[type=password]:focus { border-bottom-color:var(--white); }
     input[readonly] { color:var(--muted); }
-    .field { margin-bottom:12px; }
-    .cgv { font-size:12px; color:var(--soft); max-height:120px; overflow:auto; border:1px solid var(--border); border-radius:0; padding:10px; margin-bottom:10px; white-space:pre-wrap; background:var(--input-bg); }
+    .field { margin-bottom:24px; }
+    .cgv { font-size:12px; color:var(--soft); max-height:120px; overflow:auto; border:1px solid var(--border); border-radius:0; padding:12px; margin-bottom:12px; white-space:pre-wrap; background:transparent; line-height:1.7; }
     .chk { display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--white); }
     #sig { width:100%; height:140px; background:#fff; border-radius:0; touch-action:none; cursor:crosshair; }
     .sigbar { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
@@ -45,6 +45,51 @@
     .msg { padding:40px 16px; text-align:center; color:var(--soft); }
     .err { color:#e07a7a; }
     #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:0; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+
+    /* ── Layout desktop 2 colonnes : références à gauche, récap/formulaire à droite ── */
+    .sel-grid { display:block; }
+    .sel-side { }
+    @media (min-width: 900px) {
+      .wrap { max-width:1080px; padding:28px 24px 120px; }
+      .sel-grid { display:grid; grid-template-columns: 1.6fr 1fr; gap:32px; align-items:start; }
+      .sel-side { position:sticky; top:24px; }
+    }
+
+    /* ── Carte référence + grille de tailles ── */
+    .ref-card { border:1px solid var(--border); border-radius:0; margin-bottom:10px; background:transparent; }
+    .ref-head { display:flex; gap:12px; align-items:flex-start; padding:12px; cursor:pointer; }
+    .ref-head img, .ref-head .ph { width:64px; height:82px; object-fit:contain; background:#fff; border-radius:0; flex-shrink:0; }
+    .ref-head .ph { background:var(--input-bg); }
+    .ref-info { flex:1; min-width:0; }
+    .ref-info .ref { font-weight:700; font-size:14px; letter-spacing:.02em; }
+    .ref-info .desc { font-size:12px; color:var(--soft); margin-top:2px; }
+    .ref-info .price { font-size:12px; color:var(--accent); margin-top:4px; }
+    .ref-info .see { font-size:10px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:.12em; }
+    .sz-grid { border-top:1px solid var(--border); padding:6px 12px 12px; }
+    .sz-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); }
+    .sz-row:last-child { border-bottom:none; }
+    .sz-label { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--white); }
+    .sz-ctrl { display:flex; align-items:center; gap:6px; }
+    .szb { width:34px; height:34px; border:1px solid var(--border); background:transparent; color:var(--soft); font-size:18px; line-height:1; cursor:pointer; border-radius:0; transition:border-color .15s, color .15s; }
+    .szb:hover, .szb:active { border-color:var(--accent); color:var(--accent); }
+    .szi { width:50px; height:34px; text-align:center; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--white); border-radius:0; font-size:15px; font-family:inherit; }
+    .szi.on { border-bottom-color:var(--accent); color:var(--accent); font-weight:700; }
+
+    /* ── Fiche produit (modale) ── */
+    .fiche-ov { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; align-items:flex-end; justify-content:center; z-index:200; }
+    .fiche-ov.open { display:flex; }
+    .fiche { background:var(--black); width:100%; max-width:560px; max-height:92vh; overflow-y:auto; border-top:1px solid var(--border); border-radius:0; padding:18px 18px calc(28px + env(safe-area-inset-bottom)); }
+    @media (min-width:900px){ .fiche-ov{ align-items:center; } .fiche{ border:1px solid var(--border); max-height:88vh; } }
+    .fiche-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .fiche-close { background:none; border:none; color:var(--soft); font-size:22px; cursor:pointer; line-height:1; }
+    .fiche-gallery { display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; }
+    .fiche-gallery img { height:260px; width:auto; object-fit:contain; background:#fff; flex-shrink:0; }
+    .fiche h2 { font-size:16px; margin:0 0 4px; letter-spacing:.02em; }
+    .fiche .fdesc { font-size:13px; color:var(--soft); line-height:1.6; margin-bottom:6px; }
+    .fiche .fmeta { font-size:12px; color:var(--muted); margin-bottom:2px; }
+    .fiche .fprice { font-size:14px; color:var(--accent); margin:8px 0 14px; }
+    .fiche-done { width:100%; background:var(--accent); color:#111; border:none; padding:14px; font-weight:700; font-size:14px; cursor:pointer; border-radius:0; font-family:inherit; margin-top:14px; }
+    @media (max-width:767px){ .szb{width:44px;height:44px;font-size:20px;} .szi{width:56px;height:44px;font-size:16px;} }
   @media (max-width: 767px) {
     body { overflow-x: hidden; }
     /* Cibles tactiles 44px + anti-zoom iOS (16px) */
@@ -95,6 +140,12 @@ const TRANSLATIONS = {
     err_cgv: 'Veuillez accepter les CGV.',
     err_sig: 'Veuillez signer.',
     err_qty: 'Aucune quantité.',
+    see_product: 'Voir la fiche',
+    empty_sel: 'Aucune référence dans cette sélection.',
+    clear_all: 'Tout remettre à zéro',
+    confirm_clear_all: 'Remettre toutes les quantités à zéro ?',
+    fiche_done: 'Ajouter à ma sélection',
+    lbl_color: 'Couleur',
     validating: 'Validation…',
     err_network_confirm: 'Erreur réseau.',
     err_generic: 'Erreur',
@@ -122,6 +173,12 @@ const TRANSLATIONS = {
     err_cgv: 'Please accept the terms and conditions.',
     err_sig: 'Please sign.',
     err_qty: 'No quantity selected.',
+    see_product: 'View details',
+    empty_sel: 'No reference in this selection.',
+    clear_all: 'Reset all',
+    confirm_clear_all: 'Reset all quantities to zero?',
+    fiche_done: 'Add to my selection',
+    lbl_color: 'Color',
     validating: 'Processing…',
     err_network_confirm: 'Network error.',
     err_generic: 'Error',
@@ -166,62 +223,97 @@ async function load() {
 }
 function showErr(m) { document.getElementById('wrap').innerHTML = `<div class="msg err">${m}</div>`; }
 
+let cart = {};        // clé "product_id|taille" -> quantité (source de vérité, choisie par le client)
+let cartInit = false;
+
+function productSizes(p){ return String(p&&p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean); }
+function productImgs(p){ let a=[]; try{a=JSON.parse(p&&p.images||'[]');}catch(e){} if(!a.length && p&&p.image_url) a=[p.image_url]; return a; }
+function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,'\\$&'); }
+
+function initCart() {
+  if (cartInit) return;
+  cart = {};
+  (DATA.references||[]).forEach(r => {
+    const pid = r.product.id;
+    Object.entries(r.preset||{}).forEach(([sz,q]) => { const n = parseInt(q)||0; if (n>0) cart[pid+'|'+sz] = n; });
+  });
+  cartInit = true;
+}
+
+// Contrôle quantité (−/champ/+) synchronisé partout via data-k
+function qtyCtrl(k, q) {
+  return `<div class="sz-ctrl">
+    <button class="szb" type="button" data-k="${esc(k)}" data-d="-1" onclick="stepQty(this)">−</button>
+    <input class="szi${q>0?' on':''}" type="number" min="0" inputmode="numeric" data-k="${esc(k)}" value="${q}" oninput="inputQty(this)">
+    <button class="szb" type="button" data-k="${esc(k)}" data-d="1" onclick="stepQty(this)">+</button>
+  </div>`;
+}
+function sizeRows(p) {
+  const sizes = productSizes(p);
+  return (sizes.length ? sizes : ['']).map(sz => {
+    const k = p.id+'|'+sz; const q = cart[k]||0;
+    return `<div class="sz-row"><span class="sz-label">${sz?esc(sz):t('qty')}</span>${qtyCtrl(k,q)}</div>`;
+  }).join('');
+}
+function refCard(r) {
+  const p = r.product;
+  const src = productImgs(p)[0] || '';
+  const img = src ? `<img src="${esc(src)}" alt="">` : `<div class="ph"></div>`;
+  return `<div class="ref-card">
+    <div class="ref-head" onclick="openFiche('${esc(p.id)}')">
+      ${img}
+      <div class="ref-info">
+        <div class="ref">${esc(p.reference)}</div>
+        <div class="desc">${esc(p.description||'')}</div>
+        <div class="price">${Number(p.price).toFixed(2)} € HT</div>
+        <div class="see">${t('see_product')} →</div>
+      </div>
+    </div>
+    <div class="sz-grid">${sizeRows(p)}</div>
+  </div>`;
+}
+
 function render() {
   const b = DATA.brand;
+  initCart();
   const logo = (b.logo || b.logo_url) ? `<img src="${b.logo||b.logo_url}" alt="">` : '';
-  const linesHtml = DATA.lines.map((l, idx) => {
-    let imgs = []; try { imgs = JSON.parse(l.product.images || '[]'); } catch(e) {}
-    const src = imgs[0] || l.product.image_url || '';
-    const img = src ? `<img src="${src}">` : `<div class="ph"></div>`;
-    return `<div class="line" id="line-${idx}">
-      ${img}
-      <div class="info">
-        <div class="ref">${esc(l.product.reference)}</div>
-        <div class="desc">${esc(l.product.description||'')} ${l.size?('· '+esc(l.size)):''}</div>
-        <div class="price">${Number(l.product.price).toFixed(2)} € HT</div>
-      </div>
-      <div class="qty">
-        <button onclick="chg(${idx},-1)">−</button>
-        <input type="number" min="0" id="q${idx}" value="${l.quantity}" oninput="recalc()">
-        <button onclick="chg(${idx},1)">+</button>
-        <button onclick="removeLine(${idx})" title="Retirer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1;margin-left:4px">✕</button>
-      </div>
-    </div>`;
-  }).join('');
-
+  const cards = (DATA.references||[]).map(refCard).join('') || `<div class="msg">${t('empty_sel')}</div>`;
   const clientName = DATA.client.company || DATA.client.name || 'vous';
   const accountField = DATA.account_exists
     ? `<p style="font-size:13px;color:var(--soft);margin-bottom:8px">${t('account_exists_msg', esc(DATA.client.email))}</p>
        <div class="field"><label>${t('lbl_pw_existing')}</label><input type="password" id="pw" placeholder="••••••••"></div>`
     : `<div class="field"><label>${t('lbl_pw_new')}</label><input type="password" id="pw" placeholder="••••••••"></div>`;
-
-  const cgvHtml = b.cgv_text
-    ? `<div class="cgv">${esc(b.cgv_text)}</div>`
-    : '';
+  const cgvHtml = b.cgv_text ? `<div class="cgv">${esc(b.cgv_text)}</div>` : '';
 
   document.getElementById('wrap').innerHTML = `
     <div class="head">${logo}<h1>${esc(b.name)}</h1></div>
     <div class="sub">${t('sub_prepared', esc(clientName))}</div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <button onclick="clearAllLines()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">${t('clear_all') || 'Tout effacer'}</button>
-    </div>
-    ${linesHtml}
-    <div class="card">
-      <div class="field"><label>${t('lbl_store')}</label><input type="text" id="company" value="${esc(DATA.client.company||'')}"></div>
-      <div class="field"><label>${t('lbl_contact')}</label><input type="text" id="name" value="${esc(DATA.client.name||'')}"></div>
-      <div class="field"><label>${t('lbl_email')}</label><input type="email" id="email" value="${esc(DATA.client.email||'')}" readonly></div>
-      ${accountField}
-    </div>
-    <div class="card">
-      <label>${t('cgv_title')}</label>
-      ${cgvHtml}
-      <label class="chk"><input type="checkbox" id="cgv"> ${t('cgv_accept')}</label>
-    </div>
-    <div class="card">
-      <div class="sigbar"><label style="margin:0">${t('sig_title')}</label><button class="link" onclick="clearSig()">${t('sig_clear')}</button></div>
-      <canvas id="sig"></canvas>
-    </div>
-    <div id="form-msg" style="margin-top:12px;font-size:13px"></div>`;
+    <div class="sel-grid">
+      <div class="sel-main">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          <button type="button" onclick="clearAll()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:inherit;letter-spacing:.04em">${t('clear_all')}</button>
+        </div>
+        ${cards}
+      </div>
+      <div class="sel-side">
+        <div class="card">
+          <div class="field"><label>${t('lbl_store')}</label><input type="text" id="company" value="${esc(DATA.client.company||'')}"></div>
+          <div class="field"><label>${t('lbl_contact')}</label><input type="text" id="name" value="${esc(DATA.client.name||'')}"></div>
+          <div class="field"><label>${t('lbl_email')}</label><input type="email" id="email" value="${esc(DATA.client.email||'')}" readonly></div>
+          ${accountField}
+        </div>
+        <div class="card">
+          <label>${t('cgv_title')}</label>
+          ${cgvHtml}
+          <label class="chk"><input type="checkbox" id="cgv"> ${t('cgv_accept')}</label>
+        </div>
+        <div class="card">
+          <div class="sigbar"><label style="margin:0">${t('sig_title')}</label><button class="link" onclick="clearSig()">${t('sig_clear')}</button></div>
+          <canvas id="sig"></canvas>
+        </div>
+        <div id="form-msg" style="margin-top:12px;font-size:13px"></div>
+      </div>
+    </div>`;
 
   document.getElementById('bar').style.display = 'flex';
   document.getElementById('total-label').textContent = t('total_ht');
@@ -230,27 +322,62 @@ function render() {
   recalc();
 }
 
-function removeLine(idx) {
-  DATA.lines.splice(idx, 1);
-  render();
-}
-function clearAllLines() {
-  if (!confirm(t('confirm_clear_all') || 'Effacer toute la sélection ?')) return;
-  DATA.lines = [];
-  render();
-}
-function chg(idx, d) {
-  const el = document.getElementById('q'+idx);
-  el.value = Math.max(0, (parseInt(el.value)||0) + d);
+function setCartQty(k, nq) {
+  nq = Math.max(0, parseInt(nq)||0);
+  if (nq>0) cart[k]=nq; else delete cart[k];
+  document.querySelectorAll('input.szi[data-k="'+cssEsc(k)+'"]').forEach(el => {
+    if (el.value !== String(nq)) el.value = nq;
+    el.classList.toggle('on', nq>0);
+  });
   recalc();
 }
+function stepQty(btn){ const k=btn.dataset.k; setCartQty(k, (cart[k]||0) + parseInt(btn.dataset.d)); }
+function inputQty(inp){ setCartQty(inp.dataset.k, inp.value); }
+
+function clearAll() {
+  if (!confirm(t('confirm_clear_all'))) return;
+  cart = {};
+  document.querySelectorAll('input.szi').forEach(el => { el.value = 0; el.classList.remove('on'); });
+  recalc();
+}
+
 function recalc() {
   let total = 0;
-  DATA.lines.forEach((l, idx) => {
-    const q = parseInt(document.getElementById('q'+idx)?.value) || 0;
-    total += q * parseFloat(l.product.price||0);
-  });
-  document.getElementById('total').textContent = total.toFixed(2) + ' €';
+  const priceOf = {}; (DATA.references||[]).forEach(r => priceOf[r.product.id] = parseFloat(r.product.price||0));
+  for (const k in cart) {
+    const q = cart[k]; if (!q) continue;
+    const pid = k.slice(0, k.lastIndexOf('|'));
+    total += q * (priceOf[pid] || 0);
+  }
+  const el = document.getElementById('total'); if (el) el.textContent = total.toFixed(2) + ' €';
+}
+
+// ── Fiche produit (modale) : images + même grille de tailles ──
+function openFiche(pid) {
+  const ref = (DATA.references||[]).find(r => r.product.id === pid);
+  if (!ref) return;
+  const p = ref.product;
+  const imgs = productImgs(p);
+  const gallery = imgs.length ? `<div class="fiche-gallery">${imgs.map(s=>`<img src="${esc(s)}" alt="">`).join('')}</div>` : '';
+  let ov = document.getElementById('fiche-ov');
+  if (!ov) { ov = document.createElement('div'); ov.id='fiche-ov'; ov.className='fiche-ov'; ov.addEventListener('click', e=>{ if(e.target===ov) closeFiche(); }); document.body.appendChild(ov); }
+  ov.innerHTML = `<div class="fiche">
+    <div class="fiche-top"><h2>${esc(p.reference)}</h2><button class="fiche-close" type="button" onclick="closeFiche()">✕</button></div>
+    ${gallery}
+    ${p.description?`<div class="fdesc">${esc(p.description)}</div>`:''}
+    ${p.color?`<div class="fmeta">${t('lbl_color')} : ${esc(p.color)}</div>`:''}
+    ${p.composition?`<div class="fmeta">${esc(p.composition)}</div>`:''}
+    <div class="fprice">${Number(p.price).toFixed(2)} € HT</div>
+    <div class="sz-grid" style="border-top:1px solid var(--border);padding-top:8px">${sizeRows(p)}</div>
+    <button class="fiche-done" type="button" onclick="closeFiche()">${t('fiche_done')}</button>
+  </div>`;
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeFiche() {
+  const ov = document.getElementById('fiche-ov');
+  if (ov) ov.classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // Signature pad
@@ -274,8 +401,8 @@ async function confirmSelection() {
   msg.innerHTML = '';
   if (!document.getElementById('cgv').checked) { msg.innerHTML = '<span class="err">' + t('err_cgv') + '</span>'; return; }
   if (!drawn) { msg.innerHTML = '<span class="err">' + t('err_sig') + '</span>'; return; }
-  const lines = DATA.lines.map((l, idx) => ({ product_id: l.product_id, size: l.size||'', quantity: parseInt(document.getElementById('q'+idx).value)||0 }));
-  if (!lines.some(l => l.quantity > 0)) { msg.innerHTML = '<span class="err">' + t('err_qty') + '</span>'; return; }
+  const lines = Object.entries(cart).filter(([k,q]) => q > 0).map(([k,q]) => { const i = k.lastIndexOf('|'); return { product_id: k.slice(0,i), size: k.slice(i+1), quantity: q }; });
+  if (!lines.length) { msg.innerHTML = '<span class="err">' + t('err_qty') + '</span>'; return; }
   const body = {
     password: document.getElementById('pw') ? document.getElementById('pw').value : '',
     signature: document.getElementById('sig').toDataURL('image/png'),
