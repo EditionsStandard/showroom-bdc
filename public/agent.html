@@ -129,8 +129,9 @@
 
 <script>
 (function() {
+  const _savedTheme = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
   const h = new Date().getHours();
-  document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', _savedTheme || ((h >= 7 && h < 20) ? 'light' : 'dark'));
 })();
 
 function esc(s) {

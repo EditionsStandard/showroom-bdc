@@ -579,6 +579,10 @@
 </style>
 <script>
 (function() {
+  // Clé de thème partagée avec le bon de commande et l'admin (es-theme) pour
+  // qu'un choix manuel suive partout. Fallback vers l'ancienne clé du portail.
+  const saved = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
+  if (saved) { document.documentElement.setAttribute('data-theme', saved); return; }
   const h = new Date().getHours();
   document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
 })();
@@ -2604,12 +2608,12 @@ function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme');
   const next = cur === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('portal_theme_override', next);
+  localStorage.setItem('es-theme', next);
   const btn = document.getElementById('dd-theme');
   if (btn) btn.textContent = next === 'dark' ? t('theme_light') : t('theme_dark');
 }
 (function applyThemeOverride() {
-  const ov = localStorage.getItem('portal_theme_override');
+  const ov = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
   if (ov) document.documentElement.setAttribute('data-theme', ov);
 })();
 

@@ -50,6 +50,9 @@
 <script>
 (function() {
   function getTheme() {
+    // Choix de thème partagé avec tout le site (es-theme).
+    const saved = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
+    if (saved) return saved;
     const h = new Date().getHours();
     return (h >= 7 && h < 20) ? 'light' : 'dark';
   }
