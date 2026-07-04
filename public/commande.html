@@ -500,9 +500,12 @@
 
 <!-- Bandeau MODE AGENT (visible seulement si agent/owner connecté) -->
 <div id="agent-bar" style="display:none;background:#10243a;color:#cfe3ff;padding:10px 16px;font-size:13px;display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1d3a5c">
-  <span>👤 <strong>Mode agent</strong> — construis la sélection, puis envoie-la à l'acheteur.</span>
+  <span>👤 <strong>Mode agent</strong> — scanne le QR de chaque produit (ou clique « + Référence »). <strong id="agent-ref-count" style="color:var(--accent)">0 référence</strong> dans la sélection.</span>
   <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
 </div>
+
+<!-- Toast confirmation d'ajout par QR -->
+<div id="qr-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--dark);padding:12px 20px;border-radius:0;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;font-size:14px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.4)"></div>
 
 <!-- Modal envoi sélection agent -->
 <div id="agent-send-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px">
@@ -778,6 +781,7 @@ const TRANSLATIONS = {
     agent_err_network: 'Erreur réseau.',
     ref_added: '✓ Référence ajoutée',
     ref_add_no_size: '+ Ajouter la référence sans taille',
+    ref_singular: 'référence', ref_plural: 'références',
     err_pdf_gen: 'Erreur génération PDF',
     preparing: '⏳ Préparation…',
     btn_open_mail_label: '✉️ Envoyer par mail avec PDF',
@@ -859,6 +863,7 @@ const TRANSLATIONS = {
     agent_err_network: 'Network error.',
     ref_added: '✓ Reference added',
     ref_add_no_size: '+ Add reference without size',
+    ref_singular: 'reference', ref_plural: 'references',
     err_pdf_gen: 'PDF generation error',
     preparing: '⏳ Preparing…',
     btn_open_mail_label: '✉️ Send by email with PDF',
@@ -891,7 +896,7 @@ const TRANSLATIONS = {
     success_contact_label:'Il tuo contatto', email_sent:e=>'✓ Un PDF di conferma è stato inviato a '+e, queued:'📵 Ordine salvato localmente. Sarà inviato automaticamente alla riconnessione.',
     subscription_inactive_msg:'Questo showroom è temporaneamente non disponibile.', agent_err_empty_cart:'Aggiungi prima degli articoli alla selezione.', agent_pieces_selected:(n)=>`${n} pezzo/i selezionato/i.`,
     agent_err_email:'Email acquirente valida richiesta.', agent_err_sel_empty:'Selezione vuota.', err_generic:'Errore', agent_send_btn:'Invia', agent_sent:(email)=>`✓ Selezione inviata a ${email}.`, agent_sent_btn:'Inviato ✓', agent_err_network:'Errore di rete.',
-    ref_added:'✓ Riferimento aggiunto', ref_add_no_size:'+ Aggiungi il riferimento senza taglia', err_pdf_gen:'Errore generazione PDF', preparing:'⏳ Preparazione…', btn_open_mail_label:'✉️ Invia per email con PDF',
+    ref_added:'✓ Riferimento aggiunto', ref_add_no_size:'+ Aggiungi il riferimento senza taglia', ref_singular:'riferimento', ref_plural:'riferimenti', err_pdf_gen:'Errore generazione PDF', preparing:'⏳ Preparazione…', btn_open_mail_label:'✉️ Invia per email con PDF',
   },
   es: {
     step_sel:'Selección', step_infos:'Datos', step_recap:'Resumen', step_sig:'Firma',
@@ -921,7 +926,7 @@ const TRANSLATIONS = {
     success_contact_label:'Tu contacto', email_sent:e=>'✓ Se ha enviado un PDF de confirmación a '+e, queued:'📵 Pedido guardado localmente. Se enviará automáticamente al reconectar.',
     subscription_inactive_msg:'Este showroom no está disponible temporalmente.', agent_err_empty_cart:'Añade primero artículos a la selección.', agent_pieces_selected:(n)=>`${n} pieza(s) seleccionada(s).`,
     agent_err_email:'Correo de comprador válido requerido.', agent_err_sel_empty:'Selección vacía.', err_generic:'Error', agent_send_btn:'Enviar', agent_sent:(email)=>`✓ Selección enviada a ${email}.`, agent_sent_btn:'Enviado ✓', agent_err_network:'Error de red.',
-    ref_added:'✓ Referencia añadida', ref_add_no_size:'+ Añadir la referencia sin talla', err_pdf_gen:'Error al generar el PDF', preparing:'⏳ Preparando…', btn_open_mail_label:'✉️ Enviar por correo con PDF',
+    ref_added:'✓ Referencia añadida', ref_add_no_size:'+ Añadir la referencia sin talla', ref_singular:'referencia', ref_plural:'referencias', err_pdf_gen:'Error al generar el PDF', preparing:'⏳ Preparando…', btn_open_mail_label:'✉️ Enviar por correo con PDF',
   },
   de: {
     step_sel:'Auswahl', step_infos:'Infos', step_recap:'Übersicht', step_sig:'Unterschrift',
@@ -951,7 +956,7 @@ const TRANSLATIONS = {
     success_contact_label:'Ihr Ansprechpartner', email_sent:e=>'✓ Eine Bestätigungs-PDF wurde gesendet an '+e, queued:'📵 Bestellung lokal gespeichert. Sie wird bei Wiederverbindung automatisch gesendet.',
     subscription_inactive_msg:'Dieser Showroom ist vorübergehend nicht verfügbar.', agent_err_empty_cart:'Fügen Sie zuerst Artikel zur Auswahl hinzu.', agent_pieces_selected:(n)=>`${n} Stück ausgewählt.`,
     agent_err_email:'Gültige Käufer-E-Mail erforderlich.', agent_err_sel_empty:'Auswahl ist leer.', err_generic:'Fehler', agent_send_btn:'Senden', agent_sent:(email)=>`✓ Auswahl gesendet an ${email}.`, agent_sent_btn:'Gesendet ✓', agent_err_network:'Netzwerkfehler.',
-    ref_added:'✓ Referenz hinzugefügt', ref_add_no_size:'+ Referenz ohne Größe hinzufügen', err_pdf_gen:'Fehler bei PDF-Erstellung', preparing:'⏳ Wird vorbereitet…', btn_open_mail_label:'✉️ Per E-Mail mit PDF senden',
+    ref_added:'✓ Referenz hinzugefügt', ref_add_no_size:'+ Referenz ohne Größe hinzufügen', ref_singular:'Referenz', ref_plural:'Referenzen', err_pdf_gen:'Fehler bei PDF-Erstellung', preparing:'⏳ Wird vorbereitet…', btn_open_mail_label:'✉️ Per E-Mail mit PDF senden',
   },
   zh: {
     step_sel:'选品', step_infos:'信息', step_recap:'摘要', step_sig:'签名',
@@ -981,7 +986,7 @@ const TRANSLATIONS = {
     success_contact_label:'您的联系人', email_sent:e=>'✓ 确认 PDF 已发送至 '+e, queued:'📵 订单已本地保存，重新连接后将自动发送。',
     subscription_inactive_msg:'该 showroom 暂时不可用。', agent_err_empty_cart:'请先向选品中添加商品。', agent_pieces_selected:(n)=>`已选择 ${n} 件。`,
     agent_err_email:'需要有效的买方邮箱。', agent_err_sel_empty:'选品为空。', err_generic:'错误', agent_send_btn:'发送', agent_sent:(email)=>`✓ 选品已发送至 ${email}。`, agent_sent_btn:'已发送 ✓', agent_err_network:'网络错误。',
-    ref_added:'✓ 已添加货号', ref_add_no_size:'+ 添加无尺码货号', err_pdf_gen:'PDF 生成出错', preparing:'⏳ 准备中…', btn_open_mail_label:'✉️ 通过邮件发送 PDF',
+    ref_added:'✓ 已添加货号', ref_add_no_size:'+ 添加无尺码货号', ref_singular:'个货号', ref_plural:'个货号', err_pdf_gen:'PDF 生成出错', preparing:'⏳ 准备中…', btn_open_mail_label:'✉️ 通过邮件发送 PDF',
   },
   ja: {
     step_sel:'セレクション', step_infos:'情報', step_recap:'確認', step_sig:'署名',
@@ -1011,7 +1016,7 @@ const TRANSLATIONS = {
     success_contact_label:'ご担当', email_sent:e=>'✓ 確認PDFを送信しました：'+e, queued:'📵 注文をローカルに保存しました。再接続時に自動送信されます。',
     subscription_inactive_msg:'このショールームは一時的にご利用いただけません。', agent_err_empty_cart:'先にセレクションへ商品を追加してください。', agent_pieces_selected:(n)=>`${n} 点を選択しました。`,
     agent_err_email:'有効な購入者メールが必要です。', agent_err_sel_empty:'セレクションが空です。', err_generic:'エラー', agent_send_btn:'送信', agent_sent:(email)=>`✓ セレクションを ${email} に送信しました。`, agent_sent_btn:'送信済み ✓', agent_err_network:'ネットワークエラー。',
-    ref_added:'✓ 型番を追加しました', ref_add_no_size:'+ サイズなしで型番を追加', err_pdf_gen:'PDF生成エラー', preparing:'⏳ 準備中…', btn_open_mail_label:'✉️ PDF付きでメール送信',
+    ref_added:'✓ 型番を追加しました', ref_add_no_size:'+ サイズなしで型番を追加', ref_singular:'型番', ref_plural:'型番', err_pdf_gen:'PDF生成エラー', preparing:'⏳ 準備中…', btn_open_mail_label:'✉️ PDF付きでメール送信',
   },
   ko: {
     step_sel:'셀렉션', step_infos:'정보', step_recap:'요약', step_sig:'서명',
@@ -1041,7 +1046,7 @@ const TRANSLATIONS = {
     success_contact_label:'담당자', email_sent:e=>'✓ 확인 PDF가 전송되었습니다: '+e, queued:'📵 주문이 로컬에 저장되었습니다. 재연결 시 자동 전송됩니다.',
     subscription_inactive_msg:'이 쇼룸은 일시적으로 이용할 수 없습니다.', agent_err_empty_cart:'먼저 셀렉션에 상품을 추가하세요.', agent_pieces_selected:(n)=>`${n}개 선택됨.`,
     agent_err_email:'유효한 구매자 이메일이 필요합니다.', agent_err_sel_empty:'셀렉션이 비어 있습니다.', err_generic:'오류', agent_send_btn:'전송', agent_sent:(email)=>`✓ 셀렉션을 ${email}로 전송했습니다.`, agent_sent_btn:'전송됨 ✓', agent_err_network:'네트워크 오류.',
-    ref_added:'✓ 품번 추가됨', ref_add_no_size:'+ 사이즈 없이 품번 추가', err_pdf_gen:'PDF 생성 오류', preparing:'⏳ 준비 중…', btn_open_mail_label:'✉️ PDF 첨부하여 메일 보내기',
+    ref_added:'✓ 품번 추가됨', ref_add_no_size:'+ 사이즈 없이 품번 추가', ref_singular:'개 품번', ref_plural:'개 품번', err_pdf_gen:'PDF 생성 오류', preparing:'⏳ 준비 중…', btn_open_mail_label:'✉️ PDF 첨부하여 메일 보내기',
   },
   th: {
     step_sel:'การเลือก', step_infos:'ข้อมูล', step_recap:'สรุป', step_sig:'ลายเซ็น',
@@ -1071,7 +1076,7 @@ const TRANSLATIONS = {
     success_contact_label:'ผู้ติดต่อของคุณ', email_sent:e=>'✓ ส่ง PDF ยืนยันไปที่ '+e, queued:'📵 บันทึกคำสั่งซื้อไว้ในเครื่องแล้ว จะส่งอัตโนมัติเมื่อเชื่อมต่อใหม่',
     subscription_inactive_msg:'โชว์รูมนี้ไม่พร้อมให้บริการชั่วคราว', agent_err_empty_cart:'เพิ่มสินค้าลงในการเลือกก่อน', agent_pieces_selected:(n)=>`เลือกแล้ว ${n} ชิ้น`,
     agent_err_email:'ต้องระบุอีเมลผู้ซื้อที่ถูกต้อง', agent_err_sel_empty:'การเลือกว่างเปล่า', err_generic:'ข้อผิดพลาด', agent_send_btn:'ส่ง', agent_sent:(email)=>`✓ ส่งการเลือกไปที่ ${email} แล้ว`, agent_sent_btn:'ส่งแล้ว ✓', agent_err_network:'เกิดข้อผิดพลาดเครือข่าย',
-    ref_added:'✓ เพิ่มรหัสอ้างอิงแล้ว', ref_add_no_size:'+ เพิ่มรหัสอ้างอิงโดยไม่ระบุไซซ์', err_pdf_gen:'เกิดข้อผิดพลาดในการสร้าง PDF', preparing:'⏳ กำลังเตรียม…', btn_open_mail_label:'✉️ ส่งอีเมลพร้อม PDF',
+    ref_added:'✓ เพิ่มรหัสอ้างอิงแล้ว', ref_add_no_size:'+ เพิ่มรหัสอ้างอิงโดยไม่ระบุไซซ์', ref_singular:'รหัส', ref_plural:'รหัส', err_pdf_gen:'เกิดข้อผิดพลาดในการสร้าง PDF', preparing:'⏳ กำลังเตรียม…', btn_open_mail_label:'✉️ ส่งอีเมลพร้อม PDF',
   }
 };
 
@@ -1136,12 +1141,14 @@ function saveCart() {
   Object.entries(cart).forEach(([k, v]) => {
     serializable[k] = { productId: v.product.id, size: v.size, color: v.color, qty: v.qty };
   });
-  sessionStorage.setItem(CART_KEY, JSON.stringify(serializable));
+  // localStorage (pas sessionStorage) pour que la sélection persiste
+  // d'un scan QR à l'autre : chaque scan recharge la page dans un nouvel onglet.
+  localStorage.setItem(CART_KEY, JSON.stringify(serializable));
 }
 
 function restoreCart() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(CART_KEY) || '{}');
+    const saved = JSON.parse(localStorage.getItem(CART_KEY) || sessionStorage.getItem(CART_KEY) || '{}');
     Object.entries(saved).forEach(([k, v]) => {
       const p = productsData.find(p => p.id === v.productId);
       if (p && v.qty > 0) cart[k] = { product: p, size: v.size, color: v.color, qty: v.qty };
@@ -1237,10 +1244,14 @@ async function init() {
     detectAgentMode();
     loadFavorites();
 
-    // QR deep-link: ?product=ID → auto-start and scroll to product
+    // QR deep-link: ?product=ID → auto-start and scroll to product.
+    // En mode agent, la référence est ajoutée automatiquement à la sélection
+    // (scan du QR = ajout, sans quantité). Voir maybeAutoAddQrRef().
     const qrProductId = new URLSearchParams(window.location.search).get('product');
     if (qrProductId) {
       startSession();
+      _pendingQrRef = qrProductId;
+      maybeAutoAddQrRef();
       setTimeout(() => scrollToProduct(qrProductId), 300);
     }
   } catch(e) {
@@ -1258,6 +1269,7 @@ function startSession() {
 
 // ── Mode agent : si un owner/agent/designer est connecté à l'admin ──
 let isAgentMode = false;
+let _pendingQrRef = null; // id produit scanné en attendant la confirmation du mode agent
 async function detectAgentMode() {
   try {
     const me = await fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
@@ -1265,8 +1277,59 @@ async function detectAgentMode() {
       isAgentMode = true;
       const bar = document.getElementById('agent-bar');
       bar.style.display = 'flex';
+      updateAgentBar();
+      // Si un QR a été scanné avant que le mode agent soit confirmé (fetch async),
+      // on ajoute maintenant la référence en attente.
+      maybeAutoAddQrRef();
     }
   } catch(e) {}
+}
+
+// Ajoute la référence scannée par QR si (et seulement si) on est en mode agent.
+// Appelé à la fois par le handler QR (au chargement) et par detectAgentMode
+// (quand le fetch /api/me se résout) — le premier qui trouve les 2 conditions gagne.
+function maybeAutoAddQrRef() {
+  if (!isAgentMode || !_pendingQrRef) return;
+  const pid = _pendingQrRef;
+  _pendingQrRef = null;
+  addRefIfAbsent(pid);
+  const product = productsData.find(p => p.id === pid);
+  showQrToast('✓ ' + (product ? (product.reference || product.name || T('ref_added')) : T('ref_added')));
+}
+
+// Ajout idempotent d'une référence (sans taille, sans quantité) : re-scanner
+// le même produit ne le retire pas et n'en crée pas de doublon.
+function addRefIfAbsent(pid) {
+  const color = selectedVariant[pid] || '';
+  const k = pid + '|' + color + '|—';
+  const product = productsData.find(p => p.id === pid);
+  if (!product) return;
+  if (!cart[k]) {
+    cart[k] = { product, size: '—', color, qty: 1 };
+    saveCart();
+    updateCartBar();
+  }
+  const btn = document.getElementById('refbtn_' + pid);
+  if (btn) { btn.classList.add('active'); btn.textContent = T('ref_added'); }
+  updateAgentBar();
+}
+
+// Compteur de références dans le bandeau agent.
+function updateAgentBar() {
+  const el = document.getElementById('agent-ref-count');
+  if (!el) return;
+  const n = new Set(Object.values(cart).map(c => c.product.id)).size;
+  el.textContent = n + ' ' + (n <= 1 ? T('ref_singular') : T('ref_plural'));
+}
+
+let _qrToastTimer = null;
+function showQrToast(msg) {
+  const t = document.getElementById('qr-toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.display = 'block';
+  if (_qrToastTimer) clearTimeout(_qrToastTimer);
+  _qrToastTimer = setTimeout(() => { t.style.display = 'none'; }, 2200);
 }
 function cartToItems() {
   return Object.values(cart)
@@ -1308,6 +1371,7 @@ async function sendAgentSelectionFromCart() {
     btn.textContent = T('agent_sent_btn');
     // Vider le panier après envoi
     Object.keys(cart).forEach(k => delete cart[k]);
+    localStorage.removeItem(CART_KEY);
     sessionStorage.removeItem(CART_KEY);
     updateCartBar();
     if (typeof applyFilters === 'function') applyFilters(); else renderProducts();
@@ -1569,6 +1633,7 @@ function updateCartBar() {
   document.getElementById('cart-count').textContent = T('cart_items', totalQty);
   document.getElementById('cart-total').textContent = fmtPrice(totalPrice);
   document.getElementById('btn-next').disabled = totalQty === 0;
+  updateAgentBar();
 }
 
 // ── Collection filters ───────────────────────────────
@@ -2155,6 +2220,7 @@ function showSuccess(email, offline, orderId) {
   document.getElementById('success-buyer-space-link').href = '/buyer/' + brandId;
 
   // Clear saved cart after successful order
+  localStorage.removeItem(CART_KEY);
   sessionStorage.removeItem(CART_KEY);
 
   _successOrderId = orderId;
