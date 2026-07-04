@@ -8,6 +8,60 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
+// Typographie des PDF : IBM Plex Mono (la police du site) embarquée en WOFF
+// complet (glyphes accentués + €). Fallback Helvetica si le fichier manque.
+const PDF_FONT_REG = path.join(__dirname, 'public', 'fonts', 'IBMPlexMono-Regular-full.woff');
+const PDF_FONT_SB  = path.join(__dirname, 'public', 'fonts', 'IBMPlexMono-SemiBold-full.woff');
+function registerPdfFonts(doc) {
+  try {
+    doc.registerFont('Mono', PDF_FONT_REG);
+    doc.registerFont('MonoSB', PDF_FONT_SB);
+    return { reg: 'Mono', bold: 'MonoSB' };
+  } catch (e) {
+    console.error('[pdf-fonts]', e.message);
+    return { reg: 'Helvetica', bold: 'Helvetica-Bold' };
+  }
+}
+// Logo des PDF : PNG pré-rendu (fiable, aucune conversion SVG au runtime qui
+// pourrait échouer silencieusement en production et laisser le doc sans logo).
+let _pdfLogoCache;
+function loadPdfLogo() {
+  if (_pdfLogoCache !== undefined) return _pdfLogoCache;
+  try { _pdfLogoCache = fs.readFileSync(path.join(__dirname, 'public', 'logo-pdf.png')); }
+  catch (e) { _pdfLogoCache = null; }
+  return _pdfLogoCache;
+}
+// Rend des CGV clause par clause : chaque clause devient un paragraphe distinct,
+// aéré, avec son numéro (« Article 3. », « 3. », « 3.2 »…) en gras pour la
+// lisibilité. Gère les sauts de page. `ctx.get/set` pilotent le curseur rowY.
+function renderClauses(doc, text, ctx) {
+  const { F, LEFT, WIDTH, BOTTOM, TOP, INK, SOFT } = ctx;
+  let paras;
+  if (/\n/.test(text)) {
+    // CGV saisies avec des retours à la ligne → un paragraphe par ligne.
+    paras = text.split(/\n+/);
+  } else {
+    // Bloc unique → on scinde avant chaque marqueur de clause pour aérer.
+    paras = text.split(/(?=(?:Article|Art\.?)\s*\d+|(?:^|\s)\d{1,2}[.)]\s)/i);
+  }
+  paras = paras.map(s => s.trim()).filter(Boolean);
+  const FS = 8, GAP = 1.5, PARA_SPACING = 8;
+  paras.forEach(para => {
+    const m = para.match(/^((?:Article\s+|Art\.?\s*)?\d+(?:\.\d+)*[.)\-–]?)(\s+)([\s\S]*)$/i);
+    let rowY = ctx.get();
+    if (rowY + FS * 2 + 4 > BOTTOM) { doc.addPage(); rowY = TOP; ctx.set(rowY); }
+    if (m && m[1].length <= 16 && m[3]) {
+      doc.font(F.bold).fontSize(FS).fillColor(INK)
+        .text(m[1] + ' ', LEFT, rowY, { continued: true, width: WIDTH, lineGap: GAP });
+      doc.font(F.reg).fontSize(FS).fillColor(SOFT)
+        .text(m[3], { width: WIDTH, align: 'justify', lineGap: GAP });
+    } else {
+      doc.font(F.reg).fontSize(FS).fillColor(SOFT)
+        .text(para, LEFT, rowY, { width: WIDTH, align: 'justify', lineGap: GAP });
+    }
+    ctx.set(doc.y + PARA_SPACING);
+  });
+}
 const multer = require('multer');
 const { Resend } = require('resend');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
@@ -2791,24 +2845,28 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+      const F = registerPdfFonts(doc);
       const hTop = 50;
-      doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, 50, hTop + 2, { lineBreak: false });
-      doc.fontSize(9).fillColor('#888').font('Helvetica').text('Sélection acheteur — NON CONTRACTUEL', 50, hTop + 24, { lineBreak: false });
-      doc.fontSize(8).fillColor('#aaa').text(dateStr, 50, hTop + 36, { lineBreak: false });
-      doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      const selLogo = loadPdfLogo();
+      if (selLogo) doc.image(selLogo, 50, hTop, { width: 40, height: 40 });
+      const seTx = selLogo ? 102 : 50;
+      doc.fontSize(16).fillColor('#0a0a0a').font(F.bold).text((showroomName||'').toUpperCase(), seTx, hTop + 2, { lineBreak: false, characterSpacing: 1 });
+      doc.fontSize(8).fillColor('#9a9a9a').font(F.reg).text('SÉLECTION ACHETEUR — NON CONTRACTUEL', seTx, hTop + 22, { lineBreak: false, characterSpacing: 1.2 });
+      doc.fontSize(8).fillColor('#9a9a9a').text(dateStr, seTx, hTop + 34, { lineBreak: false });
+      doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#dcdcdc').lineWidth(0.5).stroke();
       const infoY = hTop + 64;
-      doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('ACHETEUR', 50, infoY);
-      doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(buyer.name || '', 50, infoY + 12);
-      doc.fontSize(9).fillColor('#555').font('Helvetica').text(buyer.email || '', 50, infoY + 26);
+      doc.fontSize(7.5).fillColor('#aaa').font(F.reg).text('ACHETEUR', 50, infoY);
+      doc.fontSize(11).fillColor('#0a0a0a').font(F.bold).text(buyer.name || '', 50, infoY + 12);
+      doc.fontSize(9).fillColor('#555').font(F.reg).text(buyer.email || '', 50, infoY + 26);
       let rowY = infoY + 60;
       const col = { ref: 50, desc: 145, color: 295, size: 345, qty: 390, total: 455 };
       const colW = { ref: 90, desc: 145, color: 45, size: 40, qty: 30, total: 90 };
       Object.values(byBrand).forEach(({ name: brandName = 'Marque', lines }) => {
         if (rowY > 720) { doc.addPage(); rowY = 50; }
         doc.rect(50, rowY, 495, 20).fillColor('#0a0a0a').fill();
-        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold').text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
+        doc.fontSize(9).fillColor('#ffffff').font(F.bold).text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
         rowY += 26;
-        doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+        doc.fontSize(7).fillColor('#aaa').font(F.reg);
         ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','TOTAL HT'].forEach((h, i) => {
           const cs = [col.ref, col.desc, col.color, col.size, col.qty, col.total];
           const cw = [colW.ref, colW.desc, colW.color, colW.size, colW.qty, colW.total];
@@ -2820,27 +2878,27 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
           if (rowY > 750) { doc.addPage(); rowY = 50; }
           const lineTotal = (l.qty * parseFloat(l.price || 0)).toFixed(2);
           if (i % 2 === 0) doc.rect(50, rowY - 2, 495, 16).fillColor('#f7f7f7').fill();
-          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(l.reference || '', col.ref, rowY, { width: colW.ref });
-          doc.fillColor('#333').font('Helvetica').text((l.description||'').slice(0,55), col.desc, rowY, { width: colW.desc });
+          doc.fillColor('#0a0a0a').font(F.bold).text(l.reference || '', col.ref, rowY, { width: colW.ref });
+          doc.fillColor('#333').font(F.reg).text((l.description||'').slice(0,55), col.desc, rowY, { width: colW.desc });
           doc.fillColor('#555').text(l.color||'—', col.color, rowY, { width: colW.color }).text(l.size||'—', col.size, rowY, { width: colW.size });
-          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(String(l.qty), col.qty, rowY, { width: colW.qty, align: 'right' });
-          doc.fillColor('#333').font('Helvetica').text(`${lineTotal} €`, col.total, rowY, { width: colW.total, align: 'right' });
+          doc.fillColor('#0a0a0a').font(F.bold).text(String(l.qty), col.qty, rowY, { width: colW.qty, align: 'right' });
+          doc.fillColor('#333').font(F.reg).text(`${lineTotal} €`, col.total, rowY, { width: colW.total, align: 'right' });
           if (l.note) { rowY += 16; doc.fontSize(7).fillColor('#888').text(`↳ ${l.note}`, col.desc, rowY, { width: 350 }); doc.fontSize(7); }
           rowY += 16;
         });
         const brandTotal = lines.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
         rowY += 4;
-        doc.fontSize(8).fillColor('#555').font('Helvetica').text(`Sous-total ${brandName}`, col.ref, rowY, { width: 320 });
-        doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(`${brandTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+        doc.fontSize(8).fillColor('#555').font(F.reg).text(`Sous-total ${brandName}`, col.ref, rowY, { width: 320 });
+        doc.fillColor('#0a0a0a').font(F.bold).text(`${brandTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
         rowY += 26;
       });
       if (rowY > 700) { doc.addPage(); rowY = 50; }
       doc.rect(380, rowY, 165, 24).fillColor('#0a0a0a').fill();
-      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold').text('TOTAL HT', 390, rowY + 6, { width: 80 }).text(`${grandTotal.toFixed(2)} €`, 390, rowY + 6, { width: 145, align: 'right' });
+      doc.fontSize(10).fillColor('#ffffff').font(F.bold).text('TOTAL HT', 390, rowY + 6, { width: 80 }).text(`${grandTotal.toFixed(2)} €`, 390, rowY + 6, { width: 145, align: 'right' });
       rowY += 36;
       doc.rect(50, rowY, 495, 36).fillColor('#fffde7').fill();
-      doc.fontSize(8).fillColor('#b8860b').font('Helvetica-Bold').text('⚠ DOCUMENT NON CONTRACTUEL', 60, rowY + 6, { width: 475, align: 'center' });
-      doc.fontSize(7.5).fillColor('#b8860b').font('Helvetica').text('Cette sélection ne constitue pas une commande ferme.', 60, rowY + 18, { width: 475, align: 'center' });
+      doc.fontSize(8).fillColor('#b8860b').font(F.bold).text('⚠ DOCUMENT NON CONTRACTUEL', 60, rowY + 6, { width: 475, align: 'center' });
+      doc.fontSize(7.5).fillColor('#b8860b').font(F.reg).text('Cette sélection ne constitue pas une commande ferme.', 60, rowY + 18, { width: 475, align: 'center' });
       doc.end();
     });
 
@@ -3126,6 +3184,7 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
     } catch(e) { /* logo optionnel */ }
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const F = registerPdfFonts(doc);
     const chunks = [];
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => {
@@ -3142,11 +3201,11 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
 
     // En-tête
     if (logoBuf) doc.image(logoBuf, 50, 50, { width: 44, height: 44 });
-    doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, logoBuf ? 106 : 50, 54, { lineBreak: false });
-    doc.fontSize(10).fillColor('#888').font('Helvetica').text('Rapport de ventes', logoBuf ? 106 : 50, 78, { lineBreak: false });
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text(periodLabel, logoBuf ? 106 : 50, 92, { lineBreak: false });
-    doc.fontSize(13).fillColor('#0a0a0a').font('Helvetica-Bold').text(brandName, 400, 56, { width: 145, align: 'right' });
-    doc.fontSize(8).fillColor('#aaa').font('Helvetica').text(new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }), 400, 76, { width: 145, align: 'right' });
+    doc.fontSize(18).fillColor('#0a0a0a').font(F.bold).text(showroomName, logoBuf ? 106 : 50, 54, { lineBreak: false });
+    doc.fontSize(10).fillColor('#888').font(F.reg).text('Rapport de ventes', logoBuf ? 106 : 50, 78, { lineBreak: false });
+    doc.fontSize(7.5).fillColor('#aaa').font(F.reg).text(periodLabel, logoBuf ? 106 : 50, 92, { lineBreak: false });
+    doc.fontSize(13).fillColor('#0a0a0a').font(F.bold).text(brandName, 400, 56, { width: 145, align: 'right' });
+    doc.fontSize(8).fillColor('#aaa').font(F.reg).text(new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }), 400, 76, { width: 145, align: 'right' });
     doc.moveTo(50, 104).lineTo(545, 104).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
 
     // Cartes KPI (2 lignes de 3)
@@ -3156,38 +3215,38 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
     const kw = 158, kh = 52, kgap = 10.5;
     kpis.forEach((k, i) => {
       doc.rect(kx, ky, kw, kh).fillColor('#f7f7f7').fill();
-      doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(k[0].toUpperCase(), kx + 10, ky + 9, { width: kw - 20 });
-      doc.fontSize(15).fillColor('#0a0a0a').font('Helvetica-Bold').text(k[1], kx + 10, ky + 24, { width: kw - 20 });
+      doc.fontSize(7.5).fillColor('#888').font(F.reg).text(k[0].toUpperCase(), kx + 10, ky + 9, { width: kw - 20 });
+      doc.fontSize(15).fillColor('#0a0a0a').font(F.bold).text(k[1], kx + 10, ky + 24, { width: kw - 20 });
       if ((i + 1) % 3 === 0) { kx = 50; ky += kh + kgap; } else { kx += kw + kgap; }
     });
 
     let y = ky + kh + 16;
     // Top produits
-    doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text('Top produits (pièces commandées)', 50, y); y += 18;
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica');
+    doc.fontSize(11).fillColor('#0a0a0a').font(F.bold).text('Top produits (pièces commandées)', 50, y); y += 18;
+    doc.fontSize(7.5).fillColor('#aaa').font(F.reg);
     doc.text('RÉFÉRENCE', 50, y).text('DÉSIGNATION', 150, y).text('PIÈCES', 400, y, { width: 60, align: 'right' }).text('CA HT', 470, y, { width: 75, align: 'right' });
     y += 12; doc.moveTo(50, y).lineTo(545, y).strokeColor('#e0e0e0').lineWidth(0.5).stroke(); y += 6;
     if ((data.top||[]).length) {
       data.top.forEach((p, i) => {
         if (i % 2 === 0) { doc.rect(50, y - 2, 495, 16).fillColor('#fafafa').fill(); }
         const nm = (p.description || '').length > 42 ? p.description.slice(0, 40) + '…' : (p.description || '');
-        doc.fontSize(8.5).fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference || '', 50, y, { width: 95 });
-        doc.fillColor('#444').font('Helvetica').text(nm, 150, y, { width: 245 });
-        doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(fmt(p.units), 400, y, { width: 60, align: 'right' });
-        doc.fillColor('#444').font('Helvetica').text(eur(p.revenue), 470, y, { width: 75, align: 'right' });
+        doc.fontSize(8.5).fillColor('#0a0a0a').font(F.bold).text(p.reference || '', 50, y, { width: 95 });
+        doc.fillColor('#444').font(F.reg).text(nm, 150, y, { width: 245 });
+        doc.fillColor('#0a0a0a').font(F.bold).text(fmt(p.units), 400, y, { width: 60, align: 'right' });
+        doc.fillColor('#444').font(F.reg).text(eur(p.revenue), 470, y, { width: 75, align: 'right' });
         y += 16;
       });
-    } else { doc.fontSize(9).fillColor('#888').font('Helvetica').text('Aucune vente.', 50, y); y += 16; }
+    } else { doc.fontSize(9).fillColor('#888').font(F.reg).text('Aucune vente.', 50, y); y += 16; }
 
     y += 14;
     // Évolution mensuelle
     if ((data.monthly||[]).length) {
-      doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text('Évolution mensuelle (CA HT)', 50, y); y += 18;
+      doc.fontSize(11).fillColor('#0a0a0a').font(F.bold).text('Évolution mensuelle (CA HT)', 50, y); y += 18;
       const max = Math.max(...data.monthly.map(m => m.revenue), 1);
       data.monthly.forEach(m => {
         if (y > 770) { doc.addPage(); y = 50; }
         const barW = Math.round((m.revenue / max) * 300);
-        doc.fontSize(8).fillColor('#888').font('Helvetica').text(m.month, 50, y + 1, { width: 60 });
+        doc.fontSize(8).fillColor('#888').font(F.reg).text(m.month, 50, y + 1, { width: 60 });
         doc.rect(115, y, 300, 11).fillColor('#f0f0f0').fill();
         doc.rect(115, y, barW, 11).fillColor('#1a1a1a').fill();
         doc.fontSize(8).fillColor('#444').text(eur(m.revenue), 425, y + 1, { width: 120, align: 'right' });
@@ -3195,7 +3254,7 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
       });
     }
 
-    doc.fontSize(7.5).fillColor('#bbb').font('Helvetica').text(`Données agrégées (commandes confirmées) — généré automatiquement par ${showroomName}`, 50, 800, { align: 'center', width: 495 });
+    doc.fontSize(7.5).fillColor('#bbb').font(F.reg).text(`Données agrégées (commandes confirmées) — généré automatiquement par ${showroomName}`, 50, 800, { align: 'center', width: 495 });
     doc.end();
   } catch(e) { console.error('sales-report-pdf:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -3370,17 +3429,21 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+      const F = registerPdfFonts(doc);
 
       const hTop = 50;
-      doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, 50, hTop + 2, { lineBreak: false });
-      doc.fontSize(9).fillColor('#888').font('Helvetica').text('Sélection acheteur — NON CONTRACTUEL', 50, hTop + 24, { lineBreak: false });
-      doc.fontSize(8).fillColor('#aaa').text(dateStr, 50, hTop + 36, { lineBreak: false });
-      doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      const selLogo = loadPdfLogo();
+      if (selLogo) doc.image(selLogo, 50, hTop, { width: 40, height: 40 });
+      const seTx = selLogo ? 102 : 50;
+      doc.fontSize(16).fillColor('#0a0a0a').font(F.bold).text((showroomName||'').toUpperCase(), seTx, hTop + 2, { lineBreak: false, characterSpacing: 1 });
+      doc.fontSize(8).fillColor('#9a9a9a').font(F.reg).text('SÉLECTION ACHETEUR — NON CONTRACTUEL', seTx, hTop + 22, { lineBreak: false, characterSpacing: 1.2 });
+      doc.fontSize(8).fillColor('#9a9a9a').text(dateStr, seTx, hTop + 34, { lineBreak: false });
+      doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#dcdcdc').lineWidth(0.5).stroke();
 
       const infoY = hTop + 64;
-      doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('ACHETEUR', 50, infoY);
-      doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(buyer.name || '', 50, infoY + 12);
-      doc.fontSize(9).fillColor('#555').font('Helvetica').text(buyer.email || '', 50, infoY + 26);
+      doc.fontSize(7.5).fillColor('#aaa').font(F.reg).text('ACHETEUR', 50, infoY);
+      doc.fontSize(11).fillColor('#0a0a0a').font(F.bold).text(buyer.name || '', 50, infoY + 12);
+      doc.fontSize(9).fillColor('#555').font(F.reg).text(buyer.email || '', 50, infoY + 26);
       if (buyer.company) doc.text(buyer.company, 50, infoY + 38);
 
       let rowY = infoY + 70;
@@ -3390,10 +3453,10 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
       Object.values(byBrand).forEach(({ name: brandName = 'Marque', lines }) => {
         if (rowY > 720) { doc.addPage(); rowY = 50; }
         doc.rect(50, rowY, 495, 20).fillColor('#0a0a0a').fill();
-        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold').text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
+        doc.fontSize(9).fillColor('#ffffff').font(F.bold).text(brandName.toUpperCase(), 58, rowY + 5, { width: 477 });
         rowY += 26;
 
-        doc.fontSize(7).fillColor('#aaa').font('Helvetica');
+        doc.fontSize(7).fillColor('#aaa').font(F.reg);
         doc.text('RÉFÉRENCE', col.ref, rowY, { width: colW.ref });
         doc.text('DÉSIGNATION', col.desc, rowY, { width: colW.desc });
         doc.text('COULEUR', col.color, rowY, { width: colW.color });
@@ -3408,21 +3471,21 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
           const lineTotal = (l.qty * parseFloat(l.price || 0)).toFixed(2);
           const descText = (l.description || '').slice(0, 55);
           if (i % 2 === 0) doc.rect(50, rowY - 2, 495, 16).fillColor('#f7f7f7').fill();
-          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(l.reference || '', col.ref, rowY, { width: colW.ref });
-          doc.fillColor('#333').font('Helvetica').text(descText, col.desc, rowY, { width: colW.desc });
+          doc.fillColor('#0a0a0a').font(F.bold).text(l.reference || '', col.ref, rowY, { width: colW.ref });
+          doc.fillColor('#333').font(F.reg).text(descText, col.desc, rowY, { width: colW.desc });
           doc.fillColor('#555')
             .text(l.color || '—', col.color, rowY, { width: colW.color })
             .text(l.size || '—', col.size, rowY, { width: colW.size });
-          doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(String(l.qty), col.qty, rowY, { width: colW.qty, align: 'right' });
-          doc.fillColor('#333').font('Helvetica').text(`${lineTotal} €`, col.total, rowY, { width: colW.total, align: 'right' });
+          doc.fillColor('#0a0a0a').font(F.bold).text(String(l.qty), col.qty, rowY, { width: colW.qty, align: 'right' });
+          doc.fillColor('#333').font(F.reg).text(`${lineTotal} €`, col.total, rowY, { width: colW.total, align: 'right' });
           rowY += 16;
         });
 
         const brandTotal = lines.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
         doc.moveTo(380, rowY + 2).lineTo(545, rowY + 2).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
         rowY += 6;
-        doc.fontSize(8).fillColor('#555').font('Helvetica').text(`Sous-total ${brandName}`, col.ref, rowY, { width: 320 });
-        doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(`${brandTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+        doc.fontSize(8).fillColor('#555').font(F.reg).text(`Sous-total ${brandName}`, col.ref, rowY, { width: 320 });
+        doc.fillColor('#0a0a0a').font(F.bold).text(`${brandTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
         rowY += 26;
       });
 
@@ -3430,15 +3493,15 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
       doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor('#333').lineWidth(1).stroke();
       rowY += 10;
       doc.rect(380, rowY, 165, 24).fillColor('#0a0a0a').fill();
-      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
+      doc.fontSize(10).fillColor('#ffffff').font(F.bold)
         .text('TOTAL HT', 390, rowY + 6, { width: 80 })
         .text(`${grandTotal.toFixed(2)} €`, 390, rowY + 6, { width: 145, align: 'right' });
       rowY += 36;
 
       doc.rect(50, rowY, 495, 36).fillColor('#fffde7').fill();
-      doc.fontSize(8).fillColor('#b8860b').font('Helvetica-Bold')
+      doc.fontSize(8).fillColor('#b8860b').font(F.bold)
         .text('⚠ DOCUMENT NON CONTRACTUEL', 60, rowY + 6, { width: 475, align: 'center' });
-      doc.fontSize(7.5).fillColor('#b8860b').font('Helvetica')
+      doc.fontSize(7.5).fillColor('#b8860b').font(F.reg)
         .text('Cette sélection ne constitue pas une commande ferme. Elle doit être validée et signée sur le portail.', 60, rowY + 18, { width: 475, align: 'center' });
 
       doc.end();
@@ -4319,15 +4382,7 @@ app.get('/rdv/:brandId', (req, res) => sendPage(res, 'rdv.html'));
 // ==================== PDF ====================
 
 async function generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, notes, lines, showroomName, agentName }) {
-  let logoBuf = null;
-  try {
-    const svg2img = require('svg2img');
-    const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
-    logoBuf = await new Promise((res, rej) =>
-      svg2img(svgSrc, { width: 120, height: 120 }, (err, buf) => err ? rej(err) : res(buf))
-    );
-  } catch(e) {}
-
+  const logoBuf = loadPdfLogo();
   const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const total = lines.reduce((s, l) => s + l.quantity * parseFloat(l.product?.price || 0), 0);
 
@@ -4338,91 +4393,100 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Header
-    const hTop = 50;
-    if (logoBuf) doc.image(logoBuf, 50, hTop, { width: 44, height: 44 });
-    const tx = logoBuf ? 106 : 50;
-    doc.fontSize(18).fillColor('#0a0a0a').font('Helvetica-Bold').text(showroomName, tx, hTop + 2, { lineBreak: false });
-    doc.fontSize(9).fillColor('#888').font('Helvetica').text('Proposition de sélection — NON SIGNÉE', tx, hTop + 24, { lineBreak: false });
-    doc.fontSize(8).fillColor('#aaa').text(dateStr, tx, hTop + 36, { lineBreak: false });
-    doc.moveTo(50, hTop + 54).lineTo(545, hTop + 54).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    // Typo du site (IBM Plex Mono) + palette éditoriale monochrome.
+    const F = registerPdfFonts(doc);
+    const INK = '#0a0a0a', SOFT = '#555555', MUTE = '#9a9a9a', LINE = '#dcdcdc', ZEBRA = '#f6f6f4';
+    const LEFT = 50, RIGHT = 545, BOTTOM = 792, TOP = 50, WIDTH = RIGHT - LEFT;
+    let rowY = TOP;
+    const hr = (y, color = LINE) => doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(color).lineWidth(0.5).stroke();
+    const label = (txt, x, y, w) => doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(txt, x, y, { width: w, characterSpacing: 1.4 });
+    const ensure = (h) => { if (rowY + h > BOTTOM) { doc.addPage(); rowY = TOP; return true; } return false; };
 
-    // Client + brand info
-    const infoY = hTop + 64;
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('MARQUE', 50, infoY);
-    doc.fontSize(12).fillColor('#0a0a0a').font('Helvetica-Bold').text(brand.name, 50, infoY + 12);
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('CLIENT', 300, infoY);
-    doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(client_name || '', 300, infoY + 12);
-    doc.fontSize(9).fillColor('#555').font('Helvetica');
-    if (client_company) doc.text(client_company, 300);
-    doc.fillColor('#777').text(client_email || '', 300);
-    if (client_country) doc.text(client_country, 300);
+    // ── Header ──
+    if (logoBuf) doc.image(logoBuf, LEFT, rowY, { width: 42, height: 42 });
+    const tx = logoBuf ? 104 : LEFT;
+    doc.font(F.bold).fontSize(16).fillColor(INK).text((showroomName || '').toUpperCase(), tx, rowY + 2, { lineBreak: false, characterSpacing: 1 });
+    doc.font(F.reg).fontSize(8).fillColor(MUTE).text('PROPOSITION DE SÉLECTION — NON SIGNÉE', tx, rowY + 24, { lineBreak: false, characterSpacing: 1.4 });
+    doc.font(F.reg).fontSize(8).fillColor(MUTE).text(dateStr, tx, rowY + 36, { lineBreak: false });
+    rowY += 58;
+    hr(rowY); rowY += 14;
 
-    const tableTop = infoY + 68;
-    doc.moveTo(50, tableTop).lineTo(545, tableTop).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    // ── Marque / Client ──
+    const infoTop = rowY;
+    label('MARQUE', LEFT, infoTop);
+    doc.font(F.bold).fontSize(12).fillColor(INK).text(brand.name || '', LEFT, infoTop + 12);
+    label('CLIENT', 300, infoTop);
+    doc.font(F.bold).fontSize(11).fillColor(INK).text(client_name || '', 300, infoTop + 12);
+    let cY = infoTop + 28;
+    doc.font(F.reg).fontSize(8.5);
+    if (client_company) { doc.fillColor(SOFT).text(client_company, 300, cY); cY += 12; }
+    doc.fillColor(MUTE).text(client_email || '', 300, cY); cY += 12;
+    if (client_country) { doc.fillColor(SOFT).text(client_country, 300, cY); cY += 12; }
+    rowY = Math.max(infoTop + 44, cY) + 10;
 
-    // Table header
-    const col = { ref:50, name:145, color:280, size:330, qty:368, pw:405, pr:450, total:495 };
-    const colW = { ref:90, name:130, color:45, size:33, qty:27, pw:40, pr:45, total:50 };
+    // ── Table ──
+    const col  = { ref:50, name:145, color:280, size:330, qty:368, pw:400, pr:445, total:495 };
+    const colW = { ref:90, name:130, color:45,  size:33,  qty:27,  pw:40,  pr:45,  total:50 };
     const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'];
     const colKeys = ['ref','name','color','size','qty','pw','pr','total'];
-    const thY = tableTop + 8;
-    doc.fontSize(7).fillColor('#aaa').font('Helvetica');
-    headers.forEach((h, i) => {
-      doc.text(h, col[colKeys[i]], thY, { width: colW[colKeys[i]], align: i >= 4 ? 'right' : 'left' });
-    });
-    doc.moveTo(50, thY + 14).lineTo(545, thY + 14).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    const drawTableHead = () => {
+      hr(rowY); rowY += 6;
+      doc.font(F.reg).fontSize(6.5).fillColor(MUTE);
+      headers.forEach((h, i) => doc.text(h, col[colKeys[i]], rowY, { width: colW[colKeys[i]], align: i >= 4 ? 'right' : 'left', characterSpacing: 0.6 }));
+      rowY += 12; hr(rowY); rowY += 6;
+    };
+    drawTableHead();
 
-    let rowY = thY + 20;
     lines.forEach((l, i) => {
       const p = l.product || {};
       const rawName = p.description || '';
-      const nameText = rawName.length > 60 ? rawName.slice(0, 57) + '…' : rawName;
-      const nameH = doc.heightOfString(nameText, { width: colW.name });
-      const rowH = Math.max(nameH, 14) + 8;
-      if (i % 2 === 0) doc.rect(50, rowY - 2, 495, rowH).fillColor('#f7f7f7').fill();
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference || '', col.ref, rowY, { width: colW.ref });
-      doc.fillColor('#333').font('Helvetica').text(nameText, col.name, rowY, { width: colW.name });
-      doc.fillColor('#555')
+      const nameText = rawName.length > 58 ? rawName.slice(0, 55) + '…' : rawName;
+      const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
+      const rowH = Math.max(nameH, 12) + 7;
+      if (rowY + rowH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
+      if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
+      doc.font(F.bold).fontSize(8.5).fillColor(INK).text(p.reference || '', col.ref, rowY, { width: colW.ref });
+      doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
+      doc.fillColor(SOFT)
         .text(l.color || p.color || '—', col.color, rowY, { width: colW.color })
         .text(l.size || '—', col.size, rowY, { width: colW.size });
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold').text(String(l.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
-      doc.fillColor('#333').font('Helvetica')
+      doc.font(F.bold).fillColor(INK).text(String(l.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
+      doc.font(F.reg).fillColor('#333')
         .text(`${parseFloat(p.price||0).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
         .text(p.price_retail > 0 ? `${parseFloat(p.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
-        .text(`${(l.quantity * parseFloat(p.price||0)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+      doc.font(F.bold).fillColor(INK).text(`${(l.quantity * parseFloat(p.price||0)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
       rowY += rowH;
     });
 
-    // Total
-    doc.moveTo(50, rowY + 2).lineTo(545, rowY + 2).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-    rowY += 12;
-    doc.rect(380, rowY - 4, 165, 22).fillColor('#0a0a0a').fill();
-    doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-      .text('TOTAL HT', 390, rowY, { width: 80 })
-      .text(`${total.toFixed(2)} €`, 390, rowY, { width: 145, align: 'right' });
-    rowY += 34;
+    // ── Total ──
+    ensure(30);
+    hr(rowY + 2); rowY += 10;
+    doc.rect(380, rowY - 4, 165, 22).fillColor(INK).fill();
+    doc.font(F.bold).fontSize(10).fillColor('#ffffff')
+      .text('TOTAL HT', 390, rowY + 1, { width: 80, characterSpacing: 1 })
+      .text(`${total.toFixed(2)} €`, 390, rowY + 1, { width: 145, align: 'right' });
+    rowY += 32;
 
-    // Commentaires agent
+    // ── Commentaires agent ──
     if (notes && notes.trim()) {
-      doc.rect(50, rowY, 495, 14).fillColor('#f0f0f0').fill();
-      doc.fontSize(7).fillColor('#888').font('Helvetica-Bold').text('COMMENTAIRES', 58, rowY + 4);
-      rowY += 18;
-      doc.fontSize(9).fillColor('#333').font('Helvetica').text(notes.trim(), 58, rowY, { width: 479 });
-      rowY += doc.heightOfString(notes.trim(), { width: 479 }) + 14;
+      const nH = doc.font(F.reg).fontSize(9).heightOfString(notes.trim(), { width: WIDTH - 16 });
+      ensure(28 + nH);
+      label('COMMENTAIRES', LEFT, rowY); rowY += 12;
+      doc.font(F.reg).fontSize(9).fillColor('#333').text(notes.trim(), LEFT, rowY, { width: WIDTH });
+      rowY = doc.y + 12;
     }
 
-    // Watermark notice
-    doc.rect(50, rowY, 495, 38).fillColor('#fffde7').fill();
-    doc.fontSize(8.5).fillColor('#b8860b').font('Helvetica-Bold')
-      .text('⚠ DOCUMENT NON CONTRACTUEL — Proposition de sélection non signée', 60, rowY + 6, { width: 475, align: 'center' });
-    doc.fontSize(7.5).fillColor('#b8860b').font('Helvetica')
-      .text('Cette sélection ne constitue pas une commande ferme. Elle doit être signée par les deux parties pour être valide.', 60, rowY + 19, { width: 475, align: 'center' });
-    rowY += 50;
+    // ── Mention non contractuelle ──
+    ensure(46);
+    doc.rect(LEFT, rowY, WIDTH, 40).fillColor('#faf7e8').fill();
+    doc.font(F.bold).fontSize(8.5).fillColor('#8a6d00')
+      .text('DOCUMENT NON CONTRACTUEL — PROPOSITION DE SÉLECTION', LEFT + 10, rowY + 7, { width: WIDTH - 20, align: 'center', characterSpacing: 0.6 });
+    doc.font(F.reg).fontSize(7.5).fillColor('#8a6d00')
+      .text('Cette sélection ne constitue pas une commande ferme. Elle doit être signée par les deux parties pour être valide.', LEFT + 10, rowY + 21, { width: WIDTH - 20, align: 'center' });
+    rowY += 52;
 
-    doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
-      .text(`Document généré automatiquement — ${showroomName}`, 50, rowY, { align: 'center', width: 495 });
+    doc.font(F.reg).fontSize(7).fillColor('#bbbbbb')
+      .text(`Document généré automatiquement — ${showroomName}`, LEFT, rowY, { align: 'center', width: WIDTH });
 
     doc.end();
   });
@@ -4488,6 +4552,7 @@ async function generateLinesheetPDF(brandId, seasonId) {
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
+    const F = registerPdfFonts(doc);
 
     const pageW = doc.page.width;   // ~842
     const contentRight = pageW - 40;
@@ -4497,8 +4562,8 @@ async function generateLinesheetPDF(brandId, seasonId) {
       const hTop = 40;
       if (logoBuf) doc.image(logoBuf, 40, hTop, { width: 36, height: 36 });
       const tx = logoBuf ? 84 : 40;
-      doc.fontSize(15).fillColor('#0a0a0a').font('Helvetica-Bold').text(brand.name, tx, hTop, { lineBreak: false });
-      doc.fontSize(8).fillColor('#888').font('Helvetica').text(`Linesheet — ${showroomName}`, tx, hTop + 17, { lineBreak: false });
+      doc.fontSize(15).fillColor('#0a0a0a').font(F.bold).text(brand.name, tx, hTop, { lineBreak: false });
+      doc.fontSize(8).fillColor('#888').font(F.reg).text(`Linesheet — ${showroomName}`, tx, hTop + 17, { lineBreak: false });
       doc.fontSize(7).fillColor('#aaa').text(dateStr, tx, hTop + 27, { lineBreak: false });
       doc.moveTo(40, hTop + 44).lineTo(contentRight, hTop + 44).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
       return hTop + 54;
@@ -4517,7 +4582,7 @@ async function generateLinesheetPDF(brandId, seasonId) {
 
     const measureCardHeight = (p) => {
       const nameText = p.description || '';
-      doc.fontSize(7.5).font('Helvetica');
+      doc.fontSize(7.5).font(F.reg);
       const nameH = nameText ? doc.heightOfString(nameText, { width: textW }) : 0;
       let ty = 14 + nameH + 4;
       if (p.color) ty += 11;
@@ -4537,17 +4602,17 @@ async function generateLinesheetPDF(brandId, seasonId) {
       }
 
       let ty = yy;
-      doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(p.reference, textX, ty, { width: textW });
+      doc.fontSize(9).fillColor('#0a0a0a').font(F.bold).text(p.reference, textX, ty, { width: textW });
       ty += 14;
       const nameText = p.description || '';
       if (nameText) {
-        doc.fontSize(7.5).fillColor('#555').font('Helvetica').text(nameText, textX, ty, { width: textW });
+        doc.fontSize(7.5).fillColor('#555').font(F.reg).text(nameText, textX, ty, { width: textW });
         ty += doc.heightOfString(nameText, { width: textW }) + 4;
       }
       if (p.color) { doc.fontSize(7).fillColor('#888').text(p.color, textX, ty, { width: textW }); ty += 11; }
       if (p.sizes) { doc.fontSize(7).fillColor('#888').text(p.sizes, textX, ty, { width: textW }); ty += 11; }
-      doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text(`${parseFloat(p.price||0).toFixed(2)} €`, textX, ty, { width: textW / 2, continued: p.price_retail > 0 });
-      if (p.price_retail > 0) doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(`   RRP ${parseFloat(p.price_retail).toFixed(2)} €`);
+      doc.fontSize(8).fillColor('#0a0a0a').font(F.bold).text(`${parseFloat(p.price||0).toFixed(2)} €`, textX, ty, { width: textW / 2, continued: p.price_retail > 0 });
+      if (p.price_retail > 0) doc.fontSize(7.5).fillColor('#888').font(F.reg).text(`   RRP ${parseFloat(p.price_retail).toFixed(2)} €`);
     };
 
     const newPage = () => {
@@ -4563,7 +4628,7 @@ async function generateLinesheetPDF(brandId, seasonId) {
         const rowY = Math.max(colY[0], colY[1]);
         colY = [rowY, rowY];
         if (rowY > doc.page.height - 120) { newPage(); }
-        doc.fontSize(10).fillColor('#CCEB3C').font('Helvetica-Bold').text(currentCollection.toUpperCase(), 40, colY[0], { width: contentW });
+        doc.fontSize(10).fillColor('#CCEB3C').font(F.bold).text(currentCollection.toUpperCase(), 40, colY[0], { width: contentW });
         colY = [colY[0] + 18, colY[0] + 18];
       }
 
@@ -4588,7 +4653,7 @@ async function generateLinesheetPDF(brandId, seasonId) {
       colY[idx] += cardH;
     });
 
-    doc.fontSize(7).fillColor('#ccc').font('Helvetica')
+    doc.fontSize(7).fillColor('#ccc').font(F.reg)
       .text(`Document généré automatiquement — ${showroomName}`, 40, doc.page.height - 30, { align: 'center', width: contentW });
 
     doc.end();
@@ -4635,17 +4700,8 @@ async function generateOrderPDF(orderId) {
   ]);
   const cgvText      = order.brand_cgv || globalCgv;
 
-  // Convert SVG logo to PNG buffer
-  let logoBuf = null;
-  try {
-    const svg2img = require('svg2img');
-    const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
-    logoBuf = await new Promise((res, rej) =>
-      svg2img(svgSrc, { width: 120, height: 120, preserveAspectRatio: true }, (err, buf) =>
-        err ? rej(err) : res(buf)
-      )
-    );
-  } catch(e) { /* logo optional */ }
+  // Logo PDF (PNG pré-rendu)
+  const logoBuf = loadPdfLogo();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -4654,179 +4710,163 @@ async function generateOrderPDF(orderId) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
+    // Typo du site (IBM Plex Mono) + palette éditoriale monochrome.
+    const F = registerPdfFonts(doc);
+    const INK = '#0a0a0a', SOFT = '#555555', MUTE = '#9a9a9a', LINE = '#dcdcdc', ZEBRA = '#f6f6f4';
+    const LEFT = 50, RIGHT = 545, BOTTOM = 792, TOP = 50, WIDTH = RIGHT - LEFT;
+    let rowY = TOP;
+    const hr = (y, color = LINE) => doc.moveTo(LEFT, y).lineTo(RIGHT, y).strokeColor(color).lineWidth(0.5).stroke();
+    const label = (txt, x, y, w) => doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(txt, x, y, { width: w, characterSpacing: 1.4 });
+    const ensure = (h) => { if (rowY + h > BOTTOM) { doc.addPage(); rowY = TOP; return true; } return false; };
+
     const total   = lines.reduce((s, l) => s + l.quantity * parseFloat(l.unit_price), 0);
     const dateStr = new Date(order.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    const orderNo = order.order_number || orderId.slice(0,8).toUpperCase();
 
     // ── Header ──
-    const headerTop = 50;
-    if (logoBuf) {
-      doc.image(logoBuf, 50, headerTop, { width: 48, height: 48 });
-    }
-    const textX = logoBuf ? 110 : 50;
-    doc.fontSize(20).fillColor('#0a0a0a').font('Helvetica-Bold')
-      .text(showroomName, textX, headerTop + 4, { lineBreak: false });
-    doc.fontSize(10).fillColor('#888').font('Helvetica')
-      .text('Bon de Commande', textX, headerTop + 30, { lineBreak: false });
-    doc.fontSize(9).fillColor('#aaa')
-      .text(`N° ${order.order_number || orderId.slice(0,8).toUpperCase()} — ${dateStr}`, textX, headerTop + 44, { lineBreak: false });
-
-    doc.moveTo(50, headerTop + 62).lineTo(545, headerTop + 62).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-    const infoY = headerTop + 72;
+    if (logoBuf) doc.image(logoBuf, LEFT, rowY, { width: 42, height: 42 });
+    const textX = logoBuf ? 104 : LEFT;
+    doc.font(F.bold).fontSize(16).fillColor(INK)
+      .text((showroomName || '').toUpperCase(), textX, rowY + 2, { lineBreak: false, characterSpacing: 1 });
+    doc.font(F.reg).fontSize(8).fillColor(MUTE)
+      .text('BON DE COMMANDE', textX, rowY + 24, { lineBreak: false, characterSpacing: 2 });
+    doc.font(F.reg).fontSize(8).fillColor(MUTE)
+      .text(`N° ${orderNo}   —   ${dateStr}`, textX, rowY + 36, { lineBreak: false });
+    rowY += 58;
+    hr(rowY); rowY += 14;
 
     // ── Marque / Client ──
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('MARQUE', 50, infoY);
-    doc.fontSize(12).fillColor('#0a0a0a').font('Helvetica-Bold').text(order.brand_name, 50, infoY + 12);
+    const infoTop = rowY;
+    label('MARQUE', LEFT, infoTop);
+    doc.font(F.bold).fontSize(12).fillColor(INK).text(order.brand_name || '', LEFT, infoTop + 12);
+    label('CLIENT', 300, infoTop);
+    doc.font(F.bold).fontSize(11).fillColor(INK).text(order.client_name || '', 300, infoTop + 12);
+    let cY = infoTop + 28;
+    doc.font(F.reg).fontSize(8.5);
+    if (order.client_company) { doc.fillColor(SOFT).text(order.client_company, 300, cY); cY += 12; }
+    doc.fillColor(SOFT).text(order.client_email || '', 300, cY); cY += 12;
+    if (order.client_phone) { doc.fillColor(MUTE).text(order.client_phone, 300, cY); cY += 12; }
+    if (order.delivery_window) { doc.font(F.bold).fillColor(INK).text('Livraison : ' + order.delivery_window, 300, cY); cY += 12; }
+    rowY = Math.max(infoTop + 44, cY) + 10;
 
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('CLIENT', 300, infoY);
-    doc.fontSize(11).fillColor('#0a0a0a').font('Helvetica-Bold').text(order.client_name, 300, infoY + 12);
-    doc.fontSize(9).fillColor('#555').font('Helvetica');
-    if (order.client_company) doc.text(order.client_company, 300);
-    doc.fillColor('#555').text(order.client_email, 300);
-    if (order.client_phone) doc.fillColor('#777').text(order.client_phone, 300);
-    if (order.delivery_window) doc.fillColor('#0a0a0a').font('Helvetica-Bold').text('Livraison : ' + order.delivery_window, 300);
-
-    const tableTop = infoY + 70;
-    doc.moveTo(50, tableTop).lineTo(545, tableTop).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-
-    // ── Table header ──
-    const col = { ref:50, name:145, color:280, size:330, qty:368, pw:400, pr:445, total:495 };
+    // ── Table ──
+    const col  = { ref:50, name:145, color:280, size:330, qty:368, pw:400, pr:445, total:495 };
     const colW = { ref:90, name:130, color:45,  size:33,  qty:27,  pw:40,  pr:45,  total:50 };
     const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'];
     const colKeys = ['ref','name','color','size','qty','pw','pr','total'];
-    const thY = tableTop + 8;
-
-    doc.fontSize(7).fillColor('#aaa').font('Helvetica');
-    headers.forEach((h, i) => {
-      const align = i >= 4 ? 'right' : 'left';
-      doc.text(h, col[colKeys[i]], thY, { width: colW[colKeys[i]], align });
-    });
-    doc.moveTo(50, thY + 14).lineTo(545, thY + 14).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-
-    // ── Table rows ──
-    let rowY = thY + 20;
-    doc.font('Helvetica').fontSize(8.5);
+    const drawTableHead = () => {
+      hr(rowY); rowY += 6;
+      doc.font(F.reg).fontSize(6.5).fillColor(MUTE);
+      headers.forEach((h, i) => doc.text(h, col[colKeys[i]], rowY, { width: colW[colKeys[i]], align: i >= 4 ? 'right' : 'left', characterSpacing: 0.6 }));
+      rowY += 12; hr(rowY); rowY += 6;
+    };
+    drawTableHead();
 
     lines.forEach((line, i) => {
-      // Measure name height
       const rawName = line.product_name || '';
-      const nameText = rawName.length > 60 ? rawName.slice(0, 57) + '…' : rawName;
-      const nameH = doc.heightOfString(nameText, { width: colW.name });
-      const rowH  = Math.max(nameH, 14) + 8;
+      const nameText = rawName.length > 58 ? rawName.slice(0, 55) + '…' : rawName;
+      const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
+      const rowH  = Math.max(nameH, 12) + 7;
+      const noteTxt = line.note ? `Note : ${line.note}` : '';
+      const noteH = noteTxt ? doc.font(F.reg).fontSize(7.5).heightOfString(noteTxt, { width: 480 }) + 3 : 0;
 
-      if (i % 2 === 0) {
-        doc.rect(50, rowY - 2, 495, rowH).fillColor('#f7f7f7').fill();
-      }
+      // Saut de page si la ligne (+ sa note) ne tient pas → on rejoue l'en-tête.
+      if (rowY + rowH + noteH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
 
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
-        .text(line.reference || '', col.ref, rowY, { width: colW.ref });
-      doc.fillColor('#333').font('Helvetica')
-        .text(nameText, col.name, rowY, { width: colW.name });
-      doc.fillColor('#555')
+      if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
+      doc.font(F.bold).fontSize(8.5).fillColor(INK).text(line.reference || '', col.ref, rowY, { width: colW.ref });
+      doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
+      doc.fillColor(SOFT)
         .text(line.color || '—', col.color, rowY, { width: colW.color })
         .text(line.size  || '—', col.size,  rowY, { width: colW.size });
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
-        .text(String(line.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
-      doc.fillColor('#333').font('Helvetica')
-        .text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.pw,    rowY, { width: colW.pw,    align: 'right' })
+      doc.font(F.bold).fillColor(INK).text(String(line.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
+      doc.font(F.reg).fillColor('#333')
+        .text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
         .text(line.price_retail > 0 ? `${parseFloat(line.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
-      doc.fillColor('#0a0a0a').font('Helvetica-Bold')
-        .text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+      doc.font(F.bold).fillColor(INK).text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
 
       rowY += rowH;
-      if (line.note) {
-        doc.fontSize(7.5).fillColor('#888').font('Helvetica-Oblique')
-          .text(`Note : ${line.note}`, col.ref + 4, rowY, { width: 490 });
-        rowY += doc.heightOfString(`Note : ${line.note}`, { width: 490 }) + 4;
-      }
+      if (noteTxt) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(noteTxt, col.ref + 4, rowY, { width: 480 }); rowY += noteH; }
     });
 
     // ── Total ──
-    doc.moveTo(50, rowY + 2).lineTo(545, rowY + 2).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-    rowY += 12;
-    doc.rect(380, rowY - 4, 165, 22).fillColor('#0a0a0a').fill();
-    doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-      .text('TOTAL HT', 390, rowY, { width: 80, align: 'left' })
-      .text(`${total.toFixed(2)} €`, 390, rowY, { width: 145, align: 'right' });
-    rowY += 26;
+    ensure(30);
+    hr(rowY + 2); rowY += 10;
+    doc.rect(380, rowY - 4, 165, 22).fillColor(INK).fill();
+    doc.font(F.bold).fontSize(10).fillColor('#ffffff')
+      .text('TOTAL HT', 390, rowY + 1, { width: 80, align: 'left', characterSpacing: 1 })
+      .text(`${total.toFixed(2)} €`, 390, rowY + 1, { width: 145, align: 'right' });
+    rowY += 30;
 
     // ── Notes ──
     if (order.notes) {
-      rowY += 8;
-      doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text('NOTES', 50, rowY);
-      rowY += 12;
-      doc.fontSize(9).fillColor('#444').font('Helvetica').text(order.notes, 50, rowY, { width: 495 });
-      rowY += doc.heightOfString(order.notes, { width: 495 }) + 8;
+      const nH = doc.font(F.reg).fontSize(9).heightOfString(order.notes, { width: WIDTH });
+      ensure(24 + nH);
+      label('NOTES', LEFT, rowY); rowY += 12;
+      doc.font(F.reg).fontSize(9).fillColor('#444').text(order.notes, LEFT, rowY, { width: WIDTH });
+      rowY = doc.y + 10;
     }
 
-    // ── CGV ──
+    // ── CGV (toujours incluses au bon de commande final, avec pagination auto) ──
     if (cgvText) {
-      rowY += 10;
-      doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-      rowY += 10;
-      doc.fontSize(7).fillColor('#aaa').font('Helvetica')
-        .text('CONDITIONS GÉNÉRALES — PROPOSITION DE COMMANDE', 50, rowY, { align: 'center', width: 495 });
-      rowY += 14;
-      doc.fontSize(7.5).fillColor('#999').font('Helvetica')
-        .text(cgvText, 50, rowY, { align: 'justify', lineGap: 1.5, width: 495 });
-      rowY += doc.heightOfString(cgvText, { width: 495, lineGap: 1.5 }) + 10;
+      ensure(60);
+      hr(rowY); rowY += 12;
+      doc.font(F.bold).fontSize(8).fillColor(INK)
+        .text('CONDITIONS GÉNÉRALES DE VENTE', LEFT, rowY, { align: 'center', width: WIDTH, characterSpacing: 1.5 });
+      rowY += 20;
+      renderClauses(doc, cgvText, { F, LEFT, WIDTH, BOTTOM, TOP, INK, SOFT, get: () => rowY, set: (v) => { rowY = v; } });
+      rowY += 6;
     }
 
-    // ── Signatures ──
-    // If near page bottom, add a new page
-    if (rowY > 720) { doc.addPage(); rowY = 50; }
-    else rowY += 16;
-
-    doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-    rowY += 14;
-
+    // ── Signatures (bloc insécable : ~140 pt) ──
+    ensure(150);
+    hr(rowY); rowY += 14;
     const sigY = rowY;
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text("L'ACHETEUR", 50, sigY);
-    doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(order.client_name || '', 50, sigY + 13);
-    if (order.client_company) doc.fontSize(8).fillColor('#555').font('Helvetica').text(order.client_company, 50, sigY + 25);
-    doc.fontSize(7.5).fillColor('#999').font('Helvetica')
-      .text('Lu et approuvé — ' + new Date(order.created_at).toLocaleDateString('fr-FR'), 50, sigY + 35);
-
+    label("L'ACHETEUR", LEFT, sigY);
+    doc.font(F.bold).fontSize(9).fillColor(INK).text(order.client_name || '', LEFT, sigY + 13);
+    if (order.client_company) doc.font(F.reg).fontSize(8).fillColor(SOFT).text(order.client_company, LEFT, sigY + 25);
+    doc.font(F.reg).fontSize(7.5).fillColor(MUTE)
+      .text('Lu et approuvé — ' + new Date(order.created_at).toLocaleDateString('fr-FR'), LEFT, sigY + 37);
     if (order.buyer_signature && order.buyer_signature.startsWith('data:image')) {
       try {
         const sigData = order.buyer_signature.replace(/^data:image\/\w+;base64,/, '');
-        doc.image(Buffer.from(sigData, 'base64'), 50, sigY + 48, { width: 160, height: 55 });
+        doc.image(Buffer.from(sigData, 'base64'), LEFT, sigY + 48, { width: 160, height: 55 });
       } catch(e) {}
     }
-    doc.moveTo(50, sigY + 110).lineTo(220, sigY + 110).strokeColor('#ccc').lineWidth(0.5).stroke();
-    doc.fontSize(7).fillColor('#bbb').font('Helvetica').text('Signature', 50, sigY + 113);
+    doc.moveTo(LEFT, sigY + 110).lineTo(220, sigY + 110).strokeColor('#cccccc').lineWidth(0.5).stroke();
+    doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text('SIGNATURE', LEFT, sigY + 114, { characterSpacing: 1 });
 
-    doc.fontSize(7.5).fillColor('#aaa').font('Helvetica').text("L'AGENT / SHOWROOM", 310, sigY);
-    doc.fontSize(9).fillColor('#0a0a0a').font('Helvetica-Bold').text(agentName || showroomName, 310, sigY + 13);
-    if (agentTitle) doc.fontSize(8).fillColor('#555').font('Helvetica').text(agentTitle, 310, sigY + 25);
-    doc.fontSize(7.5).fillColor('#999').font('Helvetica').text('Date : ____________________', 310, sigY + 37);
-    doc.moveTo(310, sigY + 110).lineTo(490, sigY + 110).strokeColor('#ccc').lineWidth(0.5).stroke();
-    doc.fontSize(7).fillColor('#bbb').font('Helvetica').text('Signature', 310, sigY + 113);
+    label("L'AGENT / SHOWROOM", 310, sigY);
+    doc.font(F.bold).fontSize(9).fillColor(INK).text(agentName || showroomName || '', 310, sigY + 13);
+    if (agentTitle) doc.font(F.reg).fontSize(8).fillColor(SOFT).text(agentTitle, 310, sigY + 25);
+    doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text('Date : ____________________', 310, sigY + 39);
+    doc.moveTo(310, sigY + 110).lineTo(490, sigY + 110).strokeColor('#cccccc').lineWidth(0.5).stroke();
+    doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text('SIGNATURE', 310, sigY + 114, { characterSpacing: 1 });
 
-    doc.fontSize(7.5).fillColor('#ccc').font('Helvetica')
-      .text(`Document généré automatiquement — ${showroomName}`, 50, sigY + 130, { align: 'center', width: 495 });
+    rowY = sigY + 130;
+    doc.font(F.reg).fontSize(7).fillColor('#bbbbbb')
+      .text(`Document généré automatiquement — ${showroomName}`, LEFT, rowY, { align: 'center', width: WIDTH });
 
     // ── Récapitulatif visuel (photos des articles commandés) ──
     const visualLines = lines.filter(l => lineImages[l.product_id]);
     if (visualLines.length) {
       doc.addPage();
-      doc.fontSize(14).fillColor('#0a0a0a').font('Helvetica-Bold').text('Récapitulatif visuel', 50, 50);
-      doc.fontSize(8.5).fillColor('#888').font('Helvetica')
-        .text(`${order.brand_name} — Commande N° ${order.order_number || orderId.slice(0,8).toUpperCase()}`, 50, 70);
-      doc.moveTo(50, 86).lineTo(545, 86).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-
-      const cardW = 156, gap = 11, imgH = 150;
-      const startX = 50;
+      doc.font(F.bold).fontSize(14).fillColor(INK).text('Récapitulatif visuel', LEFT, 50);
+      doc.font(F.reg).fontSize(8.5).fillColor(MUTE)
+        .text(`${order.brand_name} — Commande N° ${orderNo}`, LEFT, 70);
+      hr(86);
+      const cardW = 156, gap = 11, imgH = 150, startX = LEFT;
       let cx = startX, cy = 100, colIdx = 0;
       visualLines.forEach(line => {
         if (cy + imgH + 46 > 800) { doc.addPage(); cy = 50; cx = startX; colIdx = 0; }
         doc.rect(cx, cy, cardW, imgH).fillColor('#f2f2f2').fill();
         try { doc.image(lineImages[line.product_id], cx, cy, { fit: [cardW, imgH], align: 'center', valign: 'center' }); } catch(e) { /* format non supporté → fond gris */ }
         let ty = cy + imgH + 5;
-        doc.fontSize(8.5).fillColor('#0a0a0a').font('Helvetica-Bold').text(line.reference || '', cx, ty, { width: cardW });
+        doc.font(F.bold).fontSize(8.5).fillColor(INK).text(line.reference || '', cx, ty, { width: cardW });
         ty += 12;
         const meta = [line.color, line.size].filter(Boolean).join(' · ');
-        if (meta) { doc.fontSize(7.5).fillColor('#888').font('Helvetica').text(meta, cx, ty, { width: cardW }); ty += 10; }
-        doc.fontSize(8).fillColor('#0a0a0a').font('Helvetica-Bold').text('Qté : ' + line.quantity, cx, ty, { width: cardW });
+        if (meta) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(meta, cx, ty, { width: cardW }); ty += 10; }
+        doc.font(F.bold).fontSize(8).fillColor(INK).text('Qté : ' + line.quantity, cx, ty, { width: cardW });
         colIdx++;
         if (colIdx >= 3) { colIdx = 0; cx = startX; cy += imgH + 46; }
         else { cx += cardW + gap; }
