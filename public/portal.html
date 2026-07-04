@@ -1421,6 +1421,8 @@ let ordersData = []; // cached for re-sort
 let globalSearchResults = []; // cached cross-brand results
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// Échappe pour une chaîne JS entre apostrophes dans un attribut (onclick="fn('…')").
+function escJs(s) { return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // Image qui échoue (URL morte / asset Cloudinary introuvable) → placeholder propre
 // au lieu de l'icône d'image cassée du navigateur. On garde aussi trace des URLs
 // fautives dans window.__brokenImgs pour diagnostic (console).
@@ -2386,7 +2388,7 @@ let moqBlocked = false;
   initSwipeToDelete();
 
   const cgvHtml = Object.entries(byBrand).map(([brandId, lines]) => {
-    return `<div class="cgv-box" onclick="openCgvModal('${brandId}','${esc(lines[0].brand_name)}')">
+    return `<div class="cgv-box" onclick="openCgvModal('${escJs(brandId)}','${escJs(lines[0].brand_name)}')">
       <h4>${t('cgv_btn_label', esc(lines[0].brand_name))}</h4>
       <span class="cgv-box-icon">↗</span>
     </div>`;
