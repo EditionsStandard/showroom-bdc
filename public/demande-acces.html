@@ -131,19 +131,19 @@
         <label id="t-label-country">Pays</label>
         <select id="f-country">
           <option value="" id="t-country-choose">— Choisir —</option>
-          <option>France</option>
-          <option>Belgique</option>
-          <option>Suisse</option>
-          <option>Luxembourg</option>
-          <option>Allemagne</option>
-          <option>Italie</option>
-          <option>Espagne</option>
-          <option>Royaume-Uni</option>
-          <option>États-Unis</option>
-          <option>Canada</option>
-          <option>Japon</option>
-          <option>Corée du Sud</option>
-          <option id="t-country-other">Autre</option>
+          <option value="France" data-c="France">France</option>
+          <option value="Belgique" data-c="Belgium">Belgique</option>
+          <option value="Suisse" data-c="Switzerland">Suisse</option>
+          <option value="Luxembourg" data-c="Luxembourg">Luxembourg</option>
+          <option value="Allemagne" data-c="Germany">Allemagne</option>
+          <option value="Italie" data-c="Italy">Italie</option>
+          <option value="Espagne" data-c="Spain">Espagne</option>
+          <option value="Royaume-Uni" data-c="UnitedKingdom">Royaume-Uni</option>
+          <option value="États-Unis" data-c="UnitedStates">États-Unis</option>
+          <option value="Canada" data-c="Canada">Canada</option>
+          <option value="Japon" data-c="Japan">Japon</option>
+          <option value="Corée du Sud" data-c="SouthKorea">Corée du Sud</option>
+          <option value="Autre" data-c="Other" id="t-country-other">Autre</option>
         </select>
       </div>
     </div>
@@ -274,6 +274,12 @@ let lang = localStorage.getItem('portal_lang') || 'fr';
 
 function t(k) { return (TR[lang] || TR.fr)[k] || k; }
 
+// Noms de pays traduits (clé stable = data-c ; la valeur soumise reste en français)
+const COUNTRIES = {
+  fr: { France:'France', Belgium:'Belgique', Switzerland:'Suisse', Luxembourg:'Luxembourg', Germany:'Allemagne', Italy:'Italie', Spain:'Espagne', UnitedKingdom:'Royaume-Uni', UnitedStates:'États-Unis', Canada:'Canada', Japan:'Japon', SouthKorea:'Corée du Sud', Other:'Autre' },
+  en: { France:'France', Belgium:'Belgium', Switzerland:'Switzerland', Luxembourg:'Luxembourg', Germany:'Germany', Italy:'Italy', Spain:'Spain', UnitedKingdom:'United Kingdom', UnitedStates:'United States', Canada:'Canada', Japan:'Japan', SouthKorea:'South Korea', Other:'Other' }
+};
+
 function applyLang() {
   document.documentElement.lang = lang;
   document.getElementById('lang-toggle').textContent = lang === 'fr' ? 'EN' : 'FR';
@@ -295,6 +301,9 @@ function applyLang() {
 
   document.getElementById('t-country-choose').textContent = t('country_choose');
   document.getElementById('t-country-other').textContent = t('country_other');
+  // Traduit les noms de pays du menu déroulant selon la langue (la valeur soumise reste stable)
+  const CC = COUNTRIES[lang] || COUNTRIES.fr;
+  document.querySelectorAll('#f-country option[data-c]').forEach(o => { const k = o.dataset.c; if (CC[k]) o.textContent = CC[k]; });
 
   // Nom / Prénom / Société : pas d'exemple (le label suffit). On garde les
   // placeholders uniquement sur les champs sensibles au format.
