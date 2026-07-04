@@ -33,9 +33,10 @@
     .logo-wrap h1 { font-size: 12px; color: var(--ink); font-weight: 400; margin-top: 14px; letter-spacing: .3em; text-transform: uppercase; }
     .logo-wrap .sub { color: var(--muted); font-size: 8.5px; margin-top: 6px; text-transform: uppercase; letter-spacing: .22em; }
     #lang-toggle { position: absolute; top: -6px; right: 0; background: none; border: none;
-      border-radius: 0; padding: 5px 10px; font-size: 10px; color: var(--muted); cursor: pointer;
-      font-family: inherit; letter-spacing: .08em; transition: border-color .2s, color .2s; }
-    #lang-toggle:hover { border-color: var(--line); color: var(--ink); }
+      border-radius: 0; padding: 5px 8px; font-size: 10px; color: var(--muted); cursor: pointer;
+      font-family: inherit; letter-spacing: .08em; appearance: none; -webkit-appearance: none; transition: color .2s; }
+    #lang-toggle:hover { color: var(--ink); }
+    #lang-toggle option { background: #111; color: #fff; }
     .intro { font-size: 9px; color: var(--muted); line-height: 1.9; margin-bottom: 38px; text-align: center;
       text-transform: uppercase; letter-spacing: .14em; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
@@ -89,7 +90,11 @@
 <div class="card">
   <div id="form-section">
     <div class="logo-wrap">
-      <button id="lang-toggle" onclick="toggleLang()">EN</button>
+      <select id="lang-toggle" onchange="setLang(this.value)" aria-label="Langue / Language">
+        <option value="fr">🌐 FR</option><option value="en">🌐 EN</option><option value="it">🌐 IT</option>
+        <option value="es">🌐 ES</option><option value="de">🌐 DE</option><option value="zh">🌐 中文</option>
+        <option value="ja">🌐 日本語</option><option value="ko">🌐 한국어</option><option value="th">🌐 ไทย</option>
+      </select>
       <img src="/logo.svg" alt="Editions Standard">
       <h1 id="t-title">Demande d'accès</h1>
       <p class="sub">Editions Standard — Showroom</p>
@@ -244,6 +249,97 @@ const TR = {
     err_server: 'Server error. Please try again.',
     err_network: 'Network error. Please try again.',
     err_duplicate: 'A request is already pending for this email.',
+  },
+  it: {
+    title: 'Richiesta di accesso',
+    intro: 'Compila questo modulo per richiedere l\'accesso allo showroom. La tua richiesta sarà esaminata e riceverai le credenziali via email dopo l\'approvazione.',
+    label_name: 'Cognome', label_firstname: 'Nome', label_company: 'Negozio / Azienda', label_email: 'Email professionale',
+    label_phone: 'Telefono', label_country: 'Paese', label_instagram: 'Instagram', placeholder_instagram: '@ilmionegozio',
+    label_website: 'Sito web', placeholder_website: 'https://ilmionegozio.com', label_message: 'Messaggio (facoltativo)',
+    country_choose: '— Seleziona —', country_other: 'Altro', placeholder_email: 'nome@negozio.com', placeholder_phone: '+39 000 000 0000',
+    placeholder_message: 'Raccontaci del tuo negozio e dei tuoi criteri di selezione…',
+    submit: 'INVIA LA RICHIESTA', submitting: 'Invio in corso…', login_link: 'Hai già un account?', login_link_cta: 'Accedi',
+    success_title: 'Richiesta inviata!', success_msg: 'La tua richiesta è stata ricevuta. Riceverai le credenziali via email dopo la verifica del nostro team.',
+    back_link: '← Torna al login', err_required: 'Compila tutti i campi obbligatori.', err_email: 'Indirizzo email non valido.',
+    err_server: 'Errore del server. Riprova.', err_network: 'Errore di rete. Riprova.', err_duplicate: 'È già in corso una richiesta per questa email.',
+  },
+  es: {
+    title: 'Solicitar acceso',
+    intro: 'Rellena este formulario para solicitar acceso al showroom. Tu solicitud será revisada y recibirás tus credenciales por email tras la aprobación.',
+    label_name: 'Apellido', label_firstname: 'Nombre', label_company: 'Tienda / Empresa', label_email: 'Correo profesional',
+    label_phone: 'Teléfono', label_country: 'País', label_instagram: 'Instagram', placeholder_instagram: '@mitienda',
+    label_website: 'Sitio web', placeholder_website: 'https://mitienda.com', label_message: 'Mensaje (opcional)',
+    country_choose: '— Seleccionar —', country_other: 'Otro', placeholder_email: 'nombre@tienda.com', placeholder_phone: '+34 000 000 000',
+    placeholder_message: 'Cuéntanos sobre tu tienda y tus criterios de selección…',
+    submit: 'ENVIAR MI SOLICITUD', submitting: 'Enviando…', login_link: '¿Ya tienes una cuenta?', login_link_cta: 'Iniciar sesión',
+    success_title: '¡Solicitud enviada!', success_msg: 'Hemos recibido tu solicitud. Recibirás tus credenciales por email tras la revisión de nuestro equipo.',
+    back_link: '← Volver al inicio de sesión', err_required: 'Rellena todos los campos obligatorios.', err_email: 'Correo electrónico no válido.',
+    err_server: 'Error del servidor. Inténtalo de nuevo.', err_network: 'Error de red. Inténtalo de nuevo.', err_duplicate: 'Ya hay una solicitud pendiente para este correo.',
+  },
+  de: {
+    title: 'Zugang anfragen',
+    intro: 'Füllen Sie dieses Formular aus, um Zugang zum Showroom anzufragen. Ihre Anfrage wird geprüft und Sie erhalten Ihre Zugangsdaten nach Freigabe per E-Mail.',
+    label_name: 'Nachname', label_firstname: 'Vorname', label_company: 'Geschäft / Firma', label_email: 'Geschäftliche E-Mail',
+    label_phone: 'Telefon', label_country: 'Land', label_instagram: 'Instagram', placeholder_instagram: '@meinladen',
+    label_website: 'Website', placeholder_website: 'https://meinladen.com', label_message: 'Nachricht (optional)',
+    country_choose: '— Auswählen —', country_other: 'Andere', placeholder_email: 'name@laden.com', placeholder_phone: '+49 000 0000000',
+    placeholder_message: 'Erzählen Sie uns von Ihrem Geschäft und Ihren Auswahlkriterien…',
+    submit: 'ANFRAGE SENDEN', submitting: 'Wird gesendet…', login_link: 'Bereits ein Konto?', login_link_cta: 'Anmelden',
+    success_title: 'Anfrage gesendet!', success_msg: 'Ihre Anfrage ist eingegangen. Sie erhalten Ihre Zugangsdaten per E-Mail, sobald unser Team sie geprüft hat.',
+    back_link: '← Zurück zur Anmeldung', err_required: 'Bitte füllen Sie alle Pflichtfelder aus.', err_email: 'Ungültige E-Mail-Adresse.',
+    err_server: 'Serverfehler. Bitte erneut versuchen.', err_network: 'Netzwerkfehler. Bitte erneut versuchen.', err_duplicate: 'Für diese E-Mail liegt bereits eine Anfrage vor.',
+  },
+  zh: {
+    title: '申请访问',
+    intro: '填写此表单以申请进入 showroom。我们将审核您的申请，通过后您将收到登录凭据邮件。',
+    label_name: '姓', label_firstname: '名', label_company: '店铺 / 公司', label_email: '企业邮箱',
+    label_phone: '电话', label_country: '国家', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
+    label_website: '网站', placeholder_website: 'https://mystore.com', label_message: '留言（可选）',
+    country_choose: '— 请选择 —', country_other: '其他', placeholder_email: 'name@store.com', placeholder_phone: '+86 000 0000 0000',
+    placeholder_message: '介绍一下您的店铺和选品方向…',
+    submit: '提交申请', submitting: '提交中…', login_link: '已有账户？', login_link_cta: '登录',
+    success_title: '申请已提交！', success_msg: '我们已收到您的申请。经我们团队审核后，您将收到登录凭据邮件。',
+    back_link: '← 返回登录', err_required: '请填写所有必填项。', err_email: '邮箱地址无效。',
+    err_server: '服务器错误，请重试。', err_network: '网络错误，请重试。', err_duplicate: '该邮箱已有待处理的申请。',
+  },
+  ja: {
+    title: 'アクセス申請',
+    intro: 'このフォームに記入してショールームへのアクセスを申請してください。申請内容を確認後、承認されるとログイン情報がメールで届きます。',
+    label_name: '姓', label_firstname: '名', label_company: '店舗 / 会社', label_email: '仕事用メール',
+    label_phone: '電話番号', label_country: '国', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
+    label_website: 'ウェブサイト', placeholder_website: 'https://mystore.com', label_message: 'メッセージ（任意）',
+    country_choose: '— 選択 —', country_other: 'その他', placeholder_email: 'name@store.com', placeholder_phone: '+81 00 0000 0000',
+    placeholder_message: 'あなたの店舗やセレクトの方針を教えてください…',
+    submit: '申請を送信', submitting: '送信中…', login_link: 'すでにアカウントをお持ちですか？', login_link_cta: 'ログイン',
+    success_title: '申請を送信しました！', success_msg: '申請を受け付けました。担当チームの確認後、ログイン情報をメールでお送りします。',
+    back_link: '← ログインに戻る', err_required: '必須項目をすべて入力してください。', err_email: 'メールアドレスが無効です。',
+    err_server: 'サーバーエラー。もう一度お試しください。', err_network: 'ネットワークエラー。もう一度お試しください。', err_duplicate: 'このメールアドレスの申請はすでに処理中です。',
+  },
+  ko: {
+    title: '액세스 요청',
+    intro: '이 양식을 작성하여 쇼룸 액세스를 요청하세요. 요청이 검토되며 승인 후 로그인 정보를 이메일로 받게 됩니다.',
+    label_name: '성', label_firstname: '이름', label_company: '매장 / 회사', label_email: '업무용 이메일',
+    label_phone: '전화번호', label_country: '국가', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
+    label_website: '웹사이트', placeholder_website: 'https://mystore.com', label_message: '메시지 (선택)',
+    country_choose: '— 선택 —', country_other: '기타', placeholder_email: 'name@store.com', placeholder_phone: '+82 00 0000 0000',
+    placeholder_message: '매장과 셀렉션 방향을 알려주세요…',
+    submit: '요청 보내기', submitting: '전송 중…', login_link: '이미 계정이 있으신가요?', login_link_cta: '로그인',
+    success_title: '요청이 전송되었습니다!', success_msg: '요청이 접수되었습니다. 팀 검토 후 로그인 정보를 이메일로 보내드립니다.',
+    back_link: '← 로그인으로 돌아가기', err_required: '모든 필수 항목을 입력해 주세요.', err_email: '유효하지 않은 이메일 주소입니다.',
+    err_server: '서버 오류. 다시 시도해 주세요.', err_network: '네트워크 오류. 다시 시도해 주세요.', err_duplicate: '이 이메일로 이미 요청이 접수되어 있습니다.',
+  },
+  th: {
+    title: 'ขอสิทธิ์เข้าถึง',
+    intro: 'กรอกแบบฟอร์มนี้เพื่อขอสิทธิ์เข้าถึงโชว์รูม คำขอของคุณจะได้รับการตรวจสอบ และคุณจะได้รับข้อมูลเข้าสู่ระบบทางอีเมลหลังได้รับการอนุมัติ',
+    label_name: 'นามสกุล', label_firstname: 'ชื่อ', label_company: 'ร้านค้า / บริษัท', label_email: 'อีเมลธุรกิจ',
+    label_phone: 'โทรศัพท์', label_country: 'ประเทศ', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
+    label_website: 'เว็บไซต์', placeholder_website: 'https://mystore.com', label_message: 'ข้อความ (ไม่บังคับ)',
+    country_choose: '— เลือก —', country_other: 'อื่น ๆ', placeholder_email: 'name@store.com', placeholder_phone: '+66 00 000 0000',
+    placeholder_message: 'บอกเราเกี่ยวกับร้านของคุณและแนวทางการคัดเลือก…',
+    submit: 'ส่งคำขอ', submitting: 'กำลังส่ง…', login_link: 'มีบัญชีอยู่แล้ว?', login_link_cta: 'เข้าสู่ระบบ',
+    success_title: 'ส่งคำขอแล้ว!', success_msg: 'เราได้รับคำขอของคุณแล้ว คุณจะได้รับข้อมูลเข้าสู่ระบบทางอีเมลหลังทีมงานตรวจสอบ',
+    back_link: '← กลับไปเข้าสู่ระบบ', err_required: 'กรุณากรอกข้อมูลที่จำเป็นทั้งหมด', err_email: 'ที่อยู่อีเมลไม่ถูกต้อง',
+    err_server: 'เกิดข้อผิดพลาดของเซิร์ฟเวอร์ โปรดลองอีกครั้ง', err_network: 'เกิดข้อผิดพลาดเครือข่าย โปรดลองอีกครั้ง', err_duplicate: 'มีคำขอสำหรับอีเมลนี้อยู่แล้ว',
   }
 };
 
@@ -277,12 +373,19 @@ function t(k) { return (TR[lang] || TR.fr)[k] || k; }
 // Noms de pays traduits (clé stable = data-c ; la valeur soumise reste en français)
 const COUNTRIES = {
   fr: { France:'France', Belgium:'Belgique', Switzerland:'Suisse', Luxembourg:'Luxembourg', Germany:'Allemagne', Italy:'Italie', Spain:'Espagne', UnitedKingdom:'Royaume-Uni', UnitedStates:'États-Unis', Canada:'Canada', Japan:'Japon', SouthKorea:'Corée du Sud', Other:'Autre' },
-  en: { France:'France', Belgium:'Belgium', Switzerland:'Switzerland', Luxembourg:'Luxembourg', Germany:'Germany', Italy:'Italy', Spain:'Spain', UnitedKingdom:'United Kingdom', UnitedStates:'United States', Canada:'Canada', Japan:'Japan', SouthKorea:'South Korea', Other:'Other' }
+  en: { France:'France', Belgium:'Belgium', Switzerland:'Switzerland', Luxembourg:'Luxembourg', Germany:'Germany', Italy:'Italy', Spain:'Spain', UnitedKingdom:'United Kingdom', UnitedStates:'United States', Canada:'Canada', Japan:'Japan', SouthKorea:'South Korea', Other:'Other' },
+  it: { France:'Francia', Belgium:'Belgio', Switzerland:'Svizzera', Luxembourg:'Lussemburgo', Germany:'Germania', Italy:'Italia', Spain:'Spagna', UnitedKingdom:'Regno Unito', UnitedStates:'Stati Uniti', Canada:'Canada', Japan:'Giappone', SouthKorea:'Corea del Sud', Other:'Altro' },
+  es: { France:'Francia', Belgium:'Bélgica', Switzerland:'Suiza', Luxembourg:'Luxemburgo', Germany:'Alemania', Italy:'Italia', Spain:'España', UnitedKingdom:'Reino Unido', UnitedStates:'Estados Unidos', Canada:'Canadá', Japan:'Japón', SouthKorea:'Corea del Sur', Other:'Otro' },
+  de: { France:'Frankreich', Belgium:'Belgien', Switzerland:'Schweiz', Luxembourg:'Luxemburg', Germany:'Deutschland', Italy:'Italien', Spain:'Spanien', UnitedKingdom:'Vereinigtes Königreich', UnitedStates:'Vereinigte Staaten', Canada:'Kanada', Japan:'Japan', SouthKorea:'Südkorea', Other:'Andere' },
+  zh: { France:'法国', Belgium:'比利时', Switzerland:'瑞士', Luxembourg:'卢森堡', Germany:'德国', Italy:'意大利', Spain:'西班牙', UnitedKingdom:'英国', UnitedStates:'美国', Canada:'加拿大', Japan:'日本', SouthKorea:'韩国', Other:'其他' },
+  ja: { France:'フランス', Belgium:'ベルギー', Switzerland:'スイス', Luxembourg:'ルクセンブルク', Germany:'ドイツ', Italy:'イタリア', Spain:'スペイン', UnitedKingdom:'イギリス', UnitedStates:'アメリカ合衆国', Canada:'カナダ', Japan:'日本', SouthKorea:'韓国', Other:'その他' },
+  ko: { France:'프랑스', Belgium:'벨기에', Switzerland:'스위스', Luxembourg:'룩셈부르크', Germany:'독일', Italy:'이탈리아', Spain:'스페인', UnitedKingdom:'영국', UnitedStates:'미국', Canada:'캐나다', Japan:'일본', SouthKorea:'대한민국', Other:'기타' },
+  th: { France:'ฝรั่งเศส', Belgium:'เบลเยียม', Switzerland:'สวิตเซอร์แลนด์', Luxembourg:'ลักเซมเบิร์ก', Germany:'เยอรมนี', Italy:'อิตาลี', Spain:'สเปน', UnitedKingdom:'สหราชอาณาจักร', UnitedStates:'สหรัฐอเมริกา', Canada:'แคนาดา', Japan:'ญี่ปุ่น', SouthKorea:'เกาหลีใต้', Other:'อื่น ๆ' }
 };
 
 function applyLang() {
   document.documentElement.lang = lang;
-  document.getElementById('lang-toggle').textContent = lang === 'fr' ? 'EN' : 'FR';
+  const sel = document.getElementById('lang-toggle'); if (sel && sel.value !== lang) sel.value = lang;
   document.getElementById('t-title').textContent = t('title');
   document.getElementById('t-intro').textContent = t('intro');
 
@@ -318,8 +421,8 @@ function applyLang() {
   document.getElementById('t-back-link').textContent = t('back_link');
 }
 
-function toggleLang() {
-  lang = lang === 'fr' ? 'en' : 'fr';
+function setLang(l) {
+  lang = l;
   localStorage.setItem('portal_lang', lang);
   applyLang();
 }
