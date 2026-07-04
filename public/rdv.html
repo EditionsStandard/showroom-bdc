@@ -32,8 +32,9 @@
   .msg.error { color: var(--accent); }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
   .success-check { width:56px; height:56px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px; color:var(--accent); }
-  #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:0; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+  #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:0; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
   #lang-btn:hover { border-color:var(--accent); color:var(--white); }
+  #lang-btn option { background:#111; color:#fff; }
   @media (max-width: 767px) {
     body { overflow-x: hidden; }
     .field input, .field textarea { font-size: 16px; }
@@ -55,7 +56,11 @@
 </script>
 </head>
 <body>
-<button id="lang-btn" onclick="toggleLang()">EN</button>
+<select id="lang-btn" onchange="setLang(this.value)" aria-label="Langue / Language">
+  <option value="fr">🌐 FR</option><option value="en">🌐 EN</option><option value="it">🌐 IT</option>
+  <option value="es">🌐 ES</option><option value="de">🌐 DE</option><option value="zh">🌐 中文</option>
+  <option value="ja">🌐 日本語</option><option value="ko">🌐 한국어</option><option value="th">🌐 ไทย</option>
+</select>
 <div class="wrap" id="app">
   <a href="/" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;text-decoration:none;color:var(--soft);font-size:11px;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">
     <img src="/logo.svg" style="width:24px;height:24px;border-radius:0"> ← Accueil
@@ -119,6 +124,76 @@ const TRANSLATIONS = {
     success_detail: (name, date, time) => `${name}, your appointment is confirmed on ${date} at ${time}.`,
     err_retry: 'Error, please try again.',
     back_home: '← Home',
+  },
+  it: {
+    page_title: 'Prenota un appuntamento', sub_label: 'Scegli uno slot disponibile',
+    loading_slots: 'Caricamento degli slot…', err_loading: 'Errore di caricamento. Ricarica la pagina.',
+    no_slots: 'Nessuno slot disponibile al momento.', day_names: ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'],
+    lbl_name: 'Nome completo', lbl_email: 'Email', lbl_phone: 'Telefono', lbl_notes: 'Nota (facoltativo)',
+    btn_confirm: 'Conferma l\'appuntamento', err_pick_slot: 'Scegli uno slot.', err_name_email: 'Nome ed email obbligatori.',
+    success_title: 'Appuntamento confermato',
+    success_detail: (name, date, time) => `${name}, il tuo appuntamento è confermato il ${date} alle ${time}.`,
+    err_retry: 'Errore, riprova.', back_home: '← Home',
+  },
+  es: {
+    page_title: 'Reservar una cita', sub_label: 'Elige un horario disponible',
+    loading_slots: 'Cargando horarios…', err_loading: 'Error de carga. Vuelve a cargar la página.',
+    no_slots: 'No hay horarios disponibles por ahora.', day_names: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],
+    lbl_name: 'Nombre completo', lbl_email: 'Correo electrónico', lbl_phone: 'Teléfono', lbl_notes: 'Nota (opcional)',
+    btn_confirm: 'Confirmar la cita', err_pick_slot: 'Elige un horario.', err_name_email: 'Nombre y correo obligatorios.',
+    success_title: 'Cita confirmada',
+    success_detail: (name, date, time) => `${name}, tu cita está confirmada el ${date} a las ${time}.`,
+    err_retry: 'Error, inténtalo de nuevo.', back_home: '← Inicio',
+  },
+  de: {
+    page_title: 'Termin buchen', sub_label: 'Wählen Sie einen freien Termin',
+    loading_slots: 'Termine werden geladen…', err_loading: 'Ladefehler. Bitte laden Sie die Seite neu.',
+    no_slots: 'Derzeit keine Termine verfügbar.', day_names: ['So','Mo','Di','Mi','Do','Fr','Sa'],
+    lbl_name: 'Vollständiger Name', lbl_email: 'E-Mail', lbl_phone: 'Telefon', lbl_notes: 'Notiz (optional)',
+    btn_confirm: 'Termin bestätigen', err_pick_slot: 'Bitte einen Termin wählen.', err_name_email: 'Name und E-Mail erforderlich.',
+    success_title: 'Termin bestätigt',
+    success_detail: (name, date, time) => `${name}, Ihr Termin ist am ${date} um ${time} bestätigt.`,
+    err_retry: 'Fehler, bitte erneut versuchen.', back_home: '← Startseite',
+  },
+  zh: {
+    page_title: '预约', sub_label: '选择一个可用时段',
+    loading_slots: '正在加载时段…', err_loading: '加载错误，请刷新页面。',
+    no_slots: '目前没有可用时段。', day_names: ['日','一','二','三','四','五','六'],
+    lbl_name: '全名', lbl_email: '邮箱', lbl_phone: '电话', lbl_notes: '备注（可选）',
+    btn_confirm: '确认预约', err_pick_slot: '请选择时段。', err_name_email: '姓名和邮箱为必填项。',
+    success_title: '预约已确认',
+    success_detail: (name, date, time) => `${name}，您的预约已确认：${date} ${time}。`,
+    err_retry: '出错了，请重试。', back_home: '← 首页',
+  },
+  ja: {
+    page_title: '予約する', sub_label: '空き枠を選択してください',
+    loading_slots: '空き枠を読み込み中…', err_loading: '読み込みエラー。ページを再読み込みしてください。',
+    no_slots: '現在、空き枠はありません。', day_names: ['日','月','火','水','木','金','土'],
+    lbl_name: '氏名', lbl_email: 'メールアドレス', lbl_phone: '電話番号', lbl_notes: 'メモ（任意）',
+    btn_confirm: '予約を確定する', err_pick_slot: '枠を選択してください。', err_name_email: '氏名とメールアドレスが必要です。',
+    success_title: '予約が確定しました',
+    success_detail: (name, date, time) => `${name} 様、ご予約は ${date} ${time} に確定しました。`,
+    err_retry: 'エラーです。もう一度お試しください。', back_home: '← ホーム',
+  },
+  ko: {
+    page_title: '예약하기', sub_label: '가능한 시간대를 선택하세요',
+    loading_slots: '시간대를 불러오는 중…', err_loading: '로딩 오류. 페이지를 새로고침해 주세요.',
+    no_slots: '현재 이용 가능한 시간대가 없습니다.', day_names: ['일','월','화','수','목','금','토'],
+    lbl_name: '이름', lbl_email: '이메일', lbl_phone: '전화번호', lbl_notes: '메모 (선택)',
+    btn_confirm: '예약 확정', err_pick_slot: '시간대를 선택하세요.', err_name_email: '이름과 이메일이 필요합니다.',
+    success_title: '예약이 확정되었습니다',
+    success_detail: (name, date, time) => `${name}님, 예약이 ${date} ${time}에 확정되었습니다.`,
+    err_retry: '오류가 발생했습니다. 다시 시도해 주세요.', back_home: '← 홈',
+  },
+  th: {
+    page_title: 'จองนัดหมาย', sub_label: 'เลือกช่วงเวลาที่ว่าง',
+    loading_slots: 'กำลังโหลดช่วงเวลา…', err_loading: 'เกิดข้อผิดพลาดในการโหลด โปรดโหลดหน้าใหม่',
+    no_slots: 'ขณะนี้ไม่มีช่วงเวลาที่ว่าง', day_names: ['อา','จ','อ','พ','พฤ','ศ','ส'],
+    lbl_name: 'ชื่อ-นามสกุล', lbl_email: 'อีเมล', lbl_phone: 'โทรศัพท์', lbl_notes: 'หมายเหตุ (ไม่บังคับ)',
+    btn_confirm: 'ยืนยันการนัดหมาย', err_pick_slot: 'โปรดเลือกช่วงเวลา', err_name_email: 'ต้องระบุชื่อและอีเมล',
+    success_title: 'ยืนยันการนัดหมายแล้ว',
+    success_detail: (name, date, time) => `${name} การนัดหมายของคุณได้รับการยืนยันในวันที่ ${date} เวลา ${time}`,
+    err_retry: 'เกิดข้อผิดพลาด โปรดลองอีกครั้ง', back_home: '← หน้าแรก',
   }
 };
 
@@ -129,7 +204,7 @@ function t(key, ...args) {
 }
 function applyLang() {
   document.documentElement.lang = currentLang;
-  document.getElementById('lang-btn').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+  const sel = document.getElementById('lang-btn'); if (sel && sel.value !== currentLang) sel.value = currentLang;
   document.getElementById('page-title').textContent = t('page_title');
   document.getElementById('sub-label').textContent = t('sub_label');
   document.getElementById('lbl-name').textContent = t('lbl_name');
@@ -141,10 +216,11 @@ function applyLang() {
   const successTitle = document.getElementById('success-title');
   if (successTitle) successTitle.textContent = t('success_title');
 }
-function toggleLang() {
-  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+function setLang(l) {
+  currentLang = l;
   localStorage.setItem('portal_lang', currentLang);
   applyLang();
+  if (typeof loadSlots === 'function' && document.getElementById('slots-container')) loadSlots();
 }
 applyLang();
 

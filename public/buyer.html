@@ -35,8 +35,9 @@
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
   .order-pdf { display: inline-block; margin-top: 10px; font-size: 11px; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .02em; }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
-  #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:0; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+  #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:0; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
   #lang-btn:hover { border-color:var(--accent); color:var(--white); }
+  #lang-btn option { background:#111; color:#fff; }
   @media (max-width: 767px) {
     body { overflow-x: hidden; padding-bottom: env(safe-area-inset-bottom); }
     .field input { font-size: 16px; }
@@ -57,7 +58,11 @@
 </script>
 </head>
 <body>
-<button id="lang-btn" onclick="toggleLang()">EN</button>
+<select id="lang-btn" onchange="setLang(this.value)" aria-label="Langue / Language">
+  <option value="fr">🌐 FR</option><option value="en">🌐 EN</option><option value="it">🌐 IT</option>
+  <option value="es">🌐 ES</option><option value="de">🌐 DE</option><option value="zh">🌐 中文</option>
+  <option value="ja">🌐 日本語</option><option value="ko">🌐 한국어</option><option value="th">🌐 ไทย</option>
+</select>
 <div class="wrap" id="app">
   <a href="/" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;text-decoration:none;color:var(--soft);font-size:11px;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">
     <img src="/logo.svg" style="width:24px;height:24px;border-radius:0"> ← <span id="back-home">Accueil</span>
@@ -115,6 +120,62 @@ const TRANSLATIONS = {
     date_locale: 'en-GB',
     pdf_download: '📄 Download PDF',
     order_ref: (id) => `Order #${id}`,
+  },
+  it: {
+    back_home: 'Home', page_title: 'I miei ordini', page_sub: 'Consulta lo storico dei tuoi ordini.',
+    lbl_email: 'La tua email', email_ph: 'tu@esempio.com', btn_request: 'Ricevi il mio link di accesso',
+    loading: 'Caricamento…', msg_link_sent: 'Se esiste un account per questa email, ti è stato inviato un link.',
+    err_retry: 'Errore, riprova.', no_orders: 'Nessun ordine trovato.',
+    status_confirmed: 'Ricevuto', status_validated: 'Validato', status_cancelled: 'Annullato',
+    date_locale: 'it-IT', pdf_download: '📄 Scarica il PDF', order_ref: (id) => `Ordine #${id}`,
+  },
+  es: {
+    back_home: 'Inicio', page_title: 'Mis pedidos', page_sub: 'Consulta el historial de tus pedidos.',
+    lbl_email: 'Tu correo', email_ph: 'tu@ejemplo.com', btn_request: 'Recibir mi enlace de acceso',
+    loading: 'Cargando…', msg_link_sent: 'Si existe una cuenta para este correo, se te ha enviado un enlace.',
+    err_retry: 'Error, inténtalo de nuevo.', no_orders: 'No se encontraron pedidos.',
+    status_confirmed: 'Recibido', status_validated: 'Validado', status_cancelled: 'Cancelado',
+    date_locale: 'es-ES', pdf_download: '📄 Descargar PDF', order_ref: (id) => `Pedido #${id}`,
+  },
+  de: {
+    back_home: 'Startseite', page_title: 'Meine Bestellungen', page_sub: 'Sehen Sie Ihren Bestellverlauf.',
+    lbl_email: 'Ihre E-Mail', email_ph: 'sie@beispiel.com', btn_request: 'Meinen Zugangslink erhalten',
+    loading: 'Wird geladen…', msg_link_sent: 'Falls ein Konto für diese E-Mail existiert, wurde Ihnen ein Link gesendet.',
+    err_retry: 'Fehler, bitte erneut versuchen.', no_orders: 'Keine Bestellungen gefunden.',
+    status_confirmed: 'Erhalten', status_validated: 'Bestätigt', status_cancelled: 'Storniert',
+    date_locale: 'de-DE', pdf_download: '📄 PDF herunterladen', order_ref: (id) => `Bestellung #${id}`,
+  },
+  zh: {
+    back_home: '首页', page_title: '我的订单', page_sub: '查看您的订单历史。',
+    lbl_email: '您的邮箱', email_ph: 'you@example.com', btn_request: '获取我的访问链接',
+    loading: '加载中…', msg_link_sent: '如果该邮箱已注册账户，我们已向您发送链接。',
+    err_retry: '出错了，请重试。', no_orders: '未找到订单。',
+    status_confirmed: '已收到', status_validated: '已确认', status_cancelled: '已取消',
+    date_locale: 'zh-CN', pdf_download: '📄 下载 PDF', order_ref: (id) => `订单 #${id}`,
+  },
+  ja: {
+    back_home: 'ホーム', page_title: '注文履歴', page_sub: 'ご注文の履歴を確認できます。',
+    lbl_email: 'メールアドレス', email_ph: 'you@example.com', btn_request: 'アクセスリンクを受け取る',
+    loading: '読み込み中…', msg_link_sent: 'このメールアドレスのアカウントが存在する場合、リンクをお送りしました。',
+    err_retry: 'エラーです。もう一度お試しください。', no_orders: '注文が見つかりません。',
+    status_confirmed: '受付済み', status_validated: '確定', status_cancelled: 'キャンセル',
+    date_locale: 'ja-JP', pdf_download: '📄 PDFをダウンロード', order_ref: (id) => `注文 #${id}`,
+  },
+  ko: {
+    back_home: '홈', page_title: '내 주문', page_sub: '주문 내역을 확인하세요.',
+    lbl_email: '이메일', email_ph: 'you@example.com', btn_request: '액세스 링크 받기',
+    loading: '불러오는 중…', msg_link_sent: '이 이메일로 계정이 있으면 링크를 보내드렸습니다.',
+    err_retry: '오류가 발생했습니다. 다시 시도해 주세요.', no_orders: '주문을 찾을 수 없습니다.',
+    status_confirmed: '접수됨', status_validated: '확정됨', status_cancelled: '취소됨',
+    date_locale: 'ko-KR', pdf_download: '📄 PDF 다운로드', order_ref: (id) => `주문 #${id}`,
+  },
+  th: {
+    back_home: 'หน้าแรก', page_title: 'คำสั่งซื้อของฉัน', page_sub: 'ดูประวัติคำสั่งซื้อของคุณ',
+    lbl_email: 'อีเมลของคุณ', email_ph: 'you@example.com', btn_request: 'รับลิงก์เข้าถึงของฉัน',
+    loading: 'กำลังโหลด…', msg_link_sent: 'หากมีบัญชีสำหรับอีเมลนี้ เราได้ส่งลิงก์ให้คุณแล้ว',
+    err_retry: 'เกิดข้อผิดพลาด โปรดลองอีกครั้ง', no_orders: 'ไม่พบคำสั่งซื้อ',
+    status_confirmed: 'ได้รับแล้ว', status_validated: 'ยืนยันแล้ว', status_cancelled: 'ยกเลิกแล้ว',
+    date_locale: 'th-TH', pdf_download: '📄 ดาวน์โหลด PDF', order_ref: (id) => `คำสั่งซื้อ #${id}`,
   }
 };
 
@@ -125,7 +186,7 @@ function t(key, ...args) {
 }
 function applyLang() {
   document.documentElement.lang = currentLang;
-  document.getElementById('lang-btn').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+  const sel = document.getElementById('lang-btn'); if (sel && sel.value !== currentLang) sel.value = currentLang;
   document.getElementById('back-home').textContent = t('back_home');
   document.getElementById('page-title').textContent = t('page_title');
   document.getElementById('page-sub').textContent = t('page_sub');
@@ -135,10 +196,11 @@ function applyLang() {
   const ordersLoading = document.getElementById('orders-list');
   if (ordersLoading && ordersLoading.classList.contains('loader')) ordersLoading.textContent = t('loading');
 }
-function toggleLang() {
-  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+function setLang(l) {
+  currentLang = l;
   localStorage.setItem('portal_lang', currentLang);
   applyLang();
+  if (typeof loadOrders === 'function' && document.getElementById('orders-list') && !document.getElementById('orders-list').classList.contains('loader')) loadOrders();
 }
 applyLang();
 
