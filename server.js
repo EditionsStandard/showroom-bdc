@@ -157,9 +157,23 @@ app.get('/sw.js', (req, res) => {
   res.setHeader('Service-Worker-Allowed', '/');
   res.send(swContent);
 });
+
+// Sert une page HTML applicative avec revalidation systématique (no-cache).
+// Empêche qu'un ancien shell HTML mis en cache (navigateur ou PWA installée sur
+// l'écran d'accueil) ne masque une nouvelle version déployée du site.
+function sendPage(res, filename) {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', filename));
+}
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
-  etag: true
+  etag: true,
+  setHeaders: (res, filePath) => {
+    // Les pages HTML doivent toujours être revalidées : un ancien shell mis en
+    // cache (navigateur ou PWA installée) ne doit jamais masquer une nouvelle
+    // version déployée. Les autres assets (css/js/img) gardent le cache long.
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  }
 }));
 // Secret de session : jamais de valeur connue en production. Si SESSION_SECRET
 // n'est pas défini en prod, on génère un secret aléatoire au démarrage (au lieu
@@ -312,7 +326,7 @@ const cartLimiter = rateLimit({
 });
 // ==================== ADMIN ROUTES ====================
 
-app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
+app.get('/admin/login', (req, res) => sendPage(res, 'admin-login.html'));
 
 app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
@@ -354,7 +368,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => { req.session.destroy(() => res.redirect('/admin/login')); });
-app.get('/admin', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/admin', requireAdmin, (req, res) => sendPage(res, 'admin.html'));
 
 app.get('/api/me', requireAdmin, (req, res) => {
   const role = getRole(req);
@@ -1949,7 +1963,7 @@ app.get('/api/public/brands', async (req, res) => {
   res.json(r.rows);
 });
 
-app.get('/commande/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'commande.html')));
+app.get('/commande/:brandId', (req, res) => sendPage(res, 'commande.html'));
 
 // PDF public — accessible 24h après la commande (pour share sheet mobile)
 app.get('/api/public/orders/:id/pdf', async (req, res) => {
@@ -2250,7 +2264,7 @@ async function notifyOwnerOrder(orderId, actionLabel, extraNote) {
 }
 
 // 2) L'acheteur ouvre le lien : page de confirmation
-app.get('/selection/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'selection.html')));
+app.get('/selection/:token', (req, res) => sendPage(res, 'selection.html'));
 
 // 3) Données de la sélection (publique, via token)
 app.get('/api/selection/:token', async (req, res) => {
@@ -2413,7 +2427,7 @@ function requireBuyerAuth(req, res, next) {
 // Ancien lien conservé pour compatibilité
 app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-portail'));
 
-app.get('/editions-showroom-b2b-portail', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-login.html')));
+app.get('/editions-showroom-b2b-portail', (req, res) => sendPage(res, 'portal-login.html'));
 
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
@@ -2447,7 +2461,7 @@ app.get('/portal', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+  sendPage(res, 'portal.html');
 });
 
 app.get('/api/portal/me', requireBuyerAuth, (req, res) => res.json(req.session.buyerPortal));
@@ -3996,8 +4010,8 @@ app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/rejoindre/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'invite.html')));
-app.get('/demande-acces', (req, res) => res.sendFile(path.join(__dirname, 'public', 'demande-acces.html')));
+app.get('/rejoindre/:token', (req, res) => sendPage(res, 'invite.html'));
+app.get('/demande-acces', (req, res) => sendPage(res, 'demande-acces.html'));
 
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
@@ -4299,8 +4313,8 @@ app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-app.get('/buyer/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'buyer.html')));
-app.get('/rdv/:brandId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'rdv.html')));
+app.get('/buyer/:brandId', (req, res) => sendPage(res, 'buyer.html'));
+app.get('/rdv/:brandId', (req, res) => sendPage(res, 'rdv.html'));
 
 // ==================== PDF ====================
 
@@ -5147,7 +5161,7 @@ app.post('/api/brands/:brandId/seasons/:seasonId/restore', requireBrandScope('ow
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, 'public', 'reset-password.html')));
+app.get('/reset-password', (req, res) => sendPage(res, 'reset-password.html'));
 
 // ==================== BROUILLONS DE SÉLECTION ====================
 
@@ -5308,7 +5322,7 @@ app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 
 // (route morte, masquée par la première) → supprimée.
 
 // Agent PWA
-app.get('/agent', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent.html')));
+app.get('/agent', (req, res) => sendPage(res, 'agent.html'));
 
 app.post('/api/agent/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body || {};
