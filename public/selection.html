@@ -44,7 +44,8 @@
     .bar button:disabled { opacity:.5; cursor:not-allowed; }
     .msg { padding:40px 16px; text-align:center; color:var(--soft); }
     .err { color:#e07a7a; }
-    #lang-btn { position:fixed; top:12px; right:12px; background:none; border:1px solid var(--border); border-radius:0; padding:3px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; }
+    #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:0; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
+    #lang-btn option { background:#111; color:#fff; }
 
     /* ── Layout desktop 2 colonnes : références à gauche, récap/formulaire à droite ── */
     .sel-grid { display:block; }
@@ -117,7 +118,11 @@
   </script>
 </head>
 <body>
-  <button id="lang-btn" onclick="toggleLang()">EN</button>
+  <select id="lang-btn" onchange="setLang(this.value)" aria-label="Langue / Language">
+    <option value="fr">🌐 FR</option><option value="en">🌐 EN</option><option value="it">🌐 IT</option>
+    <option value="es">🌐 ES</option><option value="de">🌐 DE</option><option value="zh">🌐 中文</option>
+    <option value="ja">🌐 日本語</option><option value="ko">🌐 한국어</option><option value="th">🌐 ไทย</option>
+  </select>
   <div class="wrap" id="wrap"><div class="msg" id="loading-msg">Chargement…</div></div>
   <div class="bar" id="bar" style="display:none">
     <div><span id="total-label" style="font-size:11px;display:block">Total HT</span><strong id="total">0 €</strong></div>
@@ -191,6 +196,104 @@ const TRANSLATIONS = {
     success_title: 'Order confirmed',
     success_msg: 'A confirmation email has been sent to you.',
     success_cta: 'Go to my account →',
+  },
+  it: {
+    loading: 'Caricamento…', err_network: 'Errore di rete. Riprova.', err_unavailable: 'Selezione non disponibile.',
+    total_ht: 'Totale IVA escl.', confirm_btn: 'Conferma il mio ordine',
+    sub_prepared: (name) => `Selezione preparata per ${name} — verifica le quantità e conferma.`,
+    lbl_store: 'Negozio', lbl_contact: 'Nome del contatto', lbl_email: 'Email', lbl_pw_existing: 'La tua password',
+    lbl_pw_new: 'Crea la tua password (min. 8 caratteri)',
+    account_exists_msg: (email) => `Hai già un account (${email}). Inserisci la password per confermare.`,
+    cgv_title: 'Termini e condizioni', cgv_accept: 'Accetto i termini e le condizioni di vendita.',
+    sig_title: 'Firma', sig_clear: 'Cancella', err_cgv: 'Accetta i termini e le condizioni.', err_sig: 'Firma per favore.',
+    err_qty: 'Nessuna quantità selezionata.', see_product: 'Vedi scheda', empty_sel: 'Nessun articolo in questa selezione.',
+    clear_all: 'Azzera tutto', confirm_clear_all: 'Azzerare tutte le quantità?', fiche_done: 'Aggiungi alla selezione',
+    lbl_color: 'Colore', validating: 'Elaborazione…', err_network_confirm: 'Errore di rete.', err_generic: 'Errore',
+    success_title: 'Ordine confermato', success_msg: 'Ti è stata inviata un\'email di conferma.', success_cta: 'Vai al mio account →',
+  },
+  es: {
+    loading: 'Cargando…', err_network: 'Error de red. Inténtalo de nuevo.', err_unavailable: 'Selección no disponible.',
+    total_ht: 'Total sin IVA', confirm_btn: 'Confirmar mi pedido',
+    sub_prepared: (name) => `Selección preparada para ${name} — revisa las cantidades y confirma.`,
+    lbl_store: 'Tienda', lbl_contact: 'Nombre de contacto', lbl_email: 'Correo electrónico', lbl_pw_existing: 'Tu contraseña',
+    lbl_pw_new: 'Crea tu contraseña (mín. 8 caracteres)',
+    account_exists_msg: (email) => `Ya tienes una cuenta (${email}). Introduce tu contraseña para confirmar.`,
+    cgv_title: 'Términos y condiciones', cgv_accept: 'Acepto los términos y condiciones de venta.',
+    sig_title: 'Firma', sig_clear: 'Borrar', err_cgv: 'Acepta los términos y condiciones.', err_sig: 'Firma, por favor.',
+    err_qty: 'Ninguna cantidad seleccionada.', see_product: 'Ver ficha', empty_sel: 'Ninguna referencia en esta selección.',
+    clear_all: 'Restablecer todo', confirm_clear_all: '¿Restablecer todas las cantidades a cero?', fiche_done: 'Añadir a mi selección',
+    lbl_color: 'Color', validating: 'Procesando…', err_network_confirm: 'Error de red.', err_generic: 'Error',
+    success_title: 'Pedido confirmado', success_msg: 'Se te ha enviado un correo de confirmación.', success_cta: 'Ir a mi cuenta →',
+  },
+  de: {
+    loading: 'Wird geladen…', err_network: 'Netzwerkfehler. Bitte erneut versuchen.', err_unavailable: 'Auswahl nicht verfügbar.',
+    total_ht: 'Gesamt netto', confirm_btn: 'Bestellung bestätigen',
+    sub_prepared: (name) => `Auswahl vorbereitet für ${name} — Mengen prüfen und bestätigen.`,
+    lbl_store: 'Geschäft', lbl_contact: 'Ansprechpartner', lbl_email: 'E-Mail', lbl_pw_existing: 'Ihr Passwort',
+    lbl_pw_new: 'Passwort erstellen (mind. 8 Zeichen)',
+    account_exists_msg: (email) => `Sie haben bereits ein Konto (${email}). Geben Sie Ihr Passwort ein, um zu bestätigen.`,
+    cgv_title: 'Allgemeine Geschäftsbedingungen', cgv_accept: 'Ich akzeptiere die Allgemeinen Geschäftsbedingungen.',
+    sig_title: 'Unterschrift', sig_clear: 'Löschen', err_cgv: 'Bitte akzeptieren Sie die AGB.', err_sig: 'Bitte unterschreiben.',
+    err_qty: 'Keine Menge ausgewählt.', see_product: 'Details ansehen', empty_sel: 'Keine Artikel in dieser Auswahl.',
+    clear_all: 'Alles zurücksetzen', confirm_clear_all: 'Alle Mengen auf null setzen?', fiche_done: 'Zur Auswahl hinzufügen',
+    lbl_color: 'Farbe', validating: 'Wird verarbeitet…', err_network_confirm: 'Netzwerkfehler.', err_generic: 'Fehler',
+    success_title: 'Bestellung bestätigt', success_msg: 'Eine Bestätigungs-E-Mail wurde an Sie gesendet.', success_cta: 'Zu meinem Konto →',
+  },
+  zh: {
+    loading: '加载中…', err_network: '网络错误，请重试。', err_unavailable: '选品不可用。',
+    total_ht: '总计（不含税）', confirm_btn: '确认我的订单',
+    sub_prepared: (name) => `已为 ${name} 准备选品 — 请核对数量并确认。`,
+    lbl_store: '店铺', lbl_contact: '联系人姓名', lbl_email: '邮箱', lbl_pw_existing: '您的密码',
+    lbl_pw_new: '创建密码（至少8个字符）',
+    account_exists_msg: (email) => `您已有账户（${email}）。请输入密码以确认。`,
+    cgv_title: '销售条款与条件', cgv_accept: '我接受销售条款与条件。',
+    sig_title: '签名', sig_clear: '清除', err_cgv: '请接受条款与条件。', err_sig: '请签名。',
+    err_qty: '未选择数量。', see_product: '查看详情', empty_sel: '此选品中没有商品。',
+    clear_all: '全部清零', confirm_clear_all: '将所有数量重置为零？', fiche_done: '加入我的选品',
+    lbl_color: '颜色', validating: '处理中…', err_network_confirm: '网络错误。', err_generic: '错误',
+    success_title: '订单已确认', success_msg: '确认邮件已发送给您。', success_cta: '进入我的账户 →',
+  },
+  ja: {
+    loading: '読み込み中…', err_network: 'ネットワークエラー。もう一度お試しください。', err_unavailable: 'セレクションは利用できません。',
+    total_ht: '合計（税抜）', confirm_btn: '注文を確定する',
+    sub_prepared: (name) => `${name} 様向けのセレクションです — 数量を確認して確定してください。`,
+    lbl_store: '店舗', lbl_contact: '担当者名', lbl_email: 'メールアドレス', lbl_pw_existing: 'パスワード',
+    lbl_pw_new: 'パスワードを作成（8文字以上）',
+    account_exists_msg: (email) => `すでにアカウントをお持ちです（${email}）。パスワードを入力して確定してください。`,
+    cgv_title: '販売利用規約', cgv_accept: '販売利用規約に同意します。',
+    sig_title: '署名', sig_clear: 'クリア', err_cgv: '利用規約に同意してください。', err_sig: '署名してください。',
+    err_qty: '数量が選択されていません。', see_product: '詳細を見る', empty_sel: 'このセレクションに商品がありません。',
+    clear_all: 'すべてリセット', confirm_clear_all: 'すべての数量をゼロにしますか？', fiche_done: 'セレクションに追加',
+    lbl_color: 'カラー', validating: '処理中…', err_network_confirm: 'ネットワークエラー。', err_generic: 'エラー',
+    success_title: '注文が確定しました', success_msg: '確認メールをお送りしました。', success_cta: 'マイページへ →',
+  },
+  ko: {
+    loading: '불러오는 중…', err_network: '네트워크 오류입니다. 다시 시도해 주세요.', err_unavailable: '셀렉션을 사용할 수 없습니다.',
+    total_ht: '합계(부가세 별도)', confirm_btn: '주문 확정',
+    sub_prepared: (name) => `${name}님을 위한 셀렉션입니다 — 수량을 확인하고 확정하세요.`,
+    lbl_store: '매장', lbl_contact: '담당자 이름', lbl_email: '이메일', lbl_pw_existing: '비밀번호',
+    lbl_pw_new: '비밀번호 생성 (최소 8자)',
+    account_exists_msg: (email) => `이미 계정이 있습니다 (${email}). 확정하려면 비밀번호를 입력하세요.`,
+    cgv_title: '판매 약관', cgv_accept: '판매 약관에 동의합니다.',
+    sig_title: '서명', sig_clear: '지우기', err_cgv: '약관에 동의해 주세요.', err_sig: '서명해 주세요.',
+    err_qty: '선택된 수량이 없습니다.', see_product: '상세 보기', empty_sel: '이 셀렉션에 상품이 없습니다.',
+    clear_all: '모두 초기화', confirm_clear_all: '모든 수량을 0으로 재설정할까요?', fiche_done: '내 셀렉션에 추가',
+    lbl_color: '색상', validating: '처리 중…', err_network_confirm: '네트워크 오류.', err_generic: '오류',
+    success_title: '주문이 확정되었습니다', success_msg: '확인 이메일이 발송되었습니다.', success_cta: '내 계정으로 →',
+  },
+  th: {
+    loading: 'กำลังโหลด…', err_network: 'เกิดข้อผิดพลาดเครือข่าย โปรดลองอีกครั้ง', err_unavailable: 'ไม่สามารถใช้การเลือกนี้ได้',
+    total_ht: 'รวม (ไม่รวมภาษี)', confirm_btn: 'ยืนยันคำสั่งซื้อ',
+    sub_prepared: (name) => `การเลือกที่จัดเตรียมสำหรับ ${name} — ตรวจสอบจำนวนแล้วยืนยัน`,
+    lbl_store: 'ร้านค้า', lbl_contact: 'ชื่อผู้ติดต่อ', lbl_email: 'อีเมล', lbl_pw_existing: 'รหัสผ่านของคุณ',
+    lbl_pw_new: 'สร้างรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)',
+    account_exists_msg: (email) => `คุณมีบัญชีอยู่แล้ว (${email}) กรอกรหัสผ่านเพื่อยืนยัน`,
+    cgv_title: 'ข้อกำหนดและเงื่อนไข', cgv_accept: 'ฉันยอมรับข้อกำหนดและเงื่อนไขการขาย',
+    sig_title: 'ลายเซ็น', sig_clear: 'ล้าง', err_cgv: 'โปรดยอมรับข้อกำหนดและเงื่อนไข', err_sig: 'โปรดลงลายเซ็น',
+    err_qty: 'ยังไม่ได้เลือกจำนวน', see_product: 'ดูรายละเอียด', empty_sel: 'ไม่มีสินค้าในการเลือกนี้',
+    clear_all: 'รีเซ็ตทั้งหมด', confirm_clear_all: 'รีเซ็ตจำนวนทั้งหมดเป็นศูนย์?', fiche_done: 'เพิ่มลงในรายการเลือก',
+    lbl_color: 'สี', validating: 'กำลังดำเนินการ…', err_network_confirm: 'เกิดข้อผิดพลาดเครือข่าย', err_generic: 'ข้อผิดพลาด',
+    success_title: 'ยืนยันคำสั่งซื้อแล้ว', success_msg: 'ส่งอีเมลยืนยันให้คุณแล้ว', success_cta: 'ไปที่บัญชีของฉัน →',
   }
 };
 
@@ -201,20 +304,19 @@ function t(key, ...args) {
 }
 function applyLang() {
   document.documentElement.lang = currentLang;
-  document.getElementById('lang-btn').textContent = currentLang === 'fr' ? 'EN' : 'FR';
+  const sel = document.getElementById('lang-btn'); if (sel && sel.value !== currentLang) sel.value = currentLang;
   const loadingMsg = document.getElementById('loading-msg');
   if (loadingMsg) loadingMsg.textContent = t('loading');
+  // Si la sélection est chargée, re-rend tout dans la nouvelle langue (quantités préservées)
+  if (typeof DATA !== 'undefined' && DATA && DATA.references) render();
   const totalLabel = document.getElementById('total-label');
   if (totalLabel) totalLabel.textContent = t('total_ht');
-  const confirmBtn = document.getElementById('confirm-btn');
-  if (confirmBtn && confirmBtn.textContent !== t('validating')) confirmBtn.textContent = t('confirm_btn');
 }
-function toggleLang() {
-  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+function setLang(l) {
+  currentLang = l;
   localStorage.setItem('portal_lang', currentLang);
   applyLang();
 }
-applyLang();
 
 const TOKEN = location.pathname.split('/').pop();
 let DATA = null, ctx = null, drawn = false;
@@ -445,6 +547,7 @@ async function confirmSelection() {
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+applyLang(); // initialise le sélecteur de langue (après déclaration de DATA/cart)
 load();
 </script>
 </body>
