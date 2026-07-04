@@ -89,6 +89,12 @@
     .fiche .fmeta { font-size:12px; color:var(--muted); margin-bottom:2px; }
     .fiche .fprice { font-size:14px; color:var(--accent); margin:8px 0 14px; }
     .fiche-done { width:100%; background:var(--accent); color:#111; border:none; padding:14px; font-weight:700; font-size:14px; cursor:pointer; border-radius:0; font-family:inherit; margin-top:14px; }
+    .fiche-gallery img { cursor:zoom-in; }
+    /* Photo plein écran (comme la fiche marque) */
+    .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.96); display:none; align-items:center; justify-content:center; z-index:300; cursor:zoom-out; }
+    .lightbox.open { display:flex; }
+    .lightbox img { max-width:96vw; max-height:96vh; object-fit:contain; }
+    .lightbox-close { position:fixed; top:14px; right:16px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; line-height:1; z-index:301; }
     @media (max-width:767px){ .szb{width:44px;height:44px;font-size:20px;} .szi{width:56px;height:44px;font-size:16px;} }
   @media (max-width: 767px) {
     body { overflow-x: hidden; }
@@ -358,7 +364,7 @@ function openFiche(pid) {
   if (!ref) return;
   const p = ref.product;
   const imgs = productImgs(p);
-  const gallery = imgs.length ? `<div class="fiche-gallery">${imgs.map(s=>`<img src="${esc(s)}" alt="">`).join('')}</div>` : '';
+  const gallery = imgs.length ? `<div class="fiche-gallery">${imgs.map(s=>`<img src="${esc(s)}" alt="" onclick="openLightbox('${esc(s)}')">`).join('')}</div>` : '';
   let ov = document.getElementById('fiche-ov');
   if (!ov) { ov = document.createElement('div'); ov.id='fiche-ov'; ov.className='fiche-ov'; ov.addEventListener('click', e=>{ if(e.target===ov) closeFiche(); }); document.body.appendChild(ov); }
   ov.innerHTML = `<div class="fiche">
@@ -378,6 +384,24 @@ function closeFiche() {
   const ov = document.getElementById('fiche-ov');
   if (ov) ov.classList.remove('open');
   document.body.style.overflow = '';
+}
+// Photo en plein écran (comme la fiche marque)
+function openLightbox(src) {
+  let lb = document.getElementById('lightbox');
+  if (!lb) {
+    lb = document.createElement('div'); lb.id='lightbox'; lb.className='lightbox';
+    lb.addEventListener('click', closeLightbox);
+    document.body.appendChild(lb);
+  }
+  lb.innerHTML = `<button class="lightbox-close" type="button" aria-label="Fermer">✕</button><img src="${esc(src)}" alt="">`;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  if (lb) lb.classList.remove('open');
+  // garde le scroll bloqué si la fiche est encore ouverte
+  if (!document.querySelector('#fiche-ov.open')) document.body.style.overflow = '';
 }
 
 // Signature pad
