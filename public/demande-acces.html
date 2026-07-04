@@ -347,15 +347,27 @@ const TR = {
 fetch("/api/public/branding").then(r => r.json()).then(b => {
   if (!b || !b.login_bg_url) return;
   const url = b.login_bg_url;
-  if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
-    // Fond video : lecture muette en boucle (autoplay mobile OK car muted+playsinline)
+  if (/\.(mp4|webm|mov|m4v|ogv)(\?|$)/i.test(url) || /\/video\/upload\//i.test(url)) {
+    // Fond vidéo : lecture muette en boucle. On force explicitement play() car
+    // définir la propriété .autoplay via JS n'est pas toujours honorée (Safari,
+    // mode économie d'énergie iOS) → sinon la vidéo reste figée sur l'image 0.
     const v = document.createElement("video");
     v.className = "bg-video";
-    v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
-    v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+    v.autoplay = true; v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute("muted", ""); v.setAttribute("playsinline", ""); v.setAttribute("autoplay", ""); v.setAttribute("loop", "");
+    v.preload = "auto";
     v.src = url;
-    v.addEventListener("canplay", () => document.body.classList.add("with-bg"), { once: true });
+    const tryPlay = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+    v.addEventListener("loadeddata", () => { document.body.classList.add("with-bg"); tryPlay(); }, { once: true });
+    v.addEventListener("canplay", tryPlay, { once: true });
+    // Boucle infinie garantie : même si l'attribut loop est ignoré, on relance.
+    v.addEventListener("ended", () => { try { v.currentTime = 0; } catch(e) {} tryPlay(); });
     document.body.prepend(v);
+    tryPlay();
+    // Filet de sécurité : si l'autoplay est bloqué, on relance au premier geste.
+    const resume = () => tryPlay();
+    document.addEventListener("touchstart", resume, { once: true, passive: true });
+    document.addEventListener("click", resume, { once: true });
   } else {
     const img = new Image();
     img.onload = () => {
