@@ -34,8 +34,6 @@
     --black:#f5f4f0; --dark:#fff; --mid:#eee; --border:#ddd; --muted:#888; --soft:#444; --white:#111; --accent:#6b8500;
     --danger:#e74c3c; --success:#2ecc71; --warning:#e0b000;
   }
-  [data-theme="light"] .cart-bar { background: #111; color: #fff; }
-  [data-theme="light"] .cart-bar button { background: #CCEB3C; color: #111; }
   [data-theme="light"] #sig-canvas { background: #fafafa; border: 1px solid var(--border); }
   body.bright-mode {
     --black: #ffffff;
@@ -169,9 +167,10 @@
   .qty-btn:hover { color: var(--white); }
   .qty-display { min-width: 28px; text-align: center; font-size: 15px; font-weight: 700; }
   .qty-display.active { color: var(--accent); }
-  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); color: var(--black); padding: 18px 40px calc(18px + env(safe-area-inset-bottom)) 40px; display: flex; justify-content: space-between; align-items: center; z-index: var(--z-bar); }
-  .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; }
-  .cart-bar button { background: var(--black); color: var(--white); border: none; padding: 13px 24px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; }
+  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--dark); border-top: 1px solid var(--border); color: var(--white); padding: 16px 40px calc(16px + env(safe-area-inset-bottom)) 40px; display: flex; justify-content: space-between; align-items: center; z-index: var(--z-bar); backdrop-filter: blur(12px); }
+  .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; color: var(--white); font-weight: 400; }
+  .cart-bar button { background: transparent; color: var(--white); border: 1px solid var(--border); padding: 13px 24px; font-size: 12px; font-weight: 400; text-transform: uppercase; letter-spacing: .24em; cursor: pointer; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; transition: background .2s, color .2s; }
+  .cart-bar button:hover { background: var(--white); color: var(--black); }
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .26em; margin-bottom: 8px; font-family: inherit; }
   .field input, .field select, .field textarea { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 12px 2px; color: var(--white); font-size: 15px; font-family: inherit; letter-spacing: .03em; outline: none; }
