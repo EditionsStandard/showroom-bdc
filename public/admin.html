@@ -2101,6 +2101,18 @@ document.addEventListener('DOMContentLoaded', applyLang);
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+// Échappe une valeur destinée à une chaîne JS entre apostrophes, elle-même dans
+// un attribut HTML entre guillemets — ex. onclick="fn('${escJs(name)}')".
+// Sans ça, un nom contenant une apostrophe (« L'Atelier ») casse le onclick.
+function escJs(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 let currentBrandId = null;
 let currentBrandName = '';
@@ -4924,8 +4936,8 @@ function renderBuyersPage() {
         <button class="btn btn-sm btn-ghost-green" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
         <button class="btn btn-sm" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
         <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
-        <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${b.id}','${esc(b.name)}','${b.email}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
-        <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${b.id}','${esc(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
+        <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${escJs(b.id)}','${escJs(b.name)}','${escJs(b.email)}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
+        <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${escJs(b.id)}','${escJs(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;
@@ -5006,7 +5018,7 @@ async function loadTemplates() {
       <td style="font-family:monospace;font-size:12px">${esc(t.selection_number||'—')}</td>
       <td style="font-size:12px;color:#888">${new Date(t.created_at).toLocaleDateString('fr-FR')}</td>
       <td style="text-align:center">${nItems} art.</td>
-      <td><button class="btn btn-primary btn-sm" onclick="openUseTemplateModal('${t.token}','${esc(t.template_name||'')}')">Utiliser →</button></td>
+      <td><button class="btn btn-primary btn-sm" onclick="openUseTemplateModal('${escJs(t.token)}','${escJs(t.template_name||'')}')">Utiliser →</button></td>
     </tr>`;
   }).join('') : `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">Aucun template sauvegardé</td></tr>`;
 }
