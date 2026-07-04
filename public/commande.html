@@ -1082,14 +1082,17 @@ const TRANSLATIONS = {
   }
 };
 
-let lang = localStorage.getItem('es-lang') || 'fr';
+// Clé de langue partagée avec le reste du site (portal_lang) pour que le choix
+// de langue persiste entre le portail, la sélection et le bon de commande.
+// Fallback vers l'ancienne clé es-lang pour ne pas perdre la préférence existante.
+let lang = localStorage.getItem('portal_lang') || localStorage.getItem('es-lang') || 'fr';
 const T = (k, ...a) => {
   const t = (TRANSLATIONS[lang] || TRANSLATIONS.fr)[k] || TRANSLATIONS.fr[k] || k;
   return typeof t === 'function' ? t(...a) : t;
 };
 function setLang(l) {
   lang = l;
-  localStorage.setItem('es-lang', l);
+  localStorage.setItem('portal_lang', l);
   document.documentElement.lang = l;
   document.querySelectorAll('#lang-toggle, #lang-toggle-0').forEach(s => { if (s.value !== l) s.value = l; });
   // Apply data-i18n text
