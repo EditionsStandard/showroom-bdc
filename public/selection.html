@@ -368,7 +368,7 @@ function refCard(r) {
   const src = productImgs(p)[0] || '';
   const img = src ? `<img src="${esc(src)}" alt="">` : `<div class="ph"></div>`;
   return `<div class="ref-card">
-    <div class="ref-head" onclick="openFiche('${esc(p.id)}')">
+    <div class="ref-head" onclick="openFiche('${escJs(p.id)}')">
       ${img}
       <div class="ref-info">
         <div class="ref">${esc(p.reference)}</div>
@@ -466,7 +466,7 @@ function openFiche(pid) {
   if (!ref) return;
   const p = ref.product;
   const imgs = productImgs(p);
-  const gallery = imgs.length ? `<div class="fiche-gallery">${imgs.map(s=>`<img src="${esc(s)}" alt="" onclick="openLightbox('${esc(s)}')">`).join('')}</div>` : '';
+  const gallery = imgs.length ? `<div class="fiche-gallery">${imgs.map(s=>`<img src="${esc(s)}" alt="" onclick="openLightbox('${escJs(s)}')">`).join('')}</div>` : '';
   let ov = document.getElementById('fiche-ov');
   if (!ov) { ov = document.createElement('div'); ov.id='fiche-ov'; ov.className='fiche-ov'; ov.addEventListener('click', e=>{ if(e.target===ov) closeFiche(); }); document.body.appendChild(ov); }
   ov.innerHTML = `<div class="fiche">
@@ -547,6 +547,8 @@ async function confirmSelection() {
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Échappe pour une chaîne JS entre apostrophes dans un attribut (onclick="fn('…')").
+function escJs(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 applyLang(); // initialise le sélecteur de langue (après déclaration de DATA/cart)
 load();
 </script>

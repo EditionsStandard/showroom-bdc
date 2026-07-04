@@ -3390,14 +3390,14 @@ async function loadBrands() {
     return `<div class="brand-card" style="padding-top:${b.cover_image?'0':'16px'}">
       ${coverHtml}
       ${logoHtml}
-      <h4>${b.name}</h4>
+      <h4>${esc(b.name)}</h4>
       <div class="brand-meta">ID: ${b.id.slice(0,8)} &nbsp; ${subBadge}</div>
       <div class="actions">
-        <button class="btn btn-secondary btn-sm agency-only" onclick="showQR('${b.id}','${b.name}')">📱 QR Code</button>
-        <button class="btn btn-secondary btn-sm" onclick="shareShowroomBrand('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 Lien showroom</button>
+        <button class="btn btn-secondary btn-sm agency-only" onclick="showQR('${escJs(b.id)}','${escJs(b.name)}')">📱 QR Code</button>
+        <button class="btn btn-secondary btn-sm" onclick="shareShowroomBrand('${escJs(b.id)}','${escJs(b.name)}')">🔗 Lien showroom</button>
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="loadProducts('${b.id}','${b.name}')">📦 Collection</button>
-        <button class="btn btn-secondary btn-sm agency-only" onclick="openAgentSelection('${b.id}','${b.name.replace(/'/g,"\\'")}')">📝 Sélection acheteur</button>
+        <button class="btn btn-secondary btn-sm" onclick="loadProducts('${escJs(b.id)}','${escJs(b.name)}')">📦 Collection</button>
+        <button class="btn btn-secondary btn-sm agency-only" onclick="openAgentSelection('${escJs(b.id)}','${escJs(b.name)}')">📝 Sélection acheteur</button>
         <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
         <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${b.name.replace(/'/g,"\\'")}')">📊 Stats</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}
