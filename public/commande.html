@@ -68,6 +68,7 @@
   .product-tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .tag { font-size: 11px; color: var(--soft); background: var(--mid); padding: 5px 12px; border-radius: 0; letter-spacing: .06em; text-transform: uppercase; }
   .tag-price { font-size: 11px; font-weight: 600; color: var(--accent); background: rgba(204,235,60,.08); letter-spacing: .04em; }
+  .tag-retail { font-size: 11px; color: var(--soft); background: var(--mid); letter-spacing: .04em; }
 
   /* ── Variant colors ── */
   .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 0; padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Plex Mono', 'Space Mono', monospace; }
@@ -97,13 +98,14 @@
   .btn-add-ref:hover { border-color: var(--accent); color: var(--accent); }
   .btn-add-ref.active { border-color: var(--accent); color: var(--accent); background: rgba(204,235,60,.06); }
 
-  /* ── Cart bar ── */
-  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--accent); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; z-index: 40; }
-  .cart-info strong { font-size: 17px; color: var(--black); display: block; font-weight: 700; }
-  .cart-info span { font-size: 11px; color: rgba(0,0,0,.6); letter-spacing: .08em; text-transform: uppercase; }
-  .btn-next { background: var(--black); color: var(--white); border: none; padding: 14px 24px; font-size: 12px; font-weight: 600; cursor: pointer; touch-action: manipulation; letter-spacing: .1em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; min-height: 52px; transition: background .15s, opacity .15s, transform .1s; }
-  .btn-next:active { transform: scale(.98); }
-  .btn-next:disabled { background: #2a2a2a; color: #666; border: 1px solid #333; }
+  /* ── Cart bar (minimaliste éditorial : hairline, monochrome, accent discret) ── */
+  .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--dark); border-top: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; z-index: 40; backdrop-filter: blur(12px); }
+  .cart-info strong { font-size: 18px; color: var(--white); display: block; font-weight: 400; letter-spacing: .04em; }
+  .cart-info span { font-size: 9px; color: var(--muted); letter-spacing: .22em; text-transform: uppercase; margin-top: 3px; display: block; }
+  .btn-next { background: transparent; color: var(--white); border: 1px solid var(--border); padding: 14px 26px; font-size: 11px; font-weight: 400; cursor: pointer; touch-action: manipulation; letter-spacing: .24em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; min-height: 52px; transition: background .2s, color .2s, opacity .15s, transform .1s; }
+  .btn-next:hover:not(:disabled) { background: var(--white); color: var(--black); }
+  .btn-next:active:not(:disabled) { transform: scale(.98); }
+  .btn-next:disabled { opacity: .4; cursor: default; }
 
   /* ── Forms ── */
   .page-pad { padding: 24px 20px 110px; }
@@ -1502,7 +1504,7 @@ function _origRenderProducts(products) {
       + (p.color ? '<span class="tag">🎨 ' + esc(p.color) + '</span>' : '')
       + (p.composition ? '<span class="tag">🧵 ' + esc(p.composition) + '</span>' : '')
       + (p.price > 0 ? '<span class="tag tag-price">Wholesale ' + fmtPrice(p.price) + '</span>' : '')
-      + (p.price_retail > 0 ? '<span class="tag" style="background:#2a2a3a;color:#aaa">Retail ' + fmtPrice(p.price_retail) + '</span>' : '')
+      + (p.price_retail > 0 ? '<span class="tag tag-retail">Retail ' + fmtPrice(p.price_retail) + '</span>' : '')
       + '</div></div>'
       + '<div class="size-rows">' + sizeRowsHtml + '</div>'
       + (sizes.length > 0
