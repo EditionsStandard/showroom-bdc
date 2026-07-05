@@ -31,6 +31,28 @@ function loadPdfLogo() {
   catch (e) { _pdfLogoCache = null; }
   return _pdfLogoCache;
 }
+// Logo de la MARQUE pour l'en-tête des PDF (bon de commande / sélection).
+// Renvoie un buffer PNG/JPG exploitable par PDFKit, ou null (→ on retombe sur
+// le monogramme showroom). Gère data:URI et URL http(s) ; les logos Cloudinary
+// sont convertis en PNG borné (compatible PDFKit, gère la transparence).
+async function loadBrandLogoBuffer(ref) {
+  if (!ref || typeof ref !== 'string') return null;
+  try {
+    if (ref.startsWith('data:image')) {
+      if (/^data:image\/svg/i.test(ref)) return null; // PDFKit ne gère pas le SVG
+      return Buffer.from(ref.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+    }
+    if (/^https?:\/\//i.test(ref)) {
+      if (/\.svg(\?|$)/i.test(ref) && !ref.includes('res.cloudinary.com')) return null;
+      const url = ref.includes('res.cloudinary.com')
+        ? ref.replace('/upload/', '/upload/w_240,h_240,c_limit,f_png/')
+        : ref;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (resp.ok) return Buffer.from(await resp.arrayBuffer());
+    }
+  } catch (e) { console.error('[pdf-brand-logo]', e.message); }
+  return null;
+}
 // Rend des CGV clause par clause : chaque clause devient un paragraphe distinct,
 // aéré, avec son numéro (« Article 3. », « 3. », « 3.2 »…) en gras pour la
 // lisibilité. Gère les sauts de page. `ctx.get/set` pilotent le curseur rowY.
@@ -2247,7 +2269,7 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber, url, req, lang }) {
+async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber, url, req, lang, reminder = false }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email sélection agent non envoyé'); return; }
   const resend = new Resend(resendKey);
@@ -2261,16 +2283,22 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
   }
   const isEn = lang === 'en';
   const numLabel = selectionNumber ? (isEn ? ` — Ref. ${selectionNumber}` : ` — Réf. ${selectionNumber}`) : '';
+  const reminderLine = reminder
+    ? (isEn
+        ? `<p style="background:#fffbea;border-left:3px solid #d4a017;padding:10px 14px;font-size:13px;color:#8a6500;margin:0 0 16px">Friendly reminder — your selection is still waiting and its link will expire soon.</p>`
+        : `<p style="background:#fffbea;border-left:3px solid #d4a017;padding:10px 14px;font-size:13px;color:#8a6500;margin:0 0 16px">Petit rappel — votre sélection vous attend toujours et son lien va bientôt expirer.</p>`)
+    : '';
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
     ...(ownerEmail ? { replyTo: ownerEmail } : {}), // réponses de l'acheteur → showroom
     ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
     subject: isEn
-      ? `Your ${brandName} selection${numLabel} — to confirm`
-      : `Votre sélection ${brandName}${numLabel} — à valider`,
+      ? `${reminder ? 'Reminder — ' : ''}Your ${brandName} selection${numLabel} — to confirm`
+      : `${reminder ? 'Rappel — ' : ''}Votre sélection ${brandName}${numLabel} — à valider`,
     html: emailLayout({ showroomName, content: isEn ? `
       <p>Hello${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
+      ${reminderLine}
       <p>A <strong>${escHtml(brandName)}</strong> selection has been prepared for you during our appointment.</p>
       ${selectionNumber ? `<p style="font-size:13px;color:#888">Reference: <strong>${escHtml(selectionNumber)}</strong></p>` : ''}
       <p>Click below to view it, create your account, and confirm your order:</p>
@@ -2279,6 +2307,7 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
       <p>Best regards,<br><strong>${showroomName}</strong></p>
     ` : `
       <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
+      ${reminderLine}
       <p>Une sélection <strong>${escHtml(brandName)}</strong> a été préparée pour vous lors de notre rendez-vous.</p>
       ${selectionNumber ? `<p style="font-size:13px;color:#888">Référence : <strong>${escHtml(selectionNumber)}</strong></p>` : ''}
       <p>Cliquez ci-dessous pour la consulter, créer votre accès et la valider :</p>
@@ -4408,7 +4437,7 @@ app.get('/rdv/:brandId', (req, res) => sendPage(res, 'rdv.html'));
 // ==================== PDF ====================
 
 async function generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, notes, lines, showroomName, agentName }) {
-  const logoBuf = loadPdfLogo();
+  const logoBuf = (await loadBrandLogoBuffer(brand && (brand.logo || brand.logo_url))) || loadPdfLogo();
   const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const total = lines.reduce((s, l) => s + l.quantity * parseFloat(l.product?.price || 0), 0);
 
@@ -4429,7 +4458,7 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
     const ensure = (h) => { if (rowY + h > BOTTOM) { doc.addPage(); rowY = TOP; return true; } return false; };
 
     // ── Header ──
-    if (logoBuf) doc.image(logoBuf, LEFT, rowY, { width: 42, height: 42 });
+    if (logoBuf) { try { doc.image(logoBuf, LEFT, rowY, { fit: [48, 44], align: 'left', valign: 'top' }); } catch(e) { const mono = loadPdfLogo(); if (mono) try { doc.image(mono, LEFT, rowY, { fit: [44, 44] }); } catch(_){} } }
     const tx = logoBuf ? 104 : LEFT;
     doc.font(F.bold).fontSize(16).fillColor(INK).text((showroomName || '').toUpperCase(), tx, rowY + 2, { lineBreak: false, characterSpacing: 1 });
     doc.font(F.reg).fontSize(8).fillColor(MUTE).text('PROPOSITION DE SÉLECTION — NON SIGNÉE', tx, rowY + 24, { lineBreak: false, characterSpacing: 1.4 });
@@ -4688,7 +4717,7 @@ async function generateLinesheetPDF(brandId, seasonId) {
 
 async function generateOrderPDF(orderId) {
   const oRes = await pool.query(`
-    SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
+    SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv, b.logo as brand_logo, b.logo_url as brand_logo_url FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
   `, [orderId]);
   const order = oRes.rows[0];
   if (!order) throw new Error('Commande introuvable');
@@ -4726,8 +4755,8 @@ async function generateOrderPDF(orderId) {
   ]);
   const cgvText      = order.brand_cgv || globalCgv;
 
-  // Logo PDF (PNG pré-rendu)
-  const logoBuf = loadPdfLogo();
+  // Logo de la marque (si dispo) sinon monogramme showroom
+  const logoBuf = (await loadBrandLogoBuffer(order.brand_logo || order.brand_logo_url)) || loadPdfLogo();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -4750,7 +4779,7 @@ async function generateOrderPDF(orderId) {
     const orderNo = order.order_number || orderId.slice(0,8).toUpperCase();
 
     // ── Header ──
-    if (logoBuf) doc.image(logoBuf, LEFT, rowY, { width: 42, height: 42 });
+    if (logoBuf) { try { doc.image(logoBuf, LEFT, rowY, { fit: [48, 44], align: 'left', valign: 'top' }); } catch(e) { const mono = loadPdfLogo(); if (mono) try { doc.image(mono, LEFT, rowY, { fit: [44, 44] }); } catch(_){} } }
     const textX = logoBuf ? 104 : LEFT;
     doc.font(F.bold).fontSize(16).fillColor(INK)
       .text((showroomName || '').toUpperCase(), textX, rowY + 2, { lineBreak: false, characterSpacing: 1 });
@@ -5705,6 +5734,45 @@ init().then(() => {
     setTimeout(runReminders, msUntil8h());
   }
   scheduleInactiveReminders();
+
+  // ── Relance des sélections non confirmées (toutes les 12 h) ──────────
+  // Un acheteur a reçu une sélection mais ne l'a pas validée : on lui envoie
+  // un rappel unique quand le lien approche de son expiration.
+  function scheduleSelectionReminders() {
+    async function run() {
+      try {
+        if (process.env.RESEND_API_KEY) {
+          const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
+          const due = await pool.query(`
+            SELECT a.token, a.client_email, a.client_name, a.selection_number, b.name AS brand_name
+            FROM agent_selections a JOIN brands b ON b.id = a.brand_id
+            WHERE (a.used IS NULL OR a.used = false)
+              AND a.expires_at > NOW()
+              AND a.expires_at < NOW() + INTERVAL '5 days'
+              AND a.created_at < NOW() - INTERVAL '3 days'
+              AND (a.reminder_sent IS NULL OR a.reminder_sent = false)
+              AND a.client_email IS NOT NULL AND a.client_email <> ''
+              AND (a.is_template IS NULL OR a.is_template = false)
+            ORDER BY a.expires_at ASC
+            LIMIT 20
+          `);
+          for (const s of due.rows) {
+            const url = `${baseUrl}/selection/${s.token}`;
+            await sendAgentSelectionEmail({
+              email: s.client_email, name: s.client_name, brandName: s.brand_name,
+              selectionNumber: s.selection_number, url, reminder: true
+            }).catch(e => console.error('[sel-reminder] email:', e.message));
+            await pool.query('UPDATE agent_selections SET reminder_sent = true WHERE token = $1', [s.token]);
+            await new Promise(r => setTimeout(r, 400));
+          }
+          if (due.rows.length) log.info('[sel-reminders] relances envoyées', { count: due.rows.length });
+        }
+      } catch(e) { log.error('[sel-reminders]', { err: e.message }); }
+      setTimeout(run, 12 * 60 * 60 * 1000);
+    }
+    setTimeout(run, 90 * 1000); // premier passage ~1,5 min après le démarrage
+  }
+  scheduleSelectionReminders();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✅ Showroom BDC démarré sur http://localhost:${PORT}`);
