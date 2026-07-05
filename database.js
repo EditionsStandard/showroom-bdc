@@ -298,6 +298,7 @@ async function init() {
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_enabled BOOLEAN DEFAULT false",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_window TEXT DEFAULT ''",
     "ALTER TABLE agent_selections ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT false",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS delivery_terms TEXT DEFAULT ''",
     // Demandes de lien de partage émises par les marques (designer) → traitées par l'agence
     `CREATE TABLE IF NOT EXISTS share_requests (
       id TEXT PRIMARY KEY,
