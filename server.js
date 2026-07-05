@@ -1622,8 +1622,8 @@ app.patch('/api/orders/:id/notes', requireRole('owner','agent'), async (req, res
 async function sendOrderStatusEmail(orderId, status) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) return;
-  const [showroomName, agentName, fromAddress] = await Promise.all([
-    getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
+  const [showroomName, agentName, fromAddress, showroomEmail] = await Promise.all([
+    getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from'), getSetting('showroom_email')
   ]);
   const oRes = await pool.query(`
     SELECT o.*, b.name as brand_name, b.logo as brand_logo, SUM(ol.quantity * ol.unit_price) as order_total,
@@ -1652,6 +1652,7 @@ async function sendOrderStatusEmail(orderId, status) {
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [order.client_email],
+    ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
     subject: isEn
       ? `Order update — ${order.brand_name} — ${statusLabels[status]}`
       : `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}`,
@@ -5030,6 +5031,30 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const fromFormatted = `${showroomName} <${fromField}>`;
   const attachment = { filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' };
 
+  // Miniatures produits pour le corps de l'email (jusqu'à 4, images distantes).
+  let thumbsHtml = '';
+  try {
+    const lImgs = await pool.query(
+      `SELECT DISTINCT ON (p.id) p.reference, p.image_url, p.images
+       FROM order_lines ol JOIN products p ON p.id = ol.product_id
+       WHERE ol.order_id = $1`, [orderId]);
+    const pickImg = (row) => {
+      let img = row.image_url;
+      if (!img && row.images) { try { const a = JSON.parse(row.images); img = Array.isArray(a) ? a[0] : null; } catch(e) {} }
+      if (img && typeof img === 'object') img = img.url || img.src || img.secure_url || null;
+      if (typeof img !== 'string' || !/^https?:\/\//i.test(img)) return null;
+      return img.includes('res.cloudinary.com') ? img.replace('/upload/', '/upload/w_160,h_200,c_fill,f_auto,q_auto/') : img;
+    };
+    const thumbs = lImgs.rows.map(r => ({ ref: r.reference, src: pickImg(r) })).filter(t => t.src).slice(0, 4);
+    if (thumbs.length) {
+      thumbsHtml = `<table cellpadding="0" cellspacing="0" style="width:100%;margin:22px 0"><tr>${
+        thumbs.map(t => `<td style="width:25%;padding:4px;text-align:center;vertical-align:top">
+          <img src="${escHtml(t.src)}" alt="${escHtml(t.ref || '')}" width="72" style="width:72px;height:92px;object-fit:cover;border:1px solid #eee;display:block;margin:0 auto">
+          <div style="font-size:10px;color:#999;margin-top:5px;font-family:'Courier New',Courier,monospace">${escHtml(t.ref || '')}</div>
+        </td>`).join('')}</tr></table>`;
+    }
+  } catch(e) { console.error('[order-email-thumbs]', e.message); }
+
   // ── Email acheteur ──
   await resend.emails.send({
     from: fromFormatted,
@@ -5046,6 +5071,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         <p>Hello <strong>${escHtml(order.client_name)}</strong>,</p>
         <p>We have received your order proposal for <strong>${order.brand_name}</strong> dated ${dateStr}.</p>
         <p>Your signed order proposal (total ex-VAT: <strong>${totalStr}</strong>) is attached to this email as a PDF.</p>
+        ${thumbsHtml}
 
         <table cellpadding="0" cellspacing="0" style="width:100%;background:#fffbea;border-left:3px solid #d4a017;border-radius:0 4px 4px 0;margin:24px 0">
           <tr><td style="padding:16px 20px">
@@ -5071,6 +5097,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
         <p>Nous avons bien reçu votre proposition de commande pour la marque <strong>${order.brand_name}</strong> en date du ${dateStr}.</p>
         <p>Votre proposition de commande signée (total HT : <strong>${totalStr}</strong>) est jointe à cet email en PDF.</p>
+        ${thumbsHtml}
 
         <table cellpadding="0" cellspacing="0" style="width:100%;background:#fffbea;border-left:3px solid #d4a017;border-radius:0 4px 4px 0;margin:24px 0">
           <tr><td style="padding:16px 20px">
