@@ -3434,6 +3434,16 @@ app.post('/api/portal/translate', requireBuyerAuth, async (req, res) => {
   } catch(e) { console.error('translate endpoint:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Version publique (page /commande, sans session acheteur) — mêmes limites, rate-limitée.
+app.post('/api/public/translate', publicLimiter, async (req, res) => {
+  try {
+    const { texts, lang } = req.body;
+    if (!Array.isArray(texts) || !lang || !TRANSLATE_LANGS[lang]) return res.status(400).json({ error: 'Requête invalide' });
+    const clipped = texts.slice(0, 300).map(t => String(t == null ? '' : t).slice(0, 4000));
+    res.json({ translations: await translateBatch(clipped, lang) });
+  } catch(e) { console.error('public translate:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json([]);
