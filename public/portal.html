@@ -2019,10 +2019,11 @@ async function openBrand(brandId, _fromPop) {
   if (parseInt(currentBrand.moq_qty) > 0) moqParts.push(t('moq_pieces', currentBrand.moq_qty));
   if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(t('moq_amount', Number(currentBrand.moq_amount).toFixed(2)));
   const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
-  const deliveryTermsSafe = (currentBrand.delivery_terms || '').trim();
-  const deliveryHtml = deliveryTermsSafe ? `<div class="brand-banner-moq">🚚 ${esc(deliveryTermsSafe).replace(/\n/g, ' · ')}</div>` : '';
-  const paymentTermsSafe = (currentBrand.payment_terms || '').trim();
-  const paymentHtml = paymentTermsSafe ? `<div class="brand-banner-moq">💳 ${esc(paymentTermsSafe).replace(/\n/g, ' · ')}</div>` : '';
+  // data-tr = texte source FR traduit par translateVisibleContent() si langue ≠ FR (emoji hors du span)
+  const deliveryTermsSafe = (currentBrand.delivery_terms || '').trim().replace(/\n/g, ' · ');
+  const deliveryHtml = deliveryTermsSafe ? `<div class="brand-banner-moq">🚚 <span data-tr="${esc(deliveryTermsSafe)}">${esc(deliveryTermsSafe)}</span></div>` : '';
+  const paymentTermsSafe = (currentBrand.payment_terms || '').trim().replace(/\n/g, ' · ');
+  const paymentHtml = paymentTermsSafe ? `<div class="brand-banner-moq">💳 <span data-tr="${esc(paymentTermsSafe)}">${esc(paymentTermsSafe)}</span></div>` : '';
   let deadlineHtml = '';
   const orderDeadline = (currentBrand.order_deadline || '').slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(orderDeadline)) {
