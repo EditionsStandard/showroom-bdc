@@ -1119,8 +1119,34 @@ function setLang(l) {
   if (allBtn) allBtn.textContent = T('all');
   // Refresh cart count text
   updateCartBar();
+  // Traduire le contenu (descriptions, conditions) dans la nouvelle langue
+  if (typeof translateContent === 'function') translateContent();
 }
 function toggleLang() { setLang(lang === 'fr' ? 'en' : 'fr'); }
+
+// ── Traduction du CONTENU (descriptions produits, conditions marque) ──
+// Mécanisme identique au portail : les éléments [data-tr] portent le texte
+// source FR ; on les traduit via /api/public/translate (Claude) quand la
+// langue ≠ FR. Repli silencieux sur le FR si la clé n'est pas configurée.
+const CONTENT_TR_LANGS = ['en','it','es','de','zh','ja','ko','th'];
+let _trBusy = false;
+async function translateContent(root) {
+  root = root || document;
+  const els = [...root.querySelectorAll('[data-tr]')];
+  if (lang === 'fr') { els.forEach(el => { el.textContent = el.getAttribute('data-tr'); delete el.dataset.trLang; }); return; }
+  if (!CONTENT_TR_LANGS.includes(lang)) return;
+  const todo = els.filter(el => el.dataset.trLang !== lang && (el.getAttribute('data-tr') || '').trim());
+  if (!todo.length || _trBusy) return;
+  _trBusy = true;
+  try {
+    const texts = todo.map(el => el.getAttribute('data-tr'));
+    const r = await fetch('/api/public/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang }) });
+    const d = await r.json();
+    if (d && d.translations) todo.forEach((el, i) => { el.textContent = d.translations[i] || el.getAttribute('data-tr'); el.dataset.trLang = lang; });
+  } catch(e) { /* repli silencieux : l'original FR reste affiché */ }
+  finally { _trBusy = false; }
+}
+
 // Init on load
 document.addEventListener('DOMContentLoaded', () => setLang(lang));
 
@@ -1238,11 +1264,13 @@ async function init() {
       let msg = '';
       if (brandMoqQty > 0) msg += T('moq_qty_warn', brandMoqQty);
       if (brandMoqAmount > 0) msg += (msg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
-      if (deliveryTerms) msg += (msg ? '<br>' : '') + '🚚 ' + esc(deliveryTerms).replace(/\n/g, '<br>');
-      if (paymentTerms) msg += (msg ? '<br>' : '') + '💳 ' + esc(paymentTerms).replace(/\n/g, '<br>');
+      if (deliveryTerms) { const d = deliveryTerms.replace(/\n/g, ' · '); msg += (msg ? '<br>' : '') + '🚚 <span data-tr="' + esc(d) + '">' + esc(d) + '</span>'; }
+      if (paymentTerms) { const pt = paymentTerms.replace(/\n/g, ' · '); msg += (msg ? '<br>' : '') + '💳 <span data-tr="' + esc(pt) + '">' + esc(pt) + '</span>'; }
       if (deadlineHtml) msg += (msg ? '<br>' : '') + deadlineHtml;
       moqEl.innerHTML = msg;
       moqEl.style.display = 'block';
+      // Traduire les conditions si langue ≠ FR
+      if (typeof translateContent === 'function') translateContent(moqEl);
     }
 
     // Header (for pages 1-4)
@@ -1530,7 +1558,7 @@ function _origRenderProducts(products) {
       + '<div class="product-header">'
       + (p.collection_name ? '<div class="product-collection">' + esc(p.collection_name) + '</div>' : '')
       + '<div class="product-ref">' + esc(p.reference) + '</div>'
-      + (p.description ? '<div class="product-desc">' + esc(sentenceCase(p.description)) + '</div>' : '')
+      + (p.description ? '<div class="product-desc" data-tr="' + esc(sentenceCase(p.description)) + '">' + esc(sentenceCase(p.description)) + '</div>' : '')
       + '<div class="product-tags">'
       + (p.color ? '<span class="tag">🎨 ' + esc(p.color) + '</span>' : '')
       + (p.composition ? '<span class="tag">🧵 ' + esc(p.composition) + '</span>' : '')
@@ -2545,6 +2573,8 @@ function renderProducts(products) {
     const imgWrap = card.querySelector('.product-img-wrap');
     if (imgWrap) { imgWrap.style.position = 'relative'; imgWrap.appendChild(favBtn); }
   });
+  // Traduire les descriptions produits si la langue ≠ FR
+  if (typeof translateContent === 'function') translateContent(document.getElementById('products-container') || undefined);
 }
 
 // ── Suivi commande en temps réel après succès ─────────────────────
