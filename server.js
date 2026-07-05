@@ -2730,7 +2730,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
   try {
-    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, subscription_status, lookbook_url, default_currency FROM brands WHERE id=$1", [req.params.brandId]);
+    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load
