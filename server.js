@@ -2264,6 +2264,7 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
   await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
+    ...(ownerEmail ? { replyTo: ownerEmail } : {}), // réponses de l'acheteur → showroom
     ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
     subject: isEn
       ? `Your ${brandName} selection${numLabel} — to confirm`
@@ -3284,17 +3285,25 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     );
     const buyer = bRes.rows[0];
     if (!buyer) return res.status(404).json({ error: 'Acheteur introuvable' });
+    // Agent/designer borné à sa marque : n'agrège que les commandes et RDV de
+    // sa marque (le propriétaire voit l'historique complet, toutes marques).
+    const scoped = isBrandScoped(req);
+    const brandId = req.userBrandId;
     const [orders, appts] = await Promise.all([
       pool.query(`SELECT o.id, o.order_number, o.created_at, o.status, b.name AS brand_name,
                          COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS total
                   FROM orders o JOIN brands b ON b.id=o.brand_id
                   LEFT JOIN order_lines ol ON ol.order_id=o.id
-                  WHERE o.buyer_id=$1 OR LOWER(o.client_email)=LOWER($2)
-                  GROUP BY o.id, b.name ORDER BY o.created_at DESC`, [req.params.id, buyer.email]),
+                  WHERE (o.buyer_id=$1 OR LOWER(o.client_email)=LOWER($2))
+                  ${scoped ? 'AND o.brand_id=$3' : ''}
+                  GROUP BY o.id, b.name ORDER BY o.created_at DESC`,
+                  scoped ? [req.params.id, buyer.email, brandId] : [req.params.id, buyer.email]),
       pool.query(`SELECT a.id, a.slot_date, a.slot_time, a.notes, b.name AS brand_name
                   FROM appointments a JOIN brands b ON b.id=a.brand_id
                   WHERE LOWER(a.client_email)=LOWER($1)
-                  ORDER BY a.slot_date DESC, a.slot_time DESC`, [buyer.email])
+                  ${scoped ? 'AND a.brand_id=$2' : ''}
+                  ORDER BY a.slot_date DESC, a.slot_time DESC`,
+                  scoped ? [buyer.email, brandId] : [buyer.email])
     ]);
     res.json({ buyer, orders: orders.rows, appointments: appts.rows });
   } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -3761,8 +3770,8 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
     const buyer = b.rows[0];
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(503).json({ error: 'Email non configuré' });
-    const [showroomName, agentName, fromAddress] = await Promise.all([
-      getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
+    const [showroomName, agentName, fromAddress, showroomEmail] = await Promise.all([
+      getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from'), getSetting('showroom_email')
     ]);
     const resend = new Resend(resendKey);
     const { message } = req.body;
@@ -3770,6 +3779,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
     await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
+      ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
       subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
       html: emailLayout({ showroomName, content: `
         <p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p>
@@ -4995,6 +5005,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   await resend.emails.send({
     from: fromFormatted,
     to: [order.client_email],
+    ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
     subject: isEn
       ? `Order proposal — ${order.brand_name} — ${showroomName}`
       : `Proposition de commande — ${order.brand_name} — ${showroomName}`,
