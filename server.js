@@ -3861,7 +3861,7 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
     const bId = req.userBrandId;
     const oFilter = scoped ? 'AND o.brand_id = $1' : '';
     const p = scoped ? [bId] : [];
-    const [brandsR, ordersR, revenueR, buyersR, orders30R] = await Promise.all([
+    const [brandsR, ordersR, revenueR, buyersR, orders30R, selConvR] = await Promise.all([
       scoped
         ? pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE id = $1`, p)
         : pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
@@ -3870,14 +3870,23 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
       scoped
         ? pool.query(`SELECT COUNT(DISTINCT o.buyer_id) as buyers_count FROM orders o WHERE o.buyer_id IS NOT NULL AND o.brand_id = $1`, p)
         : pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
-      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE o.status NOT IN ('draft','cancelled') AND o.created_at >= NOW() - INTERVAL '30 days' ${oFilter}`, p)
+      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE o.status NOT IN ('draft','cancelled') AND o.created_at >= NOW() - INTERVAL '30 days' ${oFilter}`, p),
+      // Conversion sélections → commandes (sélections confirmées / envoyées, hors templates)
+      pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE used = true)::int AS confirmed
+                  FROM agent_selections a
+                  WHERE (a.is_template IS NULL OR a.is_template = false) ${scoped ? 'AND a.brand_id = $1' : ''}`, p)
     ]);
+    const selTotal = parseInt(selConvR.rows[0]?.total) || 0;
+    const selConfirmed = parseInt(selConvR.rows[0]?.confirmed) || 0;
     res.json({
       brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
       orders_count: parseInt(ordersR.rows[0].orders_count) || 0,
       revenue_total: parseFloat(revenueR.rows[0].revenue_total) || 0,
       buyers_count: parseInt(buyersR.rows[0].buyers_count) || 0,
-      orders_last30: parseInt(orders30R.rows[0].orders_last30) || 0
+      orders_last30: parseInt(orders30R.rows[0].orders_last30) || 0,
+      selections_total: selTotal,
+      selections_confirmed: selConfirmed,
+      conversion_rate: selTotal ? Math.round((selConfirmed / selTotal) * 100) : 0
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
