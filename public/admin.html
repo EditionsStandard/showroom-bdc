@@ -726,9 +726,9 @@
       <h1 style="margin:0" data-t="h1_orders">Commandes</h1>
       <div style="display:flex;gap:8px;align-items:center">
         <span id="orders-count" style="font-size:13px;color:#888"></span>
-        <a href="/api/orders/export/csv" class="btn btn-secondary btn-sm" style="text-decoration:none" download>⬇ Export CSV</a>
-        <a href="/api/orders/export-csv" class="btn btn-secondary btn-sm" style="text-decoration:none" onclick="window.location='/api/orders/export-csv';return false">↓ CSV Commandes</a>
-        <a href="/api/admin/export/orders.xlsx" class="btn btn-secondary btn-sm" style="text-decoration:none">⬇ XLSX</a>
+        <a href="/api/orders/export/csv" class="btn btn-secondary btn-sm" style="text-decoration:none" download title="Une ligne par article commandé (référence, taille, quantité, prix)">⬇ CSV détaillé</a>
+        <a href="/api/orders/export-csv" class="btn btn-secondary btn-sm" style="text-decoration:none" download title="Une ligne par commande (client, statut, total HT)">⬇ CSV résumé</a>
+        <a href="/api/admin/export/orders.xlsx" class="btn btn-secondary btn-sm" style="text-decoration:none" title="Export Excel détaillé">⬇ XLSX</a>
       </div>
     </div>
 
