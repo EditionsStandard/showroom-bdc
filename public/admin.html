@@ -610,6 +610,15 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
+    <!-- Conversion sélections → commandes -->
+    <div class="card" id="conversion-card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em" data-t="stat_conversion">Conversion sélections → commandes</div>
+        <div style="font-size:12px;color:#888;margin-top:6px"><span id="stat-conv-sub">—</span></div>
+      </div>
+      <div style="font-size:34px;font-weight:700;color:var(--accent);line-height:1" id="stat-conversion">—</div>
+    </div>
+
     <!-- Carte partage prospection — distribution réservée à l'agence -->
     <div class="card agency-only" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1793,6 +1802,7 @@ const TRANSLATIONS = {
     // Stats
     stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'CA total HT',
     stat_buyers: 'Acheteurs', stat_online: 'En ligne maintenant', btn_confirm_regen: '✓ Confirmer',
+    stat_conversion: 'Conversion sélections → commandes',
     recent_orders: 'Dernières commandes',
     // Table headers
     th_date: 'Date', th_client: 'Client', th_brand: 'Marque', th_total: 'Total',
@@ -1931,6 +1941,7 @@ const TRANSLATIONS = {
     // Stats
     stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Total revenue',
     stat_buyers: 'Buyers', stat_online: 'Online now', btn_confirm_regen: '✓ Confirm',
+    stat_conversion: 'Selection → order conversion',
     recent_orders: 'Recent orders',
     // Table headers
     th_date: 'Date', th_client: 'Client', th_brand: 'Brand', th_total: 'Total',
@@ -3051,6 +3062,19 @@ async function loadDashboard() {
     stats.revenue_total != null ? Number(stats.revenue_total).toFixed(2) + ' €' : '—';
   document.getElementById('stat-buyers').textContent = stats.buyers_count ?? '—';
   document.getElementById('stat-online-num').textContent = onlineIds.length;
+
+  // Taux de conversion sélections → commandes
+  const convEl = document.getElementById('stat-conversion');
+  if (convEl) {
+    if (stats.selections_total) {
+      convEl.textContent = (stats.conversion_rate ?? 0) + '%';
+      document.getElementById('stat-conv-sub').textContent =
+        `${stats.selections_confirmed}/${stats.selections_total} ` + (currentLang === 'en' ? 'selections confirmed' : 'sélections confirmées');
+    } else {
+      convEl.textContent = '—';
+      document.getElementById('stat-conv-sub').textContent = (currentLang === 'en' ? 'No selection sent yet' : 'Aucune sélection envoyée');
+    }
+  }
 
   // Peupler le sélecteur de marque de la carte Partage
   const shareSel = document.getElementById('share-brand-select');
