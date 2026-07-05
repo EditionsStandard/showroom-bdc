@@ -1516,6 +1516,22 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Suppression d'une sélection (ex. sélections de test). Bornée à la marque de
+// l'agent ; le propriétaire peut tout supprimer. N'affecte pas une éventuelle
+// commande déjà passée (les commandes vivent dans une autre table).
+app.delete('/api/agent-selections/:token', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const sel = await pool.query('SELECT brand_id FROM agent_selections WHERE token=$1', [req.params.token]);
+    if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+    await pool.query('DELETE FROM agent_selections WHERE token=$1', [req.params.token]);
+    logAudit(req, 'delete_selection', 'agent_selection', req.params.token, '');
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;

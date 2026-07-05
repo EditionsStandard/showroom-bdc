@@ -5079,6 +5079,16 @@ async function loadSelections() {
   filterSelections();
 }
 
+async function deleteSelection(token, label) {
+  if (!confirm(`Supprimer la sélection ${label || ''} ?\nCette action est définitive (n'affecte pas une commande déjà passée).`)) return;
+  try {
+    const r = await fetch('/api/agent-selections/' + encodeURIComponent(token), { method: 'DELETE' });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { toast('Sélection supprimée ✓'); loadSelections(); }
+    else toast(d.error || 'Erreur suppression', true);
+  } catch(e) { toast('Erreur réseau', true); }
+}
+
 function getSelStatus(s) {
   if (s.used) return 'confirmed';
   if (new Date(s.expires_at) < new Date()) return 'expired';
@@ -5134,6 +5144,7 @@ function filterSelections() {
         ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')">📋</button>
         ${s.is_template ? `<span class="badge badge-validated" style="font-size:10px;padding:3px 7px">⭐ Template</span>` : `<button class="btn btn-secondary btn-sm" onclick="openSaveTemplateModal('${s.token}')">⭐</button>`}
+        <button class="btn btn-danger btn-sm" onclick="deleteSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Supprimer la sélection">🗑</button>
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="11" style="color:#666;text-align:center;padding:20px">Aucune sélection</td></tr>`;
