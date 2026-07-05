@@ -1228,14 +1228,16 @@ async function init() {
       document.getElementById('landing-agent-card').style.display = 'flex';
     }
 
-    // MOQ + conditions de livraison sur la landing (regroupés dans le même encart)
+    // MOQ + conditions de livraison/paiement sur la landing (regroupés dans le même encart)
     const deliveryTerms = (data.brand.delivery_terms || '').trim();
-    if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms) {
+    const paymentTerms = (data.brand.payment_terms || '').trim();
+    if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms || paymentTerms) {
       const moqEl = document.getElementById('landing-moq');
       let msg = '';
       if (brandMoqQty > 0) msg += T('moq_qty_warn', brandMoqQty);
       if (brandMoqAmount > 0) msg += (msg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
       if (deliveryTerms) msg += (msg ? '<br>' : '') + '🚚 ' + esc(deliveryTerms).replace(/\n/g, '<br>');
+      if (paymentTerms) msg += (msg ? '<br>' : '') + '💳 ' + esc(paymentTerms).replace(/\n/g, '<br>');
       moqEl.innerHTML = msg;
       moqEl.style.display = 'block';
     }
