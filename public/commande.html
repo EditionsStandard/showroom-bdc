@@ -1228,16 +1228,19 @@ async function init() {
       document.getElementById('landing-agent-card').style.display = 'flex';
     }
 
-    // MOQ + conditions de livraison/paiement sur la landing (regroupés dans le même encart)
+    // MOQ + conditions de livraison/paiement + date limite sur la landing
     const deliveryTerms = (data.brand.delivery_terms || '').trim();
     const paymentTerms = (data.brand.payment_terms || '').trim();
-    if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms || paymentTerms) {
+    const orderDeadline = (data.brand.order_deadline || '').slice(0, 10);
+    const deadlineHtml = orderDeadline ? deadlineNotice(orderDeadline) : '';
+    if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms || paymentTerms || deadlineHtml) {
       const moqEl = document.getElementById('landing-moq');
       let msg = '';
       if (brandMoqQty > 0) msg += T('moq_qty_warn', brandMoqQty);
       if (brandMoqAmount > 0) msg += (msg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
       if (deliveryTerms) msg += (msg ? '<br>' : '') + '🚚 ' + esc(deliveryTerms).replace(/\n/g, '<br>');
       if (paymentTerms) msg += (msg ? '<br>' : '') + '💳 ' + esc(paymentTerms).replace(/\n/g, '<br>');
+      if (deadlineHtml) msg += (msg ? '<br>' : '') + deadlineHtml;
       moqEl.innerHTML = msg;
       moqEl.style.display = 'block';
     }
@@ -1420,6 +1423,27 @@ document.getElementById('btn-start').addEventListener('click', startSession);
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Message « date limite de commande » localisé (ouvert dans le futur, dépassé sinon).
+function deadlineNotice(dateStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
+  const LOC = { fr:'fr-FR', en:'en-GB', it:'it-IT', es:'es-ES', de:'de-DE', zh:'zh-CN', ja:'ja-JP', ko:'ko-KR', th:'th-TH' };
+  const L = {
+    fr:["Commandes ouvertes jusqu'au","Date limite de commande dépassée"],
+    en:['Orders open until','Order deadline passed'],
+    it:['Ordini aperti fino al','Termine ordini superato'],
+    es:['Pedidos abiertos hasta el','Plazo de pedido vencido'],
+    de:['Bestellungen offen bis','Bestellfrist abgelaufen'],
+    zh:['订单截止日期','订单截止日期已过'],
+    ja:['ご注文期限','注文期限が過ぎました'],
+    ko:['주문 마감일','주문 마감 기한이 지났습니다'],
+    th:['รับออร์เดอร์ถึง','เลยกำหนดสั่งซื้อแล้ว']
+  };
+  const lbl = L[lang] || L.fr;
+  const fmt = new Date(dateStr + 'T12:00:00').toLocaleDateString(LOC[lang] || 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const past = new Date(dateStr + 'T23:59:59') < new Date();
+  return past ? ('⚠ ' + lbl[1] + ' (' + fmt + ')') : ('🗓 ' + lbl[0] + ' ' + fmt);
 }
 
 // Convert ALL-CAPS product descriptions to readable sentence case

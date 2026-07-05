@@ -2023,6 +2023,15 @@ async function openBrand(brandId, _fromPop) {
   const deliveryHtml = deliveryTermsSafe ? `<div class="brand-banner-moq">🚚 ${esc(deliveryTermsSafe).replace(/\n/g, ' · ')}</div>` : '';
   const paymentTermsSafe = (currentBrand.payment_terms || '').trim();
   const paymentHtml = paymentTermsSafe ? `<div class="brand-banner-moq">💳 ${esc(paymentTermsSafe).replace(/\n/g, ' · ')}</div>` : '';
+  let deadlineHtml = '';
+  const orderDeadline = (currentBrand.order_deadline || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(orderDeadline)) {
+    const isEn = currentLang === 'en';
+    const past = new Date(orderDeadline + 'T23:59:59') < new Date();
+    const fmt = new Date(orderDeadline + 'T12:00:00').toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    const lbl = isEn ? (past ? 'Order deadline passed' : 'Orders open until') : (past ? 'Date limite de commande dépassée' : "Commandes ouvertes jusqu'au");
+    deadlineHtml = `<div class="brand-banner-moq">${past ? '⚠' : '🗓'} ${esc(lbl)} ${past ? '(' + esc(fmt) + ')' : esc(fmt)}</div>`;
+  }
   const aboutHtml = currentBrand.about_text ? formatAbout(currentBrand.about_text) : '';
   // N'affiche le lien que si l'URL est http(s) (neutralise un éventuel javascript: hérité)
   const lookbookUrlSafe = /^https?:\/\//i.test(String(currentBrand.lookbook_url || '').trim()) ? currentBrand.lookbook_url.trim() : '';
@@ -2041,6 +2050,7 @@ async function openBrand(brandId, _fromPop) {
         ${moqHtml}
         ${deliveryHtml}
         ${paymentHtml}
+        ${deadlineHtml}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${lookbookHtml||cgvHtml?'14px':'0'}">
           ${lookbookHtml}
           <button onclick="openApptModal('${currentBrand.id}')" style="display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-size:11px;font-weight:600;color:var(--accent);background:none;border:none;border-radius:0;padding:9px 2px;cursor:pointer;letter-spacing:.14em;text-transform:uppercase">📅 ${t('book_appointment')}</button>
