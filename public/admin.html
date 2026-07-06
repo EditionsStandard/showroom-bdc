@@ -1524,13 +1524,18 @@
       <tbody id="agent-sel-body"></tbody>
     </table></div>
     <div class="sep"></div>
-    <div class="form-row">
-      <div class="form-group"><label>Email acheteur *</label><input id="agent-sel-email" type="email" placeholder="acheteur@boutique.com"></div>
-      <div class="form-group"><label>Nom de la boutique</label><input id="agent-sel-company" type="text"></div>
+    <div id="agent-sel-client-fields">
+      <div class="form-row">
+        <div class="form-group"><label>Email acheteur *</label><input id="agent-sel-email" type="email" placeholder="acheteur@boutique.com"></div>
+        <div class="form-group"><label>Nom de la boutique</label><input id="agent-sel-company" type="text"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nom du contact</label><input id="agent-sel-name" type="text"></div>
+        <div class="form-group"><label>Note (optionnel)</label><input id="agent-sel-notes" type="text"></div>
+      </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Nom du contact</label><input id="agent-sel-name" type="text"></div>
-      <div class="form-group"><label>Note (optionnel)</label><input id="agent-sel-notes" type="text"></div>
+    <div id="agent-sel-edit-info" style="display:none;font-size:12px;color:#888;margin:4px 0 8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="agent-sel-notify" type="checkbox"> Prévenir l'acheteur par email de la mise à jour</label>
     </div>
     <div id="agent-sel-result" style="margin:10px 0;font-size:13px"></div>
     <div class="modal-footer">
@@ -4023,15 +4028,42 @@ async function clearCollectionLookbook() {
 }
 
 // ── Sélection agent (préparée en RDV) ───────────────────────────────
-let agentSelBrandId = null, agentSelProducts = [], agentSelQty = {};
+let agentSelBrandId = null, agentSelProducts = [], agentSelQty = {}, agentSelEditToken = null;
 async function openAgentSelection(brandId, brandName) {
   agentSelBrandId = brandId;
   agentSelQty = {};
+  agentSelEditToken = null;
   document.getElementById('agent-sel-title').textContent = 'Sélection — ' + brandName;
   ['agent-sel-email','agent-sel-company','agent-sel-name','agent-sel-notes','agent-sel-search'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('agent-sel-result').innerHTML = '';
+  // Mode création : champs client visibles, bloc édition masqué, libellé bouton par défaut
+  document.getElementById('agent-sel-client-fields').style.display = '';
+  document.getElementById('agent-sel-edit-info').style.display = 'none';
+  document.getElementById('agent-sel-send').textContent = '📨 Envoyer à l\'acheteur';
   openModal('modal-agent-selection');
   const data = await fetch(`/api/brands/${brandId}/products`).then(r => r.json()).catch(() => []);
+  agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0);
+  renderAgentSelProducts();
+}
+
+// Édition des références d'une sélection existante : rouvre le même modal,
+// pré-rempli avec les quantités déjà présentes. Les infos acheteur sont figées.
+async function editSelectionItems(token) {
+  const s = _allSelections.find(x => x.token === token);
+  if (!s) return toast('Sélection introuvable', true);
+  agentSelBrandId = s.brand_id;
+  agentSelEditToken = token;
+  agentSelQty = {};
+  try { JSON.parse(s.items_json || '[]').forEach(i => { agentSelQty[i.product_id + '|' + (i.size || '')] = parseInt(i.quantity) || 0; }); } catch(e) {}
+  document.getElementById('agent-sel-title').textContent = 'Ajouter des références — ' + (s.brand_name || '');
+  document.getElementById('agent-sel-search').value = '';
+  document.getElementById('agent-sel-result').innerHTML = `<span style="color:#888">Sélection ${esc(s.selection_number||'')} — ${esc(s.client_name||s.client_email||'')}. Ajustez les quantités puis enregistrez.</span>`;
+  document.getElementById('agent-sel-client-fields').style.display = 'none';
+  document.getElementById('agent-sel-edit-info').style.display = 'block';
+  document.getElementById('agent-sel-notify').checked = false;
+  document.getElementById('agent-sel-send').textContent = '💾 Enregistrer la sélection';
+  openModal('modal-agent-selection');
+  const data = await fetch(`/api/brands/${s.brand_id}/products`).then(r => r.json()).catch(() => []);
   agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0);
   renderAgentSelProducts();
 }
@@ -4059,12 +4091,30 @@ function renderAgentSelProducts() {
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
 }
 async function sendAgentSelection() {
-  const email = document.getElementById('agent-sel-email').value.trim();
   const res = document.getElementById('agent-sel-result');
-  if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email acheteur valide requis.</span>'; return; }
   const items = Object.entries(agentSelQty).filter(([k,v]) => v > 0).map(([k,v]) => { const [product_id, size] = k.split('|'); return { product_id, size, quantity: v }; });
   if (!items.length) { res.innerHTML = '<span style="color:#e07a7a">Sélectionnez au moins un article.</span>'; return; }
   const btn = document.getElementById('agent-sel-send');
+
+  // Mode édition : on met à jour les références d'une sélection existante.
+  if (agentSelEditToken) {
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    const notify = document.getElementById('agent-sel-notify').checked;
+    const r = await fetch(`/api/agent-selections/${encodeURIComponent(agentSelEditToken)}/items`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, notify })
+    });
+    const d = await r.json().catch(() => ({}));
+    btn.disabled = false; btn.textContent = '💾 Enregistrer la sélection';
+    if (!r.ok) { res.textContent = d.error || 'Erreur'; res.style.color = '#e07a7a'; return; }
+    res.innerHTML = `<span style="color:#2ecc71">✓ Sélection mise à jour (${d.count} article${d.count>1?'s':''})${notify ? ', acheteur prévenu' : ''}.</span>`;
+    _allSelections = []; loadSelections();
+    setTimeout(() => closeModal('modal-agent-selection'), 1200);
+    return;
+  }
+
+  const email = document.getElementById('agent-sel-email').value.trim();
+  if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email acheteur valide requis.</span>'; return; }
   btn.disabled = true; btn.textContent = 'Envoi…';
   const r = await fetch(`/api/brands/${agentSelBrandId}/agent-selection`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -5198,6 +5248,7 @@ function filterSelections() {
       <td style="font-size:11px;color:${status==='expired'?'#e74c3c':'#888'}">${expDate}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
+        ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="editSelectionItems('${escJs(s.token)}')" title="Ajouter / modifier des références">➕ Réf.</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')">📋</button>
         ${s.is_template ? `<span class="badge badge-validated" style="font-size:10px;padding:3px 7px">⭐ Template</span>` : `<button class="btn btn-secondary btn-sm" onclick="openSaveTemplateModal('${s.token}')">⭐</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Supprimer la sélection">🗑</button>
