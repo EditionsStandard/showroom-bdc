@@ -1230,13 +1230,7 @@ function applyLang() {
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Bouton quitter présentation -->
-<button class="pres-exit" onclick="togglePresentation()">✕ Quitter la présentation</button>
-<button class="pres-toggle" id="pres-toggle-btn" onclick="togglePresLookbook()">🖼 Masquer prix &amp; qtés</button>
-<!-- Indicateur mode présentation -->
-<div class="pres-indicator">MODE PRÉSENTATION</div>
-<!-- Bouton Présenter (mobile uniquement) -->
-<button id="present-btn" onclick="togglePresentationMode()" style="position:fixed;top:72px;right:12px;z-index:55;background:none;border:none;color:var(--soft);border-radius: 0;padding:7px 14px;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em">👁 Présenter</button>
+<!-- Mode présentation retiré du portail acheteur (outil showroom réservé au mode agent) -->
 
 <!-- Modal : Envoyer sélection par email -->
 <div class="gmodal-overlay" id="modal-email-sel">
@@ -2071,7 +2065,6 @@ async function openBrand(brandId, _fromPop) {
       <div class="view-toggle">
         <button id="vt-grid" class="active" title="Grille" onclick="setProductView('grid')">⊞</button>
         <button id="vt-list" title="Liste" onclick="setProductView('list')">☰</button>
-        <button title="Mode présentation" onclick="togglePresentation()" style="font-size:13px">⛶</button>
       </div>
     </div>
     <div class="sort-bar">
