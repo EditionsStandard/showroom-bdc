@@ -312,6 +312,17 @@ async function init() {
       status TEXT DEFAULT 'pending',
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
+    // Messagerie asynchrone acheteur ↔ agence (un fil par acheteur)
+    `CREATE TABLE IF NOT EXISTS buyer_messages (
+      id TEXT PRIMARY KEY,
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      sender TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      read_by_buyer BOOLEAN DEFAULT false,
+      read_by_staff BOOLEAN DEFAULT false
+    )`,
+    "CREATE INDEX IF NOT EXISTS idx_buyer_messages_buyer ON buyer_messages(buyer_id, created_at)",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

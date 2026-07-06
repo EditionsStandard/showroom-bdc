@@ -1855,6 +1855,12 @@
     <div id="bp-appts" style="margin-bottom:18px"></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🕘 Historique des actions</div>
     <div id="bp-activity" style="margin-bottom:18px;max-height:260px;overflow:auto"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">💬 Messagerie acheteur</div>
+    <div id="bp-messages" style="max-height:240px;overflow:auto;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <input id="bp-msg-input" type="text" placeholder="Écrire à l'acheteur… (il reçoit un email)" style="flex:1" onkeydown="if(event.key==='Enter')sendBuyerMessage()">
+      <button class="btn btn-primary btn-sm" id="bp-msg-send" onclick="sendBuyerMessage()">Envoyer</button>
+    </div>
     <div id="bp-notes-wrap" style="display:none;background:var(--black);border-radius: 0;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🔒 Notes internes</div>
       <div id="bp-notes" style="font-size:13px;color:#ccc;white-space:pre-wrap"></div>
@@ -6133,8 +6139,12 @@ async function submitCsvImport() {
 }
 
 // ── Fiche acheteur 360° ──────────────────────────────────────────────
+let _bpBuyerId = null;
 async function openBuyerProfile(id) {
+  _bpBuyerId = id;
   openModal('modal-buyer-profile');
+  document.getElementById('bp-messages').innerHTML = '';
+  document.getElementById('bp-msg-input').value = '';
   document.getElementById('bp-name').textContent = '…';
   document.getElementById('bp-contact').textContent = '';
   document.getElementById('bp-kpis').innerHTML = '';
@@ -6196,6 +6206,49 @@ async function openBuyerProfile(id) {
     document.getElementById('bp-notes').textContent = b.internal_notes;
     document.getElementById('bp-notes-wrap').style.display = 'block';
   }
+  loadBuyerMessages(id);
+}
+
+// ── Messagerie acheteur (fiche client) ────────────────────────────────
+function renderBuyerMessages(messages) {
+  const box = document.getElementById('bp-messages');
+  if (!messages.length) { box.innerHTML = '<div style="color:#666;font-size:13px">Aucun message. Écrivez le premier ci-dessous.</div>'; return; }
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  box.innerHTML = messages.map(m => {
+    const staff = m.sender === 'staff';
+    const dt = new Date(m.created_at);
+    const when = dt.toLocaleDateString(locale) + ' ' + dt.toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit' });
+    return `<div style="display:flex;justify-content:${staff?'flex-end':'flex-start'};margin-bottom:6px">
+      <div style="max-width:78%;background:${staff?'var(--accent)':'#1c1c1c'};color:${staff?'#111':'#e0e0e0'};border-radius:0;padding:8px 12px;font-size:13px">
+        <div style="white-space:pre-wrap">${esc(m.body)}</div>
+        <div style="font-size:10px;margin-top:3px;opacity:.7">${staff?'Agence':'Acheteur'} · ${when}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+async function loadBuyerMessages(id) {
+  try {
+    const d = await fetch('/api/admin/buyers/' + id + '/messages').then(r => r.json());
+    renderBuyerMessages((d && d.messages) || []);
+  } catch(e) { document.getElementById('bp-messages').innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur de chargement des messages.</div>'; }
+}
+async function sendBuyerMessage() {
+  const input = document.getElementById('bp-msg-input');
+  const body = input.value.trim();
+  if (!body || !_bpBuyerId) return;
+  const btn = document.getElementById('bp-msg-send');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/buyers/' + _bpBuyerId + '/messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || 'Erreur envoi', true); return; }
+    input.value = '';
+    loadBuyerMessages(_bpBuyerId);
+  } catch(e) { toast('Erreur réseau', true); }
+  finally { btn.disabled = false; }
 }
 
 // ── Feature 3: Tags & Notes acheteurs ────────────────────────────────
