@@ -1623,6 +1623,46 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Relance manuelle d'une sélection en attente : renvoie l'email (rappel) à l'acheteur
+// avec le lien de sa sélection. Bornée à la marque de l'agent. Refusée si validée/expirée.
+app.post('/api/agent-selections/:token/remind', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const sel = await pool.query(
+      'SELECT a.brand_id, a.used, a.expires_at, a.client_email, a.client_name, a.selection_number, b.name AS brand_name FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
+      [req.params.token]);
+    if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    if (sel.rows[0].used) return res.status(409).json({ error: 'Sélection déjà validée.' });
+    if (new Date(sel.rows[0].expires_at) < new Date()) return res.status(410).json({ error: 'Sélection expirée.' });
+    if (!sel.rows[0].client_email) return res.status(400).json({ error: 'Aucun email acheteur sur cette sélection.' });
+    const url = `${getBaseUrl(req)}/selection/${req.params.token}`;
+    await sendAgentSelectionEmail({ email: sel.rows[0].client_email, name: sel.rows[0].client_name, brandName: sel.rows[0].brand_name, selectionNumber: sel.rows[0].selection_number, url, req, reminder: true });
+    await pool.query('UPDATE agent_selections SET reminder_sent = true WHERE token=$1', [req.params.token]);
+    logAudit(req, 'remind_selection', 'agent_selection', req.params.token, sel.rows[0].client_email);
+    res.json({ ok: true, url, email: sel.rows[0].client_email, emailed: !!process.env.RESEND_API_KEY });
+  } catch(e) { console.error('remind selection:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Correction des infos acheteur d'une sélection (nom/email/société parfois erronés).
+// Bornée à la marque de l'agent. Refusée si la sélection est déjà validée.
+app.put('/api/agent-selections/:token/client', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { client_name, client_email, client_company } = req.body;
+    const sel = await pool.query('SELECT brand_id, used FROM agent_selections WHERE token=$1', [req.params.token]);
+    if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    if (sel.rows[0].used) return res.status(409).json({ error: 'Sélection déjà validée — impossible de la modifier.' });
+    const email = (client_email || '').trim().toLowerCase();
+    if (email && !email.includes('@')) return res.status(400).json({ error: 'Email acheteur invalide' });
+    // Email : mis à jour seulement s'il est fourni (sinon on conserve l'existant)
+    await pool.query(
+      "UPDATE agent_selections SET client_name=$1, client_company=$2, client_email=COALESCE(NULLIF($3,''), client_email) WHERE token=$4",
+      [(client_name || '').slice(0, 160), (client_company || '').slice(0, 160), email, req.params.token]);
+    logAudit(req, 'edit_selection_client', 'agent_selection', req.params.token, email || '');
+    res.json({ ok: true });
+  } catch(e) { console.error('edit selection client:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;

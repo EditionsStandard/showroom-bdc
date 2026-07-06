@@ -1568,6 +1568,25 @@
   </div>
 </div>
 
+<!-- MODAL : corriger les infos acheteur d'une sélection -->
+<div class="modal-overlay" id="modal-edit-sel-client">
+  <div class="modal" style="max-width:460px">
+    <h3 style="margin-bottom:6px">Corriger les infos acheteur</h3>
+    <p style="font-size:12px;color:#888;margin:-2px 0 16px">Sélection <strong id="esc-sel-num"></strong>. Corrigez un nom, un email ou une société erronés.</p>
+    <input type="hidden" id="esc-token">
+    <div class="form-group"><label>Email acheteur</label><input id="esc-email" type="email" placeholder="acheteur@boutique.com"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Nom du contact</label><input id="esc-name" type="text"></div>
+      <div class="form-group"><label>Société / boutique</label><input id="esc-company" type="text"></div>
+    </div>
+    <div id="esc-result" style="margin:10px 0;font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-sel-client')">Annuler</button>
+      <button class="btn btn-primary" id="esc-save-btn" onclick="saveSelectionClient()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL INVITE LINK -->
 <div class="modal-overlay" id="modal-invite">
   <div class="modal" style="max-width:480px">
@@ -5306,6 +5325,55 @@ async function deleteSelection(token, label) {
   } catch(e) { toast('Erreur réseau', true); }
 }
 
+// Relance : renvoie l'email de rappel à l'acheteur avec le lien de sa sélection
+async function remindSelection(token, label) {
+  if (!confirm(`Renvoyer un email de rappel à l'acheteur avec le lien de la sélection ${label || ''} ?`)) return;
+  try {
+    const r = await fetch('/api/agent-selections/' + encodeURIComponent(token) + '/remind', { method: 'POST' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(d.error || 'Erreur relance', true);
+    if (d.emailed) toast('Relance envoyée à ' + (d.email || "l'acheteur") + ' ✓');
+    else { copyToClipboard(location.origin + '/selection/' + token); toast('Email non configuré (RESEND_API_KEY) — lien copié', true); }
+  } catch(e) { toast('Erreur réseau', true); }
+}
+
+// Corrige les infos acheteur (nom/email/société parfois erronés)
+function openEditSelectionClient(token) {
+  const s = _allSelections.find(x => x.token === token);
+  if (!s) return toast('Sélection introuvable', true);
+  document.getElementById('esc-token').value = token;
+  document.getElementById('esc-sel-num').textContent = s.selection_number || '';
+  document.getElementById('esc-email').value = s.client_email || '';
+  document.getElementById('esc-name').value = s.client_name || '';
+  document.getElementById('esc-company').value = s.client_company || '';
+  document.getElementById('esc-result').innerHTML = '';
+  openModal('modal-edit-sel-client');
+}
+async function saveSelectionClient() {
+  const token = document.getElementById('esc-token').value;
+  const res = document.getElementById('esc-result');
+  const email = document.getElementById('esc-email').value.trim();
+  if (email && !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email invalide.</span>'; return; }
+  const btn = document.getElementById('esc-save-btn');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    const r = await fetch('/api/agent-selections/' + encodeURIComponent(token) + '/client', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_email: email,
+        client_name: document.getElementById('esc-name').value.trim(),
+        client_company: document.getElementById('esc-company').value.trim()
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { res.innerHTML = `<span style="color:#e07a7a">${esc(d.error || 'Erreur')}</span>`; return; }
+    toast('Infos acheteur corrigées ✓');
+    closeModal('modal-edit-sel-client');
+    _allSelections = []; loadSelections();
+  } catch(e) { res.innerHTML = '<span style="color:#e07a7a">Erreur réseau.</span>'; }
+  finally { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+}
+
 function getSelStatus(s) {
   if (s.used) return 'confirmed';
   if (new Date(s.expires_at) < new Date()) return 'expired';
@@ -5360,7 +5428,9 @@ function filterSelections() {
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="editSelectionItems('${escJs(s.token)}')" title="Ajouter / modifier des références">➕ Réf.</button>` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')">📋</button>
+        ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="openEditSelectionClient('${escJs(s.token)}')" title="Corriger nom / email / société">✎ Infos</button>` : ''}
+        ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="remindSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Relancer l'acheteur par email avec le lien">↻ Relancer</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')" title="Copier le lien de la sélection">📋</button>
         ${s.is_template ? `<span class="badge badge-validated" style="font-size:10px;padding:3px 7px">⭐ Template</span>` : `<button class="btn btn-secondary btn-sm" onclick="openSaveTemplateModal('${s.token}')">⭐</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Supprimer la sélection">🗑</button>
       </td>
