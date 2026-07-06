@@ -325,6 +325,17 @@ async function init() {
       read_by_staff BOOLEAN DEFAULT false
     )`,
     "CREATE INDEX IF NOT EXISTS idx_buyer_messages_buyer ON buyer_messages(buyer_id, created_at)",
+    // P0-04 — liens de commande privés & expirants (/c/:token → marque). Les liens
+    // /commande/:brandId directs restent valides (rétrocompat) ; ceci ajoute une
+    // méthode de partage à durée limitée.
+    `CREATE TABLE IF NOT EXISTS commande_links (
+      token TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      active INTEGER DEFAULT 1,
+      created_by TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

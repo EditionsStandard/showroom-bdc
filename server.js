@@ -2309,6 +2309,37 @@ app.get('/api/public/brands', async (req, res) => {
 
 app.get('/commande/:brandId', (req, res) => sendPage(res, 'commande.html'));
 
+// P0-04 — lien de commande privé & expirant : /c/:token → redirige vers la marque
+// si le token est actif et non expiré ; sinon page « lien expiré ». Les liens
+// /commande/:brandId directs restent valides (rétrocompat, transition douce).
+app.get('/c/:token', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT brand_id, expires_at, active FROM commande_links WHERE token=$1', [req.params.token]);
+    const link = r.rows[0];
+    if (link && link.active && new Date(link.expires_at) > new Date()) {
+      return res.redirect(302, '/commande/' + link.brand_id);
+    }
+    // Lien invalide ou expiré : page minimaliste (au style du site), noindex hérité du header global.
+    res.status(410).type('html').send(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Lien expiré</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#f5f4f0;font-family:'Courier New',monospace;padding:32px;text-align:center;line-height:1.7}a{color:#CCEB3C}</style></head><body><div><p style="font-size:15px">Ce lien de commande a expiré.</p><p style="font-size:13px;color:#999">Contactez votre showroom pour en obtenir un nouveau.</p></div></body></html>`);
+  } catch(e) { console.error('commande-link:', e); res.status(500).send('Erreur serveur'); }
+});
+
+// Génère un lien de commande expirant pour une marque (owner/agent, borné à la marque).
+app.post('/api/brands/:brandId/commande-link', requireBrandScope('owner','agent'), async (req, res) => {
+  try {
+    const b = await pool.query('SELECT id FROM brands WHERE id=$1', [req.params.brandId]);
+    if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const days = Math.min(90, Math.max(1, parseInt(req.body.days) || 30));
+    const token = crypto.randomBytes(18).toString('base64url');
+    const createdBy = req.session?.staffUser?.email || 'owner';
+    await pool.query(
+      "INSERT INTO commande_links (token, brand_id, expires_at, created_by) VALUES ($1,$2,NOW() + ($3 || ' days')::interval,$4)",
+      [token, req.params.brandId, String(days), createdBy]);
+    logAudit(req, 'create_commande_link', 'brand', req.params.brandId, days + 'j');
+    res.json({ token, url: `${getBaseUrl(req)}/c/${token}`, days });
+  } catch(e) { console.error('create commande-link:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // PDF public — accessible 24h après la commande (pour share sheet mobile)
 app.get('/api/public/orders/:id/pdf', async (req, res) => {
   try {
