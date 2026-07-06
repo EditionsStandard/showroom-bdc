@@ -633,22 +633,21 @@
           📧 Demande par email
         </button>
       </div>
-      <!-- Invitation directe : l'agence envoie un email au prospect -->
-      <div style="border-top:1px solid #2a3a00;padding-top:12px;margin-bottom:10px">
-        <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inviter un prospect par email</div>
+      <!-- Cible de l'invitation : toutes les marques (défaut) ou une marque précise -->
+      <div style="border-top:1px solid #2a3a00;padding-top:12px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius: 0" onchange="updateShareLinks()">
+            <option value="all">🏢 Toutes les marques</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')">🔗 Copier le lien d'invitation</button>
+        </div>
+        <!-- Invitation directe : l'agence envoie un email au prospect (selon la cible ci-dessus) -->
+        <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inviter un prospect par email <span id="invite-scope" style="color:#778;text-transform:none;letter-spacing:0">· toutes les marques</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
           <input id="prospect-invite-email" type="email" placeholder="email@prospect.com" style="flex:1;min-width:180px;padding:8px 12px;font-size:13px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0">
           <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()">📨 Envoyer l'invitation</button>
         </div>
         <textarea id="prospect-invite-msg" rows="2" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit"></textarea>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius: 0" onchange="updateShareLinks()">
-          <option value="">Invitation par marque…</option>
-        </select>
-        <button class="btn btn-primary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')" disabled style="opacity:.4">
-          ✉️ Lien invitation <span style="font-size:10px;opacity:.7">(avec formulaire)</span>
-        </button>
       </div>
       <div id="share-preview" style="margin-top:10px;font-size:11px;color:#666;font-family:monospace;min-height:16px"></div>
     </div>
@@ -3186,8 +3185,9 @@ async function loadDashboard() {
   // Peupler le sélecteur de marque de la carte Partage
   const shareSel = document.getElementById('share-brand-select');
   if (shareSel) {
-    shareSel.innerHTML = '<option value="">Choisir une marque…</option>' +
+    shareSel.innerHTML = '<option value="all">🏢 Toutes les marques</option>' +
       brands.map(b => `<option value="${b.id}" data-token="${b.invite_token||''}">${esc(b.name)}</option>`).join('');
+    updateShareLinks();
   }
 
   // Graphique CA mensuel (6 derniers mois) — via endpoint serveur
@@ -3879,11 +3879,15 @@ function updateShareLinks() {
   const opt = sel.options[sel.selectedIndex];
   const brandId = sel.value;
   const btnInvite = document.getElementById('btn-share-invite');
-  if (!brandId) {
-    btnInvite.disabled = true; btnInvite.style.opacity = '.4';
-    return;
+  const scope = document.getElementById('invite-scope');
+  // « Toutes les marques » (all) ou vide → invitation globale ; sinon marque précise
+  if (!brandId || brandId === 'all') {
+    _shareBrandInviteToken = '';
+    if (scope) scope.textContent = '· toutes les marques';
+  } else {
+    _shareBrandInviteToken = opt.dataset.token || '';
+    if (scope) scope.textContent = '· ' + (opt ? opt.textContent : '');
   }
-  _shareBrandInviteToken = opt.dataset.token || '';
   btnInvite.disabled = false; btnInvite.style.opacity = '1';
 }
 
@@ -3892,11 +3896,13 @@ async function sendProspectInvite() {
   const email = emailEl.value.trim();
   if (!email || !email.includes('@')) return toast('Email prospect valide requis', true);
   const message = document.getElementById('prospect-invite-msg').value.trim();
+  const sel = document.getElementById('share-brand-select');
+  const brand_id = sel ? sel.value : 'all'; // 'all' = toutes les marques
   try {
-    const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message }) });
+    const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message, brand_id }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) return toast(d.error || 'Erreur', true);
-    if (d.emailed) { toast('Invitation envoyée à ' + email + ' ✓'); emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
+    if (d.emailed) { toast('Invitation envoyée à ' + email + (d.brand ? ' (' + d.brand + ')' : '') + ' ✓'); emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
     else toast('Email non configuré (RESEND_API_KEY) — invitation non envoyée', true);
   } catch(e) { toast('Erreur réseau', true); }
 }
@@ -3913,17 +3919,21 @@ async function copyShareLink(type) {
     const body = encodeURIComponent('Bonjour,\n\nJe souhaite accéder au showroom Editions Standard.\n\nNom / Prénom :\nSociété / Boutique :\nTéléphone :\nEmail :\n\nMerci.');
     url = `mailto:${email}?subject=${subject}&body=${body}`;
   } else if (type === 'invite') {
-    if (!_shareBrandInviteToken) {
-      if (!brandId) return toast('Sélectionne une marque', true);
-      const r = await fetch(`/api/brands/${brandId}/invite-link`, { method: 'POST' }).catch(() => null);
-      if (!r || !r.ok) return toast('Erreur génération lien', true);
-      const d = await r.json();
-      _shareBrandInviteToken = d.token || '';
-      const opt = sel.options[sel.selectedIndex];
-      if (opt) opt.dataset.token = _shareBrandInviteToken;
-      updateShareLinks();
+    // « Toutes les marques » → lien global de demande d'accès
+    if (!brandId || brandId === 'all') {
+      url = `${location.origin}/demande-acces`;
+    } else {
+      if (!_shareBrandInviteToken) {
+        const r = await fetch(`/api/brands/${brandId}/invite-link`, { method: 'POST' }).catch(() => null);
+        if (!r || !r.ok) return toast('Erreur génération lien', true);
+        const d = await r.json();
+        _shareBrandInviteToken = d.token || '';
+        const opt = sel.options[sel.selectedIndex];
+        if (opt) opt.dataset.token = _shareBrandInviteToken;
+        updateShareLinks();
+      }
+      url = `${location.origin}/rejoindre/${_shareBrandInviteToken}`;
     }
-    url = `${location.origin}/rejoindre/${_shareBrandInviteToken}`;
   }
   if (!url) return;
   navigator.clipboard.writeText(url).then(() => toast('Lien copié !')).catch(() => toast('Copie impossible', true));

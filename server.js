@@ -552,26 +552,47 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
     const email = (req.body.email || '').trim().toLowerCase();
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email prospect invalide' });
     const customMsg = (req.body.message || '').toString().trim().slice(0, 2000);
-    logAudit(req, 'invite_prospect', 'prospect', email, '');
+    const brandId = (req.body.brand_id || '').toString().trim();
+    // Cible : marque précise (lien /rejoindre) ou toutes les marques (/demande-acces)
+    let brandName = '';
+    let link = `${getBaseUrl(req)}/demande-acces`;
+    if (brandId && brandId !== 'all') {
+      const br = (await pool.query('SELECT id, name FROM brands WHERE id=$1', [brandId])).rows[0];
+      if (!br) return res.status(404).json({ error: 'Marque introuvable' });
+      if (isBrandScoped(req) && req.userBrandId !== br.id) return res.status(403).json({ error: 'Accès refusé' });
+      brandName = br.name;
+      // Récupère (ou crée) le lien d'invitation actif de la marque
+      let t = (await pool.query('SELECT token FROM brand_invite_links WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC LIMIT 1', [brandId])).rows[0];
+      if (!t) {
+        const token = crypto.randomBytes(24).toString('hex');
+        await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [brandId]);
+        await pool.query('INSERT INTO brand_invite_links (token, brand_id, active) VALUES ($1,$2,1)', [token, brandId]);
+        t = { token };
+      }
+      link = `${getBaseUrl(req)}/rejoindre/${t.token}`;
+    }
+    logAudit(req, 'invite_prospect', 'prospect', email, brandName || 'toutes marques');
     const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) return res.json({ ok: true, emailed: false });
+    if (!resendKey) return res.json({ ok: true, emailed: false, brand: brandName || null });
     const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
     const resend = new Resend(resendKey);
-    const link = `${getBaseUrl(req)}/demande-acces`;
+    const introDefault = brandName
+      ? `<p>Bonjour,</p><p>Vous êtes invité(e) à découvrir la collection <strong>${escHtml(brandName)}</strong> sur notre showroom B2B ${escHtml(showroomName || '')}.</p>`
+      : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez toutes les marques et demandez votre accès en quelques clics.</p>`;
     await resend.emails.send({
       from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       replyTo: ownerEmail || undefined,
-      subject: `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`,
+      subject: brandName
+        ? `${showroomName || 'Showroom'} — invitation à découvrir ${brandName}`
+        : `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`,
       html: emailLayout({ showroomName, content:
-        `<h2 style="font-size:18px;margin:0 0 16px">Découvrez notre showroom</h2>
-         ${customMsg
-            ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>`
-            : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez les collections et demandez votre accès en quelques clics.</p>`}
-         ${emailBtn(link, 'DEMANDER UN ACCÈS')}
+        `<h2 style="font-size:18px;margin:0 0 16px">Découvrez ${brandName ? escHtml(brandName) : 'notre showroom'}</h2>
+         ${customMsg ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>` : introDefault}
+         ${emailBtn(link, brandName ? 'REJOINDRE' : 'DEMANDER UN ACCÈS')}
          <p style="color:#888;font-size:12px">À très bientôt,<br>${escHtml(showroomName || "L'équipe")}</p>` })
     });
-    res.json({ ok: true, emailed: true, email });
+    res.json({ ok: true, emailed: true, email, brand: brandName || null });
   } catch(e) { console.error('prospect invite:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
