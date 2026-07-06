@@ -3465,7 +3465,44 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
                   ORDER BY a.slot_date DESC, a.slot_time DESC`,
                   scoped ? [buyer.email, brandId] : [buyer.email])
     ]);
-    res.json({ buyer, orders: orders.rows, appointments: appts.rows });
+    // ── Historique centralisé (actions de notre côté) ──────────────────
+    // Sélections de l'acheteur (par email), commandes, RDV, + journal d'audit
+    // (relances, modifications…) et timeline de statut des commandes.
+    const sels = await pool.query(
+      `SELECT token, selection_number, created_at, created_by FROM agent_selections
+       WHERE LOWER(client_email)=LOWER($1) ${scoped ? 'AND brand_id=$2' : ''} ORDER BY created_at DESC`,
+      scoped ? [buyer.email, brandId] : [buyer.email]);
+    const selTokens = sels.rows.map(s => s.token);
+    const orderIds = orders.rows.map(o => o.id);
+    const selNumByToken = Object.fromEntries(sels.rows.map(s => [s.token, s.selection_number]));
+    const ordNumById = Object.fromEntries(orders.rows.map(o => [o.id, o.order_number || o.id.slice(0, 8)]));
+    const auditRows = (await pool.query(
+      `SELECT action, user_email, details, created_at, target_type, target_id FROM admin_audit_log
+       WHERE (target_type='agent_selection' AND target_id = ANY($1))
+          OR (target_type='order' AND target_id = ANY($2))
+          OR (target_type='buyer' AND target_id=$3)
+       ORDER BY created_at DESC`,
+      [selTokens, orderIds, buyer.id])).rows;
+    const orderEvents = orderIds.length
+      ? (await pool.query('SELECT order_id, event_type, note, created_by, created_at FROM order_events WHERE order_id = ANY($1) ORDER BY created_at DESC', [orderIds])).rows
+      : [];
+    const AUDIT_TXT = {
+      remind_selection: '↻ Relance de sélection', edit_selection_items: '➕ Références modifiées',
+      edit_selection_client: '✎ Infos sélection corrigées', delete_selection: '🗑 Sélection supprimée',
+      update_order_status: '🔄 Statut de commande', edit_order_lines: '✎ Lignes de commande modifiées',
+      delete_buyer: '🗑 Acheteur supprimé'
+    };
+    const activity = [];
+    sels.rows.forEach(s => activity.push({ at: s.created_at, who: s.created_by || '', icon: '📤', text: `Sélection ${s.selection_number || ''} créée` }));
+    orders.rows.forEach(o => activity.push({ at: o.created_at, who: '', icon: '🧾', text: `Commande ${ordNumById[o.id]} — ${o.brand_name || ''}` }));
+    appts.rows.forEach(a => activity.push({ at: a.slot_date, who: '', icon: '📅', text: `RDV ${a.brand_name || ''}${a.slot_time ? ' · ' + a.slot_time : ''}` }));
+    auditRows.forEach(r => {
+      let ref = r.target_type === 'agent_selection' ? (selNumByToken[r.target_id] || '') : r.target_type === 'order' ? (ordNumById[r.target_id] || '') : '';
+      activity.push({ at: r.created_at, who: r.user_email || '', icon: '•', text: `${AUDIT_TXT[r.action] || r.action}${ref ? ' — ' + ref : ''}${r.details ? ' (' + r.details + ')' : ''}` });
+    });
+    orderEvents.forEach(e => activity.push({ at: e.created_at, who: e.created_by || '', icon: '📦', text: `Commande ${ordNumById[e.order_id] || ''} — ${e.event_type}${e.note ? ' : ' + e.note : ''}` }));
+    activity.sort((a, b) => new Date(b.at) - new Date(a.at));
+    res.json({ buyer, orders: orders.rows, appointments: appts.rows, activity });
   } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
