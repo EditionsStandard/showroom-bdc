@@ -3084,7 +3084,7 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
       from: `${showroomName} <${fromAddress}>`,
       to: [to],
       subject: `Sélection B2B — ${showroomName} — ${dateStr}`,
-      html: `<p>Bonjour,</p>${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${escHtml(buyer.name)}</strong> (${escHtml(buyer.email)}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>`,
+      html: emailLayout({ showroomName, content: `<p>Bonjour,</p>${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${escHtml(buyer.name)}</strong> (${escHtml(buyer.email)}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>` }),
       attachments: [{ filename: `Selection-${dateStr}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
     });
     res.json({ ok: true });
@@ -5220,10 +5220,10 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
 
   <!-- HEADER -->
-  <tr><td style="background:#0a0a0a;padding:22px 32px;text-align:center;border-radius:6px 6px 0 0">
+  <tr><td style="background:#0a0a0a;padding:22px 32px;text-align:center;border-radius:0">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td style="text-align:left;vertical-align:middle">
-        <img src="${LOGO_URL}" alt="${showroomName}" width="36" height="36" style="border-radius:6px;vertical-align:middle">
+        <img src="${LOGO_URL}" alt="${showroomName}" width="36" height="36" style="border-radius:0;vertical-align:middle">
       </td>
       <td style="text-align:right;vertical-align:middle">
         <span style="font-family:'Courier New',Courier,monospace;color:${accentColor};font-size:13px;font-weight:700;letter-spacing:3px">${escHtml(showroomName.toUpperCase())}</span>
@@ -5234,12 +5234,12 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
   ${brandBlock ? `<tr><td>${brandBlock}</td></tr>` : ''}
 
   <!-- BODY -->
-  <tr><td style="background:#fff;padding:32px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;line-height:1.7">
+  <tr><td style="background:#fff;padding:32px;font-family:'Courier New',Courier,monospace;font-size:14px;color:#222;line-height:1.7">
     ${content}
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="background:#f7f7f5;padding:16px 32px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#aaa;border-radius:0 0 6px 6px;border-top:1px solid #eee">
+  <tr><td style="background:#f7f7f5;padding:16px 32px;text-align:center;font-family:'Courier New',Courier,monospace;font-size:11px;color:#aaa;border-radius:0;border-top:1px solid #eee">
     ${footer || `${showroomName} — Document généré automatiquement`}
   </td></tr>
 
@@ -5251,14 +5251,14 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
 
 function emailBtn(url, label) {
   return `<table cellpadding="0" cellspacing="0" style="margin:28px auto">
-    <tr><td style="background:#0a0a0a;border-radius:4px;padding:14px 28px;text-align:center">
+    <tr><td style="background:#0a0a0a;border-radius:0;padding:14px 28px;text-align:center">
       <a href="${url}" style="color:#fff;font-family:'Courier New',Courier,monospace;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:1px">${label}</a>
     </td></tr>
   </table>`;
 }
 
 function emailInfoBox(rows) {
-  return `<table cellpadding="0" cellspacing="0" style="width:100%;background:#f7f7f5;border-radius:4px;padding:0;margin:20px 0">
+  return `<table cellpadding="0" cellspacing="0" style="width:100%;background:#f7f7f5;border-radius:0;padding:0;margin:20px 0">
     <tr><td style="padding:16px 20px">
       ${rows.map(([label, value, raw]) => `
         <p style="margin:0 0 10px;font-size:13px"><span style="color:#888;display:inline-block;min-width:120px">${escHtml(label)}</span><strong style="color:#0a0a0a">${raw ? String(value||'') : escHtml(String(value||''))}</strong></p>
@@ -5912,6 +5912,7 @@ init().then(() => {
         const ordersCSV = toCSV(orders.rows);
         const brandsCSV = toCSV(brands.rows);
         const date = new Date().toISOString().split('T')[0];
+        const backupShowroomName = (await getSetting('showroom_name')) || 'Showroom';
 
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -5920,7 +5921,7 @@ init().then(() => {
             from: 'Showroom Backup <noreply@editionsstandard.com>',
             to: [adminEmail],
             subject: `[Backup] Showroom ES — ${date}`,
-            html: `<p>Backup hebdomadaire du ${date}.</p><p>${buyers.rows.length} acheteurs, ${orders.rows.length} commandes, ${brands.rows.length} marques.</p><p>Fichiers CSV en pièces jointes.</p>`,
+            html: emailLayout({ showroomName: backupShowroomName, content: `<p>Backup hebdomadaire du ${date}.</p><p>${buyers.rows.length} acheteurs, ${orders.rows.length} commandes, ${brands.rows.length} marques.</p><p>Fichiers CSV en pièces jointes.</p>`, footer: 'Sauvegarde automatique' }),
             attachments: [
               { filename: `buyers-${date}.csv`, content: Buffer.from(buyersCSV).toString('base64') },
               { filename: `orders-${date}.csv`, content: Buffer.from(ordersCSV).toString('base64') },
