@@ -629,9 +629,18 @@
         <button class="btn btn-secondary btn-sm" onclick="copyShareLink('global')" title="Lien d'accès au showroom — les acheteurs devront s'inscrire ou se connecter">
           🌐 Showroom global
         </button>
-        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('mailto')" title="Copie un lien mailto pour demander un accès par email">
+        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('mailto')" title="Copie un lien mailto que le prospect remplit pour vous demander un accès">
           📧 Demande par email
         </button>
+      </div>
+      <!-- Invitation directe : l'agence envoie un email au prospect -->
+      <div style="border-top:1px solid #2a3a00;padding-top:12px;margin-bottom:10px">
+        <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inviter un prospect par email</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <input id="prospect-invite-email" type="email" placeholder="email@prospect.com" style="flex:1;min-width:180px;padding:8px 12px;font-size:13px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0">
+          <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()">📨 Envoyer l'invitation</button>
+        </div>
+        <textarea id="prospect-invite-msg" rows="2" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit"></textarea>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius: 0" onchange="updateShareLinks()">
@@ -3876,6 +3885,20 @@ function updateShareLinks() {
   }
   _shareBrandInviteToken = opt.dataset.token || '';
   btnInvite.disabled = false; btnInvite.style.opacity = '1';
+}
+
+async function sendProspectInvite() {
+  const emailEl = document.getElementById('prospect-invite-email');
+  const email = emailEl.value.trim();
+  if (!email || !email.includes('@')) return toast('Email prospect valide requis', true);
+  const message = document.getElementById('prospect-invite-msg').value.trim();
+  try {
+    const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(d.error || 'Erreur', true);
+    if (d.emailed) { toast('Invitation envoyée à ' + email + ' ✓'); emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
+    else toast('Email non configuré (RESEND_API_KEY) — invitation non envoyée', true);
+  } catch(e) { toast('Erreur réseau', true); }
 }
 
 async function copyShareLink(type) {
