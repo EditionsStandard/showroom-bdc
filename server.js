@@ -221,6 +221,19 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+
+// P0-01/02/03 — Portail B2B PRIVÉ : aucune page (commande, admin, agent, portail,
+// sélection, PDF) ne doit être indexée. On pose un noindex GLOBAL au niveau HTTP
+// (couvre HTML *et* PDF, contrairement à une simple meta) + un robots.txt qui
+// interdit tout le crawl. Protège prix wholesale, sélections et signatures.
+app.use((req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, noimageindex');
+  next();
+});
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+});
+
 app.get('/index.html', (req, res) => res.redirect('/'));
 // Favicon → réutilise le logo (évite le 404 /favicon.ico sur chaque page)
 app.get('/favicon.ico', (req, res) => res.redirect(301, '/logo.svg'));
