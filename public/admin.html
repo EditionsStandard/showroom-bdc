@@ -8,7 +8,7 @@
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   /* Source de vérité couleurs (les var(--*) étaient utilisées sans être définies). */
   :root {
@@ -23,7 +23,7 @@
     --input-bg:#fff; --text:#111;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+  body { font-family: 'Plex Mono', 'Space Mono', monospace; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
 
   /* Layout */
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: #111111; border-right: 1px solid #252525; display: flex; flex-direction: column; z-index: 10; }
@@ -45,7 +45,7 @@
 
   .main { margin-left: 220px; padding: 32px; min-height: 100vh; }
   .topbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 24px; gap: 12px; }
-  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: none; border-radius: 0; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: 'Inter', sans-serif; letter-spacing: .04em; transition: background .15s, color .15s; }
+  .btn-logout-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: none; border-radius: 0; color: #e74c3c; font-size: 12px; text-decoration: none; font-family: inherit; letter-spacing: .04em; transition: background .15s, color .15s; }
   .btn-logout-top:hover { background: #e74c3c; color: #fff; }
 
   /* Sections */
