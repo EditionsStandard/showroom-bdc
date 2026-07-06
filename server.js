@@ -3506,6 +3506,87 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
   } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// ==================== MESSAGERIE ACHETEUR ↔ AGENCE =========================
+// Fil asynchrone, un par acheteur. L'acheteur écrit depuis son portail,
+// l'agence répond depuis l'admin (fiche client). Notification email des deux côtés.
+
+// Portail : fil de l'acheteur connecté (marque ses messages agence comme lus)
+app.get('/api/portal/messages', requireBuyerAuth, async (req, res) => {
+  try {
+    const bid = req.session.buyerPortal.id;
+    const r = await pool.query('SELECT id, sender, body, created_at FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC', [bid]);
+    await pool.query("UPDATE buyer_messages SET read_by_buyer=true WHERE buyer_id=$1 AND sender='staff' AND read_by_buyer=false", [bid]);
+    res.json({ messages: r.rows });
+  } catch(e) { console.error('portal messages:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Portail : badge de messages non lus (agence → acheteur)
+app.get('/api/portal/messages/unread', requireBuyerAuth, async (req, res) => {
+  try {
+    const r = await pool.query("SELECT COUNT(*)::int n FROM buyer_messages WHERE buyer_id=$1 AND sender='staff' AND read_by_buyer=false", [req.session.buyerPortal.id]);
+    res.json({ unread: r.rows[0].n });
+  } catch(e) { res.json({ unread: 0 }); }
+});
+
+// Portail : l'acheteur envoie un message → notifie l'agence
+app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
+  try {
+    const body = (req.body.body || '').toString().trim();
+    if (!body) return res.status(400).json({ error: 'Message vide' });
+    if (body.length > 4000) return res.status(400).json({ error: 'Message trop long' });
+    const buyer = req.session.buyerPortal;
+    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, read_by_staff) VALUES ($1,$2,$3,$4,false)',
+      [uuidv4(), buyer.id, 'buyer', body]);
+    notifyOwner(`Nouveau message de ${buyer.name || buyer.email}`,
+      `<p><strong>${escHtml(buyer.name || '')} (${escHtml(buyer.email)})</strong> vous a écrit :</p>
+       <blockquote style="border-left:3px solid #ccc;padding-left:12px;color:#444">${escHtml(body)}</blockquote>
+       <p style="font-size:12px;color:#888">Répondez depuis votre admin → fiche client.</p>`).catch(() => {});
+    res.json({ ok: true });
+  } catch(e) { console.error('portal send message:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Admin : fil d'un acheteur (marque les messages acheteur comme lus)
+app.get('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT id, sender, body, created_at FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC', [req.params.id]);
+    await pool.query("UPDATE buyer_messages SET read_by_staff=true WHERE buyer_id=$1 AND sender='buyer' AND read_by_staff=false", [req.params.id]);
+    res.json({ messages: r.rows });
+  } catch(e) { console.error('admin messages:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Admin : l'agence répond → email à l'acheteur avec lien vers son portail
+app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const body = (req.body.body || '').toString().trim();
+    if (!body) return res.status(400).json({ error: 'Message vide' });
+    if (body.length > 4000) return res.status(400).json({ error: 'Message trop long' });
+    const b = (await pool.query('SELECT id, email, name FROM buyers WHERE id=$1', [req.params.id])).rows[0];
+    if (!b) return res.status(404).json({ error: 'Acheteur introuvable' });
+    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, read_by_buyer) VALUES ($1,$2,$3,$4,false)',
+      [uuidv4(), b.id, 'staff', body]);
+    logAudit(req, 'reply_buyer_message', 'buyer', b.id, '');
+    (async () => {
+      const resendKey = process.env.RESEND_API_KEY;
+      if (!resendKey) return;
+      const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
+      const resend = new Resend(resendKey);
+      const portalUrl = `${getBaseUrl(req)}/portal`;
+      await resend.emails.send({
+        from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+        to: [b.email],
+        replyTo: ownerEmail || undefined,
+        subject: `${showroomName || 'Showroom'} — nouveau message`,
+        html: emailLayout({ showroomName, content:
+          `<p>Bonjour ${escHtml(b.name || '')},</p>
+           <p>Vous avez un nouveau message de ${escHtml(showroomName || 'notre équipe')} :</p>
+           <blockquote style="border-left:3px solid #ccc;padding-left:12px;color:#444">${escHtml(body)}</blockquote>
+           <p><a href="${portalUrl}" style="color:#111">Répondre depuis votre espace →</a></p>` })
+      });
+    })().catch(e => console.error('buyer message email:', e.message));
+    res.json({ ok: true });
+  } catch(e) { console.error('admin send message:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ==================== TRADUCTION DE CONTENU (Claude, avec cache) ============
 const TRANSLATE_LANGS = { en: 'English', it: 'Italian', es: 'Spanish', de: 'German',
   zh: 'Chinese (Simplified)', ja: 'Japanese', ko: 'Korean', th: 'Thai' };

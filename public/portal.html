@@ -592,6 +592,7 @@ const TRANSLATIONS = {
   fr: {
     nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_favs: '♡ Mes favoris', dd_logout: '⏻ Déconnexion',
+    msg_send: 'Envoyer',
     all_collections: 'Toutes collections', all_categories: 'Toutes catégories',
     cgv_section_title: 'Conditions générales de vente',
     prof_name_required: 'Nom requis.', prof_saved: 'Profil mis à jour ✓',
@@ -719,6 +720,7 @@ const TRANSLATIONS = {
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_favs: '♡ My favourites', dd_logout: '⏻ Log out',
+    msg_send: 'Send',
     all_collections: 'All collections', all_categories: 'All categories',
     cgv_section_title: 'Terms & Conditions',
     prof_name_required: 'Name required.', prof_saved: 'Profile updated ✓',
@@ -1078,6 +1080,7 @@ function applyLang() {
       </div>
       <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
       <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
+      <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
       <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
@@ -1162,6 +1165,17 @@ function applyLang() {
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <h2 class="section-title" id="favs-section-title">Mes favoris</h2>
     <div id="favs-list"></div>
+  </div>
+
+  <div id="view-messages" class="view-section" style="display:none;opacity:1;max-width:680px">
+    <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
+    <h2 class="section-title" id="msg-section-title">Messages</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin:-6px 0 16px" id="msg-intro">Une question sur une collection, un délai, une commande ? Écrivez-nous, nous vous répondons par email.</p>
+    <div id="pmsg-thread" style="max-height:52vh;overflow:auto;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <input id="pmsg-input" type="text" placeholder="Votre message…" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--white);border-radius:0;padding:10px 2px;font-family:inherit;font-size:14px;outline:none" onkeydown="if(event.key==='Enter')sendPortalMessage()">
+      <button class="btn-next" id="pmsg-send" onclick="sendPortalMessage()" style="padding:10px 20px" data-t="msg_send">Envoyer</button>
+    </div>
   </div>
 
   <div id="view-account" class="view-section" style="display:none;opacity:1;max-width:680px">
@@ -1780,6 +1794,8 @@ async function init() {
     ensureUiLang(currentLang).then(() => { try { applyLang(); } catch(e) {} });
   }
   updateCartBar();
+  refreshMsgBadge();
+  setInterval(refreshMsgBadge, 60000); // badge messages non lus (léger polling)
   // État de base de l'historique : "retour" reste dans le portail (catalogue)
   history.replaceState({ v: 'catalog', brand: null }, '', '/portal');
   handleQrParams();
@@ -1804,7 +1820,7 @@ async function init() {
 }
 
 function showView(view, _fromPop) {
-  ['catalog','cart','orders','account','favs'].forEach(v => {
+  ['catalog','cart','orders','account','favs','messages'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (!el) return;
     if (v === view) {
@@ -1825,7 +1841,53 @@ function showView(view, _fromPop) {
   if (view === 'catalog') updateCartBar();
   if (view === 'account') fillProfileForm();
   if (view === 'favs') renderFavs();
+  if (view === 'messages') loadPortalMessages();
   if (!_fromPop) pushNav({ v: view, brand: null });
+}
+
+// ── Messagerie acheteur ↔ agence ──────────────────────────────────────
+async function loadPortalMessages() {
+  const box = document.getElementById('pmsg-thread');
+  box.innerHTML = '<div style="color:var(--muted);font-size:13px">…</div>';
+  try {
+    const d = await fetch('/api/portal/messages').then(r => r.json());
+    const msgs = (d && d.messages) || [];
+    if (!msgs.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'Inter\',sans-serif">Aucun message pour le moment.</div>'; }
+    else {
+      box.innerHTML = msgs.map(m => {
+        const mine = m.sender === 'buyer';
+        const dt = new Date(m.created_at);
+        const when = dt.toLocaleDateString(currentLang==='en'?'en-GB':'fr-FR') + ' ' + dt.toLocaleTimeString(currentLang==='en'?'en-GB':'fr-FR', { hour:'2-digit', minute:'2-digit' });
+        return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:8px">
+          <div style="max-width:80%;background:${mine?'var(--accent)':'var(--mid)'};color:${mine?'#111':'var(--white)'};border-radius:0;padding:9px 13px;font-family:'Inter',sans-serif;font-size:14px">
+            <div style="white-space:pre-wrap">${esc(m.body)}</div>
+            <div style="font-size:10px;margin-top:3px;opacity:.7">${mine?'Vous':'Agence'} · ${when}</div>
+          </div></div>`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+    setMsgBadge(0); // ouverture = marqués lus côté serveur
+  } catch(e) { box.innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur de chargement.</div>'; }
+}
+async function sendPortalMessage() {
+  const input = document.getElementById('pmsg-input');
+  const body = input.value.trim();
+  if (!body) return;
+  const btn = document.getElementById('pmsg-send');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/portal/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ body }) });
+    if (r.ok) { input.value = ''; loadPortalMessages(); }
+  } catch(e) {}
+  finally { btn.disabled = false; }
+}
+function setMsgBadge(n) {
+  const badge = document.getElementById('dd-msg-badge');
+  if (!badge) return;
+  if (n > 0) { badge.textContent = n; badge.style.display = ''; } else { badge.style.display = 'none'; }
+}
+async function refreshMsgBadge() {
+  try { const d = await fetch('/api/portal/messages/unread').then(r => r.json()); setMsgBadge((d && d.unread) || 0); } catch(e) {}
 }
 
 // ── Navigation par historique : le bouton "retour" reste dans le portail ──
