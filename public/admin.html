@@ -1579,6 +1579,7 @@
       <div class="form-group"><label>Nom du contact</label><input id="esc-name" type="text"></div>
       <div class="form-group"><label>Société / boutique</label><input id="esc-company" type="text"></div>
     </div>
+    <div class="form-group"><label>Envoyé par <span style="color:#555;font-weight:400;font-size:11px">(email d'envoi affiché dans la liste)</span></label><input id="esc-createdby" type="email" placeholder="agent@editionsstandard.com"></div>
     <div id="esc-result" style="margin:10px 0;font-size:13px"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-sel-client')">Annuler</button>
@@ -5346,6 +5347,7 @@ function openEditSelectionClient(token) {
   document.getElementById('esc-email').value = s.client_email || '';
   document.getElementById('esc-name').value = s.client_name || '';
   document.getElementById('esc-company').value = s.client_company || '';
+  document.getElementById('esc-createdby').value = s.created_by || '';
   document.getElementById('esc-result').innerHTML = '';
   openModal('modal-edit-sel-client');
 }
@@ -5362,7 +5364,8 @@ async function saveSelectionClient() {
       body: JSON.stringify({
         client_email: email,
         client_name: document.getElementById('esc-name').value.trim(),
-        client_company: document.getElementById('esc-company').value.trim()
+        client_company: document.getElementById('esc-company').value.trim(),
+        created_by: document.getElementById('esc-createdby').value.trim()
       })
     });
     const d = await r.json().catch(() => ({}));
