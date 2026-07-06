@@ -107,6 +107,56 @@
   .btn-next:active:not(:disabled) { transform: scale(.98); }
   .btn-next:disabled { opacity: .4; cursor: default; }
 
+  /* ── Mode présentation (showroom — réservé au mode agent) ── */
+  body.presentation-mode .header,
+  body.presentation-mode #main-header,
+  body.presentation-mode #agent-bar,
+  body.presentation-mode .steps,
+  body.presentation-mode #steps-bar,
+  body.presentation-mode .search-bar,
+  body.presentation-mode #collection-filters,
+  body.presentation-mode #category-filters { display: none !important; }
+  body.presentation-mode #products-container { padding-top: 44px; }
+  body.presentation-mode::before {
+    content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent); z-index: 250; pointer-events: none;
+  }
+  .pres-exit {
+    position: fixed; top: 10px; right: 12px; z-index: 260;
+    background: var(--accent); border: none; color: #111; border-radius: 0;
+    padding: 8px 16px; font-size: 11px; cursor: pointer; font-weight: 700;
+    font-family: 'Plex Mono', 'Space Mono', monospace; letter-spacing: .06em;
+    display: none; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  body.presentation-mode .pres-exit { display: block; }
+  .pres-indicator {
+    display: none; position: fixed; top: 10px; left: 12px; z-index: 260;
+    background: rgba(204,235,60,.15); border: 1px solid rgba(204,235,60,.5);
+    color: var(--accent); font-family: 'Plex Mono', 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: .1em; padding: 6px 12px;
+    pointer-events: none; font-weight: 700; text-transform: uppercase;
+  }
+  body.presentation-mode .pres-indicator { display: block; }
+  .pres-toggle {
+    display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    z-index: 260; background: var(--dark); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 0; padding: 8px 16px; font-size: 11px;
+    cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace;
+    letter-spacing: .06em; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  body.presentation-mode .pres-toggle { display: block; }
+  @media (max-width: 767px) {
+    .pres-indicator { display: none !important; }
+    .pres-toggle { left: 8px; right: auto; transform: none; top: 8px; font-size: 9px;
+      padding: 9px 10px; max-width: 54vw; overflow: hidden; text-overflow: ellipsis; }
+    .pres-exit { top: 8px; right: 8px; font-size: 10px; padding: 9px 14px; z-index: 261; }
+  }
+  /* Sous-mode lookbook : masque prix, quantités et panier (présentation pure) */
+  body.presentation-mode.pres-lookbook .size-rows { display: none !important; }
+  body.presentation-mode.pres-lookbook .tag-price { display: none !important; }
+  body.presentation-mode.pres-lookbook .cart-bar { display: none !important; }
+
   /* ── Forms ── */
   .page-pad { padding: 24px 20px 110px; }
   .form-section { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 24px 20px; margin-bottom: 2px; }
@@ -503,8 +553,16 @@
 <!-- Bandeau MODE AGENT (visible seulement si agent/owner connecté) -->
 <div id="agent-bar" style="display:none;background:#10243a;color:#cfe3ff;padding:10px 16px;font-size:13px;display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1d3a5c">
   <span>👤 <strong>Mode agent</strong> — scanne le QR de chaque produit (ou clique « + Référence »). <strong id="agent-ref-count" style="color:var(--accent)">0 référence</strong> dans la sélection.</span>
-  <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button onclick="togglePresentationMode()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">👁 Présenter</button>
+    <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
+  </div>
 </div>
+
+<!-- Mode présentation (showroom) — visibles uniquement quand body.presentation-mode est actif -->
+<button class="pres-exit" onclick="togglePresentationMode()">✕ Quitter la présentation</button>
+<button class="pres-toggle" id="pres-toggle-btn" onclick="togglePresLookbook()">🖼 Masquer prix &amp; qtés</button>
+<div class="pres-indicator">MODE PRÉSENTATION</div>
 
 <!-- Toast confirmation d'ajout par QR -->
 <div id="qr-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--dark);padding:12px 20px;border-radius:0;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;font-size:14px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.4)"></div>
@@ -1328,6 +1386,43 @@ async function detectAgentMode() {
     }
   } catch(e) {}
 }
+
+// ── Mode présentation (showroom) — déclenché depuis l'agent-bar (mode agent) ──
+// Plein écran immersif + écran maintenu allumé. Le sous-mode « lookbook » masque
+// prix, quantités et panier pour une présentation pure.
+let _presWakeLock = null;
+async function _presRequestWake() {
+  try { if ('wakeLock' in navigator) _presWakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+}
+function _presReleaseWake() { try { _presWakeLock && _presWakeLock.release(); } catch(e) {} _presWakeLock = null; }
+function togglePresentation() { togglePresentationMode(); }
+function togglePresentationMode() {
+  const on = document.body.classList.toggle('presentation-mode');
+  if (on) {
+    _presRequestWake();
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.body.classList.remove('pres-lookbook');
+    const btn = document.getElementById('pres-toggle-btn');
+    if (btn) btn.innerHTML = '🖼 Masquer prix &amp; qtés';
+    _presReleaseWake();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    window.scrollTo({ top: 0 });
+  }
+}
+function togglePresLookbook() {
+  const lookbook = document.body.classList.toggle('pres-lookbook');
+  const btn = document.getElementById('pres-toggle-btn');
+  if (btn) btn.innerHTML = lookbook ? '💲 Afficher prix &amp; qtés' : '🖼 Masquer prix &amp; qtés';
+}
+// Échap / sortie du plein écran → quitter proprement le mode présentation
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && document.body.classList.contains('presentation-mode')) togglePresentationMode();
+});
+// Réacquiert le wake lock si l'onglet redevient visible pendant la présentation
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.body.classList.contains('presentation-mode')) _presRequestWake();
+});
 
 // Ajoute la référence scannée par QR si (et seulement si) on est en mode agent.
 // Appelé à la fois par le handler QR (au chargement) et par detectAgentMode
