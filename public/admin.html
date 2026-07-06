@@ -2304,7 +2304,7 @@ async function loadStaff() {
       <td>${esc(roleLabel[s.role] || s.role)}</td>
       <td>${esc(s.brand_name) || '—'}</td>
       <td style="display:flex;gap:6px">
-        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${JSON.stringify(s)})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${esc(JSON.stringify(s))})">${t('btn_modify')}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
