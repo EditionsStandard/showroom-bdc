@@ -1257,15 +1257,17 @@ async function init() {
     // MOQ + conditions de livraison/paiement + date limite sur la landing
     const deliveryTerms = (data.brand.delivery_terms || '').trim();
     const paymentTerms = (data.brand.payment_terms || '').trim();
+    const returnTerms = (data.brand.return_terms || '').trim();
     const orderDeadline = (data.brand.order_deadline || '').slice(0, 10);
     const deadlineHtml = orderDeadline ? deadlineNotice(orderDeadline) : '';
-    if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms || paymentTerms || deadlineHtml) {
+    if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms || paymentTerms || returnTerms || deadlineHtml) {
       const moqEl = document.getElementById('landing-moq');
       let msg = '';
       if (brandMoqQty > 0) msg += T('moq_qty_warn', brandMoqQty);
       if (brandMoqAmount > 0) msg += (msg ? '<br>' : '') + T('moq_amt_warn', brandMoqAmount);
       if (deliveryTerms) { const d = deliveryTerms.replace(/\n/g, ' · '); msg += (msg ? '<br>' : '') + '🚚 <span data-tr="' + esc(d) + '">' + esc(d) + '</span>'; }
       if (paymentTerms) { const pt = paymentTerms.replace(/\n/g, ' · '); msg += (msg ? '<br>' : '') + '💳 <span data-tr="' + esc(pt) + '">' + esc(pt) + '</span>'; }
+      if (returnTerms) { const rt = returnTerms.replace(/\n/g, ' · '); msg += (msg ? '<br>' : '') + '↩ <span data-tr="' + esc(rt) + '">' + esc(rt) + '</span>'; }
       if (deadlineHtml) msg += (msg ? '<br>' : '') + deadlineHtml;
       moqEl.innerHTML = msg;
       moqEl.style.display = 'block';
