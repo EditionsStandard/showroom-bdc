@@ -1556,6 +1556,35 @@ app.delete('/api/agent-selections/:token', requireRole('owner','agent'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Édition des références d'une sélection existante (ex. « on a oublié des réfs »).
+// Remplace items_json par le jeu complet fourni. Bornée à la marque de l'agent.
+// Refusée si la sélection a déjà été validée (used = commande passée) ou expirée.
+// notify=true renvoie l'email à l'acheteur pour l'informer de la mise à jour.
+app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const { items, notify } = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items requis' });
+    const sel = await pool.query(
+      'SELECT a.brand_id, a.used, a.expires_at, a.client_email, a.client_name, a.selection_number, a.token, b.name AS brand_name FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
+      [req.params.token]);
+    if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+    if (sel.rows[0].used) return res.status(409).json({ error: 'Sélection déjà validée — impossible de la modifier.' });
+    if (new Date(sel.rows[0].expires_at) < new Date()) return res.status(410).json({ error: 'Sélection expirée.' });
+    const cleanItems = items.filter(i => i.quantity > 0).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
+    if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
+    await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2', [JSON.stringify(cleanItems), req.params.token]);
+    logAudit(req, 'edit_selection_items', 'agent_selection', req.params.token, cleanItems.length + ' art.');
+    if (notify && sel.rows[0].client_email) {
+      const url = `${getBaseUrl(req)}/selection/${req.params.token}`;
+      sendAgentSelectionEmail({ email: sel.rows[0].client_email, name: sel.rows[0].client_name, brandName: sel.rows[0].brand_name, selectionNumber: sel.rows[0].selection_number, url, req }).catch(e => console.error('agent-selection edit email:', e.message));
+    }
+    res.json({ ok: true, count: cleanItems.length });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;

@@ -1129,22 +1129,24 @@ function toggleLang() { setLang(lang === 'fr' ? 'en' : 'fr'); }
 // source FR ; on les traduit via /api/public/translate (Claude) quand la
 // langue ≠ FR. Repli silencieux sur le FR si la clé n'est pas configurée.
 const CONTENT_TR_LANGS = ['en','it','es','de','zh','ja','ko','th'];
-let _trBusy = false;
-async function translateContent(root) {
+// Appels SÉRIALISÉS (chaînés) plutôt qu'abandonnés quand un lot est déjà en cours :
+// sinon les descriptions/conditions d'un second appel rapproché restaient en FR.
+let _trChain = Promise.resolve();
+function translateContent(root) {
   root = root || document;
+  _trChain = _trChain.then(() => _translateNow(root)).catch(() => {});
+  return _trChain;
+}
+async function _translateNow(root) {
   const els = [...root.querySelectorAll('[data-tr]')];
   if (lang === 'fr') { els.forEach(el => { el.textContent = el.getAttribute('data-tr'); delete el.dataset.trLang; }); return; }
   if (!CONTENT_TR_LANGS.includes(lang)) return;
   const todo = els.filter(el => el.dataset.trLang !== lang && (el.getAttribute('data-tr') || '').trim());
-  if (!todo.length || _trBusy) return;
-  _trBusy = true;
-  try {
-    const texts = todo.map(el => el.getAttribute('data-tr'));
-    const r = await fetch('/api/public/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang }) });
-    const d = await r.json();
-    if (d && d.translations) todo.forEach((el, i) => { el.textContent = d.translations[i] || el.getAttribute('data-tr'); el.dataset.trLang = lang; });
-  } catch(e) { /* repli silencieux : l'original FR reste affiché */ }
-  finally { _trBusy = false; }
+  if (!todo.length) return;
+  const texts = todo.map(el => el.getAttribute('data-tr'));
+  const r = await fetch('/api/public/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang }) });
+  const d = await r.json();
+  if (d && d.translations) todo.forEach((el, i) => { el.textContent = d.translations[i] || el.getAttribute('data-tr'); el.dataset.trLang = lang; });
 }
 
 // Init on load

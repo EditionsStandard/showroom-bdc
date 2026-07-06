@@ -894,22 +894,24 @@ async function setLang(lang) {
 
 // Traduit le contenu marqué [data-tr] (texte original en attribut) vers la langue
 // courante via Claude (avec cache serveur). Repli = texte original. FR = source.
-let _trBusy = false;
-async function translateVisibleContent(root) {
+// Les appels sont SÉRIALISÉS (chaînés) plutôt qu'abandonnés quand un lot est déjà
+// en cours : sinon les bios/désignations d'un second appel rapproché restaient en FR.
+let _trChain = Promise.resolve();
+function translateVisibleContent(root) {
   root = root || document;
+  _trChain = _trChain.then(() => _translateNow(root)).catch(() => {});
+  return _trChain;
+}
+async function _translateNow(root) {
   const els = [...root.querySelectorAll('[data-tr]')];
   if (currentLang === 'fr') { els.forEach(el => { el.textContent = el.getAttribute('data-tr'); delete el.dataset.trLang; }); return; }
   if (!CONTENT_TRANSLATE_LANGS.includes(currentLang)) return;
   const todo = els.filter(el => el.dataset.trLang !== currentLang && (el.getAttribute('data-tr') || '').trim());
-  if (!todo.length || _trBusy) return;
-  _trBusy = true;
-  try {
-    const texts = todo.map(el => el.getAttribute('data-tr'));
-    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang: currentLang }) });
-    const d = await r.json();
-    if (d && d.translations) todo.forEach((el, i) => { el.textContent = d.translations[i] || el.getAttribute('data-tr'); el.dataset.trLang = currentLang; });
-  } catch(e) { /* repli silencieux : l'original reste affiché */ }
-  finally { _trBusy = false; }
+  if (!todo.length) return;
+  const texts = todo.map(el => el.getAttribute('data-tr'));
+  const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang: currentLang }) });
+  const d = await r.json();
+  if (d && d.translations) todo.forEach((el, i) => { el.textContent = d.translations[i] || el.getAttribute('data-tr'); el.dataset.trLang = currentLang; });
 }
 
 function applyLang() {
