@@ -108,7 +108,7 @@
     <img src="/logo.svg" alt="Editions Standard">
     <div class="kicker">B2B Showroom</div>
     <h1 data-t="portal_title">Portail Acheteur</h1>
-    <p>Editions Standard — Showroom</p>
+    <p data-t="portal_tagline">Accès privé aux collections wholesale, sur invitation.</p>
   </div>
 
   <!-- Vue : connexion -->
@@ -141,12 +141,19 @@
     <div class="field"><label data-t="confirm_password_label">Confirmer</label><input type="password" id="reset-pw2" data-tp="password_placeholder"></div>
     <button class="btn" id="reset-btn" onclick="submitReset()" data-t="save_btn">Enregistrer</button>
   </div>
+  <div class="legal-footer" style="text-align:center;margin-top:26px;font-size:11px;letter-spacing:.04em;opacity:.7">
+    <a href="/confidentialite" style="color:inherit;text-decoration:none" data-t="foot_privacy">Confidentialité</a>
+    <span style="margin:0 8px;opacity:.5">·</span>
+    <a href="/cgu" style="color:inherit;text-decoration:none" data-t="foot_terms">CGU</a>
+  </div>
 </div>
 
 <script>
 const TRANSLATIONS = {
   fr: {
     portal_title: 'Portail Acheteur',
+    portal_tagline: 'Accès privé aux collections wholesale, sur invitation.',
+    foot_privacy: 'Confidentialité', foot_terms: 'CGU',
     email_label: 'Email',
     email_placeholder: 'vous@exemple.com',
     password_label: 'Mot de passe',
@@ -169,6 +176,8 @@ const TRANSLATIONS = {
   },
   en: {
     portal_title: 'Buyer Portal',
+    portal_tagline: 'Private access to wholesale collections, by invitation.',
+    foot_privacy: 'Privacy', foot_terms: 'Terms',
     email_label: 'Email',
     email_placeholder: 'you@example.com',
     password_label: 'Password',
