@@ -1665,6 +1665,25 @@ app.put('/api/agent-selections/:token/client', requireRole('owner','agent'), asy
   } catch(e) { console.error('edit selection client:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Historique des actions sur une sélection (création, relances, modifications…),
+// avec auteur et horodatage. Source : admin_audit_log + la création de la sélection.
+app.get('/api/agent-selections/:token/history', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const sel = await pool.query('SELECT brand_id, created_at, created_by, client_email FROM agent_selections WHERE token=$1', [req.params.token]);
+    if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    const rows = await pool.query(
+      "SELECT action, user_email, details, created_at FROM admin_audit_log WHERE target_type='agent_selection' AND target_id=$1 ORDER BY created_at ASC",
+      [req.params.token]);
+    // La création n'est pas dans le journal : on la reconstitue depuis la sélection.
+    const events = [
+      { action: 'create', user_email: sel.rows[0].created_by || '', details: sel.rows[0].client_email || '', created_at: sel.rows[0].created_at },
+      ...rows.rows
+    ];
+    res.json({ events });
+  } catch(e) { console.error('selection history:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;
