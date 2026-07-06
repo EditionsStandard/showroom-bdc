@@ -4522,16 +4522,18 @@ app.get('/demande-acces', (req, res) => sendPage(res, 'demande-acces.html'));
 
 app.post('/api/access-request', publicLimiter, async (req, res) => {
  try {
-  const { name, company, phone, email, country, instagram, website, message } = req.body;
+  const { name, company, phone, email, country, instagram, website, message, privacy_accepted, marketing_consent } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
+  // RGPD (P0-11) : acceptation de la politique de confidentialité obligatoire.
+  if (privacy_accepted !== true) return res.status(400).json({ error: 'Vous devez accepter la politique de confidentialité.' });
   // Vérifier doublon (même email en pending)
   const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
   if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW() + INTERVAL \'30 days\')',
-    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim()]
+    "INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,marketing_consent,privacy_accepted_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW() + INTERVAL '30 days')",
+    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim(), marketing_consent === true]
   );
   // CRM Airtable : crée une fiche « Prospect » (non bloquant)
   airtableUpsertProspect({ email: email.toLowerCase().trim(), name: name.trim(), company: (company||'').trim() }).catch(() => {});

@@ -171,6 +171,19 @@
       <textarea id="f-message"></textarea>
     </div>
 
+    <div class="field" style="margin-top:4px">
+      <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400">
+        <input id="f-privacy" type="checkbox" style="width:auto;margin-top:3px;flex-shrink:0">
+        <span id="t-consent-privacy">J'ai lu et j'accepte la <a href="/confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>. <span class="required">*</span></span>
+      </label>
+    </div>
+    <div class="field" style="margin-top:-6px">
+      <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400">
+        <input id="f-marketing" type="checkbox" style="width:auto;margin-top:3px;flex-shrink:0">
+        <span id="t-consent-marketing">J'accepte de recevoir les actualités et invitations d'Éditions Standard (optionnel).</span>
+      </label>
+    </div>
+
     <button class="btn" id="submit-btn" onclick="submitForm()">ENVOYER MA DEMANDE</button>
 
     <div class="login-link" id="t-login-link">Déjà un compte ? <a href="/editions-showroom-b2b-portail">Se connecter</a></div>
@@ -216,6 +229,9 @@ const TR = {
     back_link: '← Retour à la connexion',
     err_required: 'Veuillez remplir tous les champs obligatoires.',
     err_email: 'Adresse email invalide.',
+    err_consent: 'Vous devez accepter la politique de confidentialité.',
+    consent_privacy: 'J\'ai lu et j\'accepte la <a href="/confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>.',
+    consent_marketing: 'J\'accepte de recevoir les actualités et invitations d\'Éditions Standard (optionnel).',
     err_server: 'Erreur serveur. Réessayez.',
     err_network: 'Erreur réseau. Réessayez.',
     err_duplicate: 'Une demande est déjà en cours pour cet email.',
@@ -248,6 +264,9 @@ const TR = {
     back_link: '← Back to login',
     err_required: 'Please fill in all required fields.',
     err_email: 'Invalid email address.',
+    err_consent: 'You must accept the privacy policy.',
+    consent_privacy: 'I have read and accept the <a href="/confidentialite" target="_blank" rel="noopener">privacy policy</a>.',
+    consent_marketing: 'I agree to receive news and invitations from Éditions Standard (optional).',
     err_server: 'Server error. Please try again.',
     err_network: 'Network error. Please try again.',
     err_duplicate: 'A request is already pending for this email.',
@@ -382,7 +401,7 @@ fetch("/api/public/branding").then(r => r.json()).then(b => {
 
 let lang = localStorage.getItem('portal_lang') || 'fr';
 
-function t(k) { return (TR[lang] || TR.fr)[k] || k; }
+function t(k) { return (TR[lang] || TR.fr)[k] || TR.fr[k] || k; }
 
 // Noms de pays traduits (clé stable = data-c ; la valeur soumise reste en français)
 const COUNTRIES = {
@@ -428,6 +447,8 @@ function applyLang() {
   document.getElementById('f-phone').placeholder = t('placeholder_phone');
   document.getElementById('f-message').placeholder = t('placeholder_message');
 
+  document.getElementById('t-consent-privacy').innerHTML = t('consent_privacy') + ' <span class="required">*</span>';
+  document.getElementById('t-consent-marketing').textContent = t('consent_marketing');
   document.getElementById('submit-btn').textContent = t('submit');
   document.getElementById('t-login-link').innerHTML = `${t('login_link')} <a href="/editions-showroom-b2b-portail">${t('login_link_cta')}</a>`;
   document.getElementById('t-success-title').textContent = t('success_title');
@@ -465,6 +486,11 @@ async function submitForm() {
     errEl.style.display = 'block';
     return;
   }
+  if (!document.getElementById('f-privacy').checked) {
+    errEl.textContent = t('err_consent');
+    errEl.style.display = 'block';
+    return;
+  }
 
   btn.disabled = true;
   btn.textContent = t('submitting');
@@ -473,7 +499,7 @@ async function submitForm() {
     const r = await fetch('/api/access-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram: document.getElementById('f-instagram').value.trim(), website: document.getElementById('f-website').value.trim(), message })
+      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram: document.getElementById('f-instagram').value.trim(), website: document.getElementById('f-website').value.trim(), message, privacy_accepted: true, marketing_consent: document.getElementById('f-marketing').checked })
     });
     const d = await r.json();
     if (!r.ok) {
