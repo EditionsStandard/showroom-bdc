@@ -1647,17 +1647,19 @@ app.post('/api/agent-selections/:token/remind', requireRole('owner','agent'), as
 // Bornée à la marque de l'agent. Refusée si la sélection est déjà validée.
 app.put('/api/agent-selections/:token/client', requireRole('owner','agent'), async (req, res) => {
   try {
-    const { client_name, client_email, client_company } = req.body;
+    const { client_name, client_email, client_company, created_by } = req.body;
     const sel = await pool.query('SELECT brand_id, used FROM agent_selections WHERE token=$1', [req.params.token]);
     if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
     if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     if (sel.rows[0].used) return res.status(409).json({ error: 'Sélection déjà validée — impossible de la modifier.' });
     const email = (client_email || '').trim().toLowerCase();
     if (email && !email.includes('@')) return res.status(400).json({ error: 'Email acheteur invalide' });
-    // Email : mis à jour seulement s'il est fourni (sinon on conserve l'existant)
+    const sentBy = (created_by || '').trim().toLowerCase();
+    if (sentBy && !sentBy.includes('@')) return res.status(400).json({ error: "Email d'envoi invalide" });
+    // Email(s) : mis à jour seulement s'ils sont fournis (sinon on conserve l'existant)
     await pool.query(
-      "UPDATE agent_selections SET client_name=$1, client_company=$2, client_email=COALESCE(NULLIF($3,''), client_email) WHERE token=$4",
-      [(client_name || '').slice(0, 160), (client_company || '').slice(0, 160), email, req.params.token]);
+      "UPDATE agent_selections SET client_name=$1, client_company=$2, client_email=COALESCE(NULLIF($3,''), client_email), created_by=COALESCE(NULLIF($4,''), created_by) WHERE token=$5",
+      [(client_name || '').slice(0, 160), (client_company || '').slice(0, 160), email, sentBy, req.params.token]);
     logAudit(req, 'edit_selection_client', 'agent_selection', req.params.token, email || '');
     res.json({ ok: true });
   } catch(e) { console.error('edit selection client:', e); res.status(500).json({ error: 'Erreur serveur' }); }
