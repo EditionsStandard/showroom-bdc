@@ -1853,6 +1853,8 @@
     <div class="table-wrap" style="margin-bottom:18px"><table style="margin:0"><thead><tr><th>N°</th><th>Date</th><th>Marque</th><th style="text-align:right">Total HT</th><th>Statut</th></tr></thead><tbody id="bp-orders"></tbody></table></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Rendez-vous</div>
     <div id="bp-appts" style="margin-bottom:18px"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🕘 Historique des actions</div>
+    <div id="bp-activity" style="margin-bottom:18px;max-height:260px;overflow:auto"></div>
     <div id="bp-notes-wrap" style="display:none;background:var(--black);border-radius: 0;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🔒 Notes internes</div>
       <div id="bp-notes" style="font-size:13px;color:#ccc;white-space:pre-wrap"></div>
@@ -6138,6 +6140,7 @@ async function openBuyerProfile(id) {
   document.getElementById('bp-kpis').innerHTML = '';
   document.getElementById('bp-orders').innerHTML = '';
   document.getElementById('bp-appts').innerHTML = '';
+  document.getElementById('bp-activity').innerHTML = '';
   document.getElementById('bp-notes-wrap').style.display = 'none';
   let d;
   try { d = await fetch('/api/admin/buyers/' + id + '/profile').then(r => r.json()); }
@@ -6177,6 +6180,17 @@ async function openBuyerProfile(id) {
     <span style="color:#aaa">${esc(a.brand_name||'')}</span>
     ${a.notes ? `<span style="color:#666;font-size:11px">— ${esc(a.notes)}</span>` : ''}
   </div>`).join('') : `<div style="color:#666;font-size:13px">Aucun rendez-vous</div>`;
+
+  const activity = d.activity || [];
+  document.getElementById('bp-activity').innerHTML = activity.length ? activity.map(a => {
+    const dt = new Date(a.at);
+    const when = dt.toLocaleDateString(locale) + (a.at && String(a.at).includes('T') ? ' à ' + dt.toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit' }) : '');
+    const who = a.who ? ` <span style="color:#666">· ${esc(a.who)}</span>` : '';
+    return `<div style="display:flex;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid #1a1a1a">
+      <span style="min-width:16px">${esc(a.icon||'•')}</span>
+      <div><div>${esc(a.text||'')}</div><div style="font-size:11px;color:#888;margin-top:1px">${when}${who}</div></div>
+    </div>`;
+  }).join('') : `<div style="color:#666;font-size:13px">Aucune action enregistrée</div>`;
 
   if (b.internal_notes) {
     document.getElementById('bp-notes').textContent = b.internal_notes;
