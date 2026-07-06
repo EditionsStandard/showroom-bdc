@@ -2210,6 +2210,15 @@ function toggleLang() {
 }
 
 document.addEventListener('DOMContentLoaded', applyLang);
+// Reflet passif de l'état des notifications au chargement (sans prompt)
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const btn = document.getElementById('btn-push-notif');
+      if (btn) { btn.textContent = '🔔 Notifications activées'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.dataset.active = '1'; }
+    }
+  } catch(e) {}
+});
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -3077,34 +3086,39 @@ async function checkNewOrders() {
 }
 
 async function initPushNotifications() {
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-  const { key } = await fetch('/api/admin/vapid-public-key').then(r => r.json()).catch(() => ({}));
-  if (!key) return;
-
   const btn = document.getElementById('btn-push-notif');
-  if (!btn) return;
-
-  if (Notification.permission === 'granted') {
-    btn.textContent = '🔔 Notifications activées';
-    btn.style.color = 'var(--accent)';
-    btn.dataset.active = '1';
-    return;
+  // Feedback systématique : le bouton ne doit jamais « ne rien faire »
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    return toast("Ce navigateur ne supporte pas les notifications push.", true);
   }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return;
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: key
-  });
-  await fetch('/api/admin/push-subscribe', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: sub })
-  });
-  btn.textContent = '🔔 Notifications activées';
-  btn.style.color = 'var(--accent)';
-  btn.dataset.active = '1';
+  if (Notification.permission === 'denied') {
+    return toast("Notifications bloquées par le navigateur. Autorisez-les dans les réglages du site.", true);
+  }
+  let key;
+  try { ({ key } = await fetch('/api/admin/vapid-public-key').then(r => r.json())); } catch(e) {}
+  if (!key) {
+    return toast("Notifications non configurées sur le serveur (VAPID_PUBLIC_KEY manquante dans Railway).", true);
+  }
+  try {
+    // Le service worker doit être enregistré AVANT serviceWorker.ready (sinon blocage)
+    await navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if (Notification.permission !== 'granted') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return toast("Notifications refusées.", true);
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const r = await fetch('/api/admin/push-subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub })
+    });
+    if (!r.ok) return toast("Erreur d'enregistrement de l'abonnement.", true);
+    if (btn) { btn.textContent = '🔔 Notifications activées'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.dataset.active = '1'; }
+    toast('Notifications activées ✓');
+  } catch(e) {
+    console.error('push init:', e);
+    toast("Impossible d'activer les notifications : " + (e.message || 'erreur'), true);
+  }
 }
 
 function updateOrderNavBadge(count) {

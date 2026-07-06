@@ -381,8 +381,25 @@ const emailLimiter = rateLimit({
 
 const publicLimiter = rateLimit({
   windowMs: 3600000, // 1 heure
-  max: 30,
-  message: { error: 'Trop de demandes. Réessayez dans 1 heure.' },
+  // Relevé : en showroom (Fashion Week) plusieurs acheteurs passent commande
+  // derrière la MÊME IP publique (WiFi partagé) — 30/h bloquait tout le monde.
+  max: 200,
+  message: { error: 'Trop de demandes. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
+// Validation d'une sélection par l'acheteur : limité PAR SÉLECTION (token), pas
+// par IP — sinon plusieurs acheteurs sur le WiFi du showroom se bloquent entre eux.
+// Les validations réussies ne comptent pas (skipSuccessfulRequests) : seuls les
+// essais en échec (signature/CGV/mot de passe) sont décomptés, largement.
+const confirmLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 20,
+  // La route porte toujours :token → on keye par sélection (jamais par IP),
+  // ce qui évite aussi la normalisation IPv6 d'express-rate-limit.
+  keyGenerator: (req) => 'sel:' + req.params.token,
+  skipSuccessfulRequests: true,
+  message: { error: 'Trop de tentatives sur cette sélection. Réessayez dans quelques minutes.' },
   standardHeaders: true, legacyHeaders: false
 });
 
@@ -2624,7 +2641,7 @@ app.get('/api/selection/:token', async (req, res) => {
 });
 
 // 4) L'acheteur crée son compte (ou se connecte) et valide la commande
-app.post('/api/selection/:token/confirm', emailLimiter, async (req, res) => {
+app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
   try {
     const { password, signature, cgv_accepted, lines } = req.body;
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
