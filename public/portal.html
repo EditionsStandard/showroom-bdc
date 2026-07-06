@@ -2024,6 +2024,8 @@ async function openBrand(brandId, _fromPop) {
   const deliveryHtml = deliveryTermsSafe ? `<div class="brand-banner-moq">🚚 <span data-tr="${esc(deliveryTermsSafe)}">${esc(deliveryTermsSafe)}</span></div>` : '';
   const paymentTermsSafe = (currentBrand.payment_terms || '').trim().replace(/\n/g, ' · ');
   const paymentHtml = paymentTermsSafe ? `<div class="brand-banner-moq">💳 <span data-tr="${esc(paymentTermsSafe)}">${esc(paymentTermsSafe)}</span></div>` : '';
+  const returnTermsSafe = (currentBrand.return_terms || '').trim().replace(/\n/g, ' · ');
+  const returnHtml = returnTermsSafe ? `<div class="brand-banner-moq">↩ <span data-tr="${esc(returnTermsSafe)}">${esc(returnTermsSafe)}</span></div>` : '';
   let deadlineHtml = '';
   const orderDeadline = (currentBrand.order_deadline || '').slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(orderDeadline)) {
@@ -2051,6 +2053,7 @@ async function openBrand(brandId, _fromPop) {
         ${moqHtml}
         ${deliveryHtml}
         ${paymentHtml}
+        ${returnHtml}
         ${deadlineHtml}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${lookbookHtml||cgvHtml?'14px':'0'}">
           ${lookbookHtml}
