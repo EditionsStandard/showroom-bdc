@@ -544,6 +544,37 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
   } catch(e) { console.error('resend staff creds:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Invitation d'un prospect : envoie depuis l'app un email d'invitation (harmonisé)
+// avec un message personnalisable et le lien de demande d'accès. Contrairement au
+// mailto (prospect → agence), c'est l'agence qui écrit au prospect.
+app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email prospect invalide' });
+    const customMsg = (req.body.message || '').toString().trim().slice(0, 2000);
+    logAudit(req, 'invite_prospect', 'prospect', email, '');
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return res.json({ ok: true, emailed: false });
+    const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
+    const resend = new Resend(resendKey);
+    const link = `${getBaseUrl(req)}/demande-acces`;
+    await resend.emails.send({
+      from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [email],
+      replyTo: ownerEmail || undefined,
+      subject: `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`,
+      html: emailLayout({ showroomName, content:
+        `<h2 style="font-size:18px;margin:0 0 16px">Découvrez notre showroom</h2>
+         ${customMsg
+            ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>`
+            : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez les collections et demandez votre accès en quelques clics.</p>`}
+         ${emailBtn(link, 'DEMANDER UN ACCÈS')}
+         <p style="color:#888;font-size:12px">À très bientôt,<br>${escHtml(showroomName || "L'équipe")}</p>` })
+    });
+    res.json({ ok: true, emailed: true, email });
+  } catch(e) { console.error('prospect invite:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ==================== API ADMIN ====================
 
 app.get('/api/settings', requireRole('owner'), async (req, res) => {
