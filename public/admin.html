@@ -1588,6 +1588,18 @@
   </div>
 </div>
 
+<!-- MODAL : historique d'une sélection -->
+<div class="modal-overlay" id="modal-sel-history">
+  <div class="modal" style="max-width:520px">
+    <h3 style="margin-bottom:6px">🕘 Historique de la sélection</h3>
+    <p style="font-size:12px;color:#888;margin:-2px 0 16px" id="selhist-sub"></p>
+    <div id="selhist-body" style="font-size:13px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-sel-history')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL INVITE LINK -->
 <div class="modal-overlay" id="modal-invite">
   <div class="modal" style="max-width:480px">
@@ -5338,6 +5350,39 @@ async function remindSelection(token, label) {
   } catch(e) { toast('Erreur réseau', true); }
 }
 
+// Historique des actions d'une sélection (création, relances, modifications…)
+const SEL_HIST_LABEL = {
+  create: '📤 Sélection créée / envoyée',
+  remind_selection: '↻ Relance envoyée',
+  edit_selection_items: '➕ Références modifiées',
+  edit_selection_client: '✎ Infos acheteur corrigées',
+  create_sample: '📸 Échantillon créé',
+  delete_selection: '🗑 Supprimée'
+};
+async function openSelectionHistory(token, num) {
+  document.getElementById('selhist-sub').textContent = num ? ('Sélection ' + num) : '';
+  document.getElementById('selhist-body').innerHTML = '<div style="color:#888">Chargement…</div>';
+  openModal('modal-sel-history');
+  try {
+    const r = await fetch('/api/agent-selections/' + encodeURIComponent(token) + '/history');
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { document.getElementById('selhist-body').innerHTML = `<div style="color:#e07a7a">${esc(d.error || 'Erreur')}</div>`; return; }
+    const events = (d.events || []).slice().reverse(); // plus récent en haut
+    if (!events.length) { document.getElementById('selhist-body').innerHTML = '<div style="color:#888">Aucune action enregistrée.</div>'; return; }
+    document.getElementById('selhist-body').innerHTML = events.map(e => {
+      const dt = new Date(e.created_at);
+      const when = dt.toLocaleDateString('fr-FR') + ' à ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const label = SEL_HIST_LABEL[e.action] || e.action;
+      const detail = e.details ? ` — <span style="color:#888">${esc(e.details)}</span>` : '';
+      const who = e.user_email ? `<span style="color:#666">par ${esc(e.user_email)}</span>` : '';
+      return `<div style="border-left:2px solid var(--accent);padding:6px 0 6px 12px;margin-bottom:8px">
+        <div style="font-weight:600">${label}${detail}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px">${when} ${who}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { document.getElementById('selhist-body').innerHTML = '<div style="color:#e07a7a">Erreur réseau.</div>'; }
+}
+
 // Corrige les infos acheteur (nom/email/société parfois erronés)
 function openEditSelectionClient(token) {
   const s = _allSelections.find(x => x.token === token);
@@ -5433,6 +5478,7 @@ function filterSelections() {
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="editSelectionItems('${escJs(s.token)}')" title="Ajouter / modifier des références">➕ Réf.</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="openEditSelectionClient('${escJs(s.token)}')" title="Corriger nom / email / société">✎ Infos</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="remindSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Relancer l'acheteur par email avec le lien">↻ Relancer</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="openSelectionHistory('${escJs(s.token)}','${escJs(s.selection_number||'')}')" title="Historique des actions">🕘</button>
         <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')" title="Copier le lien de la sélection">📋</button>
         ${s.is_template ? `<span class="badge badge-validated" style="font-size:10px;padding:3px 7px">⭐ Template</span>` : `<button class="btn btn-secondary btn-sm" onclick="openSaveTemplateModal('${s.token}')">⭐</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Supprimer la sélection">🗑</button>
