@@ -1597,15 +1597,29 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
     }
     if (sel.rows[0].used) return res.status(409).json({ error: 'Sélection déjà validée — impossible de la modifier.' });
     if (new Date(sel.rows[0].expires_at) < new Date()) return res.status(410).json({ error: 'Sélection expirée.' });
-    const cleanItems = items.filter(i => i.quantity > 0).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
-    if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
+    // Une sélection = une liste de RÉFÉRENCES. Les quantités sont fixées par l'acheteur
+    // sur /selection/, donc on accepte des lignes sans quantité (quantity 0). On garde
+    // toute ligne avec un product_id valide, dédupliquée par product_id|taille.
+    const seen = new Set();
+    const cleanItems = [];
+    for (const i of (items || [])) {
+      const pid = i && i.product_id;
+      if (!pid) continue;
+      const size = (i.size || '').toString();
+      const key = pid + '|' + size;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cleanItems.push({ product_id: pid, size, quantity: Math.max(0, parseInt(i.quantity) || 0) });
+    }
+    if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins une référence' });
+    const refCount = new Set(cleanItems.map(i => i.product_id)).size;
     await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2', [JSON.stringify(cleanItems), req.params.token]);
-    logAudit(req, 'edit_selection_items', 'agent_selection', req.params.token, cleanItems.length + ' art.');
+    logAudit(req, 'edit_selection_items', 'agent_selection', req.params.token, refCount + ' réf.');
     if (notify && sel.rows[0].client_email) {
       const url = `${getBaseUrl(req)}/selection/${req.params.token}`;
       sendAgentSelectionEmail({ email: sel.rows[0].client_email, name: sel.rows[0].client_name, brandName: sel.rows[0].brand_name, selectionNumber: sel.rows[0].selection_number, url, req }).catch(e => console.error('agent-selection edit email:', e.message));
     }
-    res.json({ ok: true, count: cleanItems.length });
+    res.json({ ok: true, count: refCount });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
