@@ -1518,6 +1518,29 @@
     <p style="font-size:12px;color:#888;margin:-4px 0 14px">Renseignez les quantités, puis envoyez le lien à l'acheteur : il créera son accès et validera la commande.</p>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <input id="agent-sel-search" type="text" placeholder="🔍 Filtrer une référence…" style="flex:1" oninput="renderAgentSelProducts()">
+      <button class="btn btn-secondary btn-sm" onclick="toggleSampleForm()" title="Ajouter une pièce hors-catalogue (échantillon) avec une photo">📸 Échantillon</button>
+    </div>
+    <!-- Mini-formulaire échantillon : pièce non cataloguée (sample photographié) -->
+    <div id="agent-sel-sample-form" style="display:none;border:1px solid var(--border,#262626);border-radius:0;padding:12px;margin-bottom:10px;background:rgba(204,235,60,.04)">
+      <p style="font-size:12px;color:#888;margin:0 0 8px">Pièce hors-catalogue : elle est créée comme <strong>échantillon masqué</strong> (invisible sur le catalogue public) et rattachée à la sélection.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Référence *</label><input id="sample-ref" type="text" placeholder="Ex : SAMPLE-LUN-01"></div>
+        <div class="form-group"><label>Prix HT</label><input id="sample-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Désignation</label><input id="sample-desc" type="text" placeholder="Ex : Lunettes acétate — collection privée"></div>
+        <div class="form-group"><label>Coloris</label><input id="sample-color" type="text" placeholder="Ex : Écaille"></div>
+      </div>
+      <div class="form-group">
+        <label>Photo (prise par l'acheteur)</label>
+        <input id="sample-photo" type="file" accept="image/*" onchange="onSamplePhoto(this)">
+        <div id="sample-photo-preview" style="margin-top:8px"></div>
+      </div>
+      <div id="sample-result" style="font-size:12px;margin:6px 0"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="toggleSampleForm()">Annuler</button>
+        <button class="btn btn-primary btn-sm" id="sample-add-btn" onclick="addSampleToSelection()">➕ Créer &amp; ajouter</button>
+      </div>
     </div>
     <div class="table-wrap" style="max-height:340px;overflow:auto"><table>
       <thead><tr><th style="width:56px">Photo</th><th>Réf.</th><th>Désignation</th><th>Prix HT</th><th style="width:120px">Quantité</th></tr></thead>
@@ -4042,7 +4065,7 @@ async function openAgentSelection(brandId, brandName) {
   document.getElementById('agent-sel-send').textContent = '📨 Envoyer à l\'acheteur';
   openModal('modal-agent-selection');
   const data = await fetch(`/api/brands/${brandId}/products`).then(r => r.json()).catch(() => []);
-  agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0);
+  agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0 || p.is_sample);
   renderAgentSelProducts();
 }
 
@@ -4064,7 +4087,7 @@ async function editSelectionItems(token) {
   document.getElementById('agent-sel-send').textContent = '💾 Enregistrer la sélection';
   openModal('modal-agent-selection');
   const data = await fetch(`/api/brands/${s.brand_id}/products`).then(r => r.json()).catch(() => []);
-  agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0);
+  agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0 || p.is_sample);
   renderAgentSelProducts();
 }
 function renderAgentSelProducts() {
@@ -4076,11 +4099,11 @@ function renderAgentSelProducts() {
     if (sizes.length) {
       qtyCell = sizes.map(sz => {
         const k = p.id + '|' + sz;
-        return `<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="font-size:11px;min-width:28px;color:#888">${esc(sz)}</span><input type="number" min="0" value="${agentSelQty[k]||0}" onchange="agentSelQty['${k}']=parseInt(this.value)||0" style="width:54px"></div>`;
+        return `<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="font-size:11px;min-width:28px;color:#888">${esc(sz)}</span><input type="number" min="0" value="${agentSelQty[k]||0}" oninput="agentSelQty['${k}']=parseInt(this.value)||0" style="width:54px"></div>`;
       }).join('');
     } else {
       const k = p.id + '|';
-      qtyCell = `<input type="number" min="0" value="${agentSelQty[k]||0}" onchange="agentSelQty['${k}']=parseInt(this.value)||0" style="width:60px">`;
+      qtyCell = `<input type="number" min="0" value="${agentSelQty[k]||0}" oninput="agentSelQty['${k}']=parseInt(this.value)||0" style="width:60px">`;
     }
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
@@ -4089,6 +4112,67 @@ function renderAgentSelProducts() {
       : `<div style="width:48px;height:62px;background:#222;border-radius: 0;display:flex;align-items:center;justify-content:center;color:#555;font-size:18px">🏷️</div>`;
     return `<tr><td>${thumb}</td><td><strong>${esc(p.reference)}</strong></td><td style="font-size:12px;color:#aaa">${esc(p.description||'')}</td><td style="white-space:nowrap">${Number(p.price).toFixed(2)} €</td><td>${qtyCell}</td></tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
+}
+
+// ── Échantillon express (pièce hors-catalogue avec photo de l'acheteur) ──────
+let _samplePhotoData = '';
+function toggleSampleForm() {
+  const f = document.getElementById('agent-sel-sample-form');
+  const show = f.style.display === 'none';
+  f.style.display = show ? 'block' : 'none';
+  if (show) { ['sample-ref','sample-price','sample-desc','sample-color'].forEach(id => document.getElementById(id).value = ''); document.getElementById('sample-photo').value = ''; document.getElementById('sample-photo-preview').innerHTML = ''; document.getElementById('sample-result').innerHTML = ''; _samplePhotoData = ''; }
+}
+// Lit la photo et la redimensionne (max 1400px, JPEG ~0.82) pour un data-URL léger
+function onSamplePhoto(input) {
+  const file = input.files && input.files[0];
+  if (!file) { _samplePhotoData = ''; document.getElementById('sample-photo-preview').innerHTML = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 1400;
+      let { width: w, height: h } = img;
+      if (w > max || h > max) { const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      _samplePhotoData = c.toDataURL('image/jpeg', 0.82);
+      document.getElementById('sample-photo-preview').innerHTML = `<img src="${_samplePhotoData}" style="width:70px;height:90px;object-fit:cover;border-radius:0;background:#fff">`;
+    };
+    img.onerror = () => { _samplePhotoData = ''; };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function addSampleToSelection() {
+  const res = document.getElementById('sample-result');
+  const reference = document.getElementById('sample-ref').value.trim();
+  if (!reference) { res.innerHTML = '<span style="color:#e07a7a">Référence requise.</span>'; return; }
+  const btn = document.getElementById('sample-add-btn');
+  btn.disabled = true; btn.textContent = 'Création…';
+  try {
+    const r = await fetch(`/api/brands/${agentSelBrandId}/sample-product`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reference,
+        price: parseFloat(document.getElementById('sample-price').value) || 0,
+        description: document.getElementById('sample-desc').value.trim(),
+        color: document.getElementById('sample-color').value.trim(),
+        image: _samplePhotoData || ''
+      })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { res.innerHTML = `<span style="color:#e07a7a">${esc(d.error || 'Erreur')}</span>`; return; }
+    // Injecte le produit créé dans la liste + le sélectionne (qty 1, sans taille)
+    const prod = { id: d.id, reference: d.reference || reference, description: document.getElementById('sample-desc').value.trim(), color: document.getElementById('sample-color').value.trim(), price: parseFloat(document.getElementById('sample-price').value) || 0, sizes: '', images: JSON.stringify(_samplePhotoData ? [_samplePhotoData] : []), image_url: _samplePhotoData || '', active: 0 };
+    if (!agentSelProducts.find(p => p.id === prod.id)) agentSelProducts.unshift(prod);
+    agentSelQty[prod.id + '|'] = Math.max(1, agentSelQty[prod.id + '|'] || 0);
+    document.getElementById('agent-sel-search').value = '';
+    renderAgentSelProducts();
+    toggleSampleForm();
+    toast('Échantillon « ' + prod.reference + ' » créé et ajouté ✓');
+  } catch(e) {
+    res.innerHTML = '<span style="color:#e07a7a">Erreur réseau.</span>';
+  } finally { btn.disabled = false; btn.textContent = '➕ Créer & ajouter'; }
 }
 async function sendAgentSelection() {
   const res = document.getElementById('agent-sel-result');
