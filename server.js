@@ -706,6 +706,30 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
   res.json({ id });
 });
 
+// Référence « échantillon » express : crée un produit léger (réf + photo + prix)
+// à rattacher à une sélection quand une pièce n'est pas au catalogue (sample photographié
+// par l'acheteur). Masqué du catalogue public (active=0) et marqué is_sample : il reste
+// résolu par product_id sur la line sheet / le PDF / la commande, sans polluer le portail.
+// L'image accepte une URL http(s) ou une photo en data: (upload direct depuis le mobile).
+app.post('/api/brands/:brandId/sample-product', requireBrandScope('owner','agent','designer'), async (req, res) => {
+  try {
+    const { reference, description, color, price, image } = req.body;
+    if (!reference || !String(reference).trim()) return res.status(400).json({ error: 'Référence requise' });
+    const ref = String(reference).trim().slice(0, 120);
+    const img = (typeof image === 'string' && /^(https?:|data:image\/)/i.test(image.trim())) ? image.trim() : '';
+    // Réutilise une référence existante de la marque (évite les doublons)
+    const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [req.params.brandId, ref]);
+    if (existing.rows[0]) return res.json({ id: existing.rows[0].id, reference: ref, existing: true });
+    const id = uuidv4();
+    await pool.query(
+      'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,image_url,images,collection_name,active,is_sample) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [id, req.params.brandId, ref, (description||'').slice(0,300), (color||'').slice(0,80), '', nonNeg(price), img, JSON.stringify(img ? [img] : []), 'Échantillons', 0, true]
+    );
+    logAudit(req, 'create_sample', 'product', id, ref);
+    res.json({ id, reference: ref, price: nonNeg(price), image_url: img });
+  } catch(e) { console.error('sample-product:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // True when the current role is restricted to a single brand (designer, or agent with brand_id).
 function isBrandScoped(req) {
   return req.userRole === 'designer' || (req.userRole === 'agent' && !!req.userBrandId);
