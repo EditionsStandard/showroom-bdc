@@ -282,6 +282,8 @@ async function init() {
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS instagram TEXT DEFAULT ''",
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS website TEXT DEFAULT ''",
     "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
+    "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS marketing_consent BOOLEAN DEFAULT false",
+    "ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS privacy_accepted_at TIMESTAMPTZ",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT ''",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT ''",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS favorites_json TEXT DEFAULT '[]'",
