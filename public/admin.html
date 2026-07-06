@@ -2010,7 +2010,7 @@ const TRANSLATIONS = {
     orders_pending_label: 'en attente',
     orders_count_label: (n) => `${n} commande${n!==1?'s':''}`,
     orders_revenue_label: 'CA :',
-    btn_modify: 'Modifier', btn_delete_text: 'Supprimer',
+    btn_modify: 'Modifier', btn_delete_text: 'Supprimer', btn_credentials: 'Identifiants',
     label_active: 'Actif', label_inactive: 'Inactif',
     label_billing: 'Facturation',
     status_active_label: '✅ Actif', status_trial_label: '⏳ Essai', status_inactive_label: '❌ Impayé',
@@ -2149,7 +2149,7 @@ const TRANSLATIONS = {
     orders_pending_label: 'pending',
     orders_count_label: (n) => `${n} order${n!==1?'s':''}`,
     orders_revenue_label: 'Revenue:',
-    btn_modify: 'Edit', btn_delete_text: 'Delete',
+    btn_modify: 'Edit', btn_delete_text: 'Delete', btn_credentials: 'Credentials',
     label_active: 'Active', label_inactive: 'Inactive',
     label_billing: 'Billing',
     status_active_label: '✅ Active', status_trial_label: '⏳ Trial', status_inactive_label: '❌ Unpaid',
@@ -2305,6 +2305,7 @@ async function loadStaff() {
       <td>${esc(s.brand_name) || '—'}</td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${esc(JSON.stringify(s))})">${t('btn_modify')}</button>
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resendStaffCredentials('${esc(s.id)}','${esc(s.email)}')" title="Régénérer et renvoyer les identifiants par email">✉ ${t('btn_credentials')}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
@@ -2349,6 +2350,17 @@ async function openEditStaff(s) {
   document.getElementById('edit-staff-role').value = s.role || 'agent';
   document.getElementById('edit-staff-brand-field').style.display = s.role === 'designer' ? 'block' : 'none';
   openModal('modal-edit-staff');
+}
+
+async function resendStaffCredentials(id, email) {
+  if (!confirm(`Renvoyer les identifiants à ${email} ?\n\nUn NOUVEAU mot de passe sera généré et envoyé par email (l'ancien ne fonctionnera plus).`)) return;
+  try {
+    const r = await fetch('/api/staff/' + encodeURIComponent(id) + '/resend-credentials', { method: 'POST' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || 'Erreur', true); return; }
+    if (d.emailed) toast('Identifiants envoyés à ' + (d.email || email) + ' ✓');
+    else { prompt('Email non configuré (RESEND_API_KEY). Communiquez ce mot de passe manuellement :', d.password || ''); }
+  } catch(e) { toast('Erreur réseau', true); }
 }
 
 async function saveEditStaff() {
