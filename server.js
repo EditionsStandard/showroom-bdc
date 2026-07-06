@@ -1310,6 +1310,7 @@ app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent',
   try {
     const pdf = await generateLinesheetPDF(req.params.brandId, req.query.season_id || null);
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     res.setHeader('Content-Disposition', 'attachment; filename="linesheet.pdf"');
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -2287,6 +2288,7 @@ app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (r
   try {
     const pdf = await generateOrderPDF(req.params.id);
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     const orderNumForFile = (await pool.query('SELECT order_number FROM orders WHERE id=$1', [req.params.id]).then(r => r.rows[0]?.order_number)) || req.params.id.slice(0,8).toUpperCase();
     res.setHeader('Content-Disposition', `attachment; filename="commande-${orderNumForFile}.pdf"`);
     res.send(pdf);
@@ -2319,6 +2321,7 @@ app.get('/api/public/orders/:id/pdf', async (req, res) => {
     const orderNum2 = r.rows[0]?.order_number || req.params.id.slice(0,8).toUpperCase();
     const filename = `PropositionCommande-${orderNum2}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -2379,6 +2382,7 @@ app.post('/api/public/selection-pdf', publicLimiter, async (req, res) => {
     const pdf = await generateSelectionPDF({ brand, client_name, client_email, client_company, client_country, notes, lines: resolvedLines, showroomName, agentName });
     const ref = (client_name||'Selection').replace(/\s/g,'-').slice(0,20);
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     res.setHeader('Content-Disposition', `attachment; filename="Selection-${ref}-${brand.name.replace(/\s/g,'-')}.pdf"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -2717,6 +2721,10 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
 
     await pool.query('UPDATE agent_selections SET used=true WHERE token=$1', [req.params.token]);
+    // P0-08 — journalise la signature/validation (preuve en cas de litige) :
+    // acteur = acheteur, horodatage (NOW), commande, IP + acceptation CGV.
+    pool.query('INSERT INTO admin_audit_log (id,user_email,action,target_type,target_id,details,created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
+      [uuidv4(), email, 'order_signed', 'order', result.order_id, `Sélection ${sel.selection_number || sel.token.slice(0,8)} validée et signée · CGV acceptées · IP ${req.ip || ''}`]).catch(e => console.error('audit order_signed:', e.message));
     // Connecte l'acheteur
     req.session.regenerate(err => {
       if (err) return res.json({ ok: true, order_id: result.order_id });
@@ -3113,6 +3121,7 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
     const pdf = await generateOrderPDF(req.params.id);
     const oNum = o.rows[0].order_number || req.params.id.slice(0,8).toUpperCase();
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     res.setHeader('Content-Disposition', `attachment; filename="Commande-${oNum}.pdf"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -3486,6 +3495,7 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
     doc.on('end', () => {
       const pdf = Buffer.concat(chunks);
       res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
       res.setHeader('Content-Disposition', `attachment; filename="rapport-ventes-${brandName.replace(/[^a-zA-Z0-9]+/g,'-')}.pdf"`);
       res.send(pdf);
     });
@@ -3940,6 +3950,7 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
     });
 
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     res.setHeader('Content-Disposition', `attachment; filename="Selection-${Date.now()}.pdf"`);
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -4816,6 +4827,7 @@ app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
     if (!r.rows[0]) return res.status(404).json({ error: 'Non disponible' });
     const pdf = await generateOrderPDF(req.params.id);
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
     const oNumPublic = (await pool.query('SELECT order_number FROM orders WHERE id=$1', [req.params.id])).rows[0]?.order_number || req.params.id.slice(0,8).toUpperCase();
     res.setHeader('Content-Disposition', `attachment; filename="Commande-${oNumPublic}.pdf"`);
     res.send(pdf);
