@@ -641,6 +641,7 @@
             <option value="all">🏢 Toutes les marques</option>
           </select>
           <button class="btn btn-secondary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')">🔗 Copier le lien d'invitation</button>
+          <button class="btn btn-secondary btn-sm" id="btn-commande-link" onclick="genCommandeLink()" title="Lien de commande privé qui expire (30 jours) — pour une marque précise">⏳ Lien commande (expire)</button>
         </div>
         <!-- Invitation directe : l'agence envoie un email au prospect (selon la cible ci-dessus) -->
         <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inviter un prospect par email <span id="invite-scope" style="color:#778;text-transform:none;letter-spacing:0">· toutes les marques</span></div>
@@ -3904,6 +3905,24 @@ function updateShareLinks() {
     if (scope) scope.textContent = '· ' + (opt ? opt.textContent : '');
   }
   btnInvite.disabled = false; btnInvite.style.opacity = '1';
+}
+
+// P0-04 — génère un lien de commande privé & expirant (30 j) pour la marque sélectionnée
+async function genCommandeLink() {
+  const sel = document.getElementById('share-brand-select');
+  const brandId = sel ? sel.value : '';
+  if (!brandId || brandId === 'all') return toast('Choisis une marque précise pour un lien de commande.', true);
+  try {
+    const r = await fetch('/api/brands/' + brandId + '/commande-link', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 30 })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(d.error || 'Erreur', true);
+    copyToClipboard(d.url);
+    const preview = document.getElementById('share-preview');
+    if (preview) preview.textContent = d.url + '  (expire dans ' + d.days + ' jours)';
+    toast('Lien de commande copié — expire dans ' + d.days + ' jours ✓');
+  } catch(e) { toast('Erreur réseau', true); }
 }
 
 async function sendProspectInvite() {
