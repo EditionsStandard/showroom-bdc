@@ -5374,38 +5374,67 @@ const LOGO_URL = 'https://showroom.editionsstandard.com/logo.svg';
 // fond sombre #0a0a0a, monospace, kickers/labels majuscules à fort interlettrage,
 // hairlines, accent lime, logo BLANC centré (logo-email.png — le SVG noir + filtre
 // CSS du site ne s'affiche pas en email). Table-based + styles inline (email-safe).
-const EMAIL_LOGO_URL = 'https://showroom.editionsstandard.com/logo-email.png';
+// Gabarit email aligné sur l'atmosphère des portails (/demande-acces) :
+// monospace, kickers majuscules interlettrés, hairlines, logo centré.
+// THÈME : SOMBRE par défaut (marche partout, y compris Gmail qui ignore les
+// media queries) + variante CLAIRE automatique via @media (prefers-color-scheme:
+// light) pour les clients qui la supportent (Apple Mail, iOS…), avec bascule du
+// logo blanc↔noir. Défauts inline = sombre ; overrides !important = clair.
+const EMAIL_LOGO_URL = 'https://showroom.editionsstandard.com/logo-email.png';   // blanc (sombre)
+const EMAIL_LOGO_BLACK = 'https://showroom.editionsstandard.com/logo-pdf.png';   // noir (clair)
 const EMAIL_MONO = "'Courier New', Courier, monospace";
 function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor = '#CCEB3C', content, footer = '' }) {
   const brandBlock = brandName ? `
   <tr><td style="padding:2px 0 22px;text-align:center">
-    <div style="font-family:${EMAIL_MONO};font-size:11px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:#f5f4f0">${escHtml(brandName.toUpperCase())}</div>
-    <div style="font-family:${EMAIL_MONO};font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-top:6px">Collection</div>
+    <div class="em-ink" style="font-family:${EMAIL_MONO};font-size:11px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:#f5f4f0">${escHtml(brandName.toUpperCase())}</div>
+    <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-top:6px">Collection</div>
   </td></tr>` : '';
 
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head>
-<body style="margin:0;padding:0;background:#0a0a0a">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:44px 16px">
+  const style = `
+  <style>
+    @media (prefers-color-scheme: light) {
+      .em-main { background:#f5f4f0 !important; }
+      .em-ink { color:#111111 !important; }
+      .em-muted { color:rgba(17,17,17,.5) !important; }
+      .em-line { border-color:rgba(17,17,17,.14) !important; }
+      .em-btn { border-color:rgba(17,17,17,.5) !important; }
+      .em-btn a { color:#111111 !important; }
+      .em-box { border-color:rgba(17,17,17,.16) !important; }
+      .lg-d { display:none !important; }
+      .lg-l { display:inline-block !important; }
+      .em-body p, .em-body td, .em-body h2, .em-body strong, .em-body div, .em-body li { color:#1a1a1a !important; }
+      .em-body span[style*="rgba(255,255,255"] { color:rgba(17,17,17,.5) !important; }
+      .em-body a { color:#6b8500 !important; }
+      .em-body td[style*="border-bottom"], .em-body td[style*="border-top"] { border-color:rgba(17,17,17,.12) !important; }
+      .em-body [style*="border-left"] { border-color:rgba(17,17,17,.25) !important; }
+      .em-body [style*="rgba(224,176,58"] { background:rgba(224,176,58,.18) !important; color:#7a5a12 !important; }
+    }
+  </style>`;
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${style}</head>
+<body class="em-main" style="margin:0;padding:0;background:#0a0a0a">
+<table class="em-main" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:44px 16px">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
 
-  <!-- HEADER : logo blanc centré + nom showroom + kicker (comme /demande-acces) -->
+  <!-- HEADER : logo (blanc en sombre / noir en clair) + nom showroom + kicker -->
   <tr><td style="text-align:center;padding-bottom:26px">
-    <img src="${EMAIL_LOGO_URL}" alt="${escHtml(showroomName)}" width="60" height="60" style="display:inline-block">
-    <div style="font-family:${EMAIL_MONO};font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#f5f4f0;margin-top:14px">${escHtml(showroomName)}</div>
-    <div style="font-family:${EMAIL_MONO};font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:7px">B2B Showroom</div>
+    <img class="lg-d" src="${EMAIL_LOGO_URL}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:inline-block">
+    <img class="lg-l" src="${EMAIL_LOGO_BLACK}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:none">
+    <div class="em-ink" style="font-family:${EMAIL_MONO};font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#f5f4f0;margin-top:14px">${escHtml(showroomName)}</div>
+    <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:7px">B2B Showroom</div>
   </td></tr>
-  <tr><td style="border-top:1px solid rgba(255,255,255,.16);font-size:0;line-height:0">&nbsp;</td></tr>
+  <tr><td class="em-line" style="border-top:1px solid rgba(255,255,255,.16);font-size:0;line-height:0">&nbsp;</td></tr>
   ${brandBlock ? `<tr><td style="height:22px;font-size:0;line-height:0">&nbsp;</td></tr>${brandBlock}` : `<tr><td style="height:26px;font-size:0;line-height:0">&nbsp;</td></tr>`}
 
   <!-- BODY -->
-  <tr><td style="font-family:${EMAIL_MONO};font-size:14px;color:#e6e6e6;line-height:1.75">
+  <tr><td class="em-body em-ink" style="font-family:${EMAIL_MONO};font-size:14px;color:#e6e6e6;line-height:1.75">
     ${content}
   </td></tr>
 
   <!-- FOOTER -->
   <tr><td style="height:30px;font-size:0;line-height:0">&nbsp;</td></tr>
-  <tr><td style="border-top:1px solid rgba(255,255,255,.14);padding-top:18px;text-align:center;font-family:${EMAIL_MONO};font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.4)">
+  <tr><td class="em-line em-muted" style="border-top:1px solid rgba(255,255,255,.14);padding-top:18px;text-align:center;font-family:${EMAIL_MONO};font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.4)">
     ${footer || `${escHtml(showroomName)} — Showroom`}
   </td></tr>
 
@@ -5415,21 +5444,21 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
 </body></html>`;
 }
 
-// Bouton filaire (comme .btn du site) : transparent + hairline, majuscules, interlettrage.
+// Bouton filaire (comme .btn du site) : transparent + hairline, majuscules interlettrées.
 function emailBtn(url, label) {
   return `<table cellpadding="0" cellspacing="0" style="margin:30px auto">
-    <tr><td style="border:1px solid rgba(255,255,255,.5);padding:14px 30px;text-align:center">
-      <a href="${url}" style="color:#f5f4f0;font-family:${EMAIL_MONO};font-size:11px;font-weight:400;text-decoration:none;letter-spacing:.28em;text-transform:uppercase">${label}</a>
+    <tr><td class="em-btn" style="border:1px solid rgba(255,255,255,.5);padding:14px 30px;text-align:center">
+      <a href="${url}" class="em-ink" style="color:#f5f4f0;font-family:${EMAIL_MONO};font-size:11px;font-weight:400;text-decoration:none;letter-spacing:.28em;text-transform:uppercase">${label}</a>
     </td></tr>
   </table>`;
 }
 
-// Encadré d'infos : sombre, hairline, labels majuscules muets, valeurs claires.
+// Encadré d'infos : hairline, labels majuscules muets, valeurs claires (adapte au thème).
 function emailInfoBox(rows) {
-  return `<table cellpadding="0" cellspacing="0" style="width:100%;border:1px solid rgba(255,255,255,.14);margin:20px 0">
+  return `<table class="em-box" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid rgba(255,255,255,.14);margin:20px 0">
     <tr><td style="padding:16px 20px">
       ${rows.map(([label, value, raw]) => `
-        <p style="margin:0 0 10px;font-size:13px;font-family:${EMAIL_MONO}"><span style="color:rgba(255,255,255,.5);display:inline-block;min-width:120px;font-size:10px;letter-spacing:.12em;text-transform:uppercase">${escHtml(label)}</span><strong style="color:#f5f4f0">${raw ? String(value||'') : escHtml(String(value||''))}</strong></p>
+        <p style="margin:0 0 10px;font-size:13px;font-family:${EMAIL_MONO}"><span class="em-muted" style="color:rgba(255,255,255,.5);display:inline-block;min-width:120px;font-size:10px;letter-spacing:.12em;text-transform:uppercase">${escHtml(label)}</span><strong class="em-ink" style="color:#f5f4f0">${raw ? String(value||'') : escHtml(String(value||''))}</strong></p>
       `).join('')}
     </td></tr>
   </table>`;
