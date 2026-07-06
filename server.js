@@ -507,6 +507,43 @@ app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Renvoi des identifiants d'un compte staff (marque/agent). Les mots de passe
+// étant hashés (non récupérables), on en génère un NOUVEAU, on le définit, puis
+// on l'envoie par email avec le lien de connexion. Repli : renvoie le mot de
+// passe dans la réponse si l'email n'est pas configuré (le owner le relaie).
+app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, res) => {
+  try {
+    const u = (await pool.query('SELECT id, email, name, role FROM admin_users WHERE id=$1', [req.params.id])).rows[0];
+    if (!u) return res.status(404).json({ error: 'Compte introuvable' });
+    const newPw = crypto.randomBytes(12).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+    const hash = await bcrypt.hash(newPw, 10);
+    await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, u.id]);
+    logAudit(req, 'resend_staff_credentials', 'staff', u.id, u.email);
+    let emailed = false;
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+      const resend = new Resend(resendKey);
+      const loginUrl = `${getBaseUrl(req)}/admin/login`;
+      const roleLabel = { owner: 'Propriétaire', agent: 'Agent', designer: 'Marque / Designer' }[u.role] || u.role;
+      await resend.emails.send({
+        from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+        to: [u.email],
+        subject: `${showroomName || 'Showroom'} — vos identifiants d'accès`,
+        html: emailLayout({ showroomName, content:
+          `<h2 style="font-size:18px;margin:0 0 16px">Vos identifiants d'accès</h2>
+           <p>Bonjour ${escHtml(u.name || '')},</p>
+           <p>Voici vos identifiants pour accéder à votre espace :</p>
+           ${emailInfoBox([['Email', u.email], ['Mot de passe', newPw], ['Rôle', roleLabel]])}
+           ${emailBtn(loginUrl, 'SE CONNECTER')}
+           <p style="color:#888;font-size:12px">Conservez cet email en lieu sûr et ne le transférez pas. Ce mot de passe remplace le précédent.</p>` })
+      });
+      emailed = true;
+    }
+    res.json({ ok: true, emailed, email: u.email, password: emailed ? undefined : newPw });
+  } catch(e) { console.error('resend staff creds:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ==================== API ADMIN ====================
 
 app.get('/api/settings', requireRole('owner'), async (req, res) => {
