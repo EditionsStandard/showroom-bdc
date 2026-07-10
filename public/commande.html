@@ -1358,6 +1358,7 @@ async function init() {
       setTimeout(() => scrollToProduct(qrProductId), 300);
     }
   } catch(e) {
+    console.error('init() error:', e); // visible en console pour diagnostiquer un futur incident (était silencieux)
     document.getElementById('products-container').innerHTML = '<div class="loader">' + T('load_error') + '</div>';
   }
 }
@@ -1607,7 +1608,9 @@ function _origRenderProducts(products) {
     let imgHtml = '';
     if (variants.length) {
       // Show first variant's images, color buttons below
-      const firstImgs = variants[0].images.length ? variants[0].images : imgs;
+      // (variants[0].images peut être absent : un variant peut n'avoir qu'une couleur, sans photo)
+      const v0Imgs = Array.isArray(variants[0].images) ? variants[0].images : [];
+      const firstImgs = v0Imgs.length ? v0Imgs : imgs;
       const firstSrc = firstImgs[0] || '';
       const variantsJson = esc(JSON.stringify(variants));
       imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'

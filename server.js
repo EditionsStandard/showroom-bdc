@@ -423,6 +423,18 @@ const passwordLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+// Mot de passe oublié / lien magique acheteur : plusieurs acheteurs partagent
+// souvent la même IP (WiFi showroom) — 5/h (emailLimiter) les bloquerait
+// mutuellement, comme le bug de validation déjà corrigé (confirmLimiter). Les
+// tokens sont générés en crypto.randomBytes(32) (256 bits) : la sécurité ne
+// repose pas sur ce rate-limit, qui n'est là que pour éviter le spam d'envois.
+const buyerAuthLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 30,
+  message: { error: 'Trop de demandes. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 
 const cartLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -3988,7 +4000,7 @@ app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
 });
 
 // Forgot / reset password (public endpoints — no auth required)
-app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
+app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
   const { email } = req.body || {};
   res.json({ ok: true }); // always succeed — don't reveal if email exists
   if (!email) return;
@@ -4037,7 +4049,7 @@ app.post('/api/portal/forgot-password', emailLimiter, async (req, res) => {
   } catch (e) { console.error('forgot-password error:', e.message); }
 });
 
-app.post('/api/portal/reset-password', emailLimiter, async (req, res) => {
+app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
   const { token, password } = req.body || {};
   if (!token || !password || password.length < 6)
     return res.json({ error: 'Données invalides.' });
@@ -4774,7 +4786,7 @@ app.post('/api/invite/:token', async (req, res) => {
 
 // ==================== BUYER ACCESS (magic link) ====================
 
-app.post('/api/buyer/request-link', emailLimiter, async (req, res) => {
+app.post('/api/buyer/request-link', buyerAuthLimiter, async (req, res) => {
   const { brand_id, email } = req.body;
   if (!brand_id || !email) return res.status(400).json({ error: 'Email requis' });
 
