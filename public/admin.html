@@ -2306,6 +2306,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+// Vignette allégée : les listes/tableaux affichent l'image à 36-72px mais
+// chargeaient jusque-là le master Cloudinary (jusqu'à 1200×1200) — ralentit
+// fortement les pages avec beaucoup de lignes. L'URL d'origine reste utilisée
+// pour "Agrandir" (ouverture plein format dans un nouvel onglet).
+function cldTransform(url, t) {
+  return (url && url.includes('res.cloudinary.com')) ? url.replace('/upload/', '/upload/' + t + '/') : url;
+}
 // Échappe une valeur destinée à une chaîne JS entre apostrophes, elle-même dans
 // un attribut HTML entre guillemets — ex. onclick="fn('${escJs(name)}')".
 // Sans ça, un nom contenant une apostrophe (« L'Atelier ») casse le onclick.
@@ -4335,7 +4342,7 @@ function renderAgentSelProducts() {
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const thumb = src
-      ? `<img src="${src}" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius: 0;background:#fff;cursor:zoom-in">`
+      ? `<img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" loading="lazy" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius: 0;background:#fff;cursor:zoom-in">`
       : `<div style="width:48px;height:62px;background:#222;border-radius: 0;display:flex;align-items:center;justify-content:center;color:#555;font-size:18px">🏷️</div>`;
     return `<tr><td>${thumb}</td><td><strong>${esc(p.reference)}</strong></td><td style="font-size:12px;color:#aaa">${esc(p.description||'')}</td><td style="white-space:nowrap">${Number(p.price).toFixed(2)} €</td><td>${qtyCell}</td></tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
@@ -4531,7 +4538,7 @@ function renderProductsTable(products) {
     let _thumbImgs = [];
     try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
-    const imgThumb = _thumbSrc ? `<img src="${_thumbSrc}" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle">` : '—';
+    const imgThumb = _thumbSrc ? `<img src="${cldTransform(_thumbSrc, 'w_100,c_limit,q_auto,f_auto')}" loading="lazy" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle">` : '—';
     const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
@@ -4853,7 +4860,7 @@ function renderVariantsList() {
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${v.images.map((src, j) => `
           <div style="position:relative">
-            <img src="${src}" style="height:60px;width:60px;object-fit:cover;border-radius: 0;border:1px solid #333">
+            <img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" loading="lazy" style="height:60px;width:60px;object-fit:cover;border-radius: 0;border:1px solid #333">
             <button onclick="removeVariantImage(${i},${j})" style="position:absolute;top:-5px;right:-5px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0">✕</button>
           </div>`).join('')}
         ${!v.images.length ? '<span style="color:#444;font-size:11px">Aucune photo</span>' : ''}
@@ -4897,7 +4904,7 @@ function renderImagesGrid() {
   const grid = document.getElementById('p-images-grid');
   grid.innerHTML = currentImages.map((src, i) => `
     <div style="position:relative;display:inline-block">
-      <img src="${src}" style="height:72px;width:72px;object-fit:cover;border-radius: 0;border:1px solid #333">
+      <img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" loading="lazy" style="height:72px;width:72px;object-fit:cover;border-radius: 0;border:1px solid #333">
       ${i === 0 ? '<span style="position:absolute;bottom:2px;left:2px;background:#CCEB3C;color:#111;font-size:9px;padding:1px 4px;border-radius: 0;font-weight:600">1ère</span>' : ''}
       <button onclick="removeImage(${i})" style="position:absolute;top:-6px;right:-6px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;padding:0">✕</button>
     </div>

@@ -2295,8 +2295,8 @@ function renderProductsPage() {
     const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="Ajouter aux favoris">${isFav?'♥':'♡'}</button>`;
     const img = imgs[0]
       ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
-          <img class="product-img product-img-1" src="${esc(imgs[0])}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
-          ${imgs[1] ? `<img class="product-img-2" src="${esc(imgs[1])}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
+          ${imgs[1] ? `<img class="product-img-2" src="${esc(cldTransform(imgs[1], 'w_500,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
           ${imgBadge}${videoBadge}${badgeNew}${favBtn}
          </div>`
       : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${videoBadge}${badgeNew}${favBtn}</div>`;
@@ -2441,7 +2441,7 @@ let moqBlocked = false;
         return `<div class="swipe-row" data-key="${esc(noteKey)}" style="position:relative;overflow:hidden;border-bottom:1px solid var(--border)">
           <div class="swipe-delete-bg" style="position:absolute;right:0;top:0;bottom:0;width:80px;background:#e55;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;pointer-events:none">✕</div>
           <div class="swipe-content" style="padding:10px 0;background:var(--black);position:relative;transition:transform .15s;display:flex;align-items:center;gap:12px">
-          ${l.image_url ? `<img src="${esc(l.image_url)}" alt="${esc(l.reference)}" loading="lazy" onerror="this.style.visibility='hidden'" style="width:52px;height:68px;object-fit:contain;background:#fff;border-radius: 0;flex-shrink:0;border:1px solid var(--border)">` : `<div style="width:52px;height:68px;background:var(--mid);border-radius: 0;flex-shrink:0"></div>`}
+          ${l.image_url ? `<img src="${esc(cldTransform(l.image_url, 'w_150,c_limit,q_auto,f_auto'))}" alt="${esc(l.reference)}" loading="lazy" onerror="this.style.visibility='hidden'" style="width:52px;height:68px;object-fit:contain;background:#fff;border-radius: 0;flex-shrink:0;border:1px solid var(--border)">` : `<div style="width:52px;height:68px;background:var(--mid);border-radius: 0;flex-shrink:0"></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-family:var(--dot),monospace;font-size:13px;margin-bottom:2px">${esc(l.reference)}</div>
             ${l.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif">${esc(l.color)}</div>` : ''}
@@ -2903,7 +2903,7 @@ function renderRecentlyViewed() {
   <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
     ${items.map(p => `<div onclick="openProductDrawer('${p.id}')" style="flex-shrink:0;cursor:pointer;width:80px">
       <div style="width:80px;height:100px;background:#fff;border-radius: 0;overflow:hidden;border:1px solid var(--border)">
-        ${p.image_url ? `<img src="${esc(p.image_url)}" alt="${esc(p.reference||p.description||'Produit')}" style="width:100%;height:100%;object-fit:contain" loading="lazy" onerror="this.style.visibility='hidden'">` : `<div style="width:100%;height:100%;background:var(--mid)"></div>`}
+        ${p.image_url ? `<img src="${esc(cldTransform(p.image_url, 'w_200,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" style="width:100%;height:100%;object-fit:contain" loading="lazy" onerror="this.style.visibility='hidden'">` : `<div style="width:100%;height:100%;background:var(--mid)"></div>`}
       </div>
       <div style="font-size:10px;font-family:var(--dot),monospace;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(p.reference)}</div>
     </div>`).join('')}
@@ -2969,7 +2969,7 @@ async function renderFavs() {
           let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
           if (!imgs.length && p.image_url) imgs = [p.image_url];
           return `<div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
-            ${imgs[0] ? `<img src="${esc(imgs[0])}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
+            ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_400,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
               ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
@@ -3060,7 +3060,7 @@ async function runGlobalSearch(q) {
         let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
         if (!imgs.length && p.image_url) imgs = [p.image_url];
         return `<div class="global-result-item" onclick="openBrand('${p.brand_id}');setTimeout(()=>openProductDrawer('${p.id}'),600)">
-          ${imgs[0] ? `<img class="global-result-img" src="${esc(imgs[0])}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="this.onerror=null;this.style.visibility='hidden'">` : '<div class="global-result-img" style="background:var(--mid)"></div>'}
+          ${imgs[0] ? `<img class="global-result-img" src="${esc(cldTransform(imgs[0], 'w_150,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="this.onerror=null;this.style.visibility='hidden'">` : '<div class="global-result-img" style="background:var(--mid)"></div>'}
           <div class="global-result-info">
             <div class="global-result-ref">${esc(p.reference)}</div>
             <div class="global-result-desc">${esc(sentenceCase(p.description||''))}</div>
@@ -3685,7 +3685,7 @@ function openCompareModal() {
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];
     const imgHtml = imgs[0]
-      ? `<img src="${esc(imgs[0])}" alt="${esc(p.reference)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div style=\\'width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px\\'>Image indisponible</div>'">`
+      ? `<img src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div style=\\'width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px\\'>Image indisponible</div>'">`
       : `<div style="width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px">Pas d'image</div>`;
     const priceHtml = p.price > 0 ? fmtPrice(p.price) : '—';
     const pvcHtml = p.price_retail > 0 ? `<div style="font-size:11px;color:#888;margin-top:2px">PVC ${fmtPrice(p.price_retail)}</div>` : '';
