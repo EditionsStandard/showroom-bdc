@@ -345,6 +345,16 @@ async function init() {
     // Pas de backfill : les commandes déjà existantes sont de toute façon hors de
     // la fenêtre de 24h de l'endpoint public. Les nouvelles commandes reçoivent
     // un pdf_token généré en JS (crypto.randomBytes) à la création.
+
+    // MFA (TOTP) — comptes staff (admin_users). mfa_secret = clé TOTP active,
+    // mfa_pending_secret = clé générée pendant l'enrôlement, pas encore confirmée
+    // (jamais activée avant vérification d'un code valide, évite un enrôlement
+    // "silencieux" par un attaquant ayant momentanément la session). Codes de
+    // secours stockés hashés (SHA-256, comme un token de reset), jamais en clair.
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_secret TEXT",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_pending_secret TEXT",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN DEFAULT false",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

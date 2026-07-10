@@ -54,8 +54,8 @@
     <h1>Editions Standard</h1>
     <p>Espace réservé — équipe & marques du showroom.</p>
   </div>
-  <form method="POST" action="/admin/login">
-    <script>if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
+  <form method="POST" action="/admin/login" id="password-form">
+    <script>if(location.search.includes('step=mfa')) document.write(''); else if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
     <div id="email-field" class="field" style="display:none">
       <label>Email</label>
       <input type="email" name="email" id="email-input" placeholder="email@exemple.com" disabled autocomplete="off">
@@ -66,7 +66,23 @@
     </div>
     <button class="btn" type="submit">Connexion</button>
   </form>
-  <div class="toggle">
+  <form method="POST" action="/admin/login/mfa" id="mfa-form" style="display:none">
+    <script>if(location.search.includes('step=mfa') && location.search.includes('error')) document.write('<div class="error">Code invalide.</div>')</script>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:18px;line-height:1.6">Entrez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours.</p>
+    <div class="field">
+      <label>Code d'authentification</label>
+      <input type="text" name="code" id="mfa-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" autofocus>
+    </div>
+    <button class="btn" type="submit">Vérifier</button>
+    <div class="toggle">
+      <a onclick="toggleBackupCode()" id="backup-toggle-link">Utiliser un code de secours →</a>
+    </div>
+    <div class="field" id="backup-field" style="display:none;margin-top:12px">
+      <label>Code de secours</label>
+      <input type="text" name="backup_code" id="backup-code-input" placeholder="XXXXX-XXXXX" disabled>
+    </div>
+  </form>
+  <div class="toggle" id="agent-toggle">
     <a onclick="toggleMode()" id="toggle-link">Connexion agent / designer →</a>
   </div>
   <div style="text-align:center;margin-top:22px;font-size:11px;letter-spacing:.04em;opacity:.6">
@@ -87,6 +103,24 @@ function toggleMode() {
   input.disabled = showingEmail;
   if (showingEmail) input.value = '';
   link.textContent = showingEmail ? 'Connexion agent / designer →' : '← Connexion owner';
+}
+function toggleBackupCode() {
+  const codeField = document.getElementById('mfa-code-input');
+  const backupField = document.getElementById('backup-field');
+  const backupInput = document.getElementById('backup-code-input');
+  const link = document.getElementById('backup-toggle-link');
+  const showingBackup = backupField.style.display === 'block';
+  backupField.style.display = showingBackup ? 'none' : 'block';
+  backupInput.disabled = showingBackup;
+  codeField.closest('.field').style.display = showingBackup ? 'block' : 'none';
+  codeField.disabled = !showingBackup;
+  if (!showingBackup) { codeField.value = ''; backupInput.focus(); } else { backupInput.value = ''; codeField.focus(); }
+  link.textContent = showingBackup ? 'Utiliser un code de secours →' : '← Utiliser mon code à 6 chiffres';
+}
+if (location.search.includes('step=mfa')) {
+  document.getElementById('password-form').style.display = 'none';
+  document.getElementById('agent-toggle').style.display = 'none';
+  document.getElementById('mfa-form').style.display = 'block';
 }
 </script>
 </body>

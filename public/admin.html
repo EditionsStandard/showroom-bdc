@@ -556,6 +556,7 @@
     <a data-section="stats" id="nav-stats"><span class="icon">📊</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
     <a data-section="agenda" id="nav-agenda"><span class="icon">📅</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
     <a data-section="sales-report" id="nav-sales-report"><span class="icon">📈</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg> <span>Rapport ventes</span></a>
+    <a data-section="mfa" id="nav-mfa"><span class="icon">🔐</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg> <span>Ma sécurité</span> <span id="mfa-nav-badge" style="display:none;background:#e74c3c;color:#fff;border-radius:0;font-size:9px;padding:1px 5px;margin-left:4px;font-weight:700">!</span></a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" onclick="toggleTheme()">☀️ Mode clair</button>
@@ -899,6 +900,48 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('modal-use-template')">Annuler</button>
         <button class="btn btn-primary" onclick="useTemplate()">Créer la sélection →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MFA (tous rôles) -->
+  <div id="mfa" class="section">
+    <h1>Ma sécurité</h1>
+    <div class="card">
+      <h3>Double authentification (MFA)</h3>
+      <p style="font-size:12px;color:#888;margin-bottom:14px">Ajoute une vérification par code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe. Recommandé pour tous les comptes ayant accès à l'administration.</p>
+
+      <div id="mfa-status-off">
+        <p style="font-size:13px;margin-bottom:14px"><span style="color:#e74c3c">●</span> MFA désactivée sur ce compte.</p>
+        <button class="btn btn-primary" onclick="startMfaSetup()">Activer la MFA</button>
+      </div>
+
+      <div id="mfa-status-on" style="display:none">
+        <p style="font-size:13px;margin-bottom:14px"><span style="color:#2ecc71">●</span> MFA activée sur ce compte.</p>
+        <button class="btn btn-danger" onclick="showMfaDisableForm()">Désactiver la MFA</button>
+        <div id="mfa-disable-form" style="display:none;margin-top:14px;max-width:320px">
+          <div class="form-group"><label>Confirmez avec votre mot de passe</label><input type="password" id="mfa-disable-password"></div>
+          <button class="btn btn-danger btn-sm" onclick="disableMfa()">Confirmer la désactivation</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('mfa-disable-form').style.display='none'">Annuler</button>
+        </div>
+      </div>
+
+      <div id="mfa-setup-flow" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid #252525">
+        <p style="font-size:12px;color:#888;margin-bottom:12px">1. Scannez ce QR code avec votre application d'authentification :</p>
+        <img id="mfa-qr" style="width:180px;height:180px;background:#fff;padding:8px" alt="QR code MFA">
+        <p style="font-size:11px;color:#666;margin:10px 0">Ou entrez la clé manuellement : <code id="mfa-secret-text" style="user-select:all"></code></p>
+        <p style="font-size:12px;color:#888;margin:14px 0 8px">2. Entrez le code affiché par l'application pour confirmer :</p>
+        <div style="display:flex;gap:10px;align-items:center;max-width:320px">
+          <input type="text" id="mfa-confirm-code" inputmode="numeric" maxlength="6" placeholder="000000" style="flex:1">
+          <button class="btn btn-primary btn-sm" onclick="confirmMfaSetup()">Confirmer</button>
+        </div>
+      </div>
+
+      <div id="mfa-backup-codes-flow" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid #252525">
+        <p style="font-size:13px;color:#e74c3c;font-weight:700;margin-bottom:10px">⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.</p>
+        <p style="font-size:12px;color:#888;margin-bottom:12px">Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.</p>
+        <div id="mfa-backup-codes-list" style="font-family:monospace;font-size:14px;line-height:2;background:#0a0a0a;padding:14px;border:1px solid #252525"></div>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="document.getElementById('mfa-backup-codes-flow').style.display='none';loadMfaSection()">J'ai noté mes codes</button>
       </div>
     </div>
   </div>
@@ -2298,6 +2341,7 @@ document.querySelectorAll('nav a').forEach(a => {
     if (a.dataset.section === 'sales-report') initSalesReport();
     if (a.dataset.section === 'access-requests') loadAccessRequests();
     if (a.dataset.section === 'security') loadSecurity();
+    if (a.dataset.section === 'mfa') loadMfaSection();
   });
 });
 
@@ -2342,6 +2386,11 @@ async function initUserRole() {
     // Dashboard et Agenda restent visibles mais sont rendus en version scopée (voir loadDashboard / loadAgenda)
     loadDashboard(); // re-render en version designer (l'appel initial a tourné avant que le rôle soit connu)
   }
+  // Badge "MFA non activée" dans la nav, visible dès l'arrivée (pas besoin de cliquer l'onglet)
+  fetch('/api/staff/mfa/status').then(r => r.json()).then(st => {
+    const badge = document.getElementById('mfa-nav-badge');
+    if (badge) badge.style.display = st.enabled ? 'none' : 'inline-block';
+  }).catch(() => {});
 }
 initUserRole();
 
@@ -2365,9 +2414,17 @@ async function loadStaff() {
       <td style="display:flex;gap:6px">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${esc(JSON.stringify(s))})">${t('btn_modify')}</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resendStaffCredentials('${esc(s.id)}','${esc(s.email)}')" title="Régénérer et renvoyer les identifiants par email">✉ ${t('btn_credentials')}</button>
+        <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resetStaffMfa('${esc(s.id)}','${esc(s.email)}')" title="Désactive la MFA de ce compte (perte de téléphone, codes de secours perdus…)">🔐 Réinit. MFA</button>
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
+}
+
+async function resetStaffMfa(id, email) {
+  if (!confirm(`Désactiver la MFA de ${email} ?\n\nÀ utiliser si cette personne a perdu son téléphone et ses codes de secours. Elle pourra se reconnecter avec son seul mot de passe et devra ré-activer la MFA elle-même.`)) return;
+  const r = await fetch(`/api/staff/${id}/mfa/reset`, { method: 'POST' }).then(r => r.json());
+  if (r.error) return toast(r.error, true);
+  toast('MFA réinitialisée pour ' + email);
 }
 
 async function createStaff() {
@@ -6023,6 +6080,51 @@ async function loadAuditLog(offset) {
   </tr>`).join('');
   if (auditLogOffset === 0) body.innerHTML = html;
   else body.insertAdjacentHTML('beforeend', html);
+}
+
+// ── MFA (tous rôles) ────────────────────────────────────────────────
+let mfaEnabledCache = false;
+async function loadMfaSection() {
+  const st = await fetch('/api/staff/mfa/status').then(r => r.json()).catch(() => ({ enabled: false }));
+  mfaEnabledCache = st.enabled;
+  document.getElementById('mfa-status-off').style.display = st.enabled ? 'none' : 'block';
+  document.getElementById('mfa-status-on').style.display = st.enabled ? 'block' : 'none';
+  document.getElementById('mfa-setup-flow').style.display = 'none';
+  document.getElementById('mfa-backup-codes-flow').style.display = 'none';
+  const badge = document.getElementById('mfa-nav-badge');
+  if (badge) badge.style.display = st.enabled ? 'none' : 'inline-block';
+}
+
+async function startMfaSetup() {
+  const r = await fetch('/api/staff/mfa/setup', { method: 'POST' }).then(r => r.json());
+  if (r.error) return toast(r.error, true);
+  document.getElementById('mfa-qr').src = r.qr;
+  document.getElementById('mfa-secret-text').textContent = r.secret;
+  document.getElementById('mfa-setup-flow').style.display = 'block';
+  document.getElementById('mfa-confirm-code').focus();
+}
+
+async function confirmMfaSetup() {
+  const code = document.getElementById('mfa-confirm-code').value.trim();
+  const r = await fetch('/api/staff/mfa/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).then(r => r.json());
+  if (r.error) return toast(r.error, true);
+  document.getElementById('mfa-setup-flow').style.display = 'none';
+  document.getElementById('mfa-backup-codes-list').innerHTML = r.backup_codes.map(c => esc(c)).join('<br>');
+  document.getElementById('mfa-backup-codes-flow').style.display = 'block';
+  toast('MFA activée ✓');
+}
+
+function showMfaDisableForm() {
+  document.getElementById('mfa-disable-form').style.display = 'block';
+}
+
+async function disableMfa() {
+  const password = document.getElementById('mfa-disable-password').value;
+  const r = await fetch('/api/staff/mfa/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) }).then(r => r.json());
+  if (r.error) return toast(r.error, true);
+  document.getElementById('mfa-disable-password').value = '';
+  toast('MFA désactivée');
+  loadMfaSection();
 }
 
 // Settings
