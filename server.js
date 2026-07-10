@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
+const { authenticator } = require('otplib');
 const PDFDocument = require('pdfkit');
 // Typographie des PDF : IBM Plex Mono (la police du site) embarquée en WOFF
 // complet (glyphes accentués + €). Fallback Helvetica si le fichier manque.
@@ -360,6 +361,31 @@ function logAuditRaw(email, action, targetType, targetId, details) {
     [uuidv4(), email || 'unknown', action, targetType, targetId||'', details||'']).catch(()=>{});
 }
 
+// ── MFA (TOTP) ──────────────────────────────────────────────────────
+// 10 codes de secours à usage unique, format lisible XXXX-XXXX. Comme un mot
+// de passe, seul le hash SHA-256 est conservé en base — jamais le code en clair.
+function generateBackupCodes() {
+  const plain = [];
+  for (let i = 0; i < 10; i++) {
+    const raw = crypto.randomBytes(5).toString('hex').toUpperCase(); // 10 hex chars
+    plain.push(raw.slice(0, 5) + '-' + raw.slice(5));
+  }
+  const hashed = plain.map(c => crypto.createHash('sha256').update(c).digest('hex'));
+  return { plain, hashed };
+}
+// Vérifie et consomme (usage unique) un code de secours parmi la liste hashée
+// stockée en base. Renvoie la liste hashée mise à jour (code retiré) si trouvé,
+// sinon null.
+function consumeBackupCode(hashedListJson, submittedCode) {
+  let hashedList;
+  try { hashedList = JSON.parse(hashedListJson || '[]'); } catch(e) { return null; }
+  const hash = crypto.createHash('sha256').update((submittedCode || '').trim().toUpperCase()).digest('hex');
+  const idx = hashedList.indexOf(hash);
+  if (idx === -1) return null;
+  hashedList.splice(idx, 1);
+  return hashedList;
+}
+
 // ── Order events (timeline) ───────────────────────────────────────────
 async function addOrderEvent(orderId, eventType, note, createdBy) {
   await pool.query(
@@ -524,9 +550,16 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (email) {
-    const r = await pool.query('SELECT id, email, role, brand_id, name, password_hash FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
+    const r = await pool.query('SELECT id, email, role, brand_id, name, password_hash, mfa_enabled FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
     const user = r.rows[0];
     if (user && await bcrypt.compare(password || '', user.password_hash)) {
+      if (user.mfa_enabled) {
+        // Mot de passe correct mais MFA active : pas de session privilégiée tant
+        // que le code TOTP n'est pas vérifié — mfaPending ne porte aucun droit.
+        req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+        logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
+        return res.redirect('/admin/login?step=mfa');
+      }
       return req.session.regenerate(err => {
         if (err) return res.redirect('/admin/login?error=1');
         req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
@@ -551,6 +584,12 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     }
   }
   if (valid) {
+    const ownerMfaEnabled = (await getSetting('owner_mfa_enabled')) === 'on';
+    if (ownerMfaEnabled) {
+      req.session.mfaPending = { kind: 'owner' };
+      logAuditRaw('admin', 'login_password_ok_mfa_pending', 'staff', '', req.ip);
+      return res.redirect('/admin/login?step=mfa');
+    }
     req.session.regenerate(err => {
       if (err) return res.redirect('/admin/login?error=1');
       req.session.admin = true;
@@ -563,12 +602,146 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
   }
 });
 
+// Étape 2 : vérification du code TOTP (ou d'un code de secours) après un mot
+// de passe déjà validé (req.session.mfaPending, sans aucun droit tant que
+// cette étape n'est pas franchie). Limité par loginLimiter comme le mot de
+// passe — un code à 6 chiffres est bien plus rapide à bruteforcer qu'un mot
+// de passe, la fenêtre de 30s + le rate-limit le rendent impraticable.
+app.post('/admin/login/mfa', loginLimiter, async (req, res) => {
+  const pending = req.session.mfaPending;
+  if (!pending) return res.redirect('/admin/login');
+  const code = (req.body.code || '').toString().trim();
+  const backupCode = (req.body.backup_code || '').toString().trim();
+  let ok = false, usedBackup = false;
+
+  if (pending.kind === 'staff') {
+    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM admin_users WHERE id=$1', [pending.id]);
+    const row = r.rows[0];
+    if (row?.mfa_secret) {
+      if (code && authenticator.check(code, row.mfa_secret)) ok = true;
+      else if (backupCode) {
+        const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
+        if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
+      }
+    }
+  } else if (pending.kind === 'owner') {
+    const secret = await getSetting('owner_mfa_secret');
+    if (secret) {
+      if (code && authenticator.check(code, secret)) ok = true;
+      else if (backupCode) {
+        const backupJson = await getSetting('owner_mfa_backup_codes');
+        const updated = consumeBackupCode(backupJson, backupCode);
+        if (updated) { ok = true; usedBackup = true; await pool.query("UPDATE settings SET value=$1 WHERE key='owner_mfa_backup_codes'", [JSON.stringify(updated)]); }
+      }
+    }
+  }
+
+  if (!ok) {
+    logAuditRaw(pending.email || 'admin', 'login_mfa_failed', 'staff', pending.id || '', req.ip);
+    return res.redirect('/admin/login?step=mfa&error=1');
+  }
+
+  req.session.regenerate(err => {
+    if (err) return res.redirect('/admin/login?error=1');
+    if (pending.kind === 'staff') {
+      req.session.staffUser = { id: pending.id, email: pending.email, role: pending.role, brand_id: pending.brand_id, name: pending.name };
+    } else {
+      req.session.admin = true;
+    }
+    logAuditRaw(pending.email || 'admin', usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'staff', pending.id || '', req.ip);
+    res.redirect('/admin');
+  });
+});
+
 app.get('/admin/logout', (req, res) => {
   const email = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'unknown');
   logAuditRaw(email, 'logout', 'staff', '', req.ip);
   req.session.destroy(() => res.redirect('/admin/login'));
 });
 app.get('/admin', requireAdmin, (req, res) => sendPage(res, 'admin.html'));
+
+// ── MFA : enrôlement et gestion (self-service, tous rôles connectés) ────
+// Le secret n'est écrit dans mfa_secret (actif) qu'après vérification d'un
+// code — tant qu'il est seulement dans mfa_pending_secret, la MFA reste
+// désactivée : un enrôlement lancé puis abandonné n'a aucun effet.
+app.get('/api/staff/mfa/status', requireAdmin, async (req, res) => {
+  if (req.session.staffUser) {
+    const r = await pool.query('SELECT mfa_enabled FROM admin_users WHERE id=$1', [req.session.staffUser.id]);
+    return res.json({ enabled: !!r.rows[0]?.mfa_enabled });
+  }
+  res.json({ enabled: (await getSetting('owner_mfa_enabled')) === 'on' });
+});
+
+app.post('/api/staff/mfa/setup', requireAdmin, async (req, res) => {
+  try {
+    const secret = authenticator.generateSecret();
+    const label = req.session.staffUser?.email || 'owner';
+    const uri = authenticator.keyuri(label, 'Showroom Editions Standard', secret);
+    const qr = await QRCode.toDataURL(uri);
+    if (req.session.staffUser) {
+      await pool.query('UPDATE admin_users SET mfa_pending_secret=$1 WHERE id=$2', [secret, req.session.staffUser.id]);
+    } else {
+      await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_pending_secret',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [secret]);
+    }
+    res.json({ secret, qr, uri });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/staff/mfa/confirm', requireAdmin, async (req, res) => {
+  try {
+    const code = (req.body.code || '').toString().trim();
+    let secret;
+    if (req.session.staffUser) {
+      const r = await pool.query('SELECT mfa_pending_secret FROM admin_users WHERE id=$1', [req.session.staffUser.id]);
+      secret = r.rows[0]?.mfa_pending_secret;
+    } else {
+      secret = await getSetting('owner_mfa_pending_secret');
+    }
+    if (!secret || !code || !authenticator.check(code, secret)) return res.status(400).json({ error: 'Code invalide. Vérifiez l\'heure de votre appareil et réessayez.' });
+    const { plain, hashed } = generateBackupCodes();
+    if (req.session.staffUser) {
+      await pool.query('UPDATE admin_users SET mfa_secret=$1, mfa_pending_secret=NULL, mfa_enabled=true, mfa_backup_codes=$2 WHERE id=$3', [secret, JSON.stringify(hashed), req.session.staffUser.id]);
+      logAudit(req, 'mfa_enabled', 'staff', req.session.staffUser.id, '');
+    } else {
+      await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_secret',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [secret]);
+      await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_enabled','on') ON CONFLICT (key) DO UPDATE SET value='on'");
+      await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_backup_codes',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [JSON.stringify(hashed)]);
+      await pool.query("DELETE FROM settings WHERE key='owner_mfa_pending_secret'");
+      logAudit(req, 'mfa_enabled', 'system', '', 'owner');
+    }
+    res.json({ ok: true, backup_codes: plain });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Désactivation : ré-authentification par mot de passe exigée (action sensible).
+app.post('/api/staff/mfa/disable', requireAdmin, passwordLimiter, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (req.session.staffUser) {
+      const r = await pool.query('SELECT password_hash FROM admin_users WHERE id=$1', [req.session.staffUser.id]);
+      if (!r.rows[0] || !await bcrypt.compare(password || '', r.rows[0].password_hash)) return res.status(403).json({ error: 'Mot de passe incorrect' });
+      await pool.query('UPDATE admin_users SET mfa_secret=NULL, mfa_pending_secret=NULL, mfa_enabled=false, mfa_backup_codes=NULL WHERE id=$1', [req.session.staffUser.id]);
+      logAudit(req, 'mfa_disabled', 'staff', req.session.staffUser.id, '');
+    } else {
+      const adminPassword = await getSetting('admin_password');
+      const valid = adminPassword.startsWith('$2') ? await bcrypt.compare(password || '', adminPassword) : password === adminPassword;
+      if (!valid) return res.status(403).json({ error: 'Mot de passe incorrect' });
+      await pool.query("DELETE FROM settings WHERE key IN ('owner_mfa_secret','owner_mfa_pending_secret','owner_mfa_enabled','owner_mfa_backup_codes')");
+      logAudit(req, 'mfa_disabled', 'system', '', 'owner');
+    }
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Réinitialisation d'urgence de la MFA d'un membre du staff par l'owner
+// (compte perdu, téléphone changé sans les codes de secours...).
+app.post('/api/staff/:id/mfa/reset', requireRole('owner'), async (req, res) => {
+  try {
+    await pool.query('UPDATE admin_users SET mfa_secret=NULL, mfa_pending_secret=NULL, mfa_enabled=false, mfa_backup_codes=NULL WHERE id=$1', [req.params.id]);
+    logAudit(req, 'mfa_reset', 'staff', req.params.id, '');
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 
 app.get('/api/me', requireAdmin, (req, res) => {
   const role = getRole(req);
