@@ -234,6 +234,12 @@ app.use((req, res, next) => {
   // besoin d'aucune de ces API, on les coupe explicitement.
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Données privées (commandes, acheteurs, staff, sécurité...) : jamais de cache
+  // navigateur/proxy intermédiaire. Les routes qui servent déjà un fichier
+  // (PDF) posent en plus leur propre Content-Disposition, ce header ne les gêne pas.
+  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/')) {
+    res.setHeader('Cache-Control', 'no-store, private');
+  }
   next();
 });
 app.get('/robots.txt', (req, res) => {
@@ -1102,7 +1108,7 @@ function parseCSVRow(line) {
   return fields;
 }
 
-app.post('/api/brands/:brandId/products/import-csv', requireRole('owner','agent'), uploadCsv.single('file'), async (req, res) => {
+app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','agent'), uploadCsv.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Fichier CSV requis' });
     const brandId = req.params.brandId;
@@ -1145,7 +1151,7 @@ app.post('/api/brands/:brandId/products/import-csv', requireRole('owner','agent'
 });
 
 // ── Import CSV produits (JSON rows) ─────────────────────────────────
-app.post('/api/brands/:brandId/import-csv', requireRole('owner', 'agent', 'designer'), async (req, res) => {
+app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 'designer'), async (req, res) => {
   try {
     const { rows } = req.body;
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
@@ -1183,7 +1189,7 @@ app.post('/api/brands/:brandId/import-csv', requireRole('owner', 'agent', 'desig
 });
 
 // ── Export CSV produits ──────────────────────────────────────────────
-app.get('/api/brands/:brandId/products/export-csv', requireRole('owner','agent','designer'), async (req, res) => {
+app.get('/api/brands/:brandId/products/export-csv', requireBrandScope('owner','agent','designer'), async (req, res) => {
   try {
     logAudit(req, 'export_products_csv', 'brand', req.params.brandId, '');
     const r = await pool.query(
