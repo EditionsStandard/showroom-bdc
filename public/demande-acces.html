@@ -202,6 +202,8 @@
     <a href="/confidentialite" style="color:var(--muted);text-decoration:none" id="t-foot-privacy">Confidentialité</a>
     <span style="color:var(--line-soft);margin:0 8px">·</span>
     <a href="/cgu" style="color:var(--muted);text-decoration:none" id="t-foot-terms">CGU</a>
+    <span style="color:var(--line-soft);margin:0 8px">·</span>
+    <a href="/mentions-legales" style="color:var(--muted);text-decoration:none" id="t-foot-legal">Mentions légales</a>
   </div>
 </div>
 
@@ -238,7 +240,7 @@ const TR = {
     err_consent: 'Vous devez accepter la politique de confidentialité.',
     consent_privacy: 'J\'ai lu et j\'accepte la <a href="/confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>.',
     consent_marketing: 'J\'accepte de recevoir les actualités et invitations d\'Éditions Standard (optionnel).',
-    foot_privacy: 'Confidentialité', foot_terms: 'CGU',
+    foot_privacy: 'Confidentialité', foot_terms: 'CGU', foot_legal: 'Mentions légales',
     err_server: 'Erreur serveur. Réessayez.',
     err_network: 'Erreur réseau. Réessayez.',
     err_duplicate: 'Une demande est déjà en cours pour cet email.',
@@ -274,7 +276,7 @@ const TR = {
     err_consent: 'You must accept the privacy policy.',
     consent_privacy: 'I have read and accept the <a href="/confidentialite" target="_blank" rel="noopener">privacy policy</a>.',
     consent_marketing: 'I agree to receive news and invitations from Éditions Standard (optional).',
-    foot_privacy: 'Privacy', foot_terms: 'Terms',
+    foot_privacy: 'Privacy', foot_terms: 'Terms', foot_legal: 'Legal notice',
     err_server: 'Server error. Please try again.',
     err_network: 'Network error. Please try again.',
     err_duplicate: 'A request is already pending for this email.',
@@ -459,6 +461,7 @@ function applyLang() {
   document.getElementById('t-consent-marketing').textContent = t('consent_marketing');
   document.getElementById('t-foot-privacy').textContent = t('foot_privacy');
   document.getElementById('t-foot-terms').textContent = t('foot_terms');
+  document.getElementById('t-foot-legal').textContent = t('foot_legal');
   document.getElementById('submit-btn').textContent = t('submit');
   document.getElementById('t-login-link').innerHTML = `${t('login_link')} <a href="/editions-showroom-b2b-portail">${t('login_link_cta')}</a>`;
   document.getElementById('t-success-title').textContent = t('success_title');

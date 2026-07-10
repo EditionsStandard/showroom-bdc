@@ -4766,6 +4766,7 @@ app.get('/rejoindre/:token', (req, res) => sendPage(res, 'invite.html'));
 app.get('/demande-acces', (req, res) => sendPage(res, 'demande-acces.html'));
 app.get('/confidentialite', (req, res) => sendPage(res, 'confidentialite.html'));
 app.get('/cgu', (req, res) => sendPage(res, 'cgu.html'));
+app.get('/mentions-legales', (req, res) => sendPage(res, 'mentions-legales.html'));
 
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
