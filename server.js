@@ -255,14 +255,34 @@ app.get('/robots.txt', (req, res) => {
 // falsifier depuis une page tierce. Requêtes sans Origin ni Referer (clients
 // non-navigateur, webhooks déjà routés avant ce middleware) : non bloquées ici,
 // SameSite=Lax reste la protection de base pour ce cas.
+// Comparaison normalisée (casse, port, préfixe www.) — un déploiement
+// derrière un proxy/CDN peut légitimement présenter des variantes du même
+// hôte (ex. www.showroom... vs showroom..., ou un port explicite) que le
+// navigateur reflète fidèlement dans Origin/Referer sans qu'il s'agisse
+// d'une requête cross-site. Incident du 2026-07 : cette vérification a
+// bloqué 100% des connexions (buyer et admin) en production suite à une
+// telle variante — d'où la normalisation, et un fail-open journalisé en
+// dernier recours plutôt qu'un blocage total si un cas non prévu survient
+// (SameSite=Lax reste la protection réelle dans tous les cas).
+function normalizeHost(h) {
+  return String(h || '').toLowerCase().replace(/^www\./, '').replace(/:\d+$/, '');
+}
 app.use((req, res, next) => {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
   const selfHost = req.headers['x-forwarded-host'] || req.headers.host;
   const originHeader = req.headers.origin || req.headers.referer;
   if (!originHeader) return next();
   let originHost;
-  try { originHost = new URL(originHeader).host; } catch(e) { return res.status(403).json({ error: 'Requête refusée (origine invalide).' }); }
-  if (originHost !== selfHost) return res.status(403).json({ error: 'Requête refusée (origine invalide).' });
+  try { originHost = new URL(originHeader).host; } catch(e) {
+    console.error('[CSRF] Origin/Referer non parsable:', originHeader, '| path:', req.path);
+    return res.status(403).json({ error: 'Requête refusée (origine invalide).' });
+  }
+  if (normalizeHost(originHost) !== normalizeHost(selfHost)) {
+    console.error('[CSRF] host mismatch — selfHost:', selfHost, '| originHost:', originHost, '| path:', req.path, '| ua:', req.headers['user-agent']);
+    // Fail-open journalisé : SameSite=Lax (cookie de session) reste la
+    // protection réelle contre le CSRF cross-site — on ne re-bloque ici
+    // qu'une fois la cause du mismatch identifiée dans les logs ci-dessus.
+  }
   next();
 });
 
