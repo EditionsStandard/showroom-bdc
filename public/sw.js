@@ -42,6 +42,17 @@ self.addEventListener('fetch', e => {
   // <link>/<script> sont autorisés par style-src/font-src/script-src).
   if (url.origin !== self.location.origin) return;
 
+  // Données privées buyer (commandes, messages, favoris, prix négociés, page
+  // /portal elle-même…) : network-only, JAMAIS mises en Cache Storage. Sinon,
+  // sur un appareil partagé (tablette showroom), une coupure réseau juste après
+  // un changement de compte pourrait re-servir les données de l'acheteur
+  // précédent depuis le cache (le cache-fallback générique ci-dessous les
+  // aurait sinon capturées comme n'importe quelle réponse GET same-origin).
+  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
   // API brand/products: Network-first, cache fallback
   if (url.pathname.startsWith('/api/public/brands') || url.pathname === '/api/public/cgv') {
     e.respondWith(
@@ -70,9 +81,14 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// Message: trigger sync check from page
+// Message: trigger sync check from page ; CLEAR_CACHE purge tout le Cache
+// Storage (appelé à la déconnexion buyer, en plus de l'exclusion réseau-only
+// ci-dessus — défense en profondeur si un ancien SW moins récent est encore actif).
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
+  if (e.data === 'CLEAR_CACHE') {
+    e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
+  }
 });
 
 // Push notifications

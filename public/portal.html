@@ -3561,6 +3561,10 @@ function portalLogout() {
     }
   }
   keysToRemove.forEach(k => localStorage.removeItem(k));
+  // Purge le Cache Storage du service worker : sur un appareil partagé, un autre
+  // acheteur pourrait sinon se voir servir nos données en cache si le réseau
+  // coupe juste après son login (cf. sw.js, exclusion network-only /api/portal).
+  try { navigator.serviceWorker?.controller?.postMessage('CLEAR_CACHE'); } catch(e) {}
 }
 
 // ── Canvas signature resize ───────────────────────────
