@@ -3,7 +3,7 @@
 <head>
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <link rel="stylesheet" href="/fonts/brand.css">
 <title>Editions Standard B2B Showroom</title>
@@ -2256,7 +2256,7 @@ async function submitOrder() {
     });
     const data = await r.json();
     if (data.ok) {
-      showSuccess(body.client_email, false, data.order_id);
+      showSuccess(body.client_email, false, data.order_id, data.pdf_token);
     } else {
       const errEl = document.getElementById('order-warning');
       if (errEl) { errEl.textContent = '⚠ ' + (data.error || T('err_order')); errEl.style.color = '#e74c3c'; }
@@ -2271,6 +2271,7 @@ async function submitOrder() {
 }
 
 let _successOrderId = null;
+let _successOrderToken = null;
 let _successEmail = null;
 let _successClientName = null;
 
@@ -2280,7 +2281,8 @@ async function shareOrderMail() {
   btn.textContent = T('preparing');
 
   const mailto = buildMailtoLink(_successEmail, _successClientName, _successOrderId);
-  const pdfUrl = _successOrderId ? '/api/public/orders/' + _successOrderId + '/pdf' : null;
+  // Le PDF public exige désormais un token dédié (pas juste l'UUID de la commande)
+  const pdfUrl = (_successOrderId && _successOrderToken) ? '/api/public/orders/' + _successOrderId + '/pdf?token=' + encodeURIComponent(_successOrderToken) : null;
   const filename = 'PropositionCommande-' + (_successOrderId || 'LOCAL').slice(0,8).toUpperCase() + '.pdf';
 
   // Update download link
@@ -2356,7 +2358,7 @@ function buildMailtoLink(email, clientName, orderId) {
   return 'mailto:' + email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 }
 
-function showSuccess(email, offline, orderId) {
+function showSuccess(email, offline, orderId, pdfToken) {
   document.getElementById('cart-bar').style.display = 'none';
   document.getElementById('steps-bar').style.display = 'none';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2388,6 +2390,7 @@ function showSuccess(email, offline, orderId) {
   sessionStorage.removeItem(CART_KEY);
 
   _successOrderId = orderId;
+  _successOrderToken = pdfToken || null;
   _successEmail = email;
   _successClientName = document.getElementById('c-name').value.trim();
 
