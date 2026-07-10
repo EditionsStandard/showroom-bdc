@@ -227,11 +227,36 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 // (couvre HTML *et* PDF, contrairement à une simple meta) + un robots.txt qui
 // interdit tout le crawl. Protège prix wholesale, sélections et signatures.
 app.use((req, res, next) => {
-  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, noimageindex');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
+  // CSP frame-ancestors 'none' (ci-dessus) est déjà la protection anti-framing
+  // primaire ; X-Frame-Options: DENY reste un filet pour les navigateurs plus
+  // anciens qui ignorent frame-ancestors. Permissions-Policy : le site n'a
+  // besoin d'aucune de ces API, on les coupe explicitement.
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+});
+
+// CSRF — couche additionnelle en plus des cookies SameSite=Lax (déjà une
+// protection réelle sur les requêtes cross-site) : sur toute requête qui
+// modifie l'état (POST/PUT/PATCH/DELETE), si Origin ou Referer est présent,
+// son host doit correspondre à celui du site. Un navigateur envoie toujours
+// l'un des deux sur une requête cross-site ; un attaquant ne peut pas le
+// falsifier depuis une page tierce. Requêtes sans Origin ni Referer (clients
+// non-navigateur, webhooks déjà routés avant ce middleware) : non bloquées ici,
+// SameSite=Lax reste la protection de base pour ce cas.
+app.use((req, res, next) => {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  const selfHost = req.headers['x-forwarded-host'] || req.headers.host;
+  const originHeader = req.headers.origin || req.headers.referer;
+  if (!originHeader) return next();
+  let originHost;
+  try { originHost = new URL(originHeader).host; } catch(e) { return res.status(403).json({ error: 'Requête refusée (origine invalide).' }); }
+  if (originHost !== selfHost) return res.status(403).json({ error: 'Requête refusée (origine invalide).' });
+  next();
 });
 
 app.get('/index.html', (req, res) => res.redirect('/'));
@@ -1816,6 +1841,17 @@ app.get('/api/agent-selections/:token/history', requireRole('owner','agent'), as
   } catch(e) { console.error('selection history:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Révocation manuelle du lien PDF public d'une commande (point 1 du rapport
+// sécurité) : coupe l'accès immédiatement, indépendamment de la fenêtre 24h.
+app.post('/api/orders/:id/revoke-pdf', requireRole('owner','agent'), async (req, res) => {
+  try {
+    if (!await checkOrderBrandScope(req, res)) return;
+    await pool.query('UPDATE orders SET pdf_revoked=true WHERE id=$1', [req.params.id]);
+    logAudit(req, 'revoke_order_pdf', 'order', req.params.id, '');
+    res.json({ ok: true });
+  } catch(e) { console.error('revoke-pdf:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;
@@ -2353,13 +2389,25 @@ app.post('/api/brands/:brandId/commande-link', requireBrandScope('owner','agent'
 });
 
 // PDF public — accessible 24h après la commande (pour share sheet mobile)
-app.get('/api/public/orders/:id/pdf', async (req, res) => {
+app.get('/api/public/orders/:id/pdf', publicLimiter, async (req, res) => {
   try {
+    // Sécurité : l'UUID de la commande ne suffit plus — il faut le pdf_token
+    // dédié (généré à la création, jamais dérivé de l'id), la commande ne doit
+    // pas avoir été révoquée depuis l'admin, et la fenêtre de 24h reste une
+    // défense en profondeur supplémentaire.
+    const token = (req.query.token || '').toString().slice(0, 128);
+    if (!token) return res.status(403).json({ error: 'Accès refusé' });
     const r = await pool.query(
-      "SELECT id FROM orders WHERE id=$1 AND created_at > NOW() - INTERVAL '24 hours'",
+      "SELECT id, pdf_token, pdf_revoked FROM orders WHERE id=$1 AND created_at > NOW() - INTERVAL '24 hours'",
       [req.params.id]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Non disponible' });
+    if (r.rows[0].pdf_revoked) return res.status(403).json({ error: 'Accès révoqué' });
+    const expected = (r.rows[0].pdf_token || '').padEnd(128, '_');
+    const given = token.padEnd(128, '_');
+    if (!r.rows[0].pdf_token || !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
     const pdf = await generateOrderPDF(req.params.id);
     const orderNum2 = r.rows[0]?.order_number || req.params.id.slice(0,8).toUpperCase();
     const filename = `PropositionCommande-${orderNum2}.pdf`;
@@ -2461,15 +2509,18 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (moqAmount > 0 && totalAmount < moqAmount) return { error: `Montant minimum de ${moqAmount.toFixed(2)} € HT requis pour cette marque (sélection actuelle : ${totalAmount.toFixed(2)} €).` };
 
   const orderId = uuidv4();
+  // Clé aléatoire dédiée (jamais l'UUID de la commande) exigée pour accéder au
+  // PDF public — voir /api/public/orders/:id/pdf.
+  const pdfToken = crypto.randomBytes(24).toString('base64url');
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
     const seqRes = await dbClient.query("SELECT LPAD(nextval('order_number_seq')::TEXT, 4, '0') AS num");
     const orderNumber = 'ES-' + seqRes.rows[0].num;
     await dbClient.query(
-      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id,order_number)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11,$12)`,
-      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber]
+      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id,order_number,pdf_token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11,$12,$13)`,
+      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber, pdfToken]
     );
     for (const line of resolvedLines) {
       // Décrément du stock si suivi : décrément atomique et conditionnel
@@ -2516,7 +2567,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`).catch(e => console.error('[push-order-error]', e.message));
   notifyOwnerOrder(orderId, 'Nouvelle commande').catch(() => {}); // copie email au propriétaire
 
-  return { order_id: orderId, total: orderTotal };
+  return { order_id: orderId, total: orderTotal, pdf_token: pdfToken };
 }
 
 app.post('/api/public/orders', publicLimiter, async (req, res) => {
@@ -2530,7 +2581,7 @@ app.post('/api/public/orders', publicLimiter, async (req, res) => {
   try {
     const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
     if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
-    res.json({ ok: true, order_id: result.order_id });
+    res.json({ ok: true, order_id: result.order_id, pdf_token: result.pdf_token });
   } catch(e) {
     console.error('createOrder error:', e.message);
     res.status(500).json({ error: 'Erreur serveur lors de la création de la commande.' });
@@ -2723,7 +2774,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       }
       buyer = { id: existing.id, email: existing.email, name: existing.name, company: existing.company, phone: existing.phone, country: existing.country };
     } else {
-      if (!password || password.length < 8) return res.status(400).json({ error: 'Choisissez un mot de passe (8 caractères minimum)' });
+      if (!password || password.length < 12) return res.status(400).json({ error: 'Choisissez un mot de passe (12 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
       const id = uuidv4();
       await pool.query('INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
@@ -2830,22 +2881,31 @@ app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-port
 
 app.get('/editions-showroom-b2b-portail', (req, res) => sendPage(res, 'portal-login.html'));
 
+// Redirection post-login (next=) : n'accepte qu'un chemin RELATIF sous /portal
+// (pas de schéma, pas d'hôte, pas de // protocol-relative, pas de .. ni de
+// caractères non listés) — empêche toute redirection ouverte vers un site tiers.
+function isSafeNextPath(next) {
+  if (typeof next !== 'string' || !next) return false;
+  if (!/^\/portal(?:[/?][a-zA-Z0-9?=&%_\-/]*)?$/.test(next)) return false;
+  if (next.startsWith('//') || next.includes('..') || next.includes('\\')) return false;
+  return true;
+}
+
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
+  const safeNext = isSafeNextPath(req.body.next) ? req.body.next : '';
   if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
     // Régénération de session — anti session fixation
     req.session.regenerate(err => {
       if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
-      const next = (req.body.next || '').replace(/[^a-zA-Z0-9?=&%_\-/]/g, '');
-      res.redirect(next && next.startsWith('/portal') ? next : '/portal');
+      res.redirect(safeNext || '/portal');
     });
     return;
   }
-  const failNext = req.body.next && req.body.next.startsWith('/portal')
-    ? '&next=' + encodeURIComponent(req.body.next) : '';
+  const failNext = safeNext ? '&next=' + encodeURIComponent(safeNext) : '';
   res.redirect('/editions-showroom-b2b-portail?error=1' + failNext);
 });
 
@@ -2873,10 +2933,22 @@ app.get('/api/portal/currencies', requireBuyerAuth, async (req, res) => {
   res.json(currencies);
 });
 
+// Invalide toutes les sessions actives d'un acheteur (sauf, optionnellement,
+// la session en cours) après un changement de mot de passe — une session déjà
+// ouverte sur un appareil volé/partagé ne doit pas survivre au changement.
+async function invalidateBuyerSessions(buyerId, exceptSid) {
+  try {
+    await pool.query(
+      "DELETE FROM user_sessions WHERE sess->'buyerPortal'->>'id' = $1 AND sid != COALESCE($2, '')",
+      [buyerId, exceptSid || null]
+    );
+  } catch(e) { console.error('invalidateBuyerSessions:', e.message); }
+}
+
 app.post('/api/portal/change-password', requireBuyerAuth, passwordLimiter, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
-  if (newPassword.length < 8) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
+  if (newPassword.length < 12) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 12 caractères' });
 
   const r = await pool.query('SELECT id, password_hash FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
   const buyer = r.rows[0];
@@ -2885,6 +2957,7 @@ app.post('/api/portal/change-password', requireBuyerAuth, passwordLimiter, async
   }
   const hash = await bcrypt.hash(newPassword, 10);
   await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyer.id]);
+  await invalidateBuyerSessions(buyer.id, req.sessionID);
   res.json({ ok: true });
 });
 
@@ -4051,8 +4124,8 @@ app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
 
 app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
   const { token, password } = req.body || {};
-  if (!token || !password || password.length < 6)
-    return res.json({ error: 'Données invalides.' });
+  if (!token || !password || password.length < 12)
+    return res.json({ error: 'Données invalides (12 caractères minimum).' });
   try {
     const r = await pool.query(
       'SELECT buyer_id FROM buyer_password_resets WHERE token=$1 AND used=false AND expires_at > NOW()',
@@ -4068,6 +4141,10 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
       await client.query('COMMIT');
     } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
+    // Un reset via lien mail invalide TOUTES les sessions existantes (pas de
+    // session "courante" légitime à préserver ici, contrairement au change
+    // via le portail où l'acheteur est déjà connecté).
+    await invalidateBuyerSessions(r.rows[0].buyer_id, null);
     res.json({ ok: true });
   } catch (e) { res.json({ error: 'Erreur serveur.' }); }
 });
@@ -4404,7 +4481,7 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { email, password, name, company, phone, country } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
+  if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
   const cleanEmail = email.toLowerCase().trim();
@@ -4467,7 +4544,7 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
     if (!await checkBuyerBrandScope(req, res)) return;
     const { name, company, email, phone, country, password } = req.body;
     if (password) {
-      if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (8 caractères minimum)' });
+      if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
       await pool.query('UPDATE buyers SET name=$1,company=$2,email=$3,phone=$4,country=$5,password_hash=$6 WHERE id=$7', [name, company, email, phone, country, hash, req.params.id]);
     } else {
@@ -4761,7 +4838,7 @@ app.post('/api/invite/:token', async (req, res) => {
   if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
 
   const { name, company, email, password } = req.body;
-  if (!email || !password || password.length < 6) return res.status(400).json({ error: 'Email et mot de passe requis (6 caractères min).' });
+  if (!email || !password || password.length < 12) return res.status(400).json({ error: 'Email et mot de passe requis (12 caractères min).' });
   if (!name) return res.status(400).json({ error: 'Nom requis.' });
 
   const cleanEmail = email.toLowerCase().trim();

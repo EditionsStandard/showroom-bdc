@@ -3,7 +3,7 @@
 <head>
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="/fonts/brand.css">
 <title>Créer votre accès — Showroom</title>
@@ -87,7 +87,7 @@
     <input id="f-company" type="text" data-tp="company_placeholder" autocomplete="organization">
     <label data-t="email_label">Email *</label>
     <input id="f-email" type="email" data-tp="email_placeholder" autocomplete="email">
-    <label data-t="password_label">Mot de passe * <span style="font-weight:400;font-size:10px;text-transform:none" data-t="password_hint">(6 caractères minimum)</span></label>
+    <label data-t="password_label">Mot de passe * <span style="font-weight:400;font-size:10px;text-transform:none" data-t="password_hint">(12 caractères minimum)</span></label>
     <input id="f-password" type="password" data-tp="password_placeholder" autocomplete="new-password">
 
     <button class="btn" id="submit-btn" onclick="submitForm()" data-t="submit_btn">CRÉER MON ACCÈS</button>
@@ -118,7 +118,7 @@ const TRANSLATIONS = {
     email_label: 'Email *',
     email_placeholder: 'jean@boutique.com',
     password_label: 'Mot de passe *',
-    password_hint: '(6 caractères minimum)',
+    password_hint: '(12 caractères minimum)',
     password_placeholder: '••••••••',
     submit_btn: 'CRÉER MON ACCÈS',
     login_link_html: null, // handled manually
@@ -126,7 +126,7 @@ const TRANSLATIONS = {
     success_msg: 'Votre compte a bien été créé. Vous allez être redirigé vers le portail.',
     go_portal_btn: 'ACCÉDER AU SHOWROOM',
     err_required: 'Veuillez remplir tous les champs obligatoires.',
-    err_pw_short: 'Le mot de passe doit contenir au moins 6 caractères.',
+    err_pw_short: 'Le mot de passe doit contenir au moins 12 caractères.',
     err_server: 'Erreur serveur.',
     creating: 'Création en cours…',
   },
@@ -143,7 +143,7 @@ const TRANSLATIONS = {
     email_label: 'Email *',
     email_placeholder: 'jane@boutique.com',
     password_label: 'Password *',
-    password_hint: '(minimum 6 characters)',
+    password_hint: '(minimum 12 characters)',
     password_placeholder: '••••••••',
     submit_btn: 'CREATE MY ACCESS',
     login_link_html: null, // handled manually
@@ -151,7 +151,7 @@ const TRANSLATIONS = {
     success_msg: 'Your account has been created. You will be redirected to the portal.',
     go_portal_btn: 'GO TO SHOWROOM',
     err_required: 'Please fill in all required fields.',
-    err_pw_short: 'Password must be at least 6 characters.',
+    err_pw_short: 'Password must be at least 12 characters.',
     err_server: 'Server error.',
     creating: 'Creating…',
   }
@@ -226,7 +226,7 @@ async function submitForm() {
 
   errEl.style.display = 'none';
   if (!name || !email || !password) { showErr(t('err_required')); return; }
-  if (password.length < 6) { showErr(t('err_pw_short')); return; }
+  if (password.length < 12) { showErr(t('err_pw_short')); return; }
 
   btn.disabled = true;
   btn.textContent = t('creating');

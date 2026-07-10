@@ -336,6 +336,15 @@ async function init() {
       created_by TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
+    // Sécurité : le PDF de commande publique (flux agent-showroom sans compte
+    // acheteur) ne doit plus être accessible par le seul UUID de la commande.
+    // pdf_token = clé aléatoire dédiée (jamais l'id) ; pdf_revoked = coupure
+    // manuelle depuis l'admin, indépendante de l'expiration 24h.
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS pdf_token TEXT",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS pdf_revoked BOOLEAN DEFAULT false",
+    // Pas de backfill : les commandes déjà existantes sont de toute façon hors de
+    // la fenêtre de 24h de l'endpoint public. Les nouvelles commandes reçoivent
+    // un pdf_token généré en JS (crypto.randomBytes) à la création.
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

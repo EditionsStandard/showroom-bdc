@@ -3,7 +3,8 @@
 <head>
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <meta charset="UTF-8">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="/fonts/brand.css">
 <title>Editions Standard B2B Showroom</title>
@@ -137,7 +138,7 @@
   <!-- Vue : nouveau mot de passe -->
   <div class="view" id="view-reset">
     <div id="reset-msg"></div>
-    <div class="field"><label data-t="new_password_label">Nouveau mot de passe</label><input type="password" id="reset-pw" data-tp="password_placeholder" minlength="6"></div>
+    <div class="field"><label data-t="new_password_label">Nouveau mot de passe</label><input type="password" id="reset-pw" data-tp="password_placeholder" minlength="12"></div>
     <div class="field"><label data-t="confirm_password_label">Confirmer</label><input type="password" id="reset-pw2" data-tp="password_placeholder"></div>
     <button class="btn" id="reset-btn" onclick="submitReset()" data-t="save_btn">Enregistrer</button>
   </div>
@@ -169,7 +170,7 @@ const TRANSLATIONS = {
     login_error: 'Email ou mot de passe incorrect.',
     email_required: 'Email requis.',
     reset_success: 'Si un compte existe pour cet email, vous recevrez un lien dans quelques minutes.',
-    pw_too_short: 'Le mot de passe doit contenir au moins 6 caractères.',
+    pw_too_short: 'Le mot de passe doit contenir au moins 12 caractères.',
     pw_mismatch: 'Les mots de passe ne correspondent pas.',
     pw_updated: 'Mot de passe mis à jour. Redirection…',
     network_error: 'Erreur réseau, réessayez.',
@@ -193,7 +194,7 @@ const TRANSLATIONS = {
     login_error: 'Incorrect email or password.',
     email_required: 'Email required.',
     reset_success: 'If an account exists for this email, you will receive a link in a few minutes.',
-    pw_too_short: 'Password must be at least 6 characters.',
+    pw_too_short: 'Password must be at least 12 characters.',
     pw_mismatch: 'Passwords do not match.',
     pw_updated: 'Password updated. Redirecting…',
     network_error: 'Network error, please try again.',
@@ -349,13 +350,28 @@ const params = new URLSearchParams(location.search);
 if (params.get('token')) {
   resetToken = params.get('token');
   showView('reset');
+  // Sécurité : retire immédiatement le token de l'URL visible (barre d'adresse,
+  // historique navigateur, un éventuel Referer sortant) une fois lu en mémoire.
+  // (Le ?next= éventuel reste porté par le champ caché du formulaire, inutile
+  // de le garder dans l'URL.)
+  history.replaceState({}, document.title, location.pathname);
+}
+
+// Affiche un message dans un conteneur sans jamais interpréter le contenu comme
+// du HTML (textContent) — évite toute injection XSS via un message d'erreur.
+function showMessage(container, message, type) {
+  container.replaceChildren();
+  const alert = document.createElement('div');
+  alert.className = 'alert alert-' + type;
+  alert.textContent = message;
+  container.appendChild(alert);
 }
 
 async function sendReset() {
   const email = document.getElementById('forgot-email').value.trim();
   const msg = document.getElementById('forgot-msg');
   const btn = document.getElementById('forgot-btn');
-  if (!email) { msg.innerHTML = `<div class="alert alert-error">${t('email_required')}</div>`; return; }
+  if (!email) { showMessage(msg, t('email_required'), 'error'); return; }
   btn.disabled = true;
   btn.textContent = '…';
   try {
@@ -365,9 +381,9 @@ async function sendReset() {
       body: JSON.stringify({ email })
     });
     // Toujours afficher succès (ne pas révéler si l'email existe)
-    msg.innerHTML = `<div class="alert alert-success">${t('reset_success')}</div>`;
+    showMessage(msg, t('reset_success'), 'success');
   } catch(e) {
-    msg.innerHTML = `<div class="alert alert-error">${t('network_error')}</div>`;
+    showMessage(msg, t('network_error'), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = t('send_reset_btn');
@@ -379,8 +395,8 @@ async function submitReset() {
   const pw2 = document.getElementById('reset-pw2').value;
   const msg = document.getElementById('reset-msg');
   const btn = document.getElementById('reset-btn');
-  if (pw.length < 6) { msg.innerHTML = `<div class="alert alert-error">${t('pw_too_short')}</div>`; return; }
-  if (pw !== pw2) { msg.innerHTML = `<div class="alert alert-error">${t('pw_mismatch')}</div>`; return; }
+  if (pw.length < 12) { showMessage(msg, t('pw_too_short'), 'error'); return; }
+  if (pw !== pw2) { showMessage(msg, t('pw_mismatch'), 'error'); return; }
   btn.disabled = true;
   btn.textContent = '…';
   try {
@@ -389,11 +405,11 @@ async function submitReset() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: resetToken, password: pw })
     }).then(r => r.json());
-    if (r.error) { msg.innerHTML = `<div class="alert alert-error">${r.error}</div>`; return; }
-    msg.innerHTML = `<div class="alert alert-success">${t('pw_updated')}</div>`;
+    if (r.error) { showMessage(msg, r.error, 'error'); return; }
+    showMessage(msg, t('pw_updated'), 'success');
     setTimeout(() => { window.location = '/editions-showroom-b2b-portail'; }, 1500);
   } catch(e) {
-    msg.innerHTML = `<div class="alert alert-error">${t('network_error')}</div>`;
+    showMessage(msg, t('network_error'), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = t('save_btn');
