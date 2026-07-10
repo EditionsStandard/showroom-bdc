@@ -271,11 +271,17 @@ app.use((req, res, next) => {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
   const selfHost = req.headers['x-forwarded-host'] || req.headers.host;
   const originHeader = req.headers.origin || req.headers.referer;
-  if (!originHeader) return next();
+  // Safari envoie parfois littéralement l'en-tête Origin: null (redirection,
+  // navigation privée, certains contextes WebKit) — ce n'est PAS un indicateur
+  // de requête cross-site, juste une particularité du navigateur. La chaîne
+  // "null" est vraie en JS (!"null" === false), donc sans ce cas explicite
+  // elle finissait dans new URL("null") qui échoue et bloquait la connexion.
+  // Cause racine de l'incident du 2026-07 (buyer + admin bloqués).
+  if (!originHeader || originHeader === 'null') return next();
   let originHost;
   try { originHost = new URL(originHeader).host; } catch(e) {
     console.error('[CSRF] Origin/Referer non parsable:', originHeader, '| path:', req.path);
-    return res.status(403).json({ error: 'Requête refusée (origine invalide).' });
+    return next(); // fail-open journalisé, cf. commentaire ci-dessus sur SameSite=Lax
   }
   if (normalizeHost(originHost) !== normalizeHost(selfHost)) {
     console.error('[CSRF] host mismatch — selfHost:', selfHost, '| originHost:', originHost, '| path:', req.path, '| ua:', req.headers['user-agent']);
