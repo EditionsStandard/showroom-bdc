@@ -2354,6 +2354,7 @@ function renderProductsPage() {
 function changeQty(productId, size, delta) {
   const p = currentProducts.find(x => x.id === productId);
   const key = currentBrand.id + '|' + productId + '|' + size;
+  if (!p && !cart[key]) return; // référence introuvable (liste rafraîchie entre-temps) et rien à retirer : rien à faire
   if (!cart[key]) {
     let pImgs = []; try { pImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!pImgs.length && p.image_url) pImgs = [p.image_url];
