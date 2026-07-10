@@ -400,6 +400,7 @@ async function init() {
     smtp_pass: '',
     smtp_from: '',
     admin_password: process.env.ADMIN_PASSWORD || 'admin123',
+    maintenance_mode: 'off',
     agent_name: '',
     agent_title: 'Agent Commercial',
     agent_phone: '',
@@ -464,6 +465,7 @@ async function init() {
     DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
     DELETE FROM buyer_carts WHERE updated_at < NOW() - INTERVAL '90 days';
     DELETE FROM access_requests WHERE status='pending' AND created_at < NOW() - INTERVAL '30 days';
+    DELETE FROM commande_links WHERE expires_at < NOW() - INTERVAL '30 days';
   `).catch(() => {});
 
   // Index pour les performances — exécutés SÉPARÉMENT (comme les ALTER) pour

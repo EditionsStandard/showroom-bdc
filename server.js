@@ -317,11 +317,41 @@ app.use(session({
   }
 }));
 
+// ── Mode maintenance ────────────────────────────────────────────────
+// Coupe l'accès buyer/public en cas d'incident, en gardant l'admin joignable
+// pour piloter la remise en ligne. Setting en base (persistant, visible par
+// tous les workers), cache mémoire 5s pour éviter une requête DB par hit.
+let _maintenanceCache = { value: null, at: 0 };
+async function isMaintenanceOn() {
+  const now = Date.now();
+  if (_maintenanceCache.value !== null && now - _maintenanceCache.at < 5000) return _maintenanceCache.value;
+  const v = await getSetting('maintenance_mode').catch(() => 'off');
+  _maintenanceCache = { value: v === 'on', at: now };
+  return _maintenanceCache.value;
+}
+function invalidateMaintenanceCache() { _maintenanceCache = { value: null, at: 0 }; }
+const MAINTENANCE_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Maintenance</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#f5f4f0;font-family:'Courier New',monospace;padding:32px;text-align:center;line-height:1.7}</style></head><body><div><p style="font-size:15px">Le showroom est temporairement en maintenance.</p><p style="font-size:13px;color:#999">Merci de réessayer dans quelques instants.</p></div></body></html>`;
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/me') || req.path.startsWith('/api/admin')) return next();
+  if (getRole(req)) return next(); // staff/owner déjà authentifiés : accès total pendant la maintenance
+  try {
+    if (await isMaintenanceOn()) return res.status(503).type('html').send(MAINTENANCE_HTML);
+  } catch(e) {}
+  next();
+});
+
 // ── Audit log helper ──────────────────────────────────────
 function logAudit(req, action, targetType, targetId, details) {
   const email = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'unknown');
   pool.query('INSERT INTO admin_audit_log (id,user_email,action,target_type,target_id,details,created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
     [uuidv4(), email, action, targetType, targetId||'', details||'']).catch(()=>{});
+}
+// Variante sans req.session (connexion/déconnexion : l'identité n'est pas
+// encore — ou plus — dans la session à l'instant du log). `details` ne doit
+// jamais contenir de mot de passe/token — ici uniquement l'IP appelante.
+function logAuditRaw(email, action, targetType, targetId, details) {
+  pool.query('INSERT INTO admin_audit_log (id,user_email,action,target_type,target_id,details,created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
+    [uuidv4(), email || 'unknown', action, targetType, targetId||'', details||'']).catch(()=>{});
 }
 
 // ── Order events (timeline) ───────────────────────────────────────────
@@ -403,10 +433,21 @@ function requireBrandScope(...allowed) {
 }
 
 // Rate limiting — anti brute force sur les logins
+// Handler commun : journalise le dépassement (IP + route) avant de renvoyer le 429
+// standard — permet de repérer un brute-force en cours dans /api/admin/audit-log
+// sans avoir à grep les logs Railway.
+function rateLimitExceededHandler(message) {
+  return (req, res /*, next, options */) => {
+    logAuditRaw('rate-limit', 'rate_limit_exceeded', 'route', req.originalUrl, req.ip);
+    res.status(429).json(message);
+  };
+}
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
   message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  handler: rateLimitExceededHandler({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }),
   standardHeaders: true, legacyHeaders: false
 });
 
@@ -445,6 +486,7 @@ const passwordLimiter = rateLimit({
   windowMs: 900000, // 15 minutes
   max: 5,
   message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  handler: rateLimitExceededHandler({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }),
   standardHeaders: true, legacyHeaders: false
 });
 
@@ -457,6 +499,7 @@ const buyerAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 30,
   message: { error: 'Trop de demandes. Réessayez dans quelques minutes.' },
+  handler: rateLimitExceededHandler({ error: 'Trop de demandes. Réessayez dans quelques minutes.' }),
   standardHeaders: true, legacyHeaders: false
 });
 
@@ -481,9 +524,11 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
       return req.session.regenerate(err => {
         if (err) return res.redirect('/admin/login?error=1');
         req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+        logAuditRaw(user.email, 'login_success', 'staff', user.id, req.ip);
         res.redirect('/admin');
       });
     }
+    logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip);
     return res.redirect('/admin/login?error=1');
   }
 
@@ -503,14 +548,20 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     req.session.regenerate(err => {
       if (err) return res.redirect('/admin/login?error=1');
       req.session.admin = true;
+      logAuditRaw('admin', 'login_success', 'staff', '', req.ip);
       res.redirect('/admin');
     });
   } else {
+    logAuditRaw('admin', 'login_failed', 'staff', '', req.ip);
     res.redirect('/admin/login?error=1');
   }
 });
 
-app.get('/admin/logout', (req, res) => { req.session.destroy(() => res.redirect('/admin/login')); });
+app.get('/admin/logout', (req, res) => {
+  const email = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'unknown');
+  logAuditRaw(email, 'logout', 'staff', '', req.ip);
+  req.session.destroy(() => res.redirect('/admin/login'));
+});
 app.get('/admin', requireAdmin, (req, res) => sendPage(res, 'admin.html'));
 
 app.get('/api/me', requireAdmin, (req, res) => {
@@ -539,12 +590,21 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
       'INSERT INTO admin_users (id, email, password_hash, role, brand_id, name) VALUES ($1,$2,$3,$4,$5,$6)',
       [id, email.toLowerCase().trim(), hash, role, role === 'designer' ? brand_id : null, name || '']
     );
+    logAudit(req, 'create_staff', 'staff', id, `${email.toLowerCase().trim()} (${role})`);
     res.json({ id });
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     console.error(err); res.status(500).json({ error: "Erreur serveur" });
   }
 });
+
+// Invalide les sessions actives d'un membre du staff (changement de rôle, blocage,
+// suppression) — sans ça, un rôle modifié ne prend effet qu'à la prochaine connexion,
+// le `req.session.staffUser` déjà en mémoire côté navigateur restant valide.
+async function invalidateStaffSessions(userId) {
+  try { await pool.query("DELETE FROM user_sessions WHERE sess->'staffUser'->>'id' = $1", [userId]); }
+  catch(e) { console.error('invalidateStaffSessions:', e.message); }
+}
 
 app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
   try {
@@ -555,6 +615,8 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
     } else {
       await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, email, role, brand_id || null, req.params.id]);
     }
+    logAudit(req, 'update_staff', 'staff', req.params.id, `role=${role}`);
+    await invalidateStaffSessions(req.params.id);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -570,6 +632,8 @@ app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
       }
     }
     await pool.query('DELETE FROM admin_users WHERE id=$1', [req.params.id]);
+    logAudit(req, 'delete_staff', 'staff', req.params.id, target.rows[0]?.role || '');
+    await invalidateStaffSessions(req.params.id);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1121,6 +1185,7 @@ app.post('/api/brands/:brandId/import-csv', requireRole('owner', 'agent', 'desig
 // ── Export CSV produits ──────────────────────────────────────────────
 app.get('/api/brands/:brandId/products/export-csv', requireRole('owner','agent','designer'), async (req, res) => {
   try {
+    logAudit(req, 'export_products_csv', 'brand', req.params.brandId, '');
     const r = await pool.query(
       'SELECT reference, description, color, sizes, price, price_retail, collection_name, composition, category FROM products WHERE brand_id=$1 ORDER BY reference',
       [req.params.brandId]
@@ -1174,8 +1239,12 @@ app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, r
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Formats raster uniquement — exclut délibérément image/svg+xml : un SVG peut
+// embarquer du <script>/<foreignObject> exécuté si le fichier est ouvert
+// directement dans un onglet (le champ mimetype matcherait `startsWith('image/')`).
+const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
-  if (!req.file || !req.file.mimetype.startsWith('image/')) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp…)' });
+  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const slug = `img-${Date.now()}`;
@@ -1184,7 +1253,8 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.si
     const result = await cloudinary.uploader.upload(base64, {
       folder: 'showroom/uploads',
       public_id: slug,
-      transformation: [{ width: max, height: max, crop: 'limit', quality: 80, fetch_format: 'auto' }]
+      // strip_profile : retire les métadonnées EXIF/IPTC (géoloc, appareil…) de l'image livrée.
+      transformation: [{ width: max, height: max, crop: 'limit', quality: 80, fetch_format: 'auto', flags: 'strip_profile' }]
     });
     res.json({ url: result.secure_url });
   } catch(e) {
@@ -1579,6 +1649,10 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
       try { existing = JSON.parse(product.images || '[]'); } catch(e) {}
       pending.set(product.id, { images: existing.slice(), ranks: existing.map(() => -1) });
     }
+    if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype)) {
+      results.push({ file: file.originalname, status: 'rejected', reason: 'type de fichier non autorisé' });
+      continue;
+    }
     const entry = pending.get(product.id);
     const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
     let imageData = base64;
@@ -1588,7 +1662,7 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
         folder: `showroom/${brandId}`,
         public_id: slug,
         overwrite: false,
-        transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto' }]
+        transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto', flags: 'strip_profile' }]
       });
       imageData = uploaded.secure_url;
     } catch(e) { console.error('Cloudinary upload error:', e.message); /* keep original value on error */ }
@@ -1965,6 +2039,7 @@ async function sendOrderStatusEmail(orderId, status) {
 
 app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    logAudit(req, 'export_orders_csv', 'orders', '', '');
     const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT o.id, o.order_number, o.created_at, o.client_name, o.client_email, o.client_company, o.client_phone, o.client_country,
@@ -1995,6 +2070,7 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    logAudit(req, 'export_orders_csv', 'orders', '', '');
     const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT o.order_number, o.id, o.created_at, b.name as brand_name,
@@ -2025,6 +2101,7 @@ app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res)
 
 app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res) => {
   try {
+    logAudit(req, 'export_buyers_csv', 'buyers', '', '');
     const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT name, email, company, phone, country, instagram, created_at
@@ -2049,6 +2126,7 @@ app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res)
 // Export commandes XLSX
 app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (req, res) => {
   if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
+  logAudit(req, 'export_orders_xlsx', 'orders', '', '');
   const { status, from, to } = req.query;
   // Agent scopé : forcer sa marque, ignorer tout brand_id fourni dans la query.
   const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
@@ -2079,6 +2157,7 @@ app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (re
 // Export produits XLSX
 app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (req, res) => {
   if (!XLSX) return res.status(500).json({ error: 'xlsx non disponible' });
+  logAudit(req, 'export_products_xlsx', 'products', '', '');
   const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
   let q = `SELECT b.name as marque, p.reference, p.description, p.color, p.sizes, p.price, p.price_retail, p.collection_name, p.category, p.composition, p.active FROM products p JOIN brands b ON b.id=p.brand_id WHERE 1=1`;
   const params = [];
@@ -2334,6 +2413,7 @@ app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res
 app.get('/api/orders/:id/pdf', requireRole('owner','agent','designer'), async (req, res) => {
   if (!await checkOrderBrandScope(req, res)) return;
   try {
+    logAudit(req, 'download_order_pdf', 'order', req.params.id, '');
     const pdf = await generateOrderPDF(req.params.id);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Cache-Control', 'no-store, private');
@@ -2388,6 +2468,23 @@ app.post('/api/brands/:brandId/commande-link', requireBrandScope('owner','agent'
   } catch(e) { console.error('create commande-link:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+app.get('/api/brands/:brandId/commande-links', requireBrandScope('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT token, expires_at, active, created_by, created_at FROM commande_links WHERE brand_id=$1 ORDER BY created_at DESC', [req.params.brandId]);
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Révoque un lien de commande avant son expiration (fuite suspectée, marque désactivée, etc.)
+app.put('/api/brands/:brandId/commande-link/:token/revoke', requireBrandScope('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query('UPDATE commande_links SET active=0 WHERE token=$1 AND brand_id=$2', [req.params.token, req.params.brandId]);
+    if (!r.rowCount) return res.status(404).json({ error: 'Lien introuvable' });
+    logAudit(req, 'revoke_commande_link', 'brand', req.params.brandId, req.params.token);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // PDF public — accessible 24h après la commande (pour share sheet mobile)
 app.get('/api/public/orders/:id/pdf', publicLimiter, async (req, res) => {
   try {
@@ -2408,6 +2505,7 @@ app.get('/api/public/orders/:id/pdf', publicLimiter, async (req, res) => {
     if (!r.rows[0].pdf_token || !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
+    logAuditRaw('public-link', 'download_order_pdf', 'order', req.params.id, req.ip);
     const pdf = await generateOrderPDF(req.params.id);
     const orderNum2 = r.rows[0]?.order_number || req.params.id.slice(0,8).toUpperCase();
     const filename = `PropositionCommande-${orderNum2}.pdf`;
@@ -2901,15 +2999,20 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
     req.session.regenerate(err => {
       if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
+      logAuditRaw(buyer.email, 'login_success', 'buyer', buyer.id, req.ip);
       res.redirect(safeNext || '/portal');
     });
     return;
   }
+  logAuditRaw((email||'').toLowerCase().trim(), 'login_failed', 'buyer', '', req.ip);
   const failNext = safeNext ? '&next=' + encodeURIComponent(safeNext) : '';
   res.redirect('/editions-showroom-b2b-portail?error=1' + failNext);
 });
 
 app.get('/portal-logout', (req, res) => {
+  const email = req.session?.buyerPortal?.email || 'unknown';
+  const id = req.session?.buyerPortal?.id || '';
+  logAuditRaw(email, 'logout', 'buyer', id, req.ip);
   req.session.destroy(() => res.redirect('/editions-showroom-b2b-portail'));
 });
 app.get('/portal', (req, res) => {
@@ -3234,6 +3337,7 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
   const o = await pool.query('SELECT id, order_number FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
   try {
+    logAuditRaw(req.session.buyerPortal.email, 'download_order_pdf', 'order', req.params.id, req.ip);
     const pdf = await generateOrderPDF(req.params.id);
     const oNum = o.rows[0].order_number || req.params.id.slice(0,8).toUpperCase();
     res.setHeader('Content-Type', 'application/pdf');
@@ -4081,12 +4185,16 @@ app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
     const b = await pool.query('SELECT id, name FROM buyers WHERE email=$1', [email.toLowerCase().trim()]);
     if (!b.rows[0]) return;
     const buyer = b.rows[0];
+    // Seul le hash du token est stocké en base (comme un mot de passe) : un accès
+    // en lecture seule à la base ne permet pas de rejouer un lien de reset actif.
+    // Le token en clair ne part que dans l'email, jamais persisté.
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await pool.query('DELETE FROM buyer_password_resets WHERE buyer_id=$1', [buyer.id]);
     await pool.query(
       'INSERT INTO buyer_password_resets (token, buyer_id, expires_at) VALUES ($1,$2,$3)',
-      [token, buyer.id, expires]
+      [tokenHash, buyer.id, expires]
     );
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return;
@@ -4127,9 +4235,10 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
   if (!token || !password || password.length < 12)
     return res.json({ error: 'Données invalides (12 caractères minimum).' });
   try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const r = await pool.query(
       'SELECT buyer_id FROM buyer_password_resets WHERE token=$1 AND used=false AND expires_at > NOW()',
-      [token]
+      [tokenHash]
     );
     if (!r.rows[0]) return res.json({ error: 'Lien invalide ou expiré.' });
     const hash = await bcrypt.hash(password, 10);
@@ -4137,7 +4246,7 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
     try {
       await client.query('BEGIN');
       await client.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, r.rows[0].buyer_id]);
-      await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [token]);
+      await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [tokenHash]);
       await client.query('COMMIT');
     } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
@@ -4145,6 +4254,7 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
     // session "courante" légitime à préserver ici, contrairement au change
     // via le portail où l'acheteur est déjà connecté).
     await invalidateBuyerSessions(r.rows[0].buyer_id, null);
+    logAuditRaw('buyer:' + r.rows[0].buyer_id, 'password_reset', 'buyer', r.rows[0].buyer_id, req.ip);
     res.json({ ok: true });
   } catch (e) { res.json({ error: 'Erreur serveur.' }); }
 });
@@ -4812,8 +4922,74 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
 // ── Admin audit log ──────────────────────────────────────
 app.get('/api/admin/audit-log', requireRole('owner'), async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT 100');
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 100));
+    const offset = Math.max(0, parseInt(req.query.offset) || 0);
+    const r = await pool.query('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
     res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ==================== CENTRE DE SÉCURITÉ (owner uniquement) ====================
+// Boîte à outils incident : couper les accès en un geste sans passer par la base.
+
+app.get('/api/admin/security/status', requireRole('owner'), async (req, res) => {
+  try {
+    const mode = await getSetting('maintenance_mode');
+    const sessions = await pool.query("SELECT count(*) FILTER (WHERE sess->'buyerPortal' IS NOT NULL) AS buyers, count(*) FILTER (WHERE sess->'staffUser' IS NOT NULL OR sess->'admin' IS NOT NULL) AS staff FROM user_sessions WHERE expire > NOW()");
+    const links = await pool.query("SELECT count(*) AS n FROM commande_links WHERE active != 0 AND expires_at > NOW()");
+    res.json({
+      maintenance_mode: mode === 'on',
+      active_buyer_sessions: parseInt(sessions.rows[0]?.buyers) || 0,
+      active_staff_sessions: parseInt(sessions.rows[0]?.staff) || 0,
+      active_order_links: parseInt(links.rows[0]?.n) || 0
+    });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/admin/security/maintenance', requireRole('owner'), async (req, res) => {
+  try {
+    const on = !!req.body.on;
+    await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', ['maintenance_mode', on ? 'on' : 'off']);
+    invalidateMaintenanceCache();
+    logAudit(req, on ? 'maintenance_on' : 'maintenance_off', 'system', '', '');
+    res.json({ ok: true, maintenance_mode: on });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Déconnecte tous les acheteurs (ne touche pas la session de l'owner qui déclenche l'action).
+app.post('/api/admin/security/revoke-all-buyer-sessions', requireRole('owner'), async (req, res) => {
+  try {
+    const r = await pool.query("DELETE FROM user_sessions WHERE sess->'buyerPortal' IS NOT NULL");
+    logAudit(req, 'revoke_all_buyer_sessions', 'system', '', `${r.rowCount} session(s)`);
+    res.json({ ok: true, revoked: r.rowCount });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Déconnecte tout le staff SAUF la session courante (sinon l'owner se déconnecte lui-même).
+app.post('/api/admin/security/revoke-all-staff-sessions', requireRole('owner'), async (req, res) => {
+  try {
+    const r = await pool.query("DELETE FROM user_sessions WHERE (sess->'staffUser' IS NOT NULL OR sess->'admin' IS NOT NULL) AND sid != $1", [req.sessionID]);
+    logAudit(req, 'revoke_all_staff_sessions', 'system', '', `${r.rowCount} session(s)`);
+    res.json({ ok: true, revoked: r.rowCount });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Révoque tous les liens de commande /c/:token actifs (ex : suspicion de fuite).
+app.post('/api/admin/security/revoke-all-order-links', requireRole('owner'), async (req, res) => {
+  try {
+    const r = await pool.query("UPDATE commande_links SET active=0 WHERE active != 0");
+    logAudit(req, 'revoke_all_order_links', 'system', '', `${r.rowCount} lien(s)`);
+    res.json({ ok: true, revoked: r.rowCount });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Révoque tous les PDF de commande publics accessibles (fenêtre 24h) — laisse
+// intacte l'archive interne (staff), coupe uniquement l'accès sans authentification.
+app.post('/api/admin/security/revoke-all-pdf-tokens', requireRole('owner'), async (req, res) => {
+  try {
+    const r = await pool.query("UPDATE orders SET pdf_revoked=true WHERE pdf_revoked=false AND created_at > NOW() - INTERVAL '24 hours'");
+    logAudit(req, 'revoke_all_pdf_tokens', 'system', '', `${r.rowCount} commande(s)`);
+    res.json({ ok: true, revoked: r.rowCount });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -6009,8 +6185,7 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     if (!rows[0]) return res.status(401).json({ error: 'Invalid credentials' });
     const user = rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    req.session.user = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+    if (!valid) { logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip); return res.status(401).json({ error: 'Invalid credentials' }); }
     let brands;
     if (!user.brand_id) {
       const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name");
@@ -6019,7 +6194,13 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
       const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
       brands = r.rows;
     }
-    res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
+    // Régénération de session — anti session fixation (alignée sur les autres logins)
+    req.session.regenerate(err => {
+      if (err) return res.status(500).json({ error: 'Server error' });
+      req.session.user = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+      logAuditRaw(user.email, 'login_success', 'staff', user.id, req.ip);
+      res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
+    });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -6040,6 +6221,8 @@ app.get('/api/agent/me', async (req, res) => {
 });
 
 app.post('/api/agent/logout', (req, res) => {
+  const email = req.session?.user?.email || req.session?.staffUser?.email || 'unknown';
+  logAuditRaw(email, 'logout', 'staff', '', req.ip);
   req.session.destroy(() => res.json({ ok: true }));
 });
 

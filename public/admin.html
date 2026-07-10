@@ -549,6 +549,7 @@
     <a data-section="brands"><span class="icon">🏷️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
     <a data-section="orders"><span class="icon">📋</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="security" id="nav-security" style="display:none"><span class="icon">🔒</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> <span>Sécurité</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
     <a data-section="access-requests" id="nav-access-requests"><span class="icon">🔔</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius: 0;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
@@ -899,6 +900,43 @@
         <button class="btn btn-secondary" onclick="closeModal('modal-use-template')">Annuler</button>
         <button class="btn btn-primary" onclick="useTemplate()">Créer la sélection →</button>
       </div>
+    </div>
+  </div>
+
+  <!-- SECURITY -->
+  <div id="security" class="section">
+    <h1>Sécurité</h1>
+    <div class="card">
+      <h3>Mode maintenance</h3>
+      <p style="font-size:12px;color:#888;margin-bottom:14px">Coupe l'accès buyer/public à tout le showroom (page « Maintenance » affichée), sans toucher à votre accès admin. À utiliser en cas d'incident.</p>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button id="btn-maintenance-toggle" class="btn btn-danger" onclick="toggleMaintenance()">Activer la maintenance</button>
+        <span id="maintenance-status" style="font-size:12px;color:#888"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Révocation d'urgence</h3>
+      <p style="font-size:12px;color:#888;margin-bottom:14px">En cas de suspicion de fuite (appareil volé, lien partagé par erreur…), coupez l'accès concerné en un clic. Ces actions sont journalisées.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:13px" id="security-counts">Chargement…</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <button class="btn btn-danger" onclick="revokeAllBuyerSessions()">Déconnecter tous les acheteurs</button>
+        <button class="btn btn-danger" onclick="revokeAllStaffSessions()">Déconnecter tout le staff (sauf moi)</button>
+        <button class="btn btn-danger" onclick="revokeAllOrderLinks()">Révoquer tous les liens /c/*</button>
+        <button class="btn btn-danger" onclick="revokeAllPdfTokens()">Révoquer tous les PDF publics (24h)</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Journal d'audit</h3>
+      <p style="font-size:12px;color:#888;margin-bottom:14px">Connexions, exports, téléchargements, actions sensibles. Ne contient jamais de mot de passe, token ou signature.</p>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="text-align:left;color:#888;border-bottom:1px solid #252525">
+            <th style="padding:6px 8px">Date</th><th style="padding:6px 8px">Utilisateur</th><th style="padding:6px 8px">Action</th><th style="padding:6px 8px">Cible</th><th style="padding:6px 8px">Détails</th>
+          </tr></thead>
+          <tbody id="audit-log-body"><tr><td colspan="5" style="padding:10px 8px;color:#666">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px"><button class="btn btn-secondary btn-sm" onclick="loadAuditLog(auditLogOffset + 100)">Voir plus ↓</button></div>
     </div>
   </div>
 
@@ -2259,6 +2297,7 @@ document.querySelectorAll('nav a').forEach(a => {
     if (a.dataset.section === 'agenda') loadAgenda();
     if (a.dataset.section === 'sales-report') initSalesReport();
     if (a.dataset.section === 'access-requests') loadAccessRequests();
+    if (a.dataset.section === 'security') loadSecurity();
   });
 });
 
@@ -2284,6 +2323,7 @@ async function initUserRole() {
   currentUserRole = me.role;
   if (me.role === 'owner') {
     document.getElementById('nav-staff').style.display = '';
+    document.getElementById('nav-security').style.display = '';
     const ownerOpts = document.querySelectorAll('#role-owner-option, #edit-role-owner-option');
     ownerOpts.forEach(el => el.style.display = '');
   } else {
@@ -5904,6 +5944,85 @@ async function resend(id) {
   const data = await r.json();
   if (data.ok) toast(t('js_email_resent'));
   else toast(data.error || t('js_error'), true);
+}
+
+// ── Centre de sécurité (owner) ─────────────────────────────────────
+let auditLogOffset = 0;
+async function loadSecurity() {
+  const st = await fetch('/api/admin/security/status').then(r => r.json()).catch(() => null);
+  if (st) {
+    document.getElementById('security-counts').innerHTML =
+      `<div>Sessions acheteurs actives : <strong>${st.active_buyer_sessions}</strong></div>` +
+      `<div>Sessions staff actives : <strong>${st.active_staff_sessions}</strong></div>` +
+      `<div>Liens de commande actifs : <strong>${st.active_order_links}</strong></div>`;
+    const btn = document.getElementById('btn-maintenance-toggle');
+    const status = document.getElementById('maintenance-status');
+    if (st.maintenance_mode) {
+      btn.textContent = 'Désactiver la maintenance';
+      status.textContent = '● Maintenance ACTIVE — le showroom est actuellement fermé au public';
+      status.style.color = '#e74c3c';
+    } else {
+      btn.textContent = 'Activer la maintenance';
+      status.textContent = '○ Showroom en ligne';
+      status.style.color = '#888';
+    }
+    btn.dataset.on = st.maintenance_mode ? '1' : '0';
+  }
+  auditLogOffset = 0;
+  loadAuditLog(0);
+}
+
+async function toggleMaintenance() {
+  const btn = document.getElementById('btn-maintenance-toggle');
+  const turningOn = btn.dataset.on !== '1';
+  if (turningOn && !confirm('Activer le mode maintenance ? Le showroom sera inaccessible aux acheteurs et au public jusqu\'à désactivation.')) return;
+  const r = await fetch('/api/admin/security/maintenance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: turningOn }) }).then(r => r.json());
+  if (r.ok) { toast(turningOn ? 'Maintenance activée' : 'Maintenance désactivée'); loadSecurity(); }
+  else toast(r.error || t('js_error'), true);
+}
+
+async function revokeAllBuyerSessions() {
+  if (!confirm('Déconnecter TOUS les acheteurs actuellement connectés ? Ils devront se reconnecter.')) return;
+  const r = await fetch('/api/admin/security/revoke-all-buyer-sessions', { method: 'POST' }).then(r => r.json());
+  if (r.ok) { toast(`${r.revoked} session(s) acheteur révoquée(s)`); loadSecurity(); }
+  else toast(r.error || t('js_error'), true);
+}
+
+async function revokeAllStaffSessions() {
+  if (!confirm('Déconnecter tout le staff (agents, designers) sauf votre propre session ?')) return;
+  const r = await fetch('/api/admin/security/revoke-all-staff-sessions', { method: 'POST' }).then(r => r.json());
+  if (r.ok) { toast(`${r.revoked} session(s) staff révoquée(s)`); loadSecurity(); }
+  else toast(r.error || t('js_error'), true);
+}
+
+async function revokeAllOrderLinks() {
+  if (!confirm('Révoquer TOUS les liens /c/* actifs, toutes marques confondues ? Les QR codes déjà imprimés deviendront invalides.')) return;
+  const r = await fetch('/api/admin/security/revoke-all-order-links', { method: 'POST' }).then(r => r.json());
+  if (r.ok) { toast(`${r.revoked} lien(s) révoqué(s)`); loadSecurity(); }
+  else toast(r.error || t('js_error'), true);
+}
+
+async function revokeAllPdfTokens() {
+  if (!confirm('Révoquer l\'accès public à tous les PDF de commande générés dans les dernières 24h ?')) return;
+  const r = await fetch('/api/admin/security/revoke-all-pdf-tokens', { method: 'POST' }).then(r => r.json());
+  if (r.ok) { toast(`${r.revoked} commande(s) — accès PDF public révoqué`); loadSecurity(); }
+  else toast(r.error || t('js_error'), true);
+}
+
+async function loadAuditLog(offset) {
+  auditLogOffset = offset || 0;
+  const rows = await fetch(`/api/admin/audit-log?limit=100&offset=${auditLogOffset}`).then(r => r.json()).catch(() => []);
+  const body = document.getElementById('audit-log-body');
+  if (!rows.length && auditLogOffset === 0) { body.innerHTML = '<tr><td colspan="5" style="padding:10px 8px;color:#666">Aucune entrée.</td></tr>'; return; }
+  const html = rows.map(row => `<tr style="border-bottom:1px solid #1a1a1a">
+    <td style="padding:6px 8px;white-space:nowrap;color:#888">${esc(new Date(row.created_at).toLocaleString('fr-FR'))}</td>
+    <td style="padding:6px 8px">${esc(row.user_email)}</td>
+    <td style="padding:6px 8px">${esc(row.action)}</td>
+    <td style="padding:6px 8px;color:#888">${esc(row.target_type)}${row.target_id ? ' · ' + esc(String(row.target_id).slice(0,8)) : ''}</td>
+    <td style="padding:6px 8px;color:#888">${esc(row.details)}</td>
+  </tr>`).join('');
+  if (auditLogOffset === 0) body.innerHTML = html;
+  else body.insertAdjacentHTML('beforeend', html);
 }
 
 // Settings
