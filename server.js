@@ -5567,8 +5567,7 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
 
     lines.forEach((l, i) => {
       const p = l.product || {};
-      const rawName = p.description || '';
-      const nameText = rawName.length > 58 ? rawName.slice(0, 55) + '…' : rawName;
+      const nameText = p.description || '';
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
       const rowH = Math.max(nameH, 12) + 7;
       if (rowY + rowH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
@@ -5894,8 +5893,7 @@ async function generateOrderPDF(orderId) {
     drawTableHead();
 
     lines.forEach((line, i) => {
-      const rawName = line.product_name || '';
-      const nameText = rawName.length > 58 ? rawName.slice(0, 55) + '…' : rawName;
+      const nameText = line.product_name || '';
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
       const rowH  = Math.max(nameH, 12) + 7;
       const noteTxt = line.note ? `Note : ${line.note}` : '';
