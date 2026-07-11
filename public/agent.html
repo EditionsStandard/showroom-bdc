@@ -221,7 +221,18 @@ async function doMfaVerify() {
   }
 }
 
+let _staffPingStarted = false;
+function startStaffPing() {
+  if (_staffPingStarted) return;
+  _staffPingStarted = true;
+  // Heartbeat — signale la présence de cet agent dans l'admin (Comptes → présence).
+  const ping = () => fetch('/api/staff/ping', { method: 'POST' }).catch(() => {});
+  ping();
+  setInterval(ping, 30000);
+}
+
 function showBrands(data) {
+  startStaffPing();
   document.getElementById('screen-login').style.display = 'none';
   document.getElementById('screen-brands').style.display = 'block';
   document.getElementById('agent-name').textContent = data.name || data.email || '';

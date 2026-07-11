@@ -370,6 +370,10 @@ async function init() {
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS agent_signature TEXT",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS agent_signed_at TIMESTAMP",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS agent_signed_by TEXT",
+    // Présence en ligne des comptes staff (agent/designer/owner) dans l'admin —
+    // même mécanique que buyers.last_seen_at, alimentée par un ping périodique
+    // depuis /admin et le PWA /agent.
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

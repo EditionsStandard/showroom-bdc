@@ -827,8 +827,23 @@ app.get('/api/me', requireAdmin, (req, res) => {
 // ==================== STAFF ACCOUNTS (owner only) ====================
 
 app.get('/api/staff', requireRole('owner'), async (req, res) => {
-  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.created_at, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
+  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.created_at, a.last_seen_at, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
   res.json(r.rows);
+});
+
+// Présence en ligne des comptes staff (agent/designer/owner) — même mécanique
+// que /api/buyers/presence (fenêtre glissante de 90s), alimentée par le ping
+// périodique envoyé depuis /admin et le PWA /agent tant qu'une session est ouverte.
+app.get('/api/staff/presence', requireRole('owner'), async (req, res) => {
+  const r = await pool.query("SELECT id FROM admin_users WHERE last_seen_at > NOW() - INTERVAL '90 seconds'");
+  res.json(r.rows.map(s => s.id));
+});
+
+app.post('/api/staff/ping', requireAdmin, async (req, res) => {
+  if (req.session.staffUser) {
+    await pool.query('UPDATE admin_users SET last_seen_at = NOW() WHERE id = $1', [req.session.staffUser.id]);
+  }
+  res.json({ ok: true });
 });
 
 app.post('/api/staff', requireRole('owner'), async (req, res) => {

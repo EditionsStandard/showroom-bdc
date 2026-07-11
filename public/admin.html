@@ -1069,7 +1069,7 @@
     <div class="card">
       <h3 data-t="staff_existing_title">Comptes existants</h3>
       <div class="table-wrap"><table id="staff-table">
-        <thead><tr><th data-t="lbl_name">Nom</th><th data-t="lbl_email">Email</th><th data-t="lbl_role">Rôle</th><th data-t="th_brand">Marque</th><th></th></tr></thead>
+        <thead><tr><th style="text-align:center">●</th><th data-t="lbl_name">Nom</th><th data-t="lbl_email">Email</th><th data-t="lbl_role">Rôle</th><th data-t="th_brand">Marque</th><th>Vu</th><th></th></tr></thead>
         <tbody id="staff-body"></tbody>
       </table></div>
     </div>
@@ -2363,6 +2363,7 @@ document.querySelectorAll('nav a').forEach(a => {
     a.classList.add('active');
     document.getElementById(a.dataset.section).classList.add('active');
     if (a.dataset.section !== 'buyers' && _buyersPresenceTimer) { clearInterval(_buyersPresenceTimer); _buyersPresenceTimer = null; }
+    if (a.dataset.section !== 'staff' && _staffPresenceTimer) { clearInterval(_staffPresenceTimer); _staffPresenceTimer = null; }
     if (a.dataset.section === 'dashboard') loadDashboard();
     if (a.dataset.section === 'brands') loadBrands();
     if (a.dataset.section === 'orders') loadOrders();
@@ -2425,6 +2426,12 @@ async function initUserRole() {
     if (badge) badge.style.display = st.enabled ? 'none' : 'inline-block';
     if (!st.enabled) enforceMfaMandatory();
   }).catch(() => {});
+
+  // Heartbeat — signale la présence de ce compte aux autres membres du staff
+  // (visible dans Comptes → colonne présence), même cadence que le portail acheteur.
+  const staffPing = () => fetch('/api/staff/ping', { method: 'POST' }).catch(() => {});
+  staffPing();
+  setInterval(staffPing, 30000);
 }
 
 // MFA obligatoire : tant que le compte n'est pas enrôlé, on bloque la
@@ -2455,26 +2462,58 @@ function toggleStaffBrandField() {
   document.getElementById('staff-brand-field').style.display = document.getElementById('staff-role').value === 'designer' ? 'block' : 'none';
 }
 
+let _staffPresenceTimer = null;
 async function loadStaff() {
-  const brands = await fetch('/api/brands').then(r => r.json());
+  const [brands, staff, onlineIds] = await Promise.all([
+    fetch('/api/brands').then(r => r.json()),
+    fetch('/api/staff').then(r => r.json()),
+    fetch('/api/staff/presence').then(r => r.json()).catch(() => [])
+  ]);
   const sel = document.getElementById('staff-brand-id');
   sel.innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
 
-  const staff = await fetch('/api/staff').then(r => r.json());
+  const onlineSet = new Set(onlineIds);
   const roleLabel = { owner: t('role_owner'), agent: t('role_agent_short'), designer: 'Designer' };
-  document.getElementById('staff-body').innerHTML = staff.map(s => `
-    <tr>
+  document.getElementById('staff-body').innerHTML = staff.map(s => {
+    const online = onlineSet.has(s.id);
+    const dot = online
+      ? `<span title="En ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2ecc71;box-shadow:0 0 4px #2ecc71"></span>`
+      : `<span title="Hors ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#333"></span>`;
+    const lastSeen = s.last_seen_at
+      ? new Date(s.last_seen_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '—';
+    return `
+    <tr data-staff-id="${esc(s.id)}">
+      <td style="text-align:center">${dot}</td>
       <td>${esc(s.name) || '—'}</td>
       <td>${esc(s.email)}</td>
       <td>${esc(roleLabel[s.role] || s.role)}</td>
       <td>${esc(s.brand_name) || '—'}</td>
+      <td style="font-size:11px;color:#666">${lastSeen}</td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${esc(JSON.stringify(s))})">${t('btn_modify')}</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resendStaffCredentials('${esc(s.id)}','${esc(s.email)}')" title="Régénérer et renvoyer les identifiants par email">✉ ${t('btn_credentials')}</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resetStaffMfa('${esc(s.id)}','${esc(s.email)}')" title="Désactive la MFA de ce compte (perte de téléphone, codes de secours perdus…)">🔐 Réinit. MFA</button>
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
       </td>
-    </tr>`).join('') || `<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
+
+  if (_staffPresenceTimer) clearInterval(_staffPresenceTimer);
+  _staffPresenceTimer = setInterval(refreshStaffPresence, 30000);
+}
+
+async function refreshStaffPresence() {
+  const onlineIds = await fetch('/api/staff/presence').then(r => r.json()).catch(() => []);
+  const onlineSet = new Set(onlineIds);
+  document.querySelectorAll('#staff-body tr[data-staff-id]').forEach(row => {
+    const dot = row.querySelector('td:first-child span');
+    if (!dot) return;
+    const online = onlineSet.has(row.dataset.staffId);
+    dot.style.background = online ? '#2ecc71' : '#333';
+    dot.style.boxShadow = online ? '0 0 4px #2ecc71' : 'none';
+    dot.title = online ? 'En ligne' : 'Hors ligne';
+  });
 }
 
 async function resetStaffMfa(id, email) {
