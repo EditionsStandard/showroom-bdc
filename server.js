@@ -356,16 +356,37 @@ app.use(session({
 // (ou se déconnecter) — tout le reste du panneau est bloqué côté serveur,
 // pas seulement masqué côté client. Le flag d'enrôlement est mis en cache
 // dans la session à la connexion (et rafraîchi par /api/staff/mfa/confirm et
-// /disable) pour éviter une requête DB à chaque appel.
-function requireMfaEnrolled(req, res, next) {
+// /disable) pour éviter une requête DB à chaque appel. Une session déjà
+// ouverte AVANT le déploiement de cette fonctionnalité n'a pas ce flag
+// (undefined, ni true ni false) — on le déduit alors une seule fois depuis
+// la base plutôt que de traiter "flag absent" comme "non enrôlé" : sinon
+// tout admin déjà connecté (MFA active ou non) se retrouve bloqué au
+// redémarrage du serveur, sans lien avec son état réel.
+async function requireMfaEnrolled(req, res, next) {
   const role = getRole(req);
   if (!role) return next(); // pas de session admin — laissé aux middlewares d'auth des routes
-  const enrolled = req.session.staffUser ? !!req.session.staffUser.mfaEnrolled : !!req.session.ownerMfaEnrolled;
-  if (enrolled) return next();
-  const p = req.path;
-  if (p.startsWith('/api/staff/mfa/') || p === '/api/me' || p === '/admin/logout') return next();
-  if (p.startsWith('/api/')) return res.status(403).json({ error: 'mfa_required', message: 'Double authentification obligatoire — configurez-la avant de continuer.' });
-  next(); // route HTML (ex. /admin) : le JS client affiche l'overlay de configuration bloquant
+  try {
+    let enrolled;
+    if (req.session.staffUser) {
+      enrolled = req.session.staffUser.mfaEnrolled;
+      if (enrolled === undefined) {
+        const r = await pool.query('SELECT mfa_enabled FROM admin_users WHERE id=$1', [req.session.staffUser.id]);
+        enrolled = !!r.rows[0]?.mfa_enabled;
+        req.session.staffUser.mfaEnrolled = enrolled;
+      }
+    } else {
+      enrolled = req.session.ownerMfaEnrolled;
+      if (enrolled === undefined) {
+        enrolled = (await getSetting('owner_mfa_enabled')) === 'on';
+        req.session.ownerMfaEnrolled = enrolled;
+      }
+    }
+    if (enrolled) return next();
+    const p = req.path;
+    if (p.startsWith('/api/staff/mfa/') || p === '/api/me' || p === '/admin/logout') return next();
+    if (p.startsWith('/api/')) return res.status(403).json({ error: 'mfa_required', message: 'Double authentification obligatoire — configurez-la avant de continuer.' });
+    next(); // route HTML (ex. /admin) : le JS client affiche l'overlay de configuration bloquant
+  } catch(e) { console.error('requireMfaEnrolled:', e); next(); } // fail-open journalisé (cf. incident CSRF 2026-07 — jamais de blocage total non diagnostiqué)
 }
 app.use(requireMfaEnrolled);
 
@@ -2804,9 +2825,18 @@ async function hasCommandeAccess(req, brandId) {
 
 const COMMANDE_ACCESS_DENIED_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Accès restreint</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#f5f4f0;font-family:'Courier New',monospace;padding:32px;text-align:center;line-height:1.7}a{color:#6b8500}</style></head><body><div><p style="font-size:15px">Accès restreint.</p><p style="font-size:13px;color:#999">Ce lien de commande n'est plus valide ou a expiré. Contactez votre showroom pour en obtenir un nouveau.</p></div></body></html>`;
 
+// Trace des refus d'accès à /commande/:brandId dans le journal d'audit —
+// permet de repérer un scan/bruteforce d'UUID de marque (visible dans
+// /api/admin/audit-log) même si l'entropie de l'UUID rend ça peu probable.
+function logCommandeDenied(req, brandId) {
+  const actor = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'public');
+  logAuditRaw(actor, 'commande_access_denied', 'brand', brandId || '', req.ip);
+}
+
 async function requireCommandeAccess(req, res, next) {
   try {
     if (await hasCommandeAccess(req, req.params.brandId)) return next();
+    logCommandeDenied(req, req.params.brandId);
     res.status(403).type('html').send(COMMANDE_ACCESS_DENIED_HTML);
   } catch(e) { console.error('requireCommandeAccess:', e); res.status(500).send('Erreur serveur'); }
 }
@@ -2816,6 +2846,7 @@ async function requireCommandeAccessBody(req, res, next) {
     const brandId = req.body?.brand_id;
     if (!brandId) return res.status(400).json({ error: 'Marque requise' });
     if (await hasCommandeAccess(req, brandId)) return next();
+    logCommandeDenied(req, brandId);
     res.status(403).json({ error: 'access_denied', message: "Accès refusé — lien invalide ou expiré. Demandez un nouveau lien à votre contact showroom." });
   } catch(e) { console.error('requireCommandeAccessBody:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 }
@@ -2825,6 +2856,7 @@ async function requireCommandeAccessBody(req, res, next) {
 async function requireCommandeAccessParam(req, res, next) {
   try {
     if (await hasCommandeAccess(req, req.params.brandId)) return next();
+    logCommandeDenied(req, req.params.brandId);
     res.status(403).json({ error: 'access_denied', message: "Accès refusé — lien invalide ou expiré. Demandez un nouveau lien à votre contact showroom." });
   } catch(e) { console.error('requireCommandeAccessParam:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 }
