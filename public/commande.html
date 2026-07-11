@@ -1554,6 +1554,15 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Vignette allégée à l'affichage (la grille catalogue montre l'image à ~360px
+// de haut au maximum) — le carrousel plein écran continue d'utiliser l'URL
+// d'origine (data-images) pour le zoom. Sans ça, chaque carte de la grille
+// télécharge le master Cloudinary (jusqu'à 1200×1200) pour n'en afficher
+// qu'une vignette : c'est ce qui ralentit le chargement du catalogue.
+function cldTransform(url, t) {
+  return (url && url.includes('res.cloudinary.com')) ? url.replace('/upload/', '/upload/' + t + '/') : url;
+}
+
 // Message « date limite de commande » localisé (ouvert dans le futur, dépassé sinon).
 function deadlineNotice(dateStr) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
@@ -1614,7 +1623,7 @@ function _origRenderProducts(products) {
       const firstSrc = firstImgs[0] || '';
       const variantsJson = esc(JSON.stringify(variants));
       imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
-        + (firstSrc ? '<img class="product-img" id="pimg_' + p.id + '" src="' + esc(firstSrc) + '" data-images="' + esc(JSON.stringify(firstImgs)) + '" onerror="this.style.display=\'none\'">'
+        + (firstSrc ? '<img class="product-img" id="pimg_' + p.id + '" src="' + esc(cldTransform(firstSrc, 'w_500,c_limit,q_auto,f_auto')) + '" loading="lazy" data-images="' + esc(JSON.stringify(firstImgs)) + '" onerror="this.style.display=\'none\'">'
                     : '<div class="product-img-placeholder"></div>')
         + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:0;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
         + '</div>'
@@ -1623,7 +1632,7 @@ function _origRenderProducts(products) {
         + '</div>';
     } else if (imgs.length) {
       imgHtml = '<div class="product-img-wrap" style="position:relative">'
-        + '<img class="product-img" src="' + esc(imgs[0]) + '" data-images="' + esc(JSON.stringify(imgs)) + '" onerror="this.parentElement.style.display=\'none\'">'
+        + '<img class="product-img" src="' + esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto')) + '" loading="lazy" data-images="' + esc(JSON.stringify(imgs)) + '" onerror="this.parentElement.style.display=\'none\'">'
         + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:0;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
         + '</div>';
     } else {
@@ -1721,7 +1730,7 @@ document.getElementById('products-container').addEventListener('click', function
     const badge = document.getElementById('pimgbadge_' + pid);
     if (pimg) {
       if (vImgs.length) {
-        pimg.src = vImgs[0];
+        pimg.src = cldTransform(vImgs[0], 'w_500,c_limit,q_auto,f_auto');
         pimg.dataset.images = JSON.stringify(vImgs);
         pimg.style.display = '';
       } else {
@@ -1969,7 +1978,7 @@ function renderRecap() {
           let imgs = [];
           try { imgs = JSON.parse(l.product.images || '[]'); } catch(e) {}
           if (!imgs.length && l.product.image_url) imgs = [l.product.image_url];
-          const thumb = imgs[0] ? '<img src="' + esc(imgs[0]) + '" style="width:36px;height:36px;object-fit:cover;border-radius:0;display:block">' : '';
+          const thumb = imgs[0] ? '<img src="' + esc(cldTransform(imgs[0], 'w_100,c_limit,q_auto,f_auto')) + '" loading="lazy" style="width:36px;height:36px;object-fit:cover;border-radius:0;display:block">' : '';
           return '<tr>'
             + '<td>' + thumb + '</td>'
             + '<td class="td-ref">' + esc(l.product.reference) + '</td>'
