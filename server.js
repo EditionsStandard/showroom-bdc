@@ -308,8 +308,8 @@ app.get('/sw.js', (req, res) => {
 // Sert une page HTML applicative avec revalidation systématique (no-cache).
 // Empêche qu'un ancien shell HTML mis en cache (navigateur ou PWA installée sur
 // l'écran d'accueil) ne masque une nouvelle version déployée du site.
-function sendPage(res, filename) {
-  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+function sendPage(res, filename, cacheControl) {
+  res.setHeader('Cache-Control', cacheControl || 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', filename));
 }
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -2728,7 +2728,11 @@ app.get('/api/public/brands', async (req, res) => {
   res.json(r.rows);
 });
 
-app.get('/commande/:brandId', (req, res) => sendPage(res, 'commande.html'));
+// Page publique (lien partageable agent→prospect, sans compte) mais qui affiche
+// des prix wholesale/conditions commerciales confidentielles : renforcé au-delà
+// du Cache-Control par défaut de sendPage() (no-cache/revalidate) vers no-store,
+// pour qu'aucun proxy/cache intermédiaire ne conserve une version de la page.
+app.get('/commande/:brandId', (req, res) => sendPage(res, 'commande.html', 'no-store, private'));
 
 // P0-04 — lien de commande privé & expirant : /c/:token → redirige vers la marque
 // si le token est actif et non expiré ; sinon page « lien expiré ». Les liens
