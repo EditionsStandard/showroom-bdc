@@ -2159,6 +2159,45 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Signature agent/marque : capture la signature (canvas, comme côté acheteur),
+// passe la commande en « validated » et régénère le PDF avec les DEUX
+// signatures — c'est ce document, envoyé par email à l'acheteur, qui
+// constitue le bon de commande définitif (cf. CGU, art. 4-5).
+app.post('/api/orders/:id/sign', requireRole('owner','agent'), async (req, res) => {
+  try {
+    if (!await checkOrderBrandScope(req, res)) return;
+    const { signature } = req.body;
+    if (!signature || typeof signature !== 'string' || !signature.startsWith('data:image')) {
+      return res.status(400).json({ error: 'Signature requise' });
+    }
+    const orderId = req.params.id;
+    const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
+    if (!prev.rows[0]) return res.status(404).json({ error: 'Commande introuvable' });
+    const oldStatus = prev.rows[0].status;
+    const signedBy = req.session?.staffUser?.name || req.session?.staffUser?.email || (req.session?.admin ? 'Owner' : 'Agent');
+
+    await pool.query(
+      'UPDATE orders SET agent_signature=$1, agent_signed_at=NOW(), agent_signed_by=$2, status=$3 WHERE id=$4',
+      [signature, signedBy, 'validated', orderId]
+    );
+    logAudit(req, 'order_signed', 'order', orderId, signedBy);
+    await pool.query(
+      'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
+      [uuidv4(), orderId, oldStatus, 'validated', signedBy]
+    ).catch(e => console.error('history insert error:', e.message));
+    await addOrderEvent(orderId, 'validated', `Commande validée et signée par ${signedBy}`, signedBy);
+
+    // Régénère le PDF (désormais signé des deux parties) et l'envoie à l'acheteur.
+    try {
+      const pdf = await generateOrderPDF(orderId);
+      await sendOrderSignedEmail(orderId, pdf);
+    } catch(e) { console.error('signed PDF/email error:', e.message); }
+    notifyOwnerOrder(orderId, 'Commande validée et signée', signedBy).catch(() => {});
+
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/orders/:id/history', requireRole('owner','agent','designer'), async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;
@@ -2238,6 +2277,55 @@ async function sendOrderStatusEmail(orderId, status) {
       <p>${msg}</p>
       <p style="margin-top:12px;font-size:13px;color:#555">${isEn ? 'Brand' : 'Marque'} : <strong>${escHtml(order.brand_name)}</strong> · ${isEn ? 'Reference' : 'Référence'} : <code>${order.order_number || orderId.slice(0,8).toUpperCase()}</code></p>
       <p style="margin-top:28px">${isEn ? 'Best regards' : 'Cordialement'},<br><strong>${escHtml(agentName || showroomName)}</strong></p>
+    ` })
+  });
+}
+
+// Bon de commande définitif (signé par l'acheteur ET par l'agence/marque) —
+// envoyé une fois la commande signée côté agence via POST /api/orders/:id/sign.
+// Distinct de sendOrderEmails (proposition initiale, non contractuelle) et de
+// sendOrderStatusEmail (simples notifications de statut, sans pièce jointe).
+async function sendOrderSignedEmail(orderId, pdfBuffer) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) { console.log('RESEND_API_KEY non configurée — email bon de commande signé non envoyé'); return; }
+  const [showroomEmail, showroomName, agentName, fromAddress] = await Promise.all([
+    getSetting('showroom_email'), getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from')
+  ]);
+  const oRes = await pool.query(`
+    SELECT o.*, b.name as brand_name, b.logo as brand_logo, SUM(ol.quantity * ol.unit_price) as order_total,
+           by2.lang as buyer_lang
+    FROM orders o JOIN brands b ON o.brand_id=b.id
+    LEFT JOIN order_lines ol ON ol.order_id=o.id
+    LEFT JOIN buyers by2 ON by2.id=o.buyer_id
+    WHERE o.id=$1 GROUP BY o.id, b.name, b.logo, by2.lang
+  `, [orderId]);
+  const order = oRes.rows[0];
+  if (!order) return;
+  const isEn = order.buyer_lang === 'en';
+  const orderNo = order.order_number || orderId.slice(0,8).toUpperCase();
+  const filename = `BonDeCommandeDefinitif-${order.brand_name.replace(/\s/g,'-')}-${orderNo}.pdf`;
+  const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
+  const resend = new Resend(resendKey);
+  const fromField = fromAddress || 'showroom@editionsstandard.com';
+
+  await resend.emails.send({
+    from: `${showroomName} <${fromField}>`,
+    to: [order.client_email],
+    ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
+    subject: isEn
+      ? `Final signed order — ${order.brand_name} — ${showroomName}`
+      : `Bon de commande définitif signé — ${order.brand_name} — ${showroomName}`,
+    attachments: [{ filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' }],
+    html: emailLayout({ showroomName, brandName: order.brand_name, brandLogo: order.brand_logo || '', content: isEn ? `
+      <p>Hello <strong>${escHtml(order.client_name)}</strong>,</p>
+      <p>Good news — your order for <strong>${order.brand_name}</strong> has been <strong>validated and signed by both parties</strong>. It is now firm and final.</p>
+      <p>The final signed purchase order (reference <code>${orderNo}</code>, total ex-VAT: <strong>${totalStr}</strong>) is attached to this email.</p>
+      <p style="margin-top:28px">Best regards,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
+    ` : `
+      <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
+      <p>Bonne nouvelle — votre commande pour <strong>${order.brand_name}</strong> a été <strong>validée et signée par les deux parties</strong>. Elle est désormais ferme et définitive.</p>
+      <p>Le bon de commande définitif signé (référence <code>${orderNo}</code>, total HT : <strong>${totalStr}</strong>) est joint à cet email.</p>
+      <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
     ` })
   });
 }
@@ -5768,8 +5856,11 @@ async function generateOrderPDF(orderId) {
     const textX = logoBuf ? 104 : LEFT;
     doc.font(F.bold).fontSize(16).fillColor(INK)
       .text((showroomName || '').toUpperCase(), textX, rowY + 2, { lineBreak: false, characterSpacing: 1 });
+    // Tant que l'agent/la marque n'a pas signé, ce document reste une
+    // proposition (cf. CGU) — le distinguer clairement du bon de commande
+    // définitif une fois les deux signatures réunies.
     doc.font(F.reg).fontSize(8).fillColor(MUTE)
-      .text('BON DE COMMANDE', textX, rowY + 24, { lineBreak: false, characterSpacing: 2 });
+      .text(order.agent_signature ? 'BON DE COMMANDE DÉFINITIF — SIGNÉ' : 'PROPOSITION DE COMMANDE', textX, rowY + 24, { lineBreak: false, characterSpacing: 2 });
     doc.font(F.reg).fontSize(8).fillColor(MUTE)
       .text(`N° ${orderNo}   —   ${dateStr}`, textX, rowY + 36, { lineBreak: false });
     rowY += 58;
@@ -5877,9 +5968,16 @@ async function generateOrderPDF(orderId) {
     doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text('SIGNATURE', LEFT, sigY + 114, { characterSpacing: 1 });
 
     label("L'AGENT / SHOWROOM", 310, sigY);
-    doc.font(F.bold).fontSize(9).fillColor(INK).text(agentName || showroomName || '', 310, sigY + 13);
+    doc.font(F.bold).fontSize(9).fillColor(INK).text(order.agent_signed_by || agentName || showroomName || '', 310, sigY + 13);
     if (agentTitle) doc.font(F.reg).fontSize(8).fillColor(SOFT).text(agentTitle, 310, sigY + 25);
-    doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text('Date : ____________________', 310, sigY + 39);
+    doc.font(F.reg).fontSize(7.5).fillColor(MUTE)
+      .text(order.agent_signed_at ? 'Signé le ' + new Date(order.agent_signed_at).toLocaleDateString('fr-FR') : 'Date : ____________________', 310, sigY + 39);
+    if (order.agent_signature && order.agent_signature.startsWith('data:image')) {
+      try {
+        const agentSigData = order.agent_signature.replace(/^data:image\/\w+;base64,/, '');
+        doc.image(Buffer.from(agentSigData, 'base64'), 310, sigY + 48, { width: 160, height: 55 });
+      } catch(e) {}
+    }
     doc.moveTo(310, sigY + 110).lineTo(490, sigY + 110).strokeColor('#cccccc').lineWidth(0.5).stroke();
     doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text('SIGNATURE', 310, sigY + 114, { characterSpacing: 1 });
 
