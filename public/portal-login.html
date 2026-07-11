@@ -127,6 +127,20 @@
     </div>
   </div>
 
+  <!-- Vue : code MFA (si activée sur le compte) -->
+  <div class="view" id="view-mfa">
+    <div id="mfa-login-error" style="display:none" class="alert alert-error" data-t="mfa_error">Code invalide.</div>
+    <form method="POST" action="/editions-showroom-b2b-portail/mfa" id="mfa-login-form">
+      <p style="color:var(--muted,#888);font-size:12px;margin-bottom:18px;line-height:1.6" data-t="mfa_intro">Entrez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours.</p>
+      <div class="field" id="mfa-code-field"><label data-t="mfa_code_label">Code d'authentification</label><input type="text" name="code" id="mfa-login-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" autofocus></div>
+      <button class="btn" type="submit" data-t="mfa_verify_btn">Vérifier</button>
+      <div class="toggle">
+        <a onclick="toggleLoginBackupCode()" id="mfa-backup-toggle" data-t="mfa_use_backup">Utiliser un code de secours →</a>
+      </div>
+      <div class="field" id="mfa-backup-field" style="display:none;margin-top:12px"><label data-t="mfa_backup_label">Code de secours</label><input type="text" name="backup_code" id="mfa-login-backup" placeholder="XXXXX-XXXXX" disabled></div>
+    </form>
+  </div>
+
   <!-- Vue : mot de passe oublié -->
   <div class="view" id="view-forgot">
     <button class="back-link" onclick="showView('login')" data-t="back_link">← Retour</button>
@@ -176,6 +190,13 @@ const TRANSLATIONS = {
     pw_mismatch: 'Les mots de passe ne correspondent pas.',
     pw_updated: 'Mot de passe mis à jour. Redirection…',
     network_error: 'Erreur réseau, réessayez.',
+    mfa_error: 'Code invalide.',
+    mfa_intro: "Entrez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours.",
+    mfa_code_label: "Code d'authentification",
+    mfa_verify_btn: 'Vérifier',
+    mfa_use_backup: 'Utiliser un code de secours →',
+    mfa_use_code: '← Utiliser mon code à 6 chiffres',
+    mfa_backup_label: 'Code de secours',
   },
   en: {
     portal_title: 'Buyer Portal',
@@ -200,6 +221,13 @@ const TRANSLATIONS = {
     pw_mismatch: 'Passwords do not match.',
     pw_updated: 'Password updated. Redirecting…',
     network_error: 'Network error, please try again.',
+    mfa_error: 'Invalid code.',
+    mfa_intro: 'Enter the 6-digit code from your authenticator app, or one of your backup codes.',
+    mfa_code_label: 'Authentication code',
+    mfa_verify_btn: 'Verify',
+    mfa_use_backup: 'Use a backup code →',
+    mfa_use_code: '← Use my 6-digit code',
+    mfa_backup_label: 'Backup code',
   },
   it: {
     portal_title: 'Portale Acquirenti', email_label: 'Email', email_placeholder: 'tu@esempio.com',
@@ -336,8 +364,27 @@ function showView(name) {
   document.getElementById('view-' + name).classList.add('active');
 }
 
-// Afficher l'erreur de login si ?error dans l'URL
-if (location.search.includes('error')) {
+function toggleLoginBackupCode() {
+  const codeField = document.getElementById('mfa-code-field');
+  const codeInput = document.getElementById('mfa-login-code');
+  const backupField = document.getElementById('mfa-backup-field');
+  const backupInput = document.getElementById('mfa-login-backup');
+  const link = document.getElementById('mfa-backup-toggle');
+  const showingBackup = backupField.style.display === 'block';
+  backupField.style.display = showingBackup ? 'none' : 'block';
+  backupInput.disabled = showingBackup;
+  codeField.style.display = showingBackup ? 'block' : 'none';
+  codeInput.disabled = !showingBackup;
+  if (!showingBackup) { codeInput.value = ''; backupInput.focus(); } else { backupInput.value = ''; codeInput.focus(); }
+  link.textContent = showingBackup ? t('mfa_use_backup') : t('mfa_use_code');
+}
+
+// Étape MFA après mot de passe validé (?step=mfa) — prioritaire sur ?error
+// pour afficher l'erreur au bon endroit (formulaire code, pas mot de passe).
+if (location.search.includes('step=mfa')) {
+  showView('mfa');
+  if (location.search.includes('error')) document.getElementById('mfa-login-error').style.display = 'block';
+} else if (location.search.includes('error')) {
   document.getElementById('login-error').style.display = 'block';
 }
 

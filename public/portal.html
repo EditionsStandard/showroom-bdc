@@ -1206,6 +1206,43 @@ function applyLang() {
     </div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-top:24px">
+      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Double authentification (MFA)</h3>
+      <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:16px">Optionnelle. Ajoute un code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe.</p>
+
+      <div id="mfa-status-off">
+        <p style="font-family:'Inter',sans-serif;font-size:13px;margin-bottom:14px"><span style="color:#e74c3c">●</span> Non activée</p>
+        <button class="btn-secondary" style="font-size:13px;padding:8px 16px" onclick="startBuyerMfaSetup()">Activer la MFA</button>
+      </div>
+      <div id="mfa-status-on" style="display:none">
+        <p style="font-family:'Inter',sans-serif;font-size:13px;margin-bottom:14px"><span style="color:#2ecc71">●</span> Activée</p>
+        <button onclick="showBuyerMfaDisableForm()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">Désactiver la MFA</button>
+        <div id="mfa-disable-form" style="display:none;margin-top:14px;max-width:320px">
+          <div class="field"><label>Confirmez avec votre mot de passe</label><input type="password" id="mfa-disable-password"></div>
+          <button class="btn-confirm" style="margin-top:8px" onclick="disableBuyerMfa()">Confirmer la désactivation</button>
+        </div>
+      </div>
+
+      <div id="mfa-setup-flow" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+        <p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin-bottom:12px">1. Scannez ce QR code avec votre application d'authentification :</p>
+        <img id="mfa-qr" style="width:180px;height:180px;background:#fff;padding:8px" alt="QR code MFA">
+        <p style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);margin:10px 0">Ou entrez la clé manuellement : <code id="mfa-secret-text" style="user-select:all"></code></p>
+        <p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin:14px 0 8px">2. Entrez le code affiché par l'application pour confirmer :</p>
+        <div style="display:flex;gap:10px;align-items:center;max-width:320px">
+          <input type="text" id="mfa-confirm-code" inputmode="numeric" maxlength="6" placeholder="000000" style="flex:1">
+          <button class="btn-confirm" onclick="confirmBuyerMfaSetup()">Confirmer</button>
+        </div>
+      </div>
+
+      <div id="mfa-backup-codes-flow" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+        <p style="font-family:'Inter',sans-serif;font-size:13px;color:#e74c3c;font-weight:700;margin-bottom:10px">⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.</p>
+        <p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin-bottom:12px">Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.</p>
+        <div id="mfa-backup-codes-list" style="font-family:monospace;font-size:14px;line-height:2;background:var(--black);padding:14px;border:1px solid var(--border)"></div>
+        <button class="btn-confirm" style="margin-top:14px" onclick="document.getElementById('mfa-backup-codes-flow').style.display='none';loadBuyerMfaStatus()">J'ai noté mes codes</button>
+      </div>
+      <div id="mfa-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+    </div>
+
+    <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-top:24px">
       <h3 id="gdpr-section-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
       <p id="gdpr-section-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -1840,7 +1877,7 @@ function showView(view, _fromPop) {
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
-  if (view === 'account') fillProfileForm();
+  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); }
   if (view === 'favs') renderFavs();
   if (view === 'messages') loadPortalMessages();
   if (!_fromPop) pushNav({ v: view, brand: null });
@@ -1994,6 +2031,50 @@ async function changePassword() {
   } catch(e) {
     msg.className = 'msg error'; msg.textContent = t('err_network');
   }
+}
+
+// ── MFA acheteur (optionnelle) ──────────────────────────────────────
+async function loadBuyerMfaStatus() {
+  const st = await fetch('/api/portal/mfa/status').then(r => r.json()).catch(() => ({ enabled: false }));
+  document.getElementById('mfa-status-off').style.display = st.enabled ? 'none' : 'block';
+  document.getElementById('mfa-status-on').style.display = st.enabled ? 'block' : 'none';
+  document.getElementById('mfa-setup-flow').style.display = 'none';
+  document.getElementById('mfa-backup-codes-flow').style.display = 'none';
+}
+
+async function startBuyerMfaSetup() {
+  const msg = document.getElementById('mfa-msg');
+  const r = await fetch('/api/portal/mfa/setup', { method: 'POST' }).then(r => r.json());
+  if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
+  document.getElementById('mfa-qr').src = r.qr;
+  document.getElementById('mfa-secret-text').textContent = r.secret;
+  document.getElementById('mfa-setup-flow').style.display = 'block';
+  document.getElementById('mfa-confirm-code').focus();
+}
+
+async function confirmBuyerMfaSetup() {
+  const msg = document.getElementById('mfa-msg');
+  const code = document.getElementById('mfa-confirm-code').value.trim();
+  const r = await fetch('/api/portal/mfa/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).then(r => r.json());
+  if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
+  document.getElementById('mfa-setup-flow').style.display = 'none';
+  document.getElementById('mfa-backup-codes-list').innerHTML = r.backup_codes.map(c => esc(c)).join('<br>');
+  document.getElementById('mfa-backup-codes-flow').style.display = 'block';
+  msg.className = 'msg'; msg.textContent = 'MFA activée ✓';
+}
+
+function showBuyerMfaDisableForm() {
+  document.getElementById('mfa-disable-form').style.display = 'block';
+}
+
+async function disableBuyerMfa() {
+  const msg = document.getElementById('mfa-msg');
+  const password = document.getElementById('mfa-disable-password').value;
+  const r = await fetch('/api/portal/mfa/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) }).then(r => r.json());
+  if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
+  document.getElementById('mfa-disable-password').value = '';
+  msg.className = 'msg'; msg.textContent = 'MFA désactivée';
+  loadBuyerMfaStatus();
 }
 
 function renderBrandSkeletons(n = 6) {
