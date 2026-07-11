@@ -350,6 +350,25 @@ app.use(session({
   }
 }));
 
+// MFA obligatoire côté admin (comptes admin_users individuels ET compte owner
+// legacy à mot de passe partagé) : une session admin/staff sans MFA enrôlée
+// ne peut appeler que les endpoints nécessaires pour terminer l'enrôlement
+// (ou se déconnecter) — tout le reste du panneau est bloqué côté serveur,
+// pas seulement masqué côté client. Le flag d'enrôlement est mis en cache
+// dans la session à la connexion (et rafraîchi par /api/staff/mfa/confirm et
+// /disable) pour éviter une requête DB à chaque appel.
+function requireMfaEnrolled(req, res, next) {
+  const role = getRole(req);
+  if (!role) return next(); // pas de session admin — laissé aux middlewares d'auth des routes
+  const enrolled = req.session.staffUser ? !!req.session.staffUser.mfaEnrolled : !!req.session.ownerMfaEnrolled;
+  if (enrolled) return next();
+  const p = req.path;
+  if (p.startsWith('/api/staff/mfa/') || p === '/api/me' || p === '/admin/logout') return next();
+  if (p.startsWith('/api/')) return res.status(403).json({ error: 'mfa_required', message: 'Double authentification obligatoire — configurez-la avant de continuer.' });
+  next(); // route HTML (ex. /admin) : le JS client affiche l'overlay de configuration bloquant
+}
+app.use(requireMfaEnrolled);
+
 // ── Mode maintenance ────────────────────────────────────────────────
 // Coupe l'accès buyer/public en cas d'incident, en gardant l'admin joignable
 // pour piloter la remise en ligne. Setting en base (persistant, visible par
@@ -588,7 +607,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
       }
       return req.session.regenerate(err => {
         if (err) return res.redirect('/admin/login?error=1');
-        req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+        req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name, mfaEnrolled: false };
         logAuditRaw(user.email, 'login_success', 'staff', user.id, req.ip);
         res.redirect('/admin');
       });
@@ -619,6 +638,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     req.session.regenerate(err => {
       if (err) return res.redirect('/admin/login?error=1');
       req.session.admin = true;
+      req.session.ownerMfaEnrolled = false;
       logAuditRaw('admin', 'login_success', 'staff', '', req.ip);
       res.redirect('/admin');
     });
@@ -670,9 +690,10 @@ app.post('/admin/login/mfa', loginLimiter, async (req, res) => {
   req.session.regenerate(err => {
     if (err) return res.redirect('/admin/login?error=1');
     if (pending.kind === 'staff') {
-      req.session.staffUser = { id: pending.id, email: pending.email, role: pending.role, brand_id: pending.brand_id, name: pending.name };
+      req.session.staffUser = { id: pending.id, email: pending.email, role: pending.role, brand_id: pending.brand_id, name: pending.name, mfaEnrolled: true };
     } else {
       req.session.admin = true;
+      req.session.ownerMfaEnrolled = true;
     }
     logAuditRaw(pending.email || 'admin', usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'staff', pending.id || '', req.ip);
     res.redirect('/admin');
@@ -727,12 +748,14 @@ app.post('/api/staff/mfa/confirm', requireAdmin, async (req, res) => {
     const { plain, hashed } = generateBackupCodes();
     if (req.session.staffUser) {
       await pool.query('UPDATE admin_users SET mfa_secret=$1, mfa_pending_secret=NULL, mfa_enabled=true, mfa_backup_codes=$2 WHERE id=$3', [secret, JSON.stringify(hashed), req.session.staffUser.id]);
+      req.session.staffUser.mfaEnrolled = true; // débloque immédiatement le reste de l'admin (MFA obligatoire)
       logAudit(req, 'mfa_enabled', 'staff', req.session.staffUser.id, '');
     } else {
       await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_secret',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [secret]);
       await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_enabled','on') ON CONFLICT (key) DO UPDATE SET value='on'");
       await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_backup_codes',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [JSON.stringify(hashed)]);
       await pool.query("DELETE FROM settings WHERE key='owner_mfa_pending_secret'");
+      req.session.ownerMfaEnrolled = true;
       logAudit(req, 'mfa_enabled', 'system', '', 'owner');
     }
     res.json({ ok: true, backup_codes: plain });
@@ -747,12 +770,16 @@ app.post('/api/staff/mfa/disable', requireAdmin, passwordLimiter, async (req, re
       const r = await pool.query('SELECT password_hash FROM admin_users WHERE id=$1', [req.session.staffUser.id]);
       if (!r.rows[0] || !await bcrypt.compare(password || '', r.rows[0].password_hash)) return res.status(403).json({ error: 'Mot de passe incorrect' });
       await pool.query('UPDATE admin_users SET mfa_secret=NULL, mfa_pending_secret=NULL, mfa_enabled=false, mfa_backup_codes=NULL WHERE id=$1', [req.session.staffUser.id]);
+      // MFA obligatoire : désactiver reverrouille immédiatement le compte
+      // derrière le flux d'enrôlement (cohérent avec le middleware requireMfaEnrolled).
+      req.session.staffUser.mfaEnrolled = false;
       logAudit(req, 'mfa_disabled', 'staff', req.session.staffUser.id, '');
     } else {
       const adminPassword = await getSetting('admin_password');
       const valid = adminPassword.startsWith('$2') ? await bcrypt.compare(password || '', adminPassword) : password === adminPassword;
       if (!valid) return res.status(403).json({ error: 'Mot de passe incorrect' });
       await pool.query("DELETE FROM settings WHERE key IN ('owner_mfa_secret','owner_mfa_pending_secret','owner_mfa_enabled','owner_mfa_backup_codes')");
+      req.session.ownerMfaEnrolled = false;
       logAudit(req, 'mfa_disabled', 'system', '', 'owner');
     }
     res.json({ ok: true });
@@ -771,8 +798,9 @@ app.post('/api/staff/:id/mfa/reset', requireRole('owner'), async (req, res) => {
 
 app.get('/api/me', requireAdmin, (req, res) => {
   const role = getRole(req);
-  if (role === 'owner') return res.json({ role: 'owner' });
-  res.json({ role, brand_id: req.session.staffUser.brand_id, email: req.session.staffUser.email, name: req.session.staffUser.name });
+  const mfa_enrolled = req.session.staffUser ? !!req.session.staffUser.mfaEnrolled : !!req.session.ownerMfaEnrolled;
+  if (role === 'owner' && !req.session.staffUser) return res.json({ role: 'owner', mfa_enrolled });
+  res.json({ role, brand_id: req.session.staffUser.brand_id, email: req.session.staffUser.email, name: req.session.staffUser.name, mfa_enrolled });
 });
 
 // ==================== STAFF ACCOUNTS (owner only) ====================
@@ -999,12 +1027,31 @@ app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Réutilise un lien de commande actif et non expiré pour la marque, ou en crée
+// un nouveau (90j) — utilisé pour que les QR codes imprimés restent valides
+// après le verrouillage de /commande/:brandId (accès désormais requis via
+// session staff ou token, plus d'accès direct par simple UUID de marque).
+async function getOrCreateCommandeLink(brandId, createdBy) {
+  const existing = await pool.query(
+    "SELECT token FROM commande_links WHERE brand_id=$1 AND active=1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1",
+    [brandId]
+  );
+  if (existing.rows[0]) return existing.rows[0].token;
+  const token = crypto.randomBytes(18).toString('base64url');
+  await pool.query(
+    "INSERT INTO commande_links (token, brand_id, expires_at, created_by) VALUES ($1,$2,NOW() + INTERVAL '90 days',$3)",
+    [token, brandId, createdBy || 'qrcode']
+  );
+  return token;
+}
+
 // QR codes réservés à l'agence (owner/agent) : la distribution/diffusion ne
 // passe pas par les marques, qui ne doivent pas pouvoir court-circuiter l'agence.
 app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent'), async (req, res) => {
   const r = await pool.query('SELECT * FROM brands WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
-  const url = `${getBaseUrl(req)}/commande/${req.params.id}`;
+  const token = await getOrCreateCommandeLink(req.params.id, req.session?.staffUser?.email);
+  const url = `${getBaseUrl(req)}/c/${token}`;
   const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
   res.json({ qr, url });
 });
@@ -1014,8 +1061,10 @@ app.get('/api/brands-qrcodes', requireRole('owner','agent'), async (req, res) =>
   try {
     const r = await pool.query("SELECT id, name, logo, logo_url FROM brands WHERE subscription_status IS NULL OR subscription_status != 'inactive' ORDER BY name");
     const base = getBaseUrl(req);
+    const createdBy = req.session?.staffUser?.email;
     const items = await Promise.all(r.rows.map(async b => {
-      const url = `${base}/commande/${b.id}`;
+      const token = await getOrCreateCommandeLink(b.id, createdBy);
+      const url = `${base}/c/${token}`;
       const qr = await QRCode.toDataURL(url, { width: 300, margin: 2 });
       return { id: b.id, name: b.name, logo: b.logo || b.logo_url || '', qr, url };
     }));
@@ -1082,7 +1131,8 @@ app.get('/api/brands/:brandId/products/:productId/qrcode', requireBrandScope('ow
   const { brandId, productId } = req.params;
   const r = await pool.query('SELECT * FROM products WHERE id=$1 AND brand_id=$2', [productId, brandId]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Produit introuvable' });
-  const url = `${getBaseUrl(req)}/commande/${brandId}?product=${productId}`;
+  const token = await getOrCreateCommandeLink(brandId, req.session?.staffUser?.email);
+  const url = `${getBaseUrl(req)}/c/${token}?product=${productId}`;
   const qr = await QRCode.toDataURL(url, { width: 400, margin: 2 });
   res.json({ qr, url, reference: r.rows[0].reference, description: r.rows[0].description });
 });
@@ -1092,8 +1142,9 @@ app.get('/api/brands/:brandId/qrcodes-all', requireBrandScope('owner','agent'), 
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const prods = await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0 ORDER BY reference', [req.params.brandId]);
   const base = getBaseUrl(req);
+  const token = await getOrCreateCommandeLink(req.params.brandId, req.session?.staffUser?.email);
   const items = await Promise.all(prods.rows.map(async p => {
-    const url = `${base}/commande/${req.params.brandId}?product=${p.id}`;
+    const url = `${base}/c/${token}?product=${p.id}`;
     const qr = await QRCode.toDataURL(url, { width: 300, margin: 1 });
     return { qr, url, reference: p.reference, collection: p.collection_name, color: p.color, price: p.price, price_retail: p.price_retail };
   }));
@@ -2728,21 +2779,73 @@ app.get('/api/public/brands', async (req, res) => {
   res.json(r.rows);
 });
 
+// Accès à /commande/:brandId (page + APIs publiques associées) : soit une
+// session staff (owner/agent/designer, bornée à sa marque si assignée), soit
+// un token /c/:token actif et non expiré pour CETTE marque. Le token est
+// revérifié en base à chaque requête (pas mis en cache dans un booléen de
+// session) pour qu'une révocation depuis l'admin coupe l'accès immédiatement.
+// Fini l'accès direct par simple connaissance de l'UUID de la marque (P1
+// audit — « aucune fonctionnalité sécurisée par une URL non devinable »).
+async function hasCommandeAccess(req, brandId) {
+  const role = getRole(req);
+  if (role) {
+    const staffBrand = req.session.staffUser?.brand_id;
+    if (staffBrand && staffBrand !== brandId) return false;
+    return true;
+  }
+  const tok = req.session?.commandeToken;
+  if (!tok) return false;
+  const r = await pool.query(
+    'SELECT 1 FROM commande_links WHERE token=$1 AND brand_id=$2 AND active=1 AND expires_at > NOW()',
+    [tok, brandId]
+  );
+  return !!r.rows[0];
+}
+
+const COMMANDE_ACCESS_DENIED_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Accès restreint</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#f5f4f0;font-family:'Courier New',monospace;padding:32px;text-align:center;line-height:1.7}a{color:#6b8500}</style></head><body><div><p style="font-size:15px">Accès restreint.</p><p style="font-size:13px;color:#999">Ce lien de commande n'est plus valide ou a expiré. Contactez votre showroom pour en obtenir un nouveau.</p></div></body></html>`;
+
+async function requireCommandeAccess(req, res, next) {
+  try {
+    if (await hasCommandeAccess(req, req.params.brandId)) return next();
+    res.status(403).type('html').send(COMMANDE_ACCESS_DENIED_HTML);
+  } catch(e) { console.error('requireCommandeAccess:', e); res.status(500).send('Erreur serveur'); }
+}
+
+async function requireCommandeAccessBody(req, res, next) {
+  try {
+    const brandId = req.body?.brand_id;
+    if (!brandId) return res.status(400).json({ error: 'Marque requise' });
+    if (await hasCommandeAccess(req, brandId)) return next();
+    res.status(403).json({ error: 'access_denied', message: "Accès refusé — lien invalide ou expiré. Demandez un nouveau lien à votre contact showroom." });
+  } catch(e) { console.error('requireCommandeAccessBody:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+}
+
+// Variante JSON de requireCommandeAccess (params.brandId) pour les endpoints
+// API — /commande/:brandId (page HTML) utilise requireCommandeAccess ci-dessus.
+async function requireCommandeAccessParam(req, res, next) {
+  try {
+    if (await hasCommandeAccess(req, req.params.brandId)) return next();
+    res.status(403).json({ error: 'access_denied', message: "Accès refusé — lien invalide ou expiré. Demandez un nouveau lien à votre contact showroom." });
+  } catch(e) { console.error('requireCommandeAccessParam:', e); res.status(500).json({ error: 'Erreur serveur' }); }
+}
+
 // Page publique (lien partageable agent→prospect, sans compte) mais qui affiche
 // des prix wholesale/conditions commerciales confidentielles : renforcé au-delà
 // du Cache-Control par défaut de sendPage() (no-cache/revalidate) vers no-store,
 // pour qu'aucun proxy/cache intermédiaire ne conserve une version de la page.
-app.get('/commande/:brandId', (req, res) => sendPage(res, 'commande.html', 'no-store, private'));
+app.get('/commande/:brandId', requireCommandeAccess, (req, res) => sendPage(res, 'commande.html', 'no-store, private'));
 
-// P0-04 — lien de commande privé & expirant : /c/:token → redirige vers la marque
-// si le token est actif et non expiré ; sinon page « lien expiré ». Les liens
-// /commande/:brandId directs restent valides (rétrocompat, transition douce).
+// P0-04 — lien de commande privé & expirant : /c/:token → accorde l'accès (le
+// token est mémorisé en session, revérifié en base à chaque usage) puis
+// redirige vers la marque ; sinon page « lien expiré/invalide ».
 app.get('/c/:token', async (req, res) => {
   try {
     const r = await pool.query('SELECT brand_id, expires_at, active FROM commande_links WHERE token=$1', [req.params.token]);
     const link = r.rows[0];
     if (link && link.active && new Date(link.expires_at) > new Date()) {
-      return res.redirect(302, '/commande/' + link.brand_id);
+      req.session.commandeToken = req.params.token;
+      const qs = req.query.product ? ('?product=' + encodeURIComponent(req.query.product)) : '';
+      return res.redirect(302, '/commande/' + link.brand_id + qs);
     }
     // Lien invalide ou expiré : page minimaliste (au style du site), noindex hérité du header global.
     res.status(410).type('html').send(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Lien expiré</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#111111;font-family:'Courier New',monospace;padding:32px;text-align:center;line-height:1.7}a{color:#6b8500}</style></head><body><div><p style="font-size:15px">Ce lien de commande a expiré.</p><p style="font-size:13px;color:#999">Contactez votre showroom pour en obtenir un nouveau.</p></div></body></html>`);
@@ -2828,7 +2931,7 @@ app.get('/api/public/branding', async (req, res) => {
   res.json({ showroom_name: showroom_name || '', login_bg_url: login_bg_url || '' });
 });
 
-app.get('/api/public/brands/:brandId', async (req, res) => {
+app.get('/api/public/brands/:brandId', requireCommandeAccessParam, async (req, res) => {
   const b = await pool.query("SELECT id,name,logo_url,logo,cover_image,thumbnail,cgv_text,about_text,moq_qty,moq_amount,delivery_terms,payment_terms,return_terms,TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline,subscription_status FROM brands WHERE id=$1", [req.params.brandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   if (b.rows[0].subscription_status === 'inactive') {
@@ -2850,7 +2953,7 @@ app.get('/api/public/brands/:brandId', async (req, res) => {
   res.json({ brand, products, currencies, agent: { name: agentName, title: agentTitle, phone: agentPhone, showroom: showroomName } });
 });
 
-app.post('/api/public/selection-pdf', publicLimiter, async (req, res) => {
+app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, async (req, res) => {
   try {
     const { brand_id, client_name, client_email, client_company, client_country, notes, lines } = req.body;
     if (!brand_id) return res.status(400).json({ error: 'Marque requise' });
@@ -2965,7 +3068,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   return { order_id: orderId, total: orderTotal, pdf_token: pdfToken };
 }
 
-app.post('/api/public/orders', publicLimiter, async (req, res) => {
+app.post('/api/public/orders', publicLimiter, requireCommandeAccessBody, async (req, res) => {
   const { brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted } = req.body;
   if (!brand_id || !client_name || !client_email || !lines?.length) {
     return res.status(400).json({ error: 'Données incomplètes' });
@@ -6563,6 +6666,15 @@ app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 
 // Agent PWA
 app.get('/agent', (req, res) => sendPage(res, 'agent.html'));
 
+async function agentBrandsFor(user) {
+  if (!user.brand_id) {
+    const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name");
+    return r.rows;
+  }
+  const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
+  return r.rows;
+}
+
 app.post('/api/agent/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
@@ -6572,26 +6684,57 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     const user = rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) { logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip); return res.status(401).json({ error: 'Invalid credentials' }); }
-    let brands;
-    if (!user.brand_id) {
-      const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name");
-      brands = r.rows;
-    } else {
-      const r = await pool.query('SELECT id, name, logo, logo_url, thumbnail FROM brands WHERE id=$1', [user.brand_id]);
-      brands = r.rows;
+    if (!user.mfa_enabled) {
+      // MFA obligatoire sur tous les comptes admin_users, mais l'app agent (PWA
+      // légère, sans page profil) n'a pas d'écran d'enrôlement QR — on renvoie
+      // vers /admin où le flux d'activation existe déjà, plutôt que d'accorder
+      // une session bloquée sans aucun moyen de la débloquer depuis cet écran.
+      logAuditRaw(user.email, 'login_blocked_mfa_setup_required', 'staff', user.id, req.ip);
+      return res.status(403).json({ error: 'mfa_setup_required', message: "Double authentification obligatoire. Connectez-vous une première fois sur /admin pour l'activer, puis revenez ici." });
     }
-    // Régénération de session — anti session fixation (alignée sur les autres logins)
+    // Mot de passe correct, MFA active : aucune session privilégiée tant que
+    // le code TOTP n'est pas vérifié (même logique que /admin/login).
+    req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
+    logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
+    return res.json({ mfaRequired: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// Étape 2 du login agent PWA : vérification TOTP/code de secours, miroir JSON
+// de /admin/login/mfa (qui répond par redirection HTML, inadapté au fetch()
+// de agent.html).
+app.post('/api/agent/login/mfa', loginLimiter, async (req, res) => {
+  const pending = req.session.mfaPending;
+  if (!pending || pending.kind !== 'staff') return res.status(401).json({ error: 'Session expirée, reconnectez-vous.' });
+  const code = (req.body.code || '').toString().trim();
+  const backupCode = (req.body.backup_code || '').toString().trim();
+  try {
+    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM admin_users WHERE id=$1', [pending.id]);
+    const row = r.rows[0];
+    let ok = false, usedBackup = false;
+    if (row?.mfa_secret) {
+      if (code && authenticator.check(code, row.mfa_secret)) ok = true;
+      else if (backupCode) {
+        const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
+        if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
+      }
+    }
+    if (!ok) {
+      logAuditRaw(pending.email, 'login_mfa_failed', 'staff', pending.id, req.ip);
+      return res.status(401).json({ error: 'Code invalide' });
+    }
+    const brands = await agentBrandsFor(pending);
     req.session.regenerate(err => {
       if (err) return res.status(500).json({ error: 'Server error' });
-      req.session.user = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
-      logAuditRaw(user.email, 'login_success', 'staff', user.id, req.ip);
-      res.json({ name: user.name || user.email, email: user.email, role: user.role, brands });
+      req.session.staffUser = { id: pending.id, email: pending.email, role: pending.role, brand_id: pending.brand_id, name: pending.name, mfaEnrolled: true };
+      logAuditRaw(pending.email, usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'staff', pending.id, req.ip);
+      res.json({ name: pending.name || pending.email, email: pending.email, role: pending.role, brands });
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
 
 app.get('/api/agent/me', async (req, res) => {
-  const user = req.session?.user || req.session?.staffUser;
+  const user = req.session?.staffUser;
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   let brands;
   try {
