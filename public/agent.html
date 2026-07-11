@@ -115,6 +115,18 @@
   <button class="btn" id="login-btn" onclick="doLogin()">Connexion</button>
 </div>
 
+<!-- MFA -->
+<div id="screen-mfa" style="display:none">
+  <div class="logo-area">
+    <img src="/logo.svg" alt="Editions Standard">
+    <div class="kicker">B2B Showroom</div>
+    <h1>Code de vérification</h1>
+  </div>
+  <div class="field"><label>Code à 6 chiffres (ou code de secours)</label><input type="text" id="mfa-code" inputmode="numeric" autocomplete="one-time-code" autofocus></div>
+  <div id="mfa-err" class="err" style="display:none"></div>
+  <button class="btn" id="mfa-btn" onclick="doMfaVerify()">Valider</button>
+</div>
+
 <!-- BRANDS -->
 <div id="screen-brands" style="display:none">
   <div class="header">
@@ -155,9 +167,19 @@ async function doLogin() {
     });
     if (r.ok) {
       const data = await r.json();
+      if (data.mfaRequired) {
+        document.getElementById('screen-login').style.display = 'none';
+        document.getElementById('screen-mfa').style.display = 'block';
+        document.getElementById('mfa-code').focus();
+        btn.disabled = false; btn.textContent = 'Connexion';
+        return;
+      }
       showBrands(data);
     } else {
-      err.textContent = 'Email ou mot de passe incorrect.';
+      const data = await r.json().catch(() => ({}));
+      err.textContent = data.error === 'mfa_setup_required'
+        ? (data.message || "Double authentification obligatoire : activez-la d'abord sur /admin.")
+        : 'Email ou mot de passe incorrect.';
       err.style.display = 'block';
       btn.disabled = false; btn.textContent = 'Connexion';
     }
@@ -165,6 +187,37 @@ async function doLogin() {
     err.textContent = 'Erreur réseau — vérifiez votre connexion.';
     err.style.display = 'block';
     btn.disabled = false; btn.textContent = 'Connexion';
+  }
+}
+
+async function doMfaVerify() {
+  const raw = document.getElementById('mfa-code').value.trim();
+  const btn = document.getElementById('mfa-btn');
+  const err = document.getElementById('mfa-err');
+  if (!raw) return;
+  btn.disabled = true; btn.textContent = 'Vérification…';
+  err.style.display = 'none';
+  const body = raw.includes('-') ? { backup_code: raw } : { code: raw };
+  try {
+    const r = await fetch('/api/agent/login/mfa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (r.ok) {
+      const data = await r.json();
+      document.getElementById('screen-mfa').style.display = 'none';
+      showBrands(data);
+    } else {
+      const data = await r.json().catch(() => ({}));
+      err.textContent = data.error || 'Code invalide.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Valider';
+    }
+  } catch(e) {
+    err.textContent = 'Erreur réseau — vérifiez votre connexion.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Valider';
   }
 }
 
@@ -216,6 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('login-email').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('login-pw').focus();
+  });
+  document.getElementById('mfa-code').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doMfaVerify();
   });
 });
 

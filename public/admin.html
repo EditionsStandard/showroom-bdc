@@ -2423,7 +2423,31 @@ async function initUserRole() {
   fetch('/api/staff/mfa/status').then(r => r.json()).then(st => {
     const badge = document.getElementById('mfa-nav-badge');
     if (badge) badge.style.display = st.enabled ? 'none' : 'inline-block';
+    if (!st.enabled) enforceMfaMandatory();
   }).catch(() => {});
+}
+
+// MFA obligatoire : tant que le compte n'est pas enrôlé, on bloque la
+// navigation (côté client — le serveur bloque déjà les API via
+// requireMfaEnrolled, ceci n'est qu'un guide visuel vers le seul onglet
+// utilisable) et on force l'onglet "Ma sécurité".
+function enforceMfaMandatory() {
+  document.querySelectorAll('nav a[data-section]').forEach(a => {
+    if (a.dataset.section !== 'mfa') { a.style.pointerEvents = 'none'; a.style.opacity = '.35'; }
+  });
+  showSection('mfa');
+  if (document.getElementById('mfa-mandatory-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'mfa-mandatory-banner';
+  banner.style.cssText = 'background:#e74c3c;color:#fff;padding:12px 16px;font-size:13px;font-weight:700;text-align:center;margin-bottom:16px';
+  banner.textContent = "Double authentification obligatoire sur ce compte — configurez-la ci-dessous pour accéder au reste de l'administration.";
+  const mfaSection = document.getElementById('mfa');
+  mfaSection.insertBefore(banner, mfaSection.firstChild);
+}
+function releaseMfaMandatory() {
+  const banner = document.getElementById('mfa-mandatory-banner');
+  if (banner) banner.remove();
+  document.querySelectorAll('nav a[data-section]').forEach(a => { a.style.pointerEvents = ''; a.style.opacity = ''; });
 }
 initUserRole();
 
@@ -4114,8 +4138,9 @@ async function shareShowroomLink() {
   await shareOrCopy(url, document.getElementById('qr-brand-name').textContent);
 }
 async function shareShowroomBrand(brandId, brandName) {
-  const url = `${location.origin}/commande/${brandId}`;
-  await shareOrCopy(url, brandName);
+  const data = await fetch(`/api/brands/${brandId}/qrcode`).then(r => r.json()).catch(() => null);
+  if (!data?.url) { toast('Erreur lors de la génération du lien', true); return; }
+  await shareOrCopy(data.url, brandName);
 }
 async function shareOrCopy(url, brandName) {
   if (navigator.share) {
@@ -6223,6 +6248,7 @@ async function confirmMfaSetup() {
   document.getElementById('mfa-backup-codes-list').innerHTML = r.backup_codes.map(c => esc(c)).join('<br>');
   document.getElementById('mfa-backup-codes-flow').style.display = 'block';
   toast('MFA activée ✓');
+  releaseMfaMandatory();
 }
 
 function showMfaDisableForm() {
@@ -6236,6 +6262,7 @@ async function disableMfa() {
   document.getElementById('mfa-disable-password').value = '';
   toast('MFA désactivée');
   loadMfaSection();
+  enforceMfaMandatory();
 }
 
 // Settings
