@@ -362,6 +362,14 @@ async function init() {
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_pending_secret TEXT",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN DEFAULT false",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT",
+
+    // Signature agent/marque côté commande — jusqu'ici la case « agent »
+    // du PDF n'était qu'une ligne à signer à la main, jamais capturée. Une
+    // fois signée, la commande devient le bon de commande définitif (double
+    // signature) envoyé à l'acheteur.
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS agent_signature TEXT",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS agent_signed_at TIMESTAMP",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS agent_signed_by TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

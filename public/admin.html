@@ -1770,6 +1770,12 @@
       </select>
     </div>
 
+    <!-- Signature agent/marque -->
+    <div id="mo-sign-wrap" style="background:var(--black);border-radius:0;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div id="mo-sign-status" style="font-size:13px"></div>
+      <button id="mo-sign-btn" class="btn btn-primary btn-sm" onclick="openSignOrderModal()">✍️ Signer et valider la commande</button>
+    </div>
+
     <!-- Client -->
     <div style="background:var(--black);border-radius: 0;padding:14px 16px;margin-bottom:14px;font-size:13px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px">Client</div>
@@ -1827,6 +1833,26 @@
       <a id="mo-pdf-link" href="#" target="_blank" class="btn btn-secondary">📄 PDF</a>
       <button class="btn btn-green btn-sm" id="mo-resend-btn" onclick="resendFromModal()" data-t="btn_resend">📧 Renvoyer</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-order')" data-t="btn_close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SIGNATURE AGENT/MARQUE -->
+<div class="modal-overlay" id="modal-sign-order">
+  <div class="modal" style="max-width:520px">
+    <h3 style="margin-bottom:6px">Signer et valider la commande</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Une fois signée, la commande devient le <strong>bon de commande définitif</strong> — le PDF final (signé par l'acheteur ET par vous) est automatiquement envoyé au client par email.</p>
+    <div style="background:#fff;border-radius:0;overflow:hidden;margin-bottom:10px">
+      <canvas id="agent-sig-canvas" style="width:100%;height:150px;touch-action:none;cursor:crosshair;display:block"></canvas>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <button class="btn btn-secondary btn-sm" onclick="clearAgentSig()">Effacer</button>
+      <span style="font-size:11px;color:#666">Signez avec la souris ou le doigt (tablette)</span>
+    </div>
+    <div id="sign-order-msg" style="font-size:12px;margin-bottom:10px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-sign-order')">Annuler</button>
+      <button class="btn btn-primary" onclick="submitOrderSignature()">✍️ Signer et envoyer au client</button>
     </div>
   </div>
 </div>
@@ -5783,6 +5809,17 @@ async function viewOrder(id) {
   document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR');
   document.getElementById('mo-status-select').value = o.status || 'confirmed';
 
+  const signStatusEl = document.getElementById('mo-sign-status');
+  const signBtn = document.getElementById('mo-sign-btn');
+  if (o.agent_signature) {
+    signStatusEl.innerHTML = `✅ <strong>Signée</strong> par ${esc(o.agent_signed_by || '')} le ${new Date(o.agent_signed_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}`;
+    signBtn.textContent = '✍️ Re-signer';
+  } else {
+    signStatusEl.innerHTML = `⚠️ <span style="color:#e0b03a">Non signée par l'agence</span> — l'acheteur n'a reçu que la proposition`;
+    signBtn.textContent = '✍️ Signer et valider la commande';
+  }
+  signBtn.style.display = (currentUserRole === 'designer') ? 'none' : '';
+
   const readOnly = currentUserRole === 'designer';
   document.getElementById('mo-status-select').disabled = readOnly;
   const delBtn = document.querySelector('#modal-order button[onclick="deleteOrderFromModal()"]');
@@ -5964,7 +6001,17 @@ async function saveDeliveryWindow() {
 
 async function changeOrderStatus() {
   if (!_currentOrderId) return;
-  const status = document.getElementById('mo-status-select').value;
+  const sel = document.getElementById('mo-status-select');
+  const status = sel.value;
+  // « Validée » ne se déclenche que par une signature (cf. bouton dédié) —
+  // sinon on enverrait un email « commande validée » sans jamais avoir
+  // capturé de signature agent/marque, ce qui rendrait le libellé mensonger.
+  if (status === 'validated') {
+    const o = _allOrders.find(x => x.id === _currentOrderId);
+    sel.value = (o && o.status) || 'confirmed';
+    openSignOrderModal();
+    return;
+  }
   await fetch('/api/orders/' + _currentOrderId + '/status', {
     method: 'PUT',
     headers: {'Content-Type':'application/json'},
@@ -5974,6 +6021,63 @@ async function changeOrderStatus() {
   if (o) o.status = status;
   filterOrders();
   toast(t('js_status_updated'));
+}
+
+// ── Signature agent/marque (bon de commande définitif) ──────────────
+let agentSigCanvas, agentSigCtx, agentSigDrawing = false, agentSigEmpty = true;
+function initAgentSigCanvas() {
+  agentSigCanvas = document.getElementById('agent-sig-canvas');
+  if (!agentSigCanvas) return;
+  agentSigCtx = agentSigCanvas.getContext('2d');
+  const rect = agentSigCanvas.getBoundingClientRect();
+  agentSigCanvas.width = rect.width || 480;
+  agentSigCanvas.height = rect.height || 150;
+  agentSigCtx.strokeStyle = '#0a0a0a';
+  agentSigCtx.lineWidth = 2;
+  agentSigCtx.lineCap = 'round';
+  agentSigEmpty = true;
+
+  const getPos = e => {
+    const r = agentSigCanvas.getBoundingClientRect();
+    const scaleX = agentSigCanvas.width / r.width;
+    const scaleY = agentSigCanvas.height / r.height;
+    return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
+  };
+  agentSigCanvas.onmousedown = e => { agentSigDrawing = true; const p = getPos(e); agentSigCtx.beginPath(); agentSigCtx.moveTo(p.x, p.y); };
+  agentSigCanvas.onmousemove = e => { if (!agentSigDrawing) return; const p = getPos(e); agentSigCtx.lineTo(p.x, p.y); agentSigCtx.stroke(); agentSigEmpty = false; };
+  agentSigCanvas.onmouseup = () => { agentSigDrawing = false; };
+  agentSigCanvas.onmouseleave = () => { agentSigDrawing = false; };
+  agentSigCanvas.ontouchstart = e => { e.preventDefault(); agentSigDrawing = true; const p = getPos(e.touches[0]); agentSigCtx.beginPath(); agentSigCtx.moveTo(p.x, p.y); };
+  agentSigCanvas.ontouchmove = e => { e.preventDefault(); if (!agentSigDrawing) return; const p = getPos(e.touches[0]); agentSigCtx.lineTo(p.x, p.y); agentSigCtx.stroke(); agentSigEmpty = false; };
+  agentSigCanvas.ontouchend = () => { agentSigDrawing = false; };
+}
+
+function clearAgentSig() {
+  if (agentSigCtx) agentSigCtx.clearRect(0, 0, agentSigCanvas.width, agentSigCanvas.height);
+  agentSigEmpty = true;
+}
+
+function openSignOrderModal() {
+  document.getElementById('sign-order-msg').textContent = '';
+  openModal('modal-sign-order');
+  setTimeout(initAgentSigCanvas, 50); // le canvas doit être visible (dimensions non nulles) pour se dimensionner
+}
+
+async function submitOrderSignature() {
+  const msg = document.getElementById('sign-order-msg');
+  if (agentSigEmpty) { msg.style.color = '#e74c3c'; msg.textContent = 'Veuillez signer avant de valider.'; return; }
+  const signature = agentSigCanvas.toDataURL('image/png');
+  const r = await fetch('/api/orders/' + _currentOrderId + '/sign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ signature })
+  }).then(r => r.json());
+  if (r.error) { msg.style.color = '#e74c3c'; msg.textContent = r.error; return; }
+  closeModal('modal-sign-order');
+  const o = _allOrders.find(x => x.id === _currentOrderId);
+  if (o) o.status = 'validated';
+  filterOrders();
+  toast('Commande signée et envoyée au client ✓');
+  viewOrder(_currentOrderId); // rafraîchit le bandeau de signature + statut dans la modale
 }
 
 async function deleteOrder(id) {
