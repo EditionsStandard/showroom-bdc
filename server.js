@@ -923,7 +923,7 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
-      const resend = new Resend(resendKey);
+      const resend = newResendClient(resendKey);
       const loginUrl = `${getBaseUrl(req)}/admin/login`;
       const roleLabel = { owner: 'Propriétaire', agent: 'Agent', designer: 'Marque / Designer' }[u.role] || u.role;
       await resend.emails.send({
@@ -975,7 +975,7 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.json({ ok: true, emailed: false, brand: brandName || null });
     const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const introDefault = brandName
       ? `<p>Bonjour,</p><p>Vous êtes invité(e) à découvrir la collection <strong>${escHtml(brandName)}</strong> sur notre showroom B2B ${escHtml(showroomName || '')}.</p>`
       : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez toutes les marques et demandez votre accès en quelques clics.</p>`;
@@ -1802,7 +1802,7 @@ async function sendAppointmentConfirmationEmail(appt) {
     getSetting('agent_phone'), getSetting('showroom_email')
   ]);
   const from = fromAddress || 'showroom@editionsstandard.com';
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
 
   // Get brand name
   const brandRes = await pool.query('SELECT name FROM brands WHERE id=$1', [appt.brand_id]);
@@ -2338,7 +2338,7 @@ async function sendOrderStatusEmail(orderId, status) {
   `, [orderId]);
   const order = oRes.rows[0];
   if (!order) return;
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
   const isEn = order.buyer_lang === 'en';
   const statusMessages = {
@@ -2392,7 +2392,7 @@ async function sendOrderSignedEmail(orderId, pdfBuffer) {
   const orderNo = order.order_number || orderId.slice(0,8).toUpperCase();
   const filename = `BonDeCommandeDefinitif-${order.brand_name.replace(/\s/g,'-')}-${orderNo}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
 
   await resend.emails.send({
@@ -2704,7 +2704,7 @@ async function sendAppointmentVideoEmail(appt) {
     getSetting('showroom_name'), getSetting('smtp_from'), getSetting('agent_name'), getSetting('agent_phone')
   ]);
   const from = fromAddress || 'showroom@editionsstandard.com';
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
   const brandRes = await pool.query('SELECT name FROM brands WHERE id=$1', [appt.brand_id]);
   const brandName = brandRes.rows[0]?.name || showroomName;
   const dateStr = appt.slot_date instanceof Date
@@ -2746,7 +2746,7 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
     await pool.query('INSERT INTO buyer_access_tokens (token, buyer_id, expires_at) VALUES ($1,$2,$3)', [token, buyer.id, expires]);
     const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
     const link = `${getBaseUrl(req)}/portal/access?token=${token}`;
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const isEn = buyer.lang === 'en';
     await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
@@ -3165,7 +3165,7 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
 async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber, url, req, lang, reminder = false }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email sélection agent non envoyé'); return; }
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
   const showroomName = await getSetting('showroom_name');
   const fromField = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
   const ownerEmail = await getSetting('showroom_email'); // copie (BCC) au propriétaire
@@ -3220,7 +3220,7 @@ async function notifyOwner(subject, contentHtml) {
       getSetting('showroom_email'), getSetting('showroom_name'), getSetting('smtp_from')
     ]);
     if (!ownerEmail) return; // pas d'adresse propriétaire configurée dans Réglages
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [ownerEmail],
@@ -3954,7 +3954,7 @@ app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
       doc.end();
     });
 
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     await resend.emails.send({
       from: `${showroomName} <${fromAddress}>`,
       to: [to],
@@ -4445,7 +4445,7 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
       const resendKey = process.env.RESEND_API_KEY;
       if (!resendKey) return;
       const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
-      const resend = new Resend(resendKey);
+      const resend = newResendClient(resendKey);
       const portalUrl = `${getBaseUrl(req)}/portal`;
       await resend.emails.send({
         from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
@@ -4725,7 +4725,7 @@ app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
     );
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return;
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const showroomName = await getSetting('showroom_name');
     const fromAddress = await getSetting('smtp_from');
     const resetUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail?token=${token}`;
@@ -4948,7 +4948,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
     const [showroomName, agentName, fromAddress, showroomEmail] = await Promise.all([
       getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from'), getSetting('showroom_email')
     ]);
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const { message } = req.body;
     const isEn = buyer.lang === 'en';
     await resend.emails.send({
@@ -5138,7 +5138,7 @@ app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
 async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) { console.log('RESEND_API_KEY non configurée — email de bienvenue acheteur non envoyé'); return; }
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
   const showroomName = await getSetting('showroom_name');
   const fromAddress = await getSetting('smtp_from');
   const fromField = fromAddress || 'showroom@editionsstandard.com';
@@ -5246,7 +5246,7 @@ app.post('/api/brands/:brandId/share-request', emailLimiter, requireBrandScope('
         getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
       ]);
       if (!resendKey || !adminEmail) return;
-      const resend = new Resend(resendKey);
+      const resend = newResendClient(resendKey);
       await resend.emails.send({
         from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
         to: [adminEmail],
@@ -5314,7 +5314,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   ]);
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey && adminEmail) {
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
     const adminUrl = `${req.protocol}://${req.get('host')}/admin`;
     await resend.emails.send({
@@ -5380,7 +5380,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
   const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
     const loginUrl = `${req.protocol}://${req.get('host')}/editions-showroom-b2b-portail`;
     // Fetch buyer lang (just created — default 'fr', can't be 'en' yet unless set elsewhere)
@@ -5430,7 +5430,7 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
   const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
     await resend.emails.send({
       from: `${showroomName} <${from}>`,
@@ -5583,7 +5583,7 @@ app.post('/api/buyer/request-link', buyerAuthLimiter, async (req, res) => {
 
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
-      const resend = new Resend(resendKey);
+      const resend = newResendClient(resendKey);
       const fromAddress = await getSetting('smtp_from');
       const showroomName = await getSetting('showroom_name');
       const fromField = fromAddress || 'showroom@editionsstandard.com';
@@ -6138,27 +6138,59 @@ async function generateOrderPDF(orderId) {
       .text(`Document généré automatiquement — ${showroomName}`, LEFT, rowY, { align: 'center', width: WIDTH });
 
     // ── Récapitulatif visuel (photos des articles commandés) ──
-    const visualLines = lines.filter(l => lineImages[l.product_id]);
-    if (visualLines.length) {
+    // Une carte par PRODUIT (grille tailles/quantités), pas par taille — sinon
+    // une commande multi-tailles répète la même photo une fois par ligne et le
+    // PDF explose en pages pour une commande qui tient sur quelques références.
+    const visualProductIds = [];
+    const visualProducts = {};
+    lines.forEach(l => {
+      if (!lineImages[l.product_id]) return;
+      if (!visualProducts[l.product_id]) {
+        visualProducts[l.product_id] = { reference: l.reference, color: l.color, sizes: [], totalQty: 0 };
+        visualProductIds.push(l.product_id);
+      }
+      visualProducts[l.product_id].sizes.push({ size: l.size || '—', qty: l.quantity });
+      visualProducts[l.product_id].totalQty += l.quantity;
+    });
+
+    if (visualProductIds.length) {
       doc.addPage();
       doc.font(F.bold).fontSize(14).fillColor(INK).text('Récapitulatif visuel', LEFT, 50);
       doc.font(F.reg).fontSize(8.5).fillColor(MUTE)
         .text(`${order.brand_name} — Commande N° ${orderNo}`, LEFT, 70);
       hr(86);
-      const cardW = 156, gap = 11, imgH = 150, startX = LEFT;
-      let cx = startX, cy = 100, colIdx = 0;
-      visualLines.forEach(line => {
-        if (cy + imgH + 46 > 800) { doc.addPage(); cy = 50; cx = startX; colIdx = 0; }
+      const cardW = 156, gap = 11, imgH = 150, startX = LEFT, VBOTTOM = 800;
+
+      // Hauteur de légende variable selon le nombre de tailles à lister —
+      // calculée avant le tracé pour que chaque ligne de cartes ait la hauteur
+      // de sa carte la plus haute (sinon une carte 6 tailles chevauche la suivante).
+      const cards = visualProductIds.map(pid => {
+        const p = visualProducts[pid];
+        const sizesText = p.sizes.map(s => `${s.size} : ${s.qty}`).join('   ·   ');
+        doc.font(F.reg).fontSize(7.5);
+        const sizesH = doc.heightOfString(sizesText, { width: cardW });
+        const captionH = 13 + (p.color ? 11 : 0) + sizesH + 3 + 12;
+        return { pid, ...p, sizesText, cardH: imgH + captionH };
+      });
+
+      let cx = startX, cy = 100, colIdx = 0, rowMax = 0;
+      cards.forEach((card, idx) => {
+        if (colIdx === 0) {
+          rowMax = Math.max(card.cardH, cards[idx + 1]?.cardH || 0, cards[idx + 2]?.cardH || 0);
+          if (cy + rowMax + 10 > VBOTTOM) { doc.addPage(); cy = 50; }
+        }
         doc.rect(cx, cy, cardW, imgH).fillColor('#f2f2f2').fill();
-        try { doc.image(lineImages[line.product_id], cx, cy, { fit: [cardW, imgH], align: 'center', valign: 'center' }); } catch(e) { /* format non supporté → fond gris */ }
+        try { doc.image(lineImages[card.pid], cx, cy, { fit: [cardW, imgH], align: 'center', valign: 'center' }); } catch(e) { /* format non supporté → fond gris */ }
         let ty = cy + imgH + 5;
-        doc.font(F.bold).fontSize(8.5).fillColor(INK).text(line.reference || '', cx, ty, { width: cardW });
-        ty += 12;
-        const meta = [line.color, line.size].filter(Boolean).join(' · ');
-        if (meta) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(meta, cx, ty, { width: cardW }); ty += 10; }
-        doc.font(F.bold).fontSize(8).fillColor(INK).text('Qté : ' + line.quantity, cx, ty, { width: cardW });
+        doc.font(F.bold).fontSize(8.5).fillColor(INK).text(card.reference || '', cx, ty, { width: cardW });
+        ty += 13;
+        if (card.color) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(card.color, cx, ty, { width: cardW }); ty += 11; }
+        doc.font(F.reg).fontSize(7.5).fillColor('#444').text(card.sizesText, cx, ty, { width: cardW });
+        ty = doc.y + 3;
+        doc.font(F.bold).fontSize(8).fillColor(INK).text('Qté totale : ' + card.totalQty, cx, ty, { width: cardW });
+
         colIdx++;
-        if (colIdx >= 3) { colIdx = 0; cx = startX; cy += imgH + 46; }
+        if (colIdx >= 3) { colIdx = 0; cx = startX; cy += rowMax + 16; }
         else { cx += cardW + gap; }
       });
     }
@@ -6181,9 +6213,38 @@ const LOGO_URL = 'https://showroom.editionsstandard.com/logo.svg';
 // media queries) + variante CLAIRE automatique via @media (prefers-color-scheme:
 // light) pour les clients qui la supportent (Apple Mail, iOS…), avec bascule du
 // logo blanc↔noir. Défauts inline = sombre ; overrides !important = clair.
-const EMAIL_LOGO_URL = 'https://showroom.editionsstandard.com/logo-email.png';   // blanc (sombre)
-const EMAIL_LOGO_BLACK = 'https://showroom.editionsstandard.com/logo-pdf.png';   // noir (clair)
+const EMAIL_LOGO_URL = 'cid:email-logo-white';   // blanc (sombre)
+const EMAIL_LOGO_BLACK = 'cid:email-logo-black'; // noir (clair)
 const EMAIL_MONO = "'Courier New', Courier, monospace";
+
+// Logos embarqués en pièce jointe cid: (et non plus en <img src="https://...">
+// distant) — un client mail qui bloque les images distantes ou dont le proxy de
+// confidentialité échoue à les récupérer (icône brisée constatée en pratique)
+// affiche quand même le logo, puisqu'il fait partie du message lui-même.
+let _emailLogoAttachments = null;
+function getEmailLogoAttachments() {
+  if (_emailLogoAttachments) return _emailLogoAttachments;
+  try {
+    _emailLogoAttachments = [
+      { filename: 'logo-white.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-email.png')).toString('base64'), content_type: 'image/png', content_id: 'email-logo-white' },
+      { filename: 'logo-black.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-pdf.png')).toString('base64'), content_type: 'image/png', content_id: 'email-logo-black' },
+    ];
+  } catch(e) { console.error('[email-logo]', e.message); _emailLogoAttachments = []; }
+  return _emailLogoAttachments;
+}
+
+// Enrobe un client Resend pour que .emails.send() attache automatiquement les
+// deux logos cid: ci-dessus — évite de dupliquer cette logique dans chacun des
+// ~20 points d'envoi d'email du fichier (mêmes options sinon, juste le logo en plus).
+function newResendClient(apiKey) {
+  const client = new Resend(apiKey);
+  const origSend = client.emails.send.bind(client.emails);
+  client.emails.send = (options) => origSend({
+    ...options,
+    attachments: [...getEmailLogoAttachments(), ...(options.attachments || [])]
+  });
+  return client;
+}
 function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor = '#CCEB3C', content, footer = '' }) {
   const brandBlock = brandName ? `
   <tr><td style="padding:2px 0 22px;text-align:center">
@@ -6193,6 +6254,16 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
 
   const style = `
   <style>
+    /* Filet de sécurité typographique : le style inline du <td class="em-body">
+       ne se propage pas de façon fiable aux <table>/<td> qu'un contenu d'email
+       imbrique (comportement connu de nombreux moteurs de rendu mail) — sans
+       cette règle, un tableau de détails de commande construit sans font-family
+       explicite retombe sur la police système (sans-serif) au lieu du monospace
+       du reste du gabarit. */
+    .em-body, .em-body table, .em-body td, .em-body th, .em-body p, .em-body div,
+    .em-body span, .em-body strong, .em-body b, .em-body a, .em-body li {
+      font-family: 'Courier New', Courier, monospace !important;
+    }
     @media (prefers-color-scheme: dark) {
       .em-main { background:#0a0a0a !important; }
       .em-ink { color:#f5f4f0 !important; }
@@ -6292,7 +6363,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const dateStr = new Date(order.created_at).toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   const cgvText = order.brand_cgv || globalCgv;
 
-  const resend = new Resend(resendKey);
+  const resend = newResendClient(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
   const fromFormatted = `${showroomName} <${fromField}>`;
   const attachment = { filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' };
@@ -6665,7 +6736,7 @@ async function sendAppointmentReminders() {
        WHERE a.slot_date = $1`,
       [dateStr]
     );
-    const resend = new Resend(resendKey);
+    const resend = newResendClient(resendKey);
     const fromAddress = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
     const showroomName = await getSetting('showroom_name');
     for (const appt of rows) {
