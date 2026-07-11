@@ -3196,10 +3196,18 @@ function isSafeNextPath(next) {
 
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
+  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
   const safeNext = isSafeNextPath(req.body.next) ? req.body.next : '';
   if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
+    if (buyer.mfa_enabled) {
+      // Mot de passe correct mais MFA active côté acheteur : pas de session
+      // privilégiée tant que le code TOTP n'est pas vérifié (même principe
+      // que côté admin — voir /admin/login/mfa).
+      req.session.mfaPendingBuyer = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country, next: safeNext };
+      logAuditRaw(buyer.email, 'login_password_ok_mfa_pending', 'buyer', buyer.id, req.ip);
+      return res.redirect('/editions-showroom-b2b-portail?step=mfa');
+    }
     // Régénération de session — anti session fixation
     req.session.regenerate(err => {
       if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
@@ -3212,6 +3220,38 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   logAuditRaw((email||'').toLowerCase().trim(), 'login_failed', 'buyer', '', req.ip);
   const failNext = safeNext ? '&next=' + encodeURIComponent(safeNext) : '';
   res.redirect('/editions-showroom-b2b-portail?error=1' + failNext);
+});
+
+// Étape 2 du login acheteur : vérification du code TOTP (ou code de secours),
+// identique dans le principe à /admin/login/mfa.
+app.post('/editions-showroom-b2b-portail/mfa', loginLimiter, async (req, res) => {
+  const pending = req.session.mfaPendingBuyer;
+  if (!pending) return res.redirect('/editions-showroom-b2b-portail');
+  const code = (req.body.code || '').toString().trim();
+  const backupCode = (req.body.backup_code || '').toString().trim();
+  let ok = false, usedBackup = false;
+
+  const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM buyers WHERE id=$1', [pending.id]);
+  const row = r.rows[0];
+  if (row?.mfa_secret) {
+    if (code && authenticator.check(code, row.mfa_secret)) ok = true;
+    else if (backupCode) {
+      const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
+      if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE buyers SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
+    }
+  }
+
+  if (!ok) {
+    logAuditRaw(pending.email, 'login_mfa_failed', 'buyer', pending.id, req.ip);
+    return res.redirect('/editions-showroom-b2b-portail?step=mfa&error=1');
+  }
+
+  req.session.regenerate(err => {
+    if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
+    req.session.buyerPortal = { id: pending.id, email: pending.email, name: pending.name, company: pending.company, phone: pending.phone, country: pending.country };
+    logAuditRaw(pending.email, usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'buyer', pending.id, req.ip);
+    res.redirect(pending.next || '/portal');
+  });
 });
 
 app.get('/portal-logout', (req, res) => {
@@ -3267,6 +3307,46 @@ app.post('/api/portal/change-password', requireBuyerAuth, passwordLimiter, async
   await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyer.id]);
   await invalidateBuyerSessions(buyer.id, req.sessionID);
   res.json({ ok: true });
+});
+
+// ── MFA acheteur (optionnelle, self-service depuis « Mon profil ») ──────
+app.get('/api/portal/mfa/status', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query('SELECT mfa_enabled FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+  res.json({ enabled: !!r.rows[0]?.mfa_enabled });
+});
+
+app.post('/api/portal/mfa/setup', requireBuyerAuth, async (req, res) => {
+  try {
+    const secret = authenticator.generateSecret();
+    const uri = authenticator.keyuri(req.session.buyerPortal.email, 'Showroom Editions Standard', secret);
+    const qr = await QRCode.toDataURL(uri);
+    await pool.query('UPDATE buyers SET mfa_pending_secret=$1 WHERE id=$2', [secret, req.session.buyerPortal.id]);
+    res.json({ secret, qr, uri });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/portal/mfa/confirm', requireBuyerAuth, async (req, res) => {
+  try {
+    const code = (req.body.code || '').toString().trim();
+    const r = await pool.query('SELECT mfa_pending_secret FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+    const secret = r.rows[0]?.mfa_pending_secret;
+    if (!secret || !code || !authenticator.check(code, secret)) return res.status(400).json({ error: 'Code invalide. Vérifiez l\'heure de votre appareil et réessayez.' });
+    const { plain, hashed } = generateBackupCodes();
+    await pool.query('UPDATE buyers SET mfa_secret=$1, mfa_pending_secret=NULL, mfa_enabled=true, mfa_backup_codes=$2 WHERE id=$3', [secret, JSON.stringify(hashed), req.session.buyerPortal.id]);
+    logAudit(req, 'mfa_enabled', 'buyer', req.session.buyerPortal.id, '');
+    res.json({ ok: true, backup_codes: plain });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/portal/mfa/disable', requireBuyerAuth, passwordLimiter, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const r = await pool.query('SELECT password_hash FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+    if (!r.rows[0] || !await bcrypt.compare(password || '', r.rows[0].password_hash)) return res.status(403).json({ error: 'Mot de passe incorrect' });
+    await pool.query('UPDATE buyers SET mfa_secret=NULL, mfa_pending_secret=NULL, mfa_enabled=false, mfa_backup_codes=NULL WHERE id=$1', [req.session.buyerPortal.id]);
+    logAudit(req, 'mfa_disabled', 'buyer', req.session.buyerPortal.id, '');
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // RGPD — Export des données personnelles (droit d'accès)

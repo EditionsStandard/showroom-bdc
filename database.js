@@ -355,6 +355,13 @@ async function init() {
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_pending_secret TEXT",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN DEFAULT false",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT",
+
+    // MFA acheteur — optionnelle (contrairement au staff), activable depuis
+    // « Mon profil ». Même schéma, table différente.
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_secret TEXT",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_pending_secret TEXT",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN DEFAULT false",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
