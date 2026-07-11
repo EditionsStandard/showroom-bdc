@@ -114,7 +114,7 @@
 
   <!-- Vue : connexion -->
   <div class="view active" id="view-login">
-    <div id="login-error" style="display:none" class="alert alert-error" data-t="login_error">Email ou mot de passe incorrect.</div>
+    <div id="login-error"></div>
     <form method="POST" action="/editions-showroom-b2b-portail" id="login-form">
       <input type="hidden" name="next" id="next-field" value="">
       <div class="field"><label data-t="email_label">Email</label><input type="email" name="email" autofocus data-tp="email_placeholder"></div>
@@ -129,7 +129,7 @@
 
   <!-- Vue : code MFA (si activée sur le compte) -->
   <div class="view" id="view-mfa">
-    <div id="mfa-login-error" style="display:none" class="alert alert-error" data-t="mfa_error">Code invalide.</div>
+    <div id="mfa-login-error"></div>
     <form method="POST" action="/editions-showroom-b2b-portail/mfa" id="mfa-login-form">
       <p style="color:var(--muted,#888);font-size:12px;margin-bottom:18px;line-height:1.6" data-t="mfa_intro">Entrez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours.</p>
       <div class="field" id="mfa-code-field"><label data-t="mfa_code_label">Code d'authentification</label><input type="text" name="code" id="mfa-login-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" autofocus></div>
@@ -383,9 +383,9 @@ function toggleLoginBackupCode() {
 // pour afficher l'erreur au bon endroit (formulaire code, pas mot de passe).
 if (location.search.includes('step=mfa')) {
   showView('mfa');
-  if (location.search.includes('error')) document.getElementById('mfa-login-error').style.display = 'block';
+  if (location.search.includes('error')) showMessage(document.getElementById('mfa-login-error'), t('mfa_error'), 'error');
 } else if (location.search.includes('error')) {
-  document.getElementById('login-error').style.display = 'block';
+  showMessage(document.getElementById('login-error'), t('login_error'), 'error');
 }
 
 // Préserver le ?next= pour la redirection post-login (scan QR)
