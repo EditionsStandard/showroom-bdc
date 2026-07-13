@@ -374,6 +374,22 @@ async function init() {
     // même mécanique que buyers.last_seen_at, alimentée par un ping périodique
     // depuis /admin et le PWA /agent.
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
+    // File d'attente de validation manuelle pour les relances automatiques
+    // (acheteurs inactifs, sélections non confirmées) — ces relances sont
+    // sensibles commercialement et ne doivent plus partir sans regard humain,
+    // même si leur détection reste automatique/planifiée.
+    `CREATE TABLE IF NOT EXISTS pending_reminders (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      label TEXT DEFAULT '',
+      preview TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ,
+      resolved_by TEXT DEFAULT ''
+    )`,
+    "CREATE INDEX IF NOT EXISTS idx_pending_reminders_status ON pending_reminders(status, created_at)",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
