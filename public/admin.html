@@ -594,6 +594,16 @@
   <div id="dashboard" class="section active">
     <h1 data-t="h1_dashboard">Tableau de bord</h1>
     <p class="dash-kicker" data-t="dash_kicker">Vue d'ensemble de votre showroom en temps réel</p>
+
+    <!-- Priorités du jour — agrège tout ce qui attend une action -->
+    <div class="card agency-only" id="priorities-card" style="margin-bottom:16px;border-color:#3a3300;background:linear-gradient(135deg,#111 60%,#221c00 100%)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="margin:0;font-size:14px;color:var(--accent)">☀️ Priorités du jour</h3>
+        <span id="priorities-count" style="font-size:11px;color:#888"></span>
+      </div>
+      <div id="priorities-list"><p style="font-size:12px;color:#555">Chargement…</p></div>
+    </div>
+
     <div class="stats">
       <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
@@ -3562,6 +3572,57 @@ async function loadDashboard() {
   loadBuyerStats();
   loadWorldMap().catch(() => {});
   loadDashboardTimeline();
+  loadPriorities();
+}
+
+// ── Priorités du jour — agrège ce qui attend une action ───────────────
+function goToDashSection(sectionId) {
+  const a = document.querySelector('nav a[data-section="' + sectionId + '"]');
+  if (a) a.click();
+}
+async function loadPriorities() {
+  const box = document.getElementById('priorities-list');
+  const countEl = document.getElementById('priorities-count');
+  if (!box) return;
+  try {
+    const d = await fetch('/api/admin/dashboard/priorities').then(r => r.json());
+    countEl.textContent = d.total ? d.total + (d.total > 1 ? ' points à traiter' : ' point à traiter') : '';
+    const sections = [];
+    if (d.pendingReminders?.length) sections.push({
+      icon: '✉️', label: `${d.pendingReminders.length} relance(s) à valider`, section: 'pending-reminders',
+      items: d.pendingReminders.map(r => r.label || r.type)
+    });
+    if (d.todayAppointments?.length) sections.push({
+      icon: '📅', label: `${d.todayAppointments.length} RDV aujourd'hui`, section: 'agenda',
+      items: d.todayAppointments.map(a => `${a.slot_time} — ${a.client_name} (${a.brand_name})`)
+    });
+    if (d.accessRequests?.length) sections.push({
+      icon: '🔑', label: `${d.accessRequests.length} demande(s) d'accès en attente`, section: 'access-requests',
+      items: d.accessRequests.map(a => `${a.name}${a.company ? ' — ' + a.company : ''}`)
+    });
+    if (d.expiringSelections?.length) sections.push({
+      icon: '⏳', label: `${d.expiringSelections.length} sélection(s) expirant sous 48h`, section: null,
+      items: d.expiringSelections.map(s => `${s.selection_number || ''} — ${s.client_name || s.client_company || ''} (${s.brand_name})`)
+    });
+    if (d.unsignedOrders?.length) sections.push({
+      icon: '✍️', label: `${d.unsignedOrders.length} commande(s) à contresigner`, section: 'orders',
+      items: d.unsignedOrders.map(o => `${o.order_number || ''} — ${o.client_name || o.client_company || ''} (${o.brand_name})`)
+    });
+
+    if (!sections.length) {
+      box.innerHTML = '<p style="font-size:13px;color:#2ecc71">✓ Rien en attente — tout est à jour.</p>';
+      return;
+    }
+    box.innerHTML = sections.map(s => `
+      <div style="padding:10px 0;border-bottom:1px solid #2a2400;${s.section ? 'cursor:pointer' : ''}" ${s.section ? `onclick="goToDashSection('${s.section}')"` : ''}>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:13px">${s.icon} ${esc(s.label)}</strong>
+          ${s.section ? '<span style="font-size:11px;color:#888">Voir →</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:4px">${s.items.slice(0,3).map(i => esc(i)).join(' · ')}${s.items.length > 3 ? '…' : ''}</div>
+      </div>
+    `).join('');
+  } catch(e) { box.innerHTML = '<p style="font-size:12px;color:#e07a7a">Erreur de chargement</p>'; }
 }
 
 // ── Timeline commerciale (fil chronologique tous acheteurs) ──────────

@@ -5175,6 +5175,46 @@ app.get('/api/admin/dashboard/timeline', requireRole('owner','agent'), async (re
   } catch(e) { console.error('dashboard timeline:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Vue « priorités du jour » — agrège tout ce qui attend une action de
+// l'agence aujourd'hui : relances à valider, RDV du jour, demandes d'accès
+// en attente, sélections sur le point d'expirer, commandes signées par
+// l'acheteur mais pas encore contresignées par l'agent. Chaque type a son
+// propre workflow existant (relances-a-valider, demandes-d-acces…) — cette
+// vue ne fait qu'agréger ce qui est déjà en base pour un coup d'œil unique.
+app.get('/api/admin/dashboard/priorities', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const scoped = isBrandScoped(req);
+    const bId = req.userBrandId;
+    const p = scoped ? [bId] : [];
+    const [pendingReminders, todayAppts, accessRequests, expiringSels, unsignedOrders] = await Promise.all([
+      pool.query(`SELECT id, type, label, created_at FROM pending_reminders WHERE status='pending' ORDER BY created_at ASC LIMIT 20`),
+      pool.query(`SELECT a.id, a.client_name, a.slot_time, b.name AS brand_name
+                  FROM appointments a JOIN brands b ON b.id = a.brand_id
+                  WHERE a.slot_date = CURRENT_DATE ${scoped ? 'AND a.brand_id = $1' : ''}
+                  ORDER BY a.slot_time ASC`, p),
+      pool.query(`SELECT id, name, company, email, created_at FROM access_requests WHERE status='pending' ORDER BY created_at ASC LIMIT 20`),
+      pool.query(`SELECT s.token, s.selection_number, s.client_name, s.client_company, s.expires_at, b.name AS brand_name
+                  FROM agent_selections s JOIN brands b ON b.id = s.brand_id
+                  WHERE s.used = false AND s.expires_at BETWEEN NOW() AND NOW() + INTERVAL '48 hours'
+                  ${scoped ? 'AND s.brand_id = $1' : ''}
+                  ORDER BY s.expires_at ASC LIMIT 20`, p),
+      pool.query(`SELECT o.id, o.order_number, o.client_name, o.client_company, o.created_at, b.name AS brand_name
+                  FROM orders o JOIN brands b ON b.id = o.brand_id
+                  WHERE o.agent_signature IS NULL AND o.status NOT IN ('draft','cancelled','archived')
+                  ${scoped ? 'AND o.brand_id = $1' : ''}
+                  ORDER BY o.created_at ASC LIMIT 20`, p)
+    ]);
+    res.json({
+      pendingReminders: pendingReminders.rows,
+      todayAppointments: todayAppts.rows,
+      accessRequests: accessRequests.rows,
+      expiringSelections: expiringSels.rows,
+      unsignedOrders: unsignedOrders.rows,
+      total: pendingReminders.rows.length + todayAppts.rows.length + accessRequests.rows.length + expiringSels.rows.length + unsignedOrders.rows.length
+    });
+  } catch(e) { console.error('dashboard priorities:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
   req.url = req.url.replace('/api/search', '/api/admin/search');
   res.redirect(307, '/api/admin/search?' + new URLSearchParams({ q: req.query.q || '' }));
