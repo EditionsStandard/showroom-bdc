@@ -378,6 +378,10 @@
   .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: background .15s; z-index: var(--z-card); }
   .fav-btn:hover { background: rgba(0,0,0,.85); }
   .fav-btn.active { color: #e74c3c; }
+  .shortlist-btn { position: absolute; top: 8px; right: 46px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: background .15s; z-index: var(--z-card); color: #fff; }
+  .shortlist-btn:hover { background: rgba(0,0,0,.85); }
+  .shortlist-btn.active { color: #a78bfa; }
+  body.presentation-mode .shortlist-btn { display: none !important; }
   #view-favs { display: none; }
 
   /* ── Skeleton loaders ── */
@@ -664,6 +668,9 @@ const TRANSLATIONS = {
     favs_title: 'Mes favoris', favs_empty: 'Aucun favori pour l\'instant. Cliquez sur ♡ sur un produit.',
     favs_intro: 'Retrouvez ici les produits mis en favoris depuis n\'importe quelle marque.',
     fav_added: '♥ Ajouté aux favoris', fav_remove: '♥ Retirer',
+    shortlist_title: 'Ma shortlist', shortlist_empty: 'Aucun article en shortlist pour l\'instant. Cliquez sur 🔖 sur un produit.',
+    shortlist_intro: 'Articles mis de côté pour en discuter en équipe avant de commander.',
+    shortlist_added: '🔖 Ajouté à la shortlist',
     recently_viewed: 'Récemment vus',
     ref_copied: (ref) => `✓ Référence copiée : ${ref}`,
     reorder_added: (n) => `↺ ${n} produit(s) ajouté(s) au panier`,
@@ -801,6 +808,9 @@ const TRANSLATIONS = {
     favs_title: 'My favourites', favs_empty: 'No favourites yet. Click ♡ on a product.',
     favs_intro: 'Find here all products you\'ve favourited across any brand.',
     fav_added: '♥ Added to favourites', fav_remove: '♥ Remove',
+    shortlist_title: 'My shortlist', shortlist_empty: 'No shortlisted items yet. Click 🔖 on a product.',
+    shortlist_intro: 'Items set aside to discuss with your team before ordering.',
+    shortlist_added: '🔖 Added to shortlist',
     recently_viewed: 'Recently viewed',
     ref_copied: (ref) => `✓ Reference copied: ${ref}`,
     reorder_added: (n) => `↺ ${n} product(s) added to cart`,
@@ -1111,6 +1121,7 @@ function applyLang() {
       <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
       <div class="dropdown-sep"></div>
       <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
+      <button id="dd-shortlist" class="dropdown-item" onclick="closeUserMenu();showView('shortlist')">🔖 <span data-t="shortlist_title">Ma shortlist</span></button>
       <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
         <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
           <option value="fr">Français</option>
@@ -1221,6 +1232,13 @@ function applyLang() {
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <h2 class="section-title" id="favs-section-title">Mes favoris</h2>
     <div id="favs-list"></div>
+  </div>
+
+  <div id="view-shortlist" class="view-section" style="display:none;opacity:1">
+    <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
+    <h2 class="section-title" id="shortlist-section-title" data-t="shortlist_title">Ma shortlist</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin:-16px 0 20px" data-t="shortlist_intro">Articles mis de côté pour en discuter en équipe avant de commander.</p>
+    <div id="shortlist-list"></div>
   </div>
 
   <div id="view-messages" class="view-section" style="display:none;opacity:1;max-width:680px">
@@ -1522,7 +1540,8 @@ let CART_KEY = 'portal_cart';
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
 const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
-let favorites = new Set(); // product IDs
+let favorites = new Set(); // product IDs — "j'aime"
+let shortlist = new Set(); // product IDs — "à montrer/étudier en équipe" (niveau intermédiaire, distinct des favoris et du panier)
 let recentlyViewed = []; // [{id, brand_id, reference, description, color, price, image_url}]
 let recentlyViewedBrands = []; // [{id, name, logo, logo_url}] — pour le tableau de bord
 function trackBrandView(brand) {
@@ -1860,6 +1879,7 @@ async function handleQrParams() {
 
 async function init() {
   loadFavs();
+  loadShortlist();
   loadRecentlyViewed();
   loadRecentlyViewedBrands();
   renderBrandSkeletons();
@@ -1871,6 +1891,7 @@ async function init() {
   restoreCart();
   syncCartFromServer();
   syncFavoritesFromServer();
+  syncShortlistFromServer();
   // Populate user menu
   const initials = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = initials;
@@ -1926,7 +1947,7 @@ async function init() {
 }
 
 function showView(view, _fromPop) {
-  ['dashboard','catalog','cart','orders','account','favs','messages'].forEach(v => {
+  ['dashboard','catalog','cart','orders','account','favs','shortlist','messages'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (!el) return;
     if (v === view) {
@@ -1949,6 +1970,7 @@ function showView(view, _fromPop) {
   if (view === 'catalog') updateCartBar();
   if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); }
   if (view === 'favs') renderFavs();
+  if (view === 'shortlist') renderShortlist();
   if (view === 'messages') loadPortalMessages();
   if (!_fromPop) pushNav({ v: view, brand: null });
 }
@@ -2458,13 +2480,15 @@ function renderProductsPage() {
     const isFav = favorites.has(p.id);
     const badgeNew = isNew ? `<span class="badge-new">NEW</span>` : '';
     const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="Ajouter aux favoris">${isFav?'♥':'♡'}</button>`;
+    const isShort = shortlist.has(p.id);
+    const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="Ajouter à la shortlist">🔖</button>`;
     const img = imgs[0]
       ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
           <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
           ${imgs[1] ? `<img class="product-img-2" src="${esc(cldTransform(imgs[1], 'w_500,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
-          ${imgBadge}${videoBadge}${badgeNew}${favBtn}
+          ${imgBadge}${videoBadge}${badgeNew}${favBtn}${shortBtn}
          </div>`
-      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${videoBadge}${badgeNew}${favBtn}</div>`;
+      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${videoBadge}${badgeNew}${favBtn}${shortBtn}</div>`;
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
     const _isOutOfStock = p.stock_enabled && p.stock_qty === 0;
@@ -3145,6 +3169,33 @@ async function syncFavoritesFromServer() {
   } catch(e) {}
 }
 
+// ── Shortlist ("à montrer/étudier en équipe") — même mécanique que les favoris
+// ci-dessus, volontairement séparée : ne jamais fusionner les deux listes.
+function toggleShortlist(productId) {
+  if (shortlist.has(productId)) {
+    shortlist.delete(productId);
+  } else {
+    shortlist.add(productId);
+    showToast(t('shortlist_added'));
+  }
+  saveShortlist();
+  const btn = document.querySelector(`.product-card[data-pid="${productId}"] .shortlist-btn`);
+  if (btn) { btn.classList.toggle('active', shortlist.has(productId)); }
+  if (document.getElementById('view-shortlist').style.display !== 'none') renderShortlist();
+  fetch(`/api/portal/shortlist/${productId}`, { method: 'POST' }).catch(() => {});
+}
+function saveShortlist() { try { localStorage.setItem('portal_shortlist', JSON.stringify([...shortlist])); } catch(e) {} }
+function loadShortlist() { try { const d = localStorage.getItem('portal_shortlist'); if (d) shortlist = new Set(JSON.parse(d)); } catch(e) {} }
+async function syncShortlistFromServer() {
+  try {
+    const serverList = await fetch('/api/portal/shortlist').then(r => r.json());
+    if (Array.isArray(serverList) && serverList.length) {
+      serverList.forEach(id => shortlist.add(id));
+      saveShortlist();
+    }
+  } catch(e) {}
+}
+
 function trackRecentlyViewed(p) {
   if (!p) return;
   recentlyViewed = recentlyViewed.filter(x => x.id !== p.id);
@@ -3248,6 +3299,55 @@ async function renderFavs() {
     </div>`
   ).join('');
   el.innerHTML += html || `<p class="msg" style="color:var(--muted)">Produits non disponibles.</p>`;
+}
+
+async function renderShortlist() {
+  const el = document.getElementById('shortlist-list');
+  if (!shortlist.size) { el.innerHTML = `<p class="msg" style="color:var(--muted)">${t('shortlist_empty')}</p>`; return; }
+  el.innerHTML = '';
+  const byBrand = {};
+  allBrands.forEach(b => { byBrand[b.id] = { name: b.name, products: [] }; });
+  const shortIds = [...shortlist];
+  let found = [];
+  if (currentProducts.length) {
+    found = currentProducts.filter(p => shortlist.has(p.id));
+  }
+  const loadedIds = new Set(found.map(p => p.id));
+  const missing = shortIds.filter(id => !loadedIds.has(id));
+  if (missing.length) {
+    try {
+      // Endpoint générique de résolution d'IDs produits — pas spécifique aux favoris malgré son nom.
+      const r = await fetch('/api/portal/favorites/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: missing })
+      });
+      if (r.ok) { const extra = await r.json(); found = found.concat(extra); }
+    } catch(e) {}
+  }
+  found.forEach(p => { if (byBrand[p.brand_id]) byBrand[p.brand_id].products.push(p); });
+  const html = Object.entries(byBrand).filter(([,b]) => b.products.length).map(([brandId, b]) =>
+    `<div style="margin-bottom:28px">
+      <div style="font-family:var(--dot),monospace;font-size:14px;color:var(--accent);margin-bottom:12px;letter-spacing:.04em">${esc(b.name)}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px">
+        ${b.products.map(p => {
+          let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
+          if (!imgs.length && p.image_url) imgs = [p.image_url];
+          return `<div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
+            ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_400,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
+            <div style="padding:12px 14px">
+              <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
+              ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
+              ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;margin-top:2px">${esc(p.color)}</div>` : ''}
+              <div style="margin-top:6px">${priceBlockHtml(p.price, p.price_retail, true)}</div>
+              <button onclick="event.stopPropagation();toggleShortlist('${p.id}')" style="background:none;border:none;color:#a78bfa;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">🔖 Retirer</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`
+  ).join('');
+  el.innerHTML = html || `<p class="msg" style="color:var(--muted)">Produits non disponibles.</p>`;
 }
 
 // ── Tri & pagination commandes ────────────────────────

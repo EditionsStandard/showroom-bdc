@@ -390,6 +390,11 @@ async function init() {
       resolved_by TEXT DEFAULT ''
     )`,
     "CREATE INDEX IF NOT EXISTS idx_pending_reminders_status ON pending_reminders(status, created_at)",
+    // Shortlist — 3e niveau d'intention distinct de favoris et panier
+    // (favoris = "j'aime", shortlist = "à montrer/étudier en équipe", panier = "je commande").
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS shortlist_json TEXT DEFAULT '[]'",
+    "ALTER TABLE product_stats ADD COLUMN IF NOT EXISTS favorite_adds INTEGER DEFAULT 0",
+    "ALTER TABLE product_stats ADD COLUMN IF NOT EXISTS shortlist_adds INTEGER DEFAULT 0",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
