@@ -120,6 +120,11 @@ async function sendPushToAdmins(title, body) {
 }
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+// Hash factice (jamais un vrai mot de passe) comparé même quand le compte
+// n'existe pas, sur les routes de login — bcrypt.compare() domine le temps
+// de réponse (~80ms) ; le sauter pour un email inconnu créait un écart de
+// timing mesurable et fiable pour énumérer les comptes enregistrés.
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync('dummy-password-never-used-' + crypto.randomBytes(8).toString('hex'), 10);
 
 // ── Structured logger ───────────────────────────────────────────────
 const log = {
@@ -682,7 +687,8 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
   if (email) {
     const r = await pool.query('SELECT id, email, role, brand_id, name, password_hash, mfa_enabled FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
     const user = r.rows[0];
-    if (user && await bcrypt.compare(password || '', user.password_hash)) {
+    const passwordOk = await bcrypt.compare(password || '', user?.password_hash || DUMMY_BCRYPT_HASH);
+    if (user && passwordOk) {
       if (user.mfa_enabled) {
         // Mot de passe correct mais MFA active : pas de session privilégiée tant
         // que le code TOTP n'est pas vérifié — mfaPending ne porte aucun droit.
@@ -3532,7 +3538,8 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
   const safeNext = isSafeNextPath(req.body.next) ? req.body.next : '';
-  if (buyer && await bcrypt.compare(password || '', buyer.password_hash)) {
+  const passwordOk = await bcrypt.compare(password || '', buyer?.password_hash || DUMMY_BCRYPT_HASH);
+  if (buyer && passwordOk) {
     if (buyer.mfa_enabled) {
       // Mot de passe correct mais MFA active côté acheteur : pas de session
       // privilégiée tant que le code TOTP n'est pas vérifié (même principe
@@ -7135,10 +7142,9 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const { rows } = await pool.query('SELECT * FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
-    if (!rows[0]) return res.status(401).json({ error: 'Invalid credentials' });
     const user = rows[0];
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) { logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip); return res.status(401).json({ error: 'Invalid credentials' }); }
+    const valid = await bcrypt.compare(password, user?.password_hash || DUMMY_BCRYPT_HASH);
+    if (!user || !valid) { logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip); return res.status(401).json({ error: 'Invalid credentials' }); }
     if (!user.mfa_enabled) {
       // MFA obligatoire sur tous les comptes admin_users, mais l'app agent (PWA
       // légère, sans page profil) n'a pas d'écran d'enrôlement QR — on renvoie
