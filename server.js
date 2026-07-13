@@ -3709,6 +3709,26 @@ app.get('/api/portal/favorites', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Résolution générique d'IDs produits → objets produits (utilisée par les vues
+// Favoris et Shortlist pour les produits pas déjà chargés dans currentProducts).
+// DOIT rester déclarée AVANT /api/portal/favorites/:productId : sinon Express
+// route toute requête vers /favorites/products en matchant :productId="products"
+// sur la route paramétrée précédente (bug réel constaté — la route littérale
+// n'était jamais atteinte, "Mes favoris" ne résolvait donc jamais les favoris
+// venant d'une autre marque que celle affichée).
+app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) => {
+  const ids = (req.body.ids || []).slice(0, 100);
+  if (!ids.length) return res.json([]);
+  try {
+    const r = await pool.query(
+      `SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id
+       FROM products p WHERE p.id = ANY($1) AND p.active != 0`,
+      [ids]
+    );
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+});
+
 app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) => {
   try {
     const buyerId = req.session.buyerPortal.id;
@@ -3719,7 +3739,47 @@ app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) 
     const idx = favs.indexOf(productId);
     if (idx >= 0) { favs.splice(idx, 1); } else { favs.push(productId); }
     await pool.query('UPDATE buyers SET favorites_json=$1 WHERE id=$2', [JSON.stringify(favs), buyerId]);
+    // Analytics distinctes du panier/shortlist — n'incrémente qu'à l'ajout, jamais au retrait.
+    if (idx < 0) {
+      pool.query(
+        'INSERT INTO product_stats (product_id, favorite_adds) VALUES ($1,1) ON CONFLICT (product_id) DO UPDATE SET favorite_adds = product_stats.favorite_adds + 1, updated_at = NOW()',
+        [productId]
+      ).catch(() => {});
+    }
     res.json({ favorites: favs, active: idx < 0 });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── Shortlist — niveau d'intention intermédiaire entre favoris et commande
+// ("à montrer/étudier en équipe") — même mécanique que favorites_json ci-dessus,
+// volontairement séparée (pas de fusion des deux listes) pour que buyer et
+// analytics distinguent bien les trois signaux.
+app.get('/api/portal/shortlist', requireBuyerAuth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT shortlist_json FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
+    let list = [];
+    try { list = JSON.parse(r.rows[0]?.shortlist_json || '[]'); } catch(e) {}
+    res.json(list);
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/portal/shortlist/:productId', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const productId = req.params.productId;
+    const r = await pool.query('SELECT shortlist_json FROM buyers WHERE id=$1', [buyerId]);
+    let list = [];
+    try { list = JSON.parse(r.rows[0]?.shortlist_json || '[]'); } catch(e) {}
+    const idx = list.indexOf(productId);
+    if (idx >= 0) { list.splice(idx, 1); } else { list.push(productId); }
+    await pool.query('UPDATE buyers SET shortlist_json=$1 WHERE id=$2', [JSON.stringify(list), buyerId]);
+    if (idx < 0) {
+      pool.query(
+        'INSERT INTO product_stats (product_id, shortlist_adds) VALUES ($1,1) ON CONFLICT (product_id) DO UPDATE SET shortlist_adds = product_stats.shortlist_adds + 1, updated_at = NOW()',
+        [productId]
+      ).catch(() => {});
+    }
+    res.json({ shortlist: list, active: idx < 0 });
   } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -4050,7 +4110,9 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
     const r = await pool.query(`
       SELECT p.id, p.reference, p.description, p.color, p.price, b.name as brand_name,
              COALESCE(ps.views, 0) as views,
-             COALESCE(ps.cart_adds, 0) as cart_adds
+             COALESCE(ps.cart_adds, 0) as cart_adds,
+             COALESCE(ps.favorite_adds, 0) as favorite_adds,
+             COALESCE(ps.shortlist_adds, 0) as shortlist_adds
       FROM products p
       JOIN brands b ON p.brand_id = b.id
       LEFT JOIN product_stats ps ON ps.product_id = p.id
@@ -4593,19 +4655,6 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
       ORDER BY p.reference
       LIMIT 40
     `, [like]);
-    res.json(r.rows);
-  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
-});
-
-app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) => {
-  const ids = (req.body.ids || []).slice(0, 100);
-  if (!ids.length) return res.json([]);
-  try {
-    const r = await pool.query(
-      `SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id
-       FROM products p WHERE p.id = ANY($1) AND p.active != 0`,
-      [ids]
-    );
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
