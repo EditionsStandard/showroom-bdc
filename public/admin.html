@@ -553,6 +553,7 @@
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
     <a data-section="access-requests" id="nav-access-requests"><span class="icon">🔔</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius: 0;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
+    <a data-section="pending-reminders" id="nav-pending-reminders"><span class="icon">✉️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6z"/><path d="M22 6l-10 7L2 6"/></svg> <span>Relances à valider</span> <span id="pending-reminders-badge" style="display:none;background:#e0703a;color:#fff;border-radius:0;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
     <a data-section="stats" id="nav-stats"><span class="icon">📊</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span>Statistiques</span></a>
     <a data-section="agenda" id="nav-agenda"><span class="icon">📅</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span>Agenda</span></a>
     <a data-section="sales-report" id="nav-sales-report"><span class="icon">📈</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg> <span>Rapport ventes</span></a>
@@ -1134,6 +1135,18 @@
       <button class="btn btn-secondary btn-sm" id="ar-tab-rejected" onclick="switchArTab('rejected')">Refusées</button>
     </div>
     <div id="ar-list"></div>
+  </div>
+
+  <!-- RELANCES À VALIDER -->
+  <div id="pending-reminders" class="section">
+    <h1>Relances à valider</h1>
+    <p style="font-size:12.5px;color:#888;margin:-6px 0 16px;max-width:560px">Détectées automatiquement (acheteurs inactifs, sélections non confirmées) mais jamais envoyées sans validation — approuvez ou refusez chaque relance individuellement.</p>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm" id="pr-tab-pending" onclick="switchPrTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
+      <button class="btn btn-secondary btn-sm" id="pr-tab-sent" onclick="switchPrTab('sent')">Envoyées</button>
+      <button class="btn btn-secondary btn-sm" id="pr-tab-rejected" onclick="switchPrTab('rejected')">Refusées</button>
+    </div>
+    <div id="pr-list"></div>
   </div>
 
   <!-- AGENDA -->
@@ -2374,6 +2387,7 @@ document.querySelectorAll('nav a').forEach(a => {
     if (a.dataset.section === 'agenda') loadAgenda();
     if (a.dataset.section === 'sales-report') initSalesReport();
     if (a.dataset.section === 'access-requests') loadAccessRequests();
+    if (a.dataset.section === 'pending-reminders') loadPendingReminders();
     if (a.dataset.section === 'security') loadSecurity();
     if (a.dataset.section === 'mfa') loadMfaSection();
   });
@@ -2874,6 +2888,69 @@ async function handleAccessRequest(id, action) {
     : 'Demande refusée');
   loadAccessRequests();
   if (action === 'approve') loadDashboard();
+}
+
+// ── Relances à valider (acheteurs inactifs, sélections non confirmées) ──
+let _prData = [], _prTab = 'pending';
+const PR_TYPE_LABEL = { buyer_inactive: 'Acheteur inactif', selection_reminder: 'Sélection non confirmée' };
+async function loadPendingReminders() {
+  const list = document.getElementById('pr-list');
+  list.innerHTML = '<div style="color:var(--soft);font-size:13px;padding:20px 0">Chargement…</div>';
+  const r = await fetch('/api/admin/pending-reminders').catch(() => null);
+  if (!r || !r.ok) { list.innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur chargement</div>'; return; }
+  _prData = await r.json();
+  const pending = _prData.filter(x => x.status === 'pending').length;
+  const badge = document.getElementById('pending-reminders-badge');
+  if (badge) { badge.textContent = pending; badge.style.display = pending ? '' : 'none'; }
+  renderPrList();
+}
+
+function switchPrTab(tab) {
+  _prTab = tab;
+  ['pending','sent','rejected'].forEach(t => {
+    const btn = document.getElementById(`pr-tab-${t}`);
+    if (btn) { btn.style.background = t === tab ? 'var(--accent)' : ''; btn.style.color = t === tab ? 'var(--black)' : ''; btn.className = t === tab ? 'btn btn-sm' : 'btn btn-secondary btn-sm'; }
+  });
+  renderPrList();
+}
+
+function renderPrList() {
+  const list = document.getElementById('pr-list');
+  const rows = _prData.filter(x => x.status === _prTab);
+  if (!rows.length) {
+    const labels = { pending: 'Aucune relance en attente', sent: 'Aucune relance envoyée', rejected: 'Aucune relance refusée' };
+    list.innerHTML = `<div style="color:var(--soft);font-size:13px;padding:20px 0">${labels[_prTab]}</div>`;
+    return;
+  }
+  list.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Détectée le</th><th>Type</th><th>Destinataire</th><th>Aperçu</th>${_prTab === 'pending' ? '<th>Actions</th>' : '<th>Traitée par</th>'}</tr></thead>
+    <tbody>${rows.map(x => {
+      const date = new Date(x.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+      const resolved = x.resolved_by ? `${esc(x.resolved_by)} · ${new Date(x.resolved_at).toLocaleDateString('fr-FR')}` : '—';
+      const actions = _prTab === 'pending'
+        ? `<td style="white-space:nowrap">
+            <button class="btn btn-sm" onclick="handlePendingReminder('${x.id}','approve')" style="background:#34d399;color:#000;margin-right:4px">✓ Envoyer</button>
+            <button class="btn btn-secondary btn-sm" onclick="handlePendingReminder('${x.id}','reject')">✗ Refuser</button>
+           </td>`
+        : `<td style="font-size:12px;color:#888">${resolved}</td>`;
+      return `<tr>
+        <td style="white-space:nowrap;font-size:12px">${date}</td>
+        <td style="font-size:12px">${esc(PR_TYPE_LABEL[x.type] || x.type)}</td>
+        <td><strong>${esc(x.label)}</strong></td>
+        <td style="font-size:12px;color:#888;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.preview||'')}">${esc(x.preview||'—')}</td>
+        ${actions}
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+async function handlePendingReminder(id, action) {
+  const label = action === 'approve' ? 'envoyer cette relance' : 'refuser cette relance';
+  if (!confirm(`Confirmer : ${label} ?`)) return;
+  const r = await fetch(`/api/admin/pending-reminders/${id}/${action}`, { method: 'POST' }).catch(() => null);
+  if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
+  toast(action === 'approve' ? 'Relance envoyée' : 'Relance refusée');
+  loadPendingReminders();
 }
 
 async function loadBuyers() {
@@ -6857,6 +6934,12 @@ initOrderPush();
 fetch('/api/access-requests').then(r => r.json()).then(data => {
   const pending = data.filter(x => x.status === 'pending').length;
   const badge = document.getElementById('access-requests-badge');
+  if (badge && pending) { badge.textContent = pending; badge.style.display = ''; }
+}).catch(() => {});
+// Badge relances en attente de validation
+fetch('/api/admin/pending-reminders').then(r => r.json()).then(data => {
+  const pending = data.filter(x => x.status === 'pending').length;
+  const badge = document.getElementById('pending-reminders-badge');
   if (badge && pending) { badge.textContent = pending; badge.style.display = ''; }
 }).catch(() => {});
 

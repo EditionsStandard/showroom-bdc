@@ -3181,7 +3181,12 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
         ? `<p style="background:rgba(224,176,58,.1);border-left:3px solid #d4a017;padding:10px 14px;font-size:13px;color:#8a6500;margin:0 0 16px">Friendly reminder — your selection is still waiting and its link will expire soon.</p>`
         : `<p style="background:rgba(224,176,58,.1);border-left:3px solid #d4a017;padding:10px 14px;font-size:13px;color:#8a6500;margin:0 0 16px">Petit rappel — votre sélection vous attend toujours et son lien va bientôt expirer.</p>`)
     : '';
-  await resend.emails.send({
+  // Le SDK Resend ne lève PAS d'exception sur une erreur API (clé invalide,
+  // quota dépassé, destinataire refusé…) — il résout avec { data: null, error }.
+  // Sans cette vérification, un envoi réellement échoué serait considéré comme
+  // réussi par tout appelant (ex. la validation manuelle des relances, où
+  // marquer "envoyé" à tort casserait la garantie qu'on vient d'introduire).
+  const { error } = await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
     ...(ownerEmail ? { replyTo: ownerEmail } : {}), // réponses de l'acheteur → showroom
@@ -3209,6 +3214,7 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
       <p>Cordialement,<br><strong>${showroomName}</strong></p>
     ` })
   });
+  if (error) throw new Error(`Resend: ${error.message || error.name || 'échec envoi'}`);
 }
 
 // ── Notifications email au propriétaire (traçabilité sélections & commandes) ──
@@ -6957,6 +6963,85 @@ app.post('/api/portal/delete-account', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erreur suppression' }); }
 });
 
+// ── File de validation des relances automatiques ──────────────────────
+// La détection (candidats à relancer) est automatique et planifiée — voir
+// scheduleInactiveReminders / scheduleSelectionReminders plus loin, lancées
+// une fois la base prête — mais l'ENVOI reste soumis à validation manuelle
+// ici : ces deux relances partaient jusqu'ici sans regard humain malgré leur
+// caractère commercial sensible.
+async function sendInactiveReminderNow(buyerId) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) throw new Error('RESEND_API_KEY non configurée');
+  const r = await pool.query('SELECT id, email, name, company, lang FROM buyers WHERE id=$1', [buyerId]);
+  const buyer = r.rows[0];
+  if (!buyer) throw new Error('Acheteur introuvable');
+  const showroomName = await getSetting('showroom_name');
+  const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
+  const isFr = (buyer.lang || 'fr') === 'fr';
+  const subject = isFr ? `${showroomName} — Découvrez les nouveautés` : `${showroomName} — Discover new arrivals`;
+  const content = isFr
+    ? `<p>Bonjour ${escHtml(buyer.name || buyer.company || '')},</p><p>Cela fait un moment que vous n'avez pas visité le showroom <strong>${escHtml(showroomName)}</strong>. De nouvelles références sont disponibles.</p>${emailBtn(baseUrl + '/editions-showroom-b2b-portail', 'Accéder au showroom →')}`
+    : `<p>Hello ${escHtml(buyer.name || buyer.company || '')},</p><p>It's been a while since you visited <strong>${escHtml(showroomName)}</strong>. New references are available.</p>${emailBtn(baseUrl + '/editions-showroom-b2b-portail', 'Visit the showroom →')}`;
+  const resend = newResendClient(resendKey);
+  // Le SDK Resend résout avec { data: null, error } sur une erreur API plutôt
+  // que de lever une exception — sans ce contrôle, un envoi échoué serait
+  // marqué "envoyé" à tort dans la file de validation.
+  const { error } = await resend.emails.send({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], subject, html: emailLayout({ showroomName, content }) });
+  if (error) throw new Error(`Resend: ${error.message || error.name || 'échec envoi'}`);
+  await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
+}
+
+async function sendSelectionReminderNow(token) {
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY non configurée');
+  const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
+  const r = await pool.query(
+    `SELECT a.token, a.client_email, a.client_name, a.selection_number, b.name AS brand_name
+     FROM agent_selections a JOIN brands b ON b.id = a.brand_id WHERE a.token=$1`, [token]
+  );
+  const s = r.rows[0];
+  if (!s) throw new Error('Sélection introuvable');
+  const url = `${baseUrl}/selection/${s.token}`;
+  await sendAgentSelectionEmail({
+    email: s.client_email, name: s.client_name, brandName: s.brand_name,
+    selectionNumber: s.selection_number, url, reminder: true
+  });
+}
+
+app.get('/api/admin/pending-reminders', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM pending_reminders ORDER BY created_at DESC LIMIT 200');
+    res.json(r.rows);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/admin/pending-reminders/:id/approve', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const p = await pool.query("SELECT * FROM pending_reminders WHERE id=$1 AND status='pending'", [req.params.id]);
+    const row = p.rows[0];
+    if (!row) return res.status(404).json({ error: 'Relance introuvable ou déjà traitée' });
+    if (row.type === 'buyer_inactive') await sendInactiveReminderNow(row.target_id);
+    else if (row.type === 'selection_reminder') await sendSelectionReminderNow(row.target_id);
+    else return res.status(400).json({ error: 'Type de relance inconnu' });
+    const by = req.session?.staffUser?.email || (req.session?.admin ? 'owner' : 'unknown');
+    await pool.query("UPDATE pending_reminders SET status='sent', resolved_at=NOW(), resolved_by=$1 WHERE id=$2", [by, row.id]);
+    logAudit(req, 'reminder_approved', row.type, row.target_id, row.label);
+    res.json({ ok: true });
+  } catch(e) { console.error('[pending-reminder-approve]', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/admin/pending-reminders/:id/reject', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const by = req.session?.staffUser?.email || (req.session?.admin ? 'owner' : 'unknown');
+    const r = await pool.query(
+      "UPDATE pending_reminders SET status='rejected', resolved_at=NOW(), resolved_by=$1 WHERE id=$2 AND status='pending' RETURNING type, target_id, label",
+      [by, req.params.id]
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'Relance introuvable ou déjà traitée' });
+    logAudit(req, 'reminder_rejected', r.rows[0].type, r.rows[0].target_id, r.rows[0].label);
+    res.json({ ok: true });
+  } catch(e) { console.error('[pending-reminder-reject]', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // Catch-all 404
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
@@ -7093,42 +7178,32 @@ init().then(() => {
   }, 60 * 60 * 1000);
 
   // ── Relances acheteurs inactifs (lundi 8h UTC) ───────────────────────
+  // Détection automatique et planifiée, mais l'envoi ne part plus tout seul :
+  // chaque candidat est mis en file dans pending_reminders, à valider ou
+  // refuser depuis l'admin (POST /api/admin/pending-reminders/:id/approve|reject).
   function scheduleInactiveReminders() {
     async function runReminders() {
       try {
-        const resendKey = process.env.RESEND_API_KEY;
-        const showroomName = await getSetting('showroom_name');
-        const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
-        if (!resendKey) return;
-
         const inactive = await pool.query(`
           SELECT b.id, b.email, b.name, b.company, b.lang
           FROM buyers b
           WHERE (b.last_seen_at < NOW() - INTERVAL '45 days' OR b.last_seen_at IS NULL)
             AND b.created_at < NOW() - INTERVAL '45 days'
+            AND NOT EXISTS (
+              SELECT 1 FROM pending_reminders p
+              WHERE p.type='buyer_inactive' AND p.target_id=b.id AND p.status='pending'
+            )
           ORDER BY b.last_seen_at ASC NULLS FIRST
           LIMIT 10
         `);
 
         for (const buyer of inactive.rows) {
-          const isFr = (buyer.lang || 'fr') === 'fr';
-          const subject = isFr
-            ? `${showroomName} — Découvrez les nouveautés`
-            : `${showroomName} — Discover new arrivals`;
-          const html = isFr
-            ? `<p>Bonjour ${buyer.name || buyer.company || ''},</p><p>Cela fait un moment que vous n'avez pas visité le showroom <strong>${showroomName}</strong>. De nouvelles références sont disponibles.</p><p><a href="${baseUrl}/editions-showroom-b2b-portail">Accéder au showroom →</a></p>`
-            : `<p>Hello ${buyer.name || buyer.company || ''},</p><p>It's been a while since you visited <strong>${showroomName}</strong>. New references are available.</p><p><a href="${baseUrl}/editions-showroom-b2b-portail">Visit the showroom →</a></p>`;
-
-          await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], subject, html })
-          }).catch(e => console.error('[reminder] email error:', e.message));
-
-          await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
-          await new Promise(r => setTimeout(r, 500));
+          await pool.query(
+            `INSERT INTO pending_reminders (id, type, target_id, label, preview) VALUES ($1,$2,$3,$4,$5)`,
+            [uuidv4(), 'buyer_inactive', buyer.id, `${buyer.name || buyer.company || buyer.email}`, `Relance inactivité — ${buyer.email}`]
+          );
         }
-        if (inactive.rows.length) log.info('[reminders] relances envoyées', { count: inactive.rows.length });
+        if (inactive.rows.length) log.info('[reminders] relances mises en attente de validation', { count: inactive.rows.length });
       } catch(e) { log.error('[reminders] Erreur', { err: e.message }); }
 
       setTimeout(runReminders, 7 * 24 * 60 * 60 * 1000);
@@ -7148,37 +7223,35 @@ init().then(() => {
   scheduleInactiveReminders();
 
   // ── Relance des sélections non confirmées (toutes les 12 h) ──────────
-  // Un acheteur a reçu une sélection mais ne l'a pas validée : on lui envoie
-  // un rappel unique quand le lien approche de son expiration.
+  // Un acheteur a reçu une sélection mais ne l'a pas validée : on met le
+  // rappel en file d'attente quand le lien approche de son expiration —
+  // l'envoi reste soumis à validation manuelle en admin (voir plus haut).
   function scheduleSelectionReminders() {
     async function run() {
       try {
-        if (process.env.RESEND_API_KEY) {
-          const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
-          const due = await pool.query(`
-            SELECT a.token, a.client_email, a.client_name, a.selection_number, b.name AS brand_name
-            FROM agent_selections a JOIN brands b ON b.id = a.brand_id
-            WHERE (a.used IS NULL OR a.used = false)
-              AND a.expires_at > NOW()
-              AND a.expires_at < NOW() + INTERVAL '5 days'
-              AND a.created_at < NOW() - INTERVAL '3 days'
-              AND (a.reminder_sent IS NULL OR a.reminder_sent = false)
-              AND a.client_email IS NOT NULL AND a.client_email <> ''
-              AND (a.is_template IS NULL OR a.is_template = false)
-            ORDER BY a.expires_at ASC
-            LIMIT 20
-          `);
-          for (const s of due.rows) {
-            const url = `${baseUrl}/selection/${s.token}`;
-            await sendAgentSelectionEmail({
-              email: s.client_email, name: s.client_name, brandName: s.brand_name,
-              selectionNumber: s.selection_number, url, reminder: true
-            }).catch(e => console.error('[sel-reminder] email:', e.message));
-            await pool.query('UPDATE agent_selections SET reminder_sent = true WHERE token = $1', [s.token]);
-            await new Promise(r => setTimeout(r, 400));
-          }
-          if (due.rows.length) log.info('[sel-reminders] relances envoyées', { count: due.rows.length });
+        const due = await pool.query(`
+          SELECT a.token, a.client_email, a.client_name, a.selection_number, b.name AS brand_name
+          FROM agent_selections a JOIN brands b ON b.id = a.brand_id
+          WHERE (a.used IS NULL OR a.used = false)
+            AND a.expires_at > NOW()
+            AND a.expires_at < NOW() + INTERVAL '5 days'
+            AND a.created_at < NOW() - INTERVAL '3 days'
+            AND (a.reminder_sent IS NULL OR a.reminder_sent = false)
+            AND a.client_email IS NOT NULL AND a.client_email <> ''
+            AND (a.is_template IS NULL OR a.is_template = false)
+          ORDER BY a.expires_at ASC
+          LIMIT 20
+        `);
+        for (const s of due.rows) {
+          await pool.query(
+            `INSERT INTO pending_reminders (id, type, target_id, label, preview) VALUES ($1,$2,$3,$4,$5)`,
+            [uuidv4(), 'selection_reminder', s.token, `${s.client_name || s.client_email} — ${s.brand_name}`, `Relance sélection ${s.selection_number || ''} — ${s.client_email}`]
+          );
+          // Marqué immédiatement pour ne pas remettre la même sélection en file
+          // à chaque passage du cron tant que la relance n'a pas été traitée.
+          await pool.query('UPDATE agent_selections SET reminder_sent = true WHERE token = $1', [s.token]);
         }
+        if (due.rows.length) log.info('[sel-reminders] relances mises en attente de validation', { count: due.rows.length });
       } catch(e) { log.error('[sel-reminders]', { err: e.message }); }
       setTimeout(run, 12 * 60 * 60 * 1000);
     }
