@@ -93,6 +93,18 @@
   .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); padding: 8px 12px; margin: 0 8px 8px 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; transition: border-color .15s; }
   .dash-brand-chip:hover { border-color: var(--accent); }
   .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
+  .save-status { font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
+  .save-status:empty { display: none; }
+  .save-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--muted); }
+  .save-status.saving::before { background: #d4a017; animation: saveStatusPulse 1s ease-in-out infinite; }
+  .save-status.saving { color: #d4a017; }
+  .save-status.saved::before { background: #2ecc71; }
+  .save-status.saved { color: var(--muted); }
+  .save-status.offline::before { background: #888; }
+  .save-status.offline { color: var(--muted); }
+  .save-status.error::before { background: #e74c3c; }
+  .save-status.error { color: #e74c3c; }
+  @keyframes saveStatusPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
   /* Cartes marque pleine largeur (une par ligne), style brut */
   .brand-grid { display: flex; flex-direction: column; gap: 14px; }
   .brand-card { display: flex; align-items: stretch; background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; }
@@ -671,6 +683,8 @@ const TRANSLATIONS = {
     shortlist_title: 'Ma shortlist', shortlist_empty: 'Aucun article en shortlist pour l\'instant. Cliquez sur 🔖 sur un produit.',
     shortlist_intro: 'Articles mis de côté pour en discuter en équipe avant de commander.',
     shortlist_added: '🔖 Ajouté à la shortlist',
+    save_saving: 'Enregistrement…', save_saved: (h) => `Enregistré à ${h}`,
+    save_offline: 'Hors ligne — sera synchronisé au retour du réseau', save_error: 'Erreur de synchronisation',
     recently_viewed: 'Récemment vus',
     ref_copied: (ref) => `✓ Référence copiée : ${ref}`,
     reorder_added: (n) => `↺ ${n} produit(s) ajouté(s) au panier`,
@@ -811,6 +825,8 @@ const TRANSLATIONS = {
     shortlist_title: 'My shortlist', shortlist_empty: 'No shortlisted items yet. Click 🔖 on a product.',
     shortlist_intro: 'Items set aside to discuss with your team before ordering.',
     shortlist_added: '🔖 Added to shortlist',
+    save_saving: 'Saving…', save_saved: (h) => `Saved at ${h}`,
+    save_offline: 'Offline — will sync when back online', save_error: 'Sync error',
     recently_viewed: 'Recently viewed',
     ref_copied: (ref) => `✓ Reference copied: ${ref}`,
     reorder_added: (n) => `↺ ${n} product(s) added to cart`,
@@ -1180,7 +1196,10 @@ function applyLang() {
   <div id="view-cart" class="view-section" style="display:none;opacity:1">
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
-      <h2 class="section-title" style="margin-bottom:0">Ma sélection</h2>
+      <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+        <h2 class="section-title" style="margin-bottom:0">Ma sélection</h2>
+        <span class="save-status" id="save-status-cart"></span>
+      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button id="export-pdf-btn" onclick="exportSelectionPdf()" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📄 Exporter</button>
         <button onclick="openModal('modal-email-sel')" style="background:none;border:none;color:var(--soft);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">📧 Email</button>
@@ -1502,6 +1521,7 @@ function applyLang() {
   <div>
     <strong id="cart-total">0,00 €</strong>
     <div style="font-size:11px;font-family:'Inter',sans-serif">— <span id="cart-count">0</span> article(s)</div>
+    <span class="save-status" id="save-status-bar"></span>
   </div>
   <button id="cart-bar-btn" onclick="showView('cart')">Voir ma sélection →</button>
 </div>
@@ -1781,14 +1801,43 @@ function changeCurrency(code) {
   updateCartBar();
 }
 
+// Statut d'enregistrement visible — le buyer ne doit jamais douter que sa
+// sélection est sauvegardée. localStorage = instantané, serveur = débounced ;
+// le badge reflète l'étape serveur (la seule qui compte en cas de perte d'appareil).
+function setSaveStatus(state, label) {
+  const text = state === 'saving' ? t('save_saving')
+    : state === 'saved' ? t('save_saved', label)
+    : state === 'offline' ? t('save_offline')
+    : state === 'error' ? t('save_error')
+    : '';
+  document.querySelectorAll('.save-status').forEach(el => {
+    el.textContent = text;
+    el.className = 'save-status' + (state ? ' ' + state : '');
+  });
+}
+
 let cartSyncTimer;
 function saveCart() {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  setSaveStatus(navigator.onLine === false ? 'offline' : 'saving');
   clearTimeout(cartSyncTimer);
-  cartSyncTimer = setTimeout(() => {
-    fetch('/api/portal/cart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) }).catch(() => {});
-  }, 1200);
+  cartSyncTimer = setTimeout(syncCartNow, 1200);
 }
+
+async function syncCartNow() {
+  if (navigator.onLine === false) { setSaveStatus('offline'); return; }
+  try {
+    const r = await fetch('/api/portal/cart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) });
+    if (!r.ok) throw new Error('bad status');
+    const now = new Date();
+    setSaveStatus('saved', String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'));
+  } catch(e) {
+    setSaveStatus(navigator.onLine === false ? 'offline' : 'error');
+  }
+}
+
+window.addEventListener('offline', () => setSaveStatus('offline'));
+window.addEventListener('online', () => { if (Object.keys(cart).length) syncCartNow(); });
 
 function restoreCart() {
   try {
