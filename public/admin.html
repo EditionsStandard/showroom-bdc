@@ -513,10 +513,15 @@
   }
   function applyTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
+    // currentLang est déclaré dans le script principal, chargé après ce
+    // script placé en <head> pour appliquer le thème avant le premier
+    // rendu (évite un flash) — au tout premier appel, avant DOMContentLoaded,
+    // il n'existe pas encore : repli sur 'fr' plutôt qu'une ReferenceError.
+    const lang = typeof currentLang !== 'undefined' ? currentLang : 'fr';
     const btn = document.getElementById('theme-toggle');
     if (btn) btn.textContent = (t === 'light'
-      ? (currentLang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
-      : (currentLang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode'));
+      ? (lang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
+      : (lang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode'));
     const btnMob = document.getElementById('theme-toggle-mob');
     if (btnMob) btnMob.textContent = t === 'light' ? '🌙' : '☀️';
   }
