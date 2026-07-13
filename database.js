@@ -395,6 +395,19 @@ async function init() {
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS shortlist_json TEXT DEFAULT '[]'",
     "ALTER TABLE product_stats ADD COLUMN IF NOT EXISTS favorite_adds INTEGER DEFAULT 0",
     "ALTER TABLE product_stats ADD COLUMN IF NOT EXISTS shortlist_adds INTEGER DEFAULT 0",
+    // Conditions négociées par acheteur × marque — surcharge optionnelle des
+    // conditions par défaut de la marque (payment_terms/delivery_terms/
+    // return_terms), un champ vide = pas de surcharge, repli sur la marque.
+    `CREATE TABLE IF NOT EXISTS buyer_brand_terms (
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      payment_terms TEXT DEFAULT '',
+      delivery_terms TEXT DEFAULT '',
+      return_terms TEXT DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_by TEXT DEFAULT '',
+      PRIMARY KEY (buyer_id, brand_id)
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

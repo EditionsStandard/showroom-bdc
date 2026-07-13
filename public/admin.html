@@ -2010,6 +2010,8 @@
     <div class="table-wrap" style="margin-bottom:18px"><table style="margin:0"><thead><tr><th>N°</th><th>Date</th><th>Marque</th><th style="text-align:right">Total HT</th><th>Statut</th></tr></thead><tbody id="bp-orders"></tbody></table></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">♡ Favoris &amp; 🔖 Shortlist</div>
     <div id="bp-wishlist" style="margin-bottom:18px"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">📝 Conditions négociées</div>
+    <div id="bp-terms" style="margin-bottom:18px"></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">Rendez-vous</div>
     <div id="bp-appts" style="margin-bottom:18px"></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">🕘 Historique des actions</div>
@@ -2026,6 +2028,33 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-buyer-profile')" data-t="btn_close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONDITIONS NÉGOCIÉES (acheteur × marque) — après modal-buyer-profile
+     dans le DOM pour s'empiler visuellement au-dessus (même z-index, priorité
+     à l'ordre du DOM), puisqu'elle s'ouvre par-dessus la fiche 360° déjà ouverte. -->
+<div class="modal-overlay" id="modal-buyer-terms">
+  <div class="modal" style="max-width:460px">
+    <h3>Conditions négociées — <span id="bt-brand-name"></span></h3>
+    <input type="hidden" id="bt-buyer-id"><input type="hidden" id="bt-brand-id">
+    <p style="font-size:11px;color:#666;margin-bottom:14px">Laisser un champ vide = pas de condition spécifique, repli sur la condition par défaut de la marque.</p>
+    <div class="form-group">
+      <label>💳 Paiement</label>
+      <input type="text" id="bt-payment" placeholder="">
+    </div>
+    <div class="form-group">
+      <label>🚚 Livraison</label>
+      <input type="text" id="bt-delivery" placeholder="">
+    </div>
+    <div class="form-group">
+      <label>↩ Retours</label>
+      <input type="text" id="bt-return" placeholder="">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-buyer-terms')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBuyerTerms()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -6807,6 +6836,7 @@ async function openBuyerProfile(id) {
   document.getElementById('bp-kpis').innerHTML = '';
   document.getElementById('bp-orders').innerHTML = '';
   document.getElementById('bp-wishlist').innerHTML = '';
+  document.getElementById('bp-terms').innerHTML = '';
   document.getElementById('bp-appts').innerHTML = '';
   document.getElementById('bp-activity').innerHTML = '';
   document.getElementById('bp-notes-wrap').style.display = 'none';
@@ -6844,6 +6874,25 @@ async function openBuyerProfile(id) {
       : `<div style="color:#666;font-size:12px">Aucun</div>`}
   </div>`;
   document.getElementById('bp-wishlist').innerHTML = wishlistRow('♡', 'Favoris', favorites) + wishlistRow('🔖', 'Shortlist', shortlist);
+
+  const negotiatedTerms = d.negotiatedTerms || [];
+  document.getElementById('bp-terms').innerHTML = negotiatedTerms.length ? negotiatedTerms.map(nt => {
+    const hasOverride = !!nt.override;
+    const rows = [
+      ['💳 Paiement', nt.override?.payment_terms || nt.default.payment_terms || '—'],
+      ['🚚 Livraison', nt.override?.delivery_terms || nt.default.delivery_terms || '—'],
+      ['↩ Retours', nt.override?.return_terms || nt.default.return_terms || '—'],
+    ];
+    return '<div class="card" style="margin-bottom:8px;padding:12px 14px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      + '<strong style="font-size:13px">' + esc(nt.brand_name) + '</strong>'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      + '<span style="font-size:10px;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em;' + (hasOverride ? 'background:#1e3a1e;color:#2ecc71' : 'background:#2a2a2a;color:#888') + '">' + (hasOverride ? 'Personnalisées' : 'Par défaut') + '</span>'
+      + '<button class="btn btn-secondary btn-sm" onclick=\'openBuyerTermsModal(' + JSON.stringify(nt.brand_id) + ',' + JSON.stringify(nt.brand_name) + ',' + JSON.stringify(nt.override) + ')\'>Modifier</button>'
+      + '</div></div>'
+      + rows.map(r => '<div style="font-size:12px;color:#aaa;margin-top:2px">' + r[0] + ' : ' + esc(r[1]) + '</div>').join('')
+      + '</div>';
+  }).join('') : '<div style="color:#666;font-size:13px">Aucune commande passée avec une marque — rien à négocier pour l\'instant.</div>';
 
   document.getElementById('bp-orders').innerHTML = orders.length ? orders.map(o => `<tr>
     <td style="font-family:monospace;font-size:11px">${esc(o.order_number || o.id.slice(0,8))}</td>
@@ -6959,6 +7008,35 @@ async function saveBuyerTagsNotes() {
   } else {
     toast('Erreur lors de la sauvegarde', true);
   }
+}
+
+// ── Conditions négociées acheteur × marque ────────────────────────────
+function openBuyerTermsModal(brandId, brandName, override) {
+  document.getElementById('bt-buyer-id').value = _bpBuyerId;
+  document.getElementById('bt-brand-id').value = brandId;
+  document.getElementById('bt-brand-name').textContent = brandName;
+  document.getElementById('bt-payment').value = override?.payment_terms || '';
+  document.getElementById('bt-delivery').value = override?.delivery_terms || '';
+  document.getElementById('bt-return').value = override?.return_terms || '';
+  openModal('modal-buyer-terms');
+}
+async function saveBuyerTerms() {
+  const buyerId = document.getElementById('bt-buyer-id').value;
+  const brandId = document.getElementById('bt-brand-id').value;
+  const payment_terms = document.getElementById('bt-payment').value.trim();
+  const delivery_terms = document.getElementById('bt-delivery').value.trim();
+  const return_terms = document.getElementById('bt-return').value.trim();
+  try {
+    const r = await fetch(`/api/admin/buyers/${buyerId}/terms/${brandId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payment_terms, delivery_terms, return_terms })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || 'Erreur', true); return; }
+    closeModal('modal-buyer-terms');
+    toast('Conditions enregistrées');
+    openBuyerProfile(buyerId);
+  } catch(e) { toast('Erreur réseau', true); }
 }
 
 // ── Feature 4: Stats produits par marque ─────────────────────────────
