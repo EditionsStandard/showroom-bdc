@@ -640,11 +640,13 @@
     <div id="recap-lines"></div>
   </div>
   <div class="recap-card" id="client-recap"></div>
+  <div class="recap-card" id="order-conditions"></div>
   <div id="moq-warning" style="display:none;padding:12px 20px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);font-size:11px;color:#e74c3c;letter-spacing:.04em;line-height:1.6;margin-bottom:2px"></div>
   <div class="total-bar">
     <span class="lbl" data-i18n="total_lbl">Total HT</span>
     <span class="amt" id="recap-total">0,00 €</span>
   </div>
+  <div id="recap-legal-notice" style="padding:12px 20px;background:rgba(255,255,255,.03);border:1px solid var(--border);font-size:11px;color:var(--muted);letter-spacing:.02em;line-height:1.6;margin-top:2px"></div>
 </div>
 
 <!-- PAGE 4 — CGV + Signature -->
@@ -812,6 +814,9 @@ const TRANSLATIONS = {
     recap_qty:'Qté', recap_total_col:'Total HT',
     recap_client:'Client', recap_name:'Nom', recap_email:'Email',
     recap_company:'Société', recap_phone:'Tél.', recap_country:'Pays',
+    recap_conditions:'Conditions de la commande', recap_currency:'Devise',
+    recap_delivery:'Livraison', recap_payment:'Paiement',
+    recap_legal_notice:(brand)=>`Cette sélection constitue une proposition de commande, soumise à la validation de ${brand || 'la marque'} avant confirmation définitive. Elle n'engage aucune des parties tant qu'elle n'a pas été signée puis validée.`,
     no_items:'Aucun article.', all:'Tout', qty:'Quantité',
     ref_label:'Réf.', lbl_country:'Pays', country_ph:'Sélectionner un pays…',
     btn_start:'Commencer ma sélection →',
@@ -894,6 +899,9 @@ const TRANSLATIONS = {
     recap_qty:'Qty', recap_total_col:'Total excl. VAT',
     recap_client:'Customer', recap_name:'Name', recap_email:'Email',
     recap_company:'Company', recap_phone:'Tel.', recap_country:'Country',
+    recap_conditions:'Order conditions', recap_currency:'Currency',
+    recap_delivery:'Delivery', recap_payment:'Payment',
+    recap_legal_notice:(brand)=>`This selection is an order proposal, subject to validation by ${brand || 'the brand'} before final confirmation. It is not binding on either party until signed and validated.`,
     no_items:'No items.', all:'All', qty:'Quantity',
     ref_label:'Ref.', lbl_country:'Country', country_ph:'Select a country…',
     btn_start:'Start my selection →',
@@ -1218,6 +1226,8 @@ let brandName = '';
 let brandMoqQty = 0;
 let brandMoqAmount = 0;
 let brandMoqStrict = false;
+let brandDeliveryTerms = '';
+let brandPaymentTerms = '';
 let agentData = {};
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
@@ -1320,6 +1330,8 @@ async function init() {
     const paymentTerms = (data.brand.payment_terms || '').trim();
     const returnTerms = (data.brand.return_terms || '').trim();
     const orderDeadline = (data.brand.order_deadline || '').slice(0, 10);
+    brandDeliveryTerms = deliveryTerms;
+    brandPaymentTerms = paymentTerms;
     const deadlineHtml = orderDeadline ? deadlineNotice(orderDeadline) : '';
     if (brandMoqQty > 0 || brandMoqAmount > 0 || deliveryTerms || paymentTerms || returnTerms || deadlineHtml) {
       const moqEl = document.getElementById('landing-moq');
@@ -2049,6 +2061,20 @@ function renderRecap() {
     + (company ? '<div class="recap-line"><span>' + T('recap_company') + '</span><strong>' + esc(company) + '</strong></div>' : '')
     + (phone   ? '<div class="recap-line"><span>' + T('recap_phone') + '</span><strong>' + esc(phone) + '</strong></div>' : '')
     + (country ? '<div class="recap-line"><span>' + T('recap_country') + '</span><strong>' + esc(country) + '</strong></div>' : '');
+
+  // Conditions de la commande — devise, livraison/paiement (déjà saisis par
+  // l'agent sur la fiche marque), notes du client : tout ce qu'il faut pour
+  // vérifier une commande sans avoir à télécharger le PDF.
+  const notes = document.getElementById('c-notes').value.trim();
+  const condLines = [
+    '<div class="recap-line"><span>' + T('recap_currency') + '</span><strong>' + esc(selectedCurrency.code) + '</strong></div>'
+  ];
+  if (brandDeliveryTerms) condLines.push('<div class="recap-line"><span>' + T('recap_delivery') + '</span><strong>' + esc(brandDeliveryTerms) + '</strong></div>');
+  if (brandPaymentTerms) condLines.push('<div class="recap-line"><span>' + T('recap_payment') + '</span><strong>' + esc(brandPaymentTerms) + '</strong></div>');
+  if (notes) condLines.push('<div class="recap-line"><span>' + T('lbl_notes') + '</span><strong>' + esc(notes) + '</strong></div>');
+  document.getElementById('order-conditions').innerHTML = '<h4>' + T('recap_conditions') + '</h4>' + condLines.join('');
+
+  document.getElementById('recap-legal-notice').textContent = T('recap_legal_notice', brandName);
 }
 
 async function downloadSelection() {
