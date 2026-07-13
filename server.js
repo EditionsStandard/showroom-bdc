@@ -3521,7 +3521,12 @@ app.get('/portal', (req, res) => {
   sendPage(res, 'portal.html');
 });
 
-app.get('/api/portal/me', requireBuyerAuth, (req, res) => res.json(req.session.buyerPortal));
+app.get('/api/portal/me', requireBuyerAuth, async (req, res) => {
+  const [agent_name, agent_title, agent_phone, showroom_name] = await Promise.all([
+    getSetting('agent_name'), getSetting('agent_title'), getSetting('agent_phone'), getSetting('showroom_name')
+  ]);
+  res.json({ ...req.session.buyerPortal, agent_name, agent_title, agent_phone, showroom_name });
+});
 
 app.get('/api/portal/currencies', requireBuyerAuth, async (req, res) => {
   let currencies = [];

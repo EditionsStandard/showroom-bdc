@@ -87,6 +87,12 @@
   h2.section-title { font-family: var(--dot), monospace; font-size: 14px; margin-bottom: 26px; font-weight: 400; letter-spacing: .28em; text-transform: uppercase; }
   /* Marqueur accent brut (carré plat) — signature commune à tous les écrans */
   h2.section-title::before { content: ''; display: inline-block; width: 9px; height: 9px; background: var(--accent); border-radius: 0; margin-right: 14px; vertical-align: 2px; }
+  .dash-block-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 10px; }
+  .dash-card { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 12px 14px; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
+  .dash-card-empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); }
+  .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); padding: 8px 12px; margin: 0 8px 8px 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; transition: border-color .15s; }
+  .dash-brand-chip:hover { border-color: var(--accent); }
+  .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
   /* Cartes marque pleine largeur (une par ligne), style brut */
   .brand-grid { display: flex; flex-direction: column; gap: 14px; }
   .brand-card { display: flex; align-items: stretch; background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; }
@@ -607,6 +613,15 @@ const TRANSLATIONS = {
     orders_title: 'Mes commandes', orders_loading: 'Chargement…', orders_empty: 'Aucune commande pour le moment.',
     orders_see_detail: 'Voir le détail', orders_hide: 'Masquer', orders_pdf: '📄 PDF', orders_no_items: 'Aucun article.',
     status_confirmed: 'Reçue', status_validated: 'Validée', status_cancelled: 'Annulée',
+    status_draft: 'Brouillon', status_in_production: 'En production', status_shipped: 'Expédiée', status_archived: 'Archivée',
+    dash_hello: 'Bonjour', dash_next_action: 'Prochaine action', dash_next_action_none: 'Aucune action requise — tout est à jour.',
+    dash_next_action_selection: 'Valider votre sélection', dash_next_action_deadline: 'Commande à passer avant le',
+    dash_pending: 'Sélections en attente', dash_orders_recent: 'Commandes récentes', dash_orders_none: 'Aucune commande pour le moment.',
+    dash_recently_viewed: 'Marques récemment consultées', dash_open_collections: 'Collections ouvertes',
+    dash_deadlines: 'Dates limites de commande', dash_deadlines_none: 'Aucune échéance à venir.',
+    dash_contact: 'Votre contact', dash_contact_generic: "L'équipe showroom", dash_contact_message: 'Envoyer un message',
+    dash_view_all_orders: 'Voir toutes mes commandes →', dash_view_catalog: 'Parcourir le catalogue →',
+    nav_dashboard: 'Accueil',
     account_title: 'Mon profil', account_info: 'Informations personnelles', account_save: 'Enregistrer les modifications',
     account_pw: 'Changer le mot de passe', pw_current: 'Mot de passe actuel', pw_new: 'Nouveau mot de passe', pw_btn: 'Changer le mot de passe',
     prof_name: 'Prénom / Nom *', prof_company: 'Entreprise / Boutique', prof_email: 'Email', prof_phone: 'Téléphone', prof_country: 'Pays',
@@ -735,6 +750,15 @@ const TRANSLATIONS = {
     orders_title: 'My orders', orders_loading: 'Loading…', orders_empty: 'No orders yet.',
     orders_see_detail: 'View details', orders_hide: 'Hide', orders_pdf: '📄 PDF', orders_no_items: 'No items.',
     status_confirmed: 'Received', status_validated: 'Validated', status_cancelled: 'Cancelled',
+    status_draft: 'Draft', status_in_production: 'In production', status_shipped: 'Shipped', status_archived: 'Archived',
+    dash_hello: 'Hello', dash_next_action: 'Next action', dash_next_action_none: 'Nothing needs your attention right now.',
+    dash_next_action_selection: 'Confirm your selection', dash_next_action_deadline: 'Order deadline on',
+    dash_pending: 'Pending selections', dash_orders_recent: 'Recent orders', dash_orders_none: 'No orders yet.',
+    dash_recently_viewed: 'Recently viewed brands', dash_open_collections: 'Open collections',
+    dash_deadlines: 'Order deadlines', dash_deadlines_none: 'No upcoming deadlines.',
+    dash_contact: 'Your contact', dash_contact_generic: 'The showroom team', dash_contact_message: 'Send a message',
+    dash_view_all_orders: 'View all my orders →', dash_view_catalog: 'Browse the catalog →',
+    nav_dashboard: 'Home',
     account_title: 'My profile', account_info: 'Personal information', account_save: 'Save changes',
     account_pw: 'Change password', pw_current: 'Current password', pw_new: 'New password', pw_btn: 'Change password',
     prof_name: 'First / Last name *', prof_company: 'Company / Store', prof_email: 'Email', prof_phone: 'Phone', prof_country: 'Country',
@@ -1045,12 +1069,13 @@ function applyLang() {
 <body>
 <div class="header">
   <div class="header-left">
-    <a onclick="showView('catalog')" style="cursor:pointer" title="Retour au catalogue"><img src="/logo.svg" alt="Editions Standard"></a>
+    <a onclick="showView('dashboard')" style="cursor:pointer" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
     <h1>Showroom</h1>
   </div>
   <div class="nav">
     <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;appearance:none;-webkit-appearance:none;background:none;border:none;outline:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
-    <a id="nav-catalog" class="active" onclick="showView('catalog')">Catalogue</a>
+    <a id="nav-dashboard" class="active" onclick="showView('dashboard')" data-t="nav_dashboard">Accueil</a>
+    <a id="nav-catalog" onclick="showView('catalog')">Catalogue</a>
     <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
     <a id="nav-profile" onclick="showView('account')">Mon profil</a>
     <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
@@ -1079,6 +1104,7 @@ function applyLang() {
         <div class="uemail" id="dd-email">—</div>
         <div class="ucompany" id="dd-company"></div>
       </div>
+      <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
       <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
       <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
       <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
@@ -1106,7 +1132,36 @@ function applyLang() {
 </div>
 
 <div class="wrap">
-  <div id="view-catalog" class="view-section" style="opacity:1">
+  <div id="view-dashboard" class="view-section" style="opacity:1">
+    <h2 class="section-title" id="dash-hello">Bonjour</h2>
+    <div id="dash-next-action" style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);padding:16px 18px;margin-bottom:26px;font-family:'Inter',sans-serif;font-size:14px"></div>
+    <div id="dash-pending-wrap" style="margin-bottom:26px;display:none">
+      <div class="dash-block-title" data-t="dash_pending">Sélections en attente</div>
+      <div id="dash-pending"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px">
+      <div>
+        <div class="dash-block-title" data-t="dash_orders_recent">Commandes récentes</div>
+        <div id="dash-orders"></div>
+        <a href="javascript:void(0)" onclick="showView('orders')" style="display:inline-block;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline" data-t="dash_view_all_orders">Voir toutes mes commandes →</a>
+      </div>
+      <div>
+        <div class="dash-block-title" data-t="dash_recently_viewed">Marques récemment consultées</div>
+        <div id="dash-recent-brands"></div>
+      </div>
+      <div>
+        <div class="dash-block-title" data-t="dash_deadlines">Dates limites de commande</div>
+        <div id="dash-deadlines"></div>
+      </div>
+      <div>
+        <div class="dash-block-title" data-t="dash_contact">Votre contact</div>
+        <div id="dash-contact"></div>
+      </div>
+    </div>
+    <a href="javascript:void(0)" onclick="showView('catalog')" style="display:inline-block;margin-top:28px;font-family:'Inter',sans-serif;font-size:13px;color:var(--accent);text-decoration:underline" data-t="dash_view_catalog">Parcourir le catalogue →</a>
+  </div>
+
+  <div id="view-catalog" class="view-section" style="display:none;opacity:1">
     <div id="brand-picker"></div>
     <div id="brand-products" style="display:none"></div>
   </div>
@@ -1469,6 +1524,17 @@ let selectedCurrency = currenciesData[0];
 const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
 let favorites = new Set(); // product IDs
 let recentlyViewed = []; // [{id, brand_id, reference, description, color, price, image_url}]
+let recentlyViewedBrands = []; // [{id, name, logo, logo_url}] — pour le tableau de bord
+function trackBrandView(brand) {
+  if (!brand || !brand.id) return;
+  recentlyViewedBrands = recentlyViewedBrands.filter(b => b.id !== brand.id);
+  recentlyViewedBrands.unshift({ id: brand.id, name: brand.name, logo: brand.logo, logo_url: brand.logo_url });
+  if (recentlyViewedBrands.length > 6) recentlyViewedBrands = recentlyViewedBrands.slice(0, 6);
+  try { localStorage.setItem('portal_recently_viewed_brands', JSON.stringify(recentlyViewedBrands)); } catch(e) {}
+}
+function loadRecentlyViewedBrands() {
+  try { const d = localStorage.getItem('portal_recently_viewed_brands'); if (d) recentlyViewedBrands = JSON.parse(d); } catch(e) {}
+}
 let ordersData = []; // cached for re-sort
 let globalSearchResults = []; // cached cross-brand results
 
@@ -1795,6 +1861,7 @@ async function handleQrParams() {
 async function init() {
   loadFavs();
   loadRecentlyViewed();
+  loadRecentlyViewedBrands();
   renderBrandSkeletons();
   const meRes = await fetch('/api/portal/me');
   if (meRes.status === 401) { window.location.replace('/editions-showroom-b2b-portail'); return; }
@@ -1834,8 +1901,9 @@ async function init() {
   updateCartBar();
   refreshMsgBadge();
   setInterval(refreshMsgBadge, 60000); // badge messages non lus (léger polling)
-  // État de base de l'historique : "retour" reste dans le portail (catalogue)
-  history.replaceState({ v: 'catalog', brand: null }, '', '/portal');
+  // État de base de l'historique : "retour" reste dans le portail (accueil)
+  history.replaceState({ v: 'dashboard', brand: null }, '', '/portal');
+  loadDashboard();
   handleQrParams();
 
   const currencies = await fetch('/api/portal/currencies').then(r => r.json());
@@ -1858,7 +1926,7 @@ async function init() {
 }
 
 function showView(view, _fromPop) {
-  ['catalog','cart','orders','account','favs','messages'].forEach(v => {
+  ['dashboard','catalog','cart','orders','account','favs','messages'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (!el) return;
     if (v === view) {
@@ -1870,10 +1938,12 @@ function showView(view, _fromPop) {
     }
   });
   document.getElementById('view-success').style.display = 'none';
+  document.getElementById('nav-dashboard')?.classList.toggle('active', view === 'dashboard');
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
   document.getElementById('nav-profile').classList.toggle('active', view === 'account');
   document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).some(k => cart[k].qty > 0)) ? 'flex' : 'none';
+  if (view === 'dashboard') loadDashboard();
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
@@ -2132,6 +2202,19 @@ function renderBrandPicker() {
 
 async function openBrand(brandId, _fromPop) {
   if (!_fromPop) pushNav({ v: 'catalog', brand: brandId });
+  // openBrand() peut être appelé depuis n'importe quelle vue (tableau de bord,
+  // recherche globale, historique de commandes…) — s'assure que #view-catalog
+  // est bien visible avant d'y injecter du contenu, sinon celui-ci se
+  // construit dans un conteneur caché (ex. depuis le tableau de bord).
+  ['dashboard','cart','orders','account','favs','messages'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) { el.style.display = 'none'; }
+  });
+  const catalogEl = document.getElementById('view-catalog');
+  catalogEl.style.display = 'block';
+  catalogEl.style.opacity = '1';
+  document.getElementById('nav-dashboard')?.classList.remove('active');
+  document.getElementById('nav-catalog')?.classList.add('active');
   document.getElementById('brand-picker').style.display = 'none';
   const container = document.getElementById('brand-products');
   container.style.display = 'block';
@@ -2147,6 +2230,7 @@ async function openBrand(brandId, _fromPop) {
   if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
   currentBrand = data.brand;
   currentProducts = data.products;
+  trackBrandView(currentBrand);
   if (currentBrand.default_currency) {
     autoSetCurrency(currentBrand.default_currency);
   } else {
@@ -2674,6 +2758,106 @@ async function submitCheckout() {
   }
 }
 
+// ── Tableau de bord (accueil du portail) ──────────────────────────────
+function brandLogoImg(b, size) {
+  const src = b.logo || b.logo_url;
+  return src ? `<img src="${esc(src)}" alt="" style="width:${size}px;height:${size}px;object-fit:contain">` : '';
+}
+
+async function loadDashboard() {
+  document.getElementById('dash-hello').textContent = `${t('dash_hello')}${me?.name ? ', ' + me.name : ''}`;
+
+  const [pending, orders] = await Promise.all([
+    fetch('/api/portal/pending-selections').then(r => r.json()).catch(() => []),
+    fetch('/api/portal/orders').then(r => r.json()).catch(() => [])
+  ]);
+  const pendingList = Array.isArray(pending) ? pending : [];
+  const ordersList = Array.isArray(orders) ? orders.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : [];
+
+  // Sélections en attente
+  const pendWrap = document.getElementById('dash-pending-wrap');
+  if (pendingList.length) {
+    pendWrap.style.display = 'block';
+    document.getElementById('dash-pending').innerHTML = pendingList.map(s => `
+      <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-color:rgba(204,235,60,.35)">
+        <div><strong>${esc(s.brand_name)}</strong> — ${t('pending_sel_pieces', s.piece_count)}</div>
+        <a href="/selection/${s.token}" class="btn-confirm" style="margin:0;width:auto;padding:8px 16px;font-size:12px">${t('pending_sel_cta')} →</a>
+      </div>`).join('');
+  } else {
+    pendWrap.style.display = 'none';
+  }
+
+  // Commandes récentes (3 dernières)
+  const statusLabel = STATUS_LABELS();
+  const dashOrders = document.getElementById('dash-orders');
+  if (ordersList.length) {
+    dashOrders.innerHTML = ordersList.slice(0, 3).map(o => `
+      <div class="dash-card" style="cursor:pointer" onclick="showView('orders')">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+          <strong>${esc(o.brand_name)}</strong>
+          <span class="order-status ${o.status}" style="font-size:10px">${statusLabel[o.status] || o.status}</span>
+        </div>
+        <div style="color:var(--muted);font-size:12px;margin-top:2px">${o.order_number || '#' + o.id.slice(0,8).toUpperCase()} — ${fmtPrice(o.total || 0)}</div>
+      </div>`).join('');
+  } else {
+    dashOrders.innerHTML = `<div class="dash-card-empty">${t('dash_orders_none')}</div>`;
+  }
+
+  // Marques récemment consultées (suivi local, indépendant du serveur)
+  const recentBrandsEl = document.getElementById('dash-recent-brands');
+  if (recentlyViewedBrands.length) {
+    recentBrandsEl.innerHTML = recentlyViewedBrands.map(b => `
+      <div class="dash-brand-chip" onclick="openBrand('${b.id}')">${brandLogoImg(b, 20)}<span>${esc(b.name)}</span></div>`).join('');
+  } else {
+    recentBrandsEl.innerHTML = `<div class="dash-card-empty">${t('dash_view_catalog')}</div>`;
+  }
+
+  // Collections ouvertes + dates limites (à partir des marques déjà chargées par init())
+  const brandsWithDeadline = (allBrands || [])
+    .filter(b => /^\d{4}-\d{2}-\d{2}$/.test(b.order_deadline || '') && new Date(b.order_deadline + 'T23:59:59') >= new Date())
+    .sort((a, b) => new Date(a.order_deadline) - new Date(b.order_deadline));
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  const deadlinesEl = document.getElementById('dash-deadlines');
+  if (brandsWithDeadline.length) {
+    deadlinesEl.innerHTML = brandsWithDeadline.slice(0, 4).map(b => `
+      <div class="dash-card" style="display:flex;justify-content:space-between;gap:10px;cursor:pointer" onclick="openBrand('${b.id}')">
+        <span>${esc(b.name)}</span>
+        <strong>${new Date(b.order_deadline + 'T12:00:00').toLocaleDateString(locale, { day:'2-digit', month:'short' })}</strong>
+      </div>`).join('');
+  } else {
+    deadlinesEl.innerHTML = `<div class="dash-card-empty">${t('dash_deadlines_none')}</div>`;
+  }
+
+  // Contact commercial (générique — pas d'agent nommément assigné par acheteur à ce jour)
+  const contactEl = document.getElementById('dash-contact');
+  if (me?.agent_name) {
+    contactEl.innerHTML = `<div class="dash-card">
+      <strong>${esc(me.agent_name)}</strong>${me.agent_title ? `<div style="color:var(--muted);font-size:12px">${esc(me.agent_title)}</div>` : ''}
+      ${me.agent_phone ? `<div style="margin-top:6px"><a href="tel:${esc(me.agent_phone)}" style="color:var(--soft)">${esc(me.agent_phone)}</a></div>` : ''}
+      <a href="javascript:void(0)" onclick="showView('messages')" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
+    </div>`;
+  } else {
+    contactEl.innerHTML = `<div class="dash-card">
+      <strong>${t('dash_contact_generic')}</strong>
+      <a href="javascript:void(0)" onclick="showView('messages')" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
+    </div>`;
+  }
+
+  // Prochaine action attendue — règle déterministe simple, priorité décroissante
+  const actionEl = document.getElementById('dash-next-action');
+  const labelPrefix = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:6px">${t('dash_next_action')}</div>`;
+  if (pendingList.length) {
+    const names = pendingList.map(s => s.brand_name).join(', ');
+    actionEl.innerHTML = `${labelPrefix}<div>${t('dash_next_action_selection')} — <strong>${esc(names)}</strong></div>`;
+  } else if (brandsWithDeadline.length) {
+    const soon = brandsWithDeadline[0];
+    const fmt = new Date(soon.order_deadline + 'T12:00:00').toLocaleDateString(locale, { day:'2-digit', month:'long' });
+    actionEl.innerHTML = `${labelPrefix}<div>${t('dash_next_action_deadline')} <strong>${fmt}</strong> — ${esc(soon.name)}</div>`;
+  } else {
+    actionEl.innerHTML = `${labelPrefix}<div style="color:var(--muted)">${t('dash_next_action_none')}</div>`;
+  }
+}
+
 async function loadPendingSelections() {
   const wrap = document.getElementById('pending-selections');
   if (!wrap) return;
@@ -3071,6 +3255,14 @@ let ordersPage = 0;
 const ORDERS_PER_PAGE = 20;
 let ordersData_sorted = [];
 
+function STATUS_LABELS() {
+  return {
+    draft: t('status_draft'), confirmed: t('status_confirmed'), validated: t('status_validated'),
+    in_production: t('status_in_production'), shipped: t('status_shipped'),
+    cancelled: t('status_cancelled'), archived: t('status_archived')
+  };
+}
+
 function applySortOrders() {
   if (!ordersData.length) return;
   const sort = document.getElementById('orders-sort')?.value || 'date-desc';
@@ -3089,7 +3281,7 @@ function applySortOrders() {
 
 function renderOrdersList(data) {
   const list = document.getElementById('orders-list');
-  const statusLabel = { confirmed: t('status_confirmed'), validated: t('status_validated'), cancelled: t('status_cancelled') };
+  const statusLabel = STATUS_LABELS();
   const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
   const start = ordersPage * ORDERS_PER_PAGE;
   const page = data.slice(start, start + ORDERS_PER_PAGE);
