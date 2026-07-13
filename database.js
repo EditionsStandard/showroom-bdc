@@ -408,6 +408,10 @@ async function init() {
       updated_by TEXT DEFAULT '',
       PRIMARY KEY (buyer_id, brand_id)
     )`,
+    // Anti-rejeu TOTP : mémorise le pas de temps (30s) du dernier code MFA
+    // accepté, pour refuser la réutilisation d'un même code intercepté.
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_last_step BIGINT DEFAULT 0",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_last_step BIGINT DEFAULT 0",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
