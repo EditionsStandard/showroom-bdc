@@ -313,6 +313,11 @@ function sendPage(res, filename, cacheControl) {
   res.sendFile(path.join(__dirname, 'public', filename));
 }
 app.use(express.static(path.join(__dirname, 'public'), {
+  // index:false — sinon express.static sert automatiquement public/index.html
+  // pour GET / et court-circuite silencieusement le handler explicite plus
+  // bas (redirection vers le portail acheteur) : public/index.html est une
+  // ancienne page vitrine avec des liens /commande/:brandId non tokenisés.
+  index: false,
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   etag: true,
   setHeaders: (res, filePath) => {
