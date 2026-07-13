@@ -88,7 +88,7 @@
   /* Marqueur accent brut (carré plat) — signature commune à tous les écrans */
   h2.section-title::before { content: ''; display: inline-block; width: 9px; height: 9px; background: var(--accent); border-radius: 0; margin-right: 14px; vertical-align: 2px; }
   .dash-block-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 10px; }
-  .dash-card { background: transparent; border: 1px solid var(--border); border-radius: 0; padding: 12px 14px; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 13px; }
+  .dash-card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 12px 14px; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   .dash-card-empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); }
   .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); padding: 8px 12px; margin: 0 8px 8px 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; transition: border-color .15s; }
   .dash-brand-chip:hover { border-color: var(--accent); }
@@ -107,7 +107,7 @@
   @keyframes saveStatusPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
   /* Cartes marque pleine largeur (une par ligne), style brut */
   .brand-grid { display: flex; flex-direction: column; gap: 14px; }
-  .brand-card { display: flex; align-items: stretch; background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; }
+  .brand-card { display: flex; align-items: stretch; background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   .brand-card:hover { border-color: var(--accent); }
   .brand-card:hover .brand-name, .brand-card:hover .brand-cta { color: var(--accent); }
   .brand-cover { width: 300px; flex-shrink: 0; align-self: stretch; object-fit: cover; object-position: center; display: block; background: var(--dark); }
@@ -156,7 +156,7 @@
   .col-filter { display: inline-flex; align-items: center; flex-shrink: 0; padding: 7px 2px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; border: none; border-bottom: 1px solid transparent; color: var(--muted); cursor: pointer; background: transparent; font-family: 'Plex Mono', 'Space Mono', monospace; border-radius: 0; transition: color .15s, border-color .15s; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 14px; }
   .col-filter:hover { color: var(--white); }
   .col-filter.active { color: var(--white); border-bottom-color: var(--accent); }
-  .product-card { background: transparent; border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: default; transition: border-color .15s; }
+  .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: default; transition: border-color .15s; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   .product-card:hover { border-color: var(--soft); }
   .product-img-wrap { position: relative; overflow: hidden; cursor: pointer; }
   .product-img { width: 100%; height: 280px; object-fit: contain; background: #fff; display: block; transition: opacity .3s; }
@@ -210,6 +210,15 @@
   .cgv-modal-body { overflow-y: auto; padding: 20px 24px; flex: 1; }
   .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin: 18px 0; }
   #sig-canvas { background: #fff; border-radius: 0; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
+  /* Système de boutons partagé avec l'admin (mêmes classes, même rendu) —
+     à utiliser pour tout nouveau bouton plutôt que du style en ligne. */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 0; border: none; background: transparent; color: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; min-height: 40px; font-family: 'Plex Mono', 'Space Mono', monospace; }
+  .btn-primary { background: var(--white); color: var(--black); font-weight: 400; font-size: 11px; text-transform: uppercase; letter-spacing: .22em; }
+  .btn-primary:hover { opacity: .82; }
+  .btn-secondary { background: transparent; color: var(--muted); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .16em; font-weight: 400; }
+  .btn-secondary:hover { color: var(--white); }
+  .btn-danger { background: transparent; color: var(--danger); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
   .btn-confirm { width: 100%; background: var(--white); color: var(--black); border: none; padding: 18px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; border-radius: 0; font-family: inherit; margin-top: 18px; max-width: 480px; transition: background .25s, color .25s; }
   .btn-confirm:hover:not(:disabled) { opacity: .85; }
   .btn-confirm:disabled { opacity: .4; cursor: default; }
