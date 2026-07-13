@@ -391,7 +391,19 @@ async function requireMfaEnrolled(req, res, next) {
     if (p.startsWith('/api/staff/mfa/') || p === '/api/me' || p === '/admin/logout') return next();
     if (p.startsWith('/api/')) return res.status(403).json({ error: 'mfa_required', message: 'Double authentification obligatoire — configurez-la avant de continuer.' });
     next(); // route HTML (ex. /admin) : le JS client affiche l'overlay de configuration bloquant
-  } catch(e) { console.error('requireMfaEnrolled:', e); next(); } // fail-open journalisé (cf. incident CSRF 2026-07 — jamais de blocage total non diagnostiqué)
+  } catch(e) {
+    console.error('requireMfaEnrolled:', e);
+    // Échec de la vérification MFA (ex. incident DB) : fail-closed sur /api/*
+    // (actions et données sensibles — c'est là qu'est le vrai risque) mais
+    // fail-open sur les pages HTML (simple coquille sans données, les appels
+    // /api/* qu'elle déclenchera restent eux bloqués ci-dessus) — pour ne pas
+    // reproduire le blocage total de l'incident CSRF 2026-07 tout en évitant
+    // qu'une erreur DB transitoire ne devienne une fenêtre de contournement
+    // du MFA obligatoire.
+    logAuditRaw(req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'unknown'), 'mfa_check_failed', 'staff', req.session?.staffUser?.id || '', String(e.message || e));
+    if (req.path.startsWith('/api/')) return res.status(503).json({ error: 'mfa_check_failed', message: 'Vérification de sécurité temporairement indisponible — réessayez.' });
+    next();
+  }
 }
 app.use(requireMfaEnrolled);
 
