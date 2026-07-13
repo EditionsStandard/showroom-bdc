@@ -5133,6 +5133,48 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Timeline commerciale — fil chronologique des événements business récents,
+// tous acheteurs confondus (contrairement à l'historique de la fiche buyer
+// 360°, qui est déjà filtré sur un seul acheteur). Utile pour un coup d'œil
+// rapide sur "ce qu'il s'est passé" sans ouvrir chaque fiche client.
+app.get('/api/admin/dashboard/timeline', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const scoped = isBrandScoped(req);
+    const bId = req.userBrandId;
+    const p = scoped ? [bId] : [];
+    const LIMIT = 40;
+    const [sels, orders, appts, reminders, orderEvents] = await Promise.all([
+      pool.query(`SELECT s.created_at AS at, s.created_by AS who, s.selection_number, s.client_name, s.client_company, b.name AS brand_name
+                  FROM agent_selections s JOIN brands b ON b.id = s.brand_id
+                  WHERE (s.is_template IS NULL OR s.is_template = false) ${scoped ? 'AND s.brand_id = $1' : ''}
+                  ORDER BY s.created_at DESC LIMIT ${LIMIT}`, p),
+      pool.query(`SELECT o.created_at AS at, o.order_number, o.client_name, o.client_company, b.name AS brand_name
+                  FROM orders o JOIN brands b ON b.id = o.brand_id
+                  WHERE o.status != 'draft' ${scoped ? 'AND o.brand_id = $1' : ''}
+                  ORDER BY o.created_at DESC LIMIT ${LIMIT}`, p),
+      pool.query(`SELECT a.created_at AS at, to_char(a.slot_date, 'YYYY-MM-DD') AS slot_date, a.slot_time, a.client_name, b.name AS brand_name
+                  FROM appointments a JOIN brands b ON b.id = a.brand_id
+                  WHERE 1=1 ${scoped ? 'AND a.brand_id = $1' : ''}
+                  ORDER BY a.created_at DESC LIMIT ${LIMIT}`, p),
+      pool.query(`SELECT resolved_at AS at, type, label, status, resolved_by
+                  FROM pending_reminders WHERE status != 'pending' AND resolved_at IS NOT NULL
+                  ORDER BY resolved_at DESC LIMIT ${LIMIT}`),
+      pool.query(`SELECT e.created_at AS at, e.event_type, e.note, e.created_by, o.order_number, b.name AS brand_name
+                  FROM order_events e JOIN orders o ON o.id = e.order_id JOIN brands b ON b.id = o.brand_id
+                  WHERE 1=1 ${scoped ? 'AND o.brand_id = $1' : ''}
+                  ORDER BY e.created_at DESC LIMIT ${LIMIT}`, p)
+    ]);
+    const events = [];
+    sels.rows.forEach(s => events.push({ at: s.at, icon: '📤', text: `Sélection ${s.selection_number || ''} envoyée à ${s.client_name || s.client_company || ''} — ${s.brand_name}`, who: s.who || '' }));
+    orders.rows.forEach(o => events.push({ at: o.at, icon: '🧾', text: `Commande ${o.order_number || ''} de ${o.client_name || o.client_company || ''} — ${o.brand_name}`, who: '' }));
+    appts.rows.forEach(a => events.push({ at: a.at, icon: '📅', text: `RDV pris avec ${a.client_name || ''} le ${a.slot_date}${a.slot_time ? ' à ' + a.slot_time : ''} — ${a.brand_name}`, who: '' }));
+    reminders.rows.forEach(r => events.push({ at: r.at, icon: r.status === 'sent' ? '✉️' : '🚫', text: `Relance ${r.status === 'sent' ? 'envoyée' : 'rejetée'} — ${r.label || r.type}`, who: r.resolved_by || '' }));
+    orderEvents.rows.forEach(e => events.push({ at: e.at, icon: '📦', text: `Commande ${e.order_number || ''} — ${e.event_type}${e.note ? ' : ' + e.note : ''} — ${e.brand_name}`, who: e.created_by || '' }));
+    events.sort((a, b) => new Date(b.at) - new Date(a.at));
+    res.json({ events: events.slice(0, LIMIT) });
+  } catch(e) { console.error('dashboard timeline:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
   req.url = req.url.replace('/api/search', '/api/admin/search');
   res.redirect(307, '/api/admin/search?' + new URLSearchParams({ q: req.query.q || '' }));

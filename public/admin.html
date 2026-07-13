@@ -684,6 +684,16 @@
       </table></div>
     </div>
 
+    <!-- Timeline commerciale — fil chronologique tous acheteurs confondus.
+         agency-only : le endpoint est requireRole('owner','agent'), un
+         designer (rattaché à une seule marque) recevrait un 403. -->
+    <div class="card agency-only">
+      <h3 style="margin:0 0 14px;font-size:14px">🕘 Timeline commerciale</h3>
+      <div id="dash-timeline" style="max-height:340px;overflow-y:auto">
+        <p style="font-size:12px;color:#555">Chargement…</p>
+      </div>
+    </div>
+
     <!-- ANALYTIQUES ACHETEURS -->
     <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px" id="buyer-analytics-grid">
@@ -3546,6 +3556,27 @@ async function loadDashboard() {
   // Analytiques acheteurs enrichies (non-bloquant)
   loadBuyerStats();
   loadWorldMap().catch(() => {});
+  loadDashboardTimeline();
+}
+
+// ── Timeline commerciale (fil chronologique tous acheteurs) ──────────
+async function loadDashboardTimeline() {
+  const box = document.getElementById('dash-timeline');
+  if (!box) return;
+  try {
+    const d = await fetch('/api/admin/dashboard/timeline').then(r => r.json());
+    const events = d.events || [];
+    const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+    box.innerHTML = events.length ? events.map(e => {
+      const dt = new Date(e.at);
+      const when = dt.toLocaleDateString(locale) + ' · ' + dt.toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit' });
+      const who = e.who ? ` <span style="color:#666">· ${esc(e.who)}</span>` : '';
+      return `<div style="display:flex;gap:10px;font-size:13px;padding:7px 0;border-bottom:1px solid #1a1a1a">
+        <span style="min-width:18px">${esc(e.icon||'•')}</span>
+        <div><div>${esc(e.text||'')}</div><div style="font-size:11px;color:#888;margin-top:1px">${when}${who}</div></div>
+      </div>`;
+    }).join('') : '<p style="font-size:12px;color:#555">Aucune activité récente</p>';
+  } catch(e) { box.innerHTML = '<p style="font-size:12px;color:#e07a7a">Erreur de chargement</p>'; }
 }
 
 // ── Carte du monde des clients ────────────────────────────────────────
