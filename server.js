@@ -3830,6 +3830,19 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
       ).catch(e => console.error('[product-stats-error]', e.message));
     }
     const brand = b.rows[0];
+    // Conditions négociées pour cet acheteur avec cette marque, le cas échéant
+    // — un champ vide dans la surcharge = pas de négociation sur ce point,
+    // repli sur la condition par défaut de la marque.
+    const termsOverride = (await pool.query(
+      'SELECT payment_terms, delivery_terms, return_terms FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2',
+      [req.session.buyerPortal.id, req.params.brandId]
+    )).rows[0];
+    if (termsOverride) {
+      brand.custom_terms = true;
+      if (termsOverride.payment_terms) brand.payment_terms = termsOverride.payment_terms;
+      if (termsOverride.delivery_terms) brand.delivery_terms = termsOverride.delivery_terms;
+      if (termsOverride.return_terms) brand.return_terms = termsOverride.return_terms;
+    }
     brand.logo = cloudinaryOpt(brand.logo);
     brand.logo_url = cloudinaryOpt(brand.logo_url);
     brand.cover_image = cloudinaryOpt(brand.cover_image);
@@ -4416,7 +4429,7 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     const scoped = isBrandScoped(req);
     const brandId = req.userBrandId;
     const [orders, appts] = await Promise.all([
-      pool.query(`SELECT o.id, o.order_number, o.created_at, o.status, b.name AS brand_name,
+      pool.query(`SELECT o.id, o.order_number, o.created_at, o.status, o.brand_id, b.name AS brand_name,
                          COALESCE(SUM(ol.quantity*ol.unit_price),0)::float AS total
                   FROM orders o JOIN brands b ON b.id=o.brand_id
                   LEFT JOIN order_lines ol ON ol.order_id=o.id
@@ -4488,8 +4501,55 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
       productsById = Object.fromEntries(pRes.rows.map(p => [p.id, p]));
     }
     const resolveList = ids => ids.map(id => productsById[id]).filter(Boolean);
-    res.json({ buyer, orders: orders.rows, appointments: appts.rows, activity, favorites: resolveList(favIds), shortlist: resolveList(shortIds) });
+
+    // Conditions négociées — une entrée par marque avec laquelle l'acheteur a
+    // déjà commandé, comparant la condition par défaut de la marque et une
+    // éventuelle surcharge négociée pour cet acheteur précis.
+    const brandsForTerms = Object.fromEntries(orders.rows.map(o => [o.brand_id, o.brand_name]));
+    const brandIds = Object.keys(brandsForTerms);
+    let negotiatedTerms = [];
+    if (brandIds.length) {
+      const [defaultsRes, overridesRes] = await Promise.all([
+        pool.query('SELECT id, payment_terms, delivery_terms, return_terms FROM brands WHERE id = ANY($1)', [brandIds]),
+        pool.query('SELECT brand_id, payment_terms, delivery_terms, return_terms, updated_at, updated_by FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id = ANY($2)', [req.params.id, brandIds])
+      ]);
+      const defaultsByBrand = Object.fromEntries(defaultsRes.rows.map(b => [b.id, b]));
+      const overridesByBrand = Object.fromEntries(overridesRes.rows.map(o => [o.brand_id, o]));
+      negotiatedTerms = brandIds.map(bId => ({
+        brand_id: bId,
+        brand_name: brandsForTerms[bId],
+        default: defaultsByBrand[bId] || { payment_terms: '', delivery_terms: '', return_terms: '' },
+        override: overridesByBrand[bId] || null
+      }));
+    }
+
+    res.json({ buyer, orders: orders.rows, appointments: appts.rows, activity, favorites: resolveList(favIds), shortlist: resolveList(shortIds), negotiatedTerms });
   } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Conditions négociées acheteur × marque — un champ laissé vide efface la
+// surcharge sur ce point précis (repli sur la condition par défaut de la
+// marque) ; les 3 champs vides supprime la ligne entièrement.
+app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), async (req, res) => {
+  try {
+    if (isBrandScoped(req) && req.userBrandId !== req.params.brandId) return res.status(403).json({ error: 'Accès refusé pour cette marque' });
+    const paymentTerms = (req.body.payment_terms || '').toString().trim();
+    const deliveryTerms = (req.body.delivery_terms || '').toString().trim();
+    const returnTerms = (req.body.return_terms || '').toString().trim();
+    if (!paymentTerms && !deliveryTerms && !returnTerms) {
+      await pool.query('DELETE FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.params.id, req.params.brandId]);
+      logAudit(req, 'buyer_terms_cleared', 'buyer', req.params.id, req.params.brandId);
+      return res.json({ ok: true, cleared: true });
+    }
+    await pool.query(
+      `INSERT INTO buyer_brand_terms (buyer_id, brand_id, payment_terms, delivery_terms, return_terms, updated_at, updated_by)
+       VALUES ($1,$2,$3,$4,$5,NOW(),$6)
+       ON CONFLICT (buyer_id, brand_id) DO UPDATE SET payment_terms=$3, delivery_terms=$4, return_terms=$5, updated_at=NOW(), updated_by=$6`,
+      [req.params.id, req.params.brandId, paymentTerms, deliveryTerms, returnTerms, req.session.staffUser?.email || (req.session.admin ? 'owner' : '')]
+    );
+    logAudit(req, 'buyer_terms_updated', 'buyer', req.params.id, req.params.brandId);
+    res.json({ ok: true });
+  } catch(e) { console.error('buyer terms update:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // ==================== MESSAGERIE ACHETEUR ↔ AGENCE =========================
