@@ -5721,8 +5721,8 @@ function resetBuyersFilters() {
   renderBuyersPage();
 }
 
-function STATUS_LABEL() { return { confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: '⚙️ En production', shipped: '🚚 Expédiée', cancelled: t('status_cancelled_icon') }; }
-const STATUS_BADGE = { confirmed: 'confirmed', validated: 'validated', in_production: 'in_production', shipped: 'shipped', cancelled: 'cancelled' };
+function STATUS_LABEL() { return { draft: '📝 Brouillon', confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: '⚙️ En production', shipped: '🚚 Expédiée', cancelled: t('status_cancelled_icon'), archived: '📦 Archivée' }; }
+const STATUS_BADGE = { draft: 'draft', confirmed: 'confirmed', validated: 'validated', in_production: 'in_production', shipped: 'shipped', cancelled: 'cancelled', archived: 'archived' };
 
 // ── Onglets commandes / sélections ────────────────────────────────────
 let _currentOrderTab = 'orders';

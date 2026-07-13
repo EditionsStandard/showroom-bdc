@@ -285,9 +285,11 @@ app.use((req, res, next) => {
   }
   if (normalizeHost(originHost) !== normalizeHost(selfHost)) {
     console.error('[CSRF] host mismatch — selfHost:', selfHost, '| originHost:', originHost, '| path:', req.path, '| ua:', req.headers['user-agent']);
-    // Fail-open journalisé : SameSite=Lax (cookie de session) reste la
-    // protection réelle contre le CSRF cross-site — on ne re-bloque ici
-    // qu'une fois la cause du mismatch identifiée dans les logs ci-dessus.
+    // Blocage réel uniquement ici, sur un mismatch non ambigu (un Origin/Referer
+    // valide et parsable, pointant vers un autre host) — les cas ambigus qui ont
+    // causé l'incident du 2026-07 (Origin absent, "null", ou non parsable)
+    // restent fail-open ci-dessus, inchangés.
+    return res.status(403).json({ error: 'cross_origin_forbidden', message: 'Requête refusée (origine différente).' });
   }
   next();
 });
@@ -468,6 +470,14 @@ function consumeBackupCode(hashedListJson, submittedCode) {
   hashedList.splice(idx, 1);
   return hashedList;
 }
+// otplib accepte un code sur une fenêtre de tolérance (±1 pas de 30s) mais ne
+// bloque pas nativement la réutilisation du même code dans cette fenêtre — un
+// code intercepté (regard par-dessus l'épaule, capture réseau) resterait donc
+// valable pour une seconde connexion. On retient le pas de temps du dernier
+// code accepté par compte et on rejette la réutilisation du même pas.
+function currentTotpStep() {
+  return Math.floor(Date.now() / 1000 / (authenticator.options.step || 30));
+}
 
 // ── Order events (timeline) ───────────────────────────────────────────
 async function addOrderEvent(orderId, eventType, note, createdBy) {
@@ -558,9 +568,41 @@ function rateLimitExceededHandler(message) {
   };
 }
 
+// Clé de rate-limit résistante au spoofing de X-Forwarded-For. `trust proxy`
+// est nécessaire en production (cookies sécurisés derrière le proxy Railway),
+// mais un client qui atteint le serveur directement (ce sandbox de test, ou
+// tout accès qui contournerait le proxy) peut alors faire varier req.ip à
+// volonté simplement en changeant l'en-tête — ce qui viderait de son sens un
+// rate-limit basé sur l'IP, y compris combinée à un email (IP+email varie
+// tout autant si l'IP varie : composer les deux ne protège rien tant que
+// l'un des deux termes reste falsifiable). On clé donc PUREMENT sur un
+// identifiant que le client ne peut pas changer à chaque requête :
+// - étape code MFA (staff ou acheteur) : la session déjà validée par mot de
+//   passe (mfaPending/mfaPendingBuyer.id, ou l'ID de session pour le owner
+//   qui n'a pas d'ID de compte dédié) — cette session ne peut exister sans
+//   avoir déjà fourni le bon mot de passe, donc pas falsifiable par un
+//   simple changement d'en-tête ;
+// - étape mot de passe : l'email soumis seul — un attaquant qui fait varier
+//   l'IP reste plafonné sur CE compte précis, seul repli qui compte contre
+//   un brute-force ciblé (et évite au passage le blocage collatéral d'une
+//   IP de showroom partagée par plusieurs comptes légitimes).
+function authRateLimitKey(req) {
+  const pending = req.session?.mfaPending || req.session?.mfaPendingBuyer;
+  if (pending) return 'mfa:' + (pending.id || ('owner:' + req.sessionID));
+  const email = (req.body?.email || '').toString().trim().toLowerCase();
+  return email ? 'email:' + email : rateLimit.ipKeyGenerator(req.ip);
+}
+// Pour les routes déjà authentifiées (changement/désactivation de mot de
+// passe ou de MFA) : clé sur l'identité de session, pas l'IP.
+function authedUserRateLimitKey(req) {
+  const id = req.session?.staffUser?.id || (req.session?.admin ? 'owner' : '') || req.session?.buyerPortal?.id;
+  return id ? 'auth:' + id : rateLimit.ipKeyGenerator(req.ip);
+}
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
+  keyGenerator: authRateLimitKey,
   message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
   handler: rateLimitExceededHandler({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }),
   standardHeaders: true, legacyHeaders: false
@@ -600,6 +642,7 @@ const confirmLimiter = rateLimit({
 const passwordLimiter = rateLimit({
   windowMs: 900000, // 15 minutes
   max: 5,
+  keyGenerator: authedUserRateLimitKey,
   message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
   handler: rateLimitExceededHandler({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }),
   standardHeaders: true, legacyHeaders: false
@@ -613,6 +656,10 @@ const passwordLimiter = rateLimit({
 const buyerAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 30,
+  keyGenerator: (req) => {
+    const email = (req.body?.email || '').toString().trim().toLowerCase();
+    return email ? 'email:' + email : rateLimit.ipKeyGenerator(req.ip);
+  },
   message: { error: 'Trop de demandes. Réessayez dans quelques minutes.' },
   handler: rateLimitExceededHandler({ error: 'Trop de demandes. Réessayez dans quelques minutes.' }),
   standardHeaders: true, legacyHeaders: false
@@ -698,12 +745,15 @@ app.post('/admin/login/mfa', loginLimiter, async (req, res) => {
   const backupCode = (req.body.backup_code || '').toString().trim();
   let ok = false, usedBackup = false;
 
+  const step = currentTotpStep();
   if (pending.kind === 'staff') {
-    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM admin_users WHERE id=$1', [pending.id]);
+    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes, mfa_last_step FROM admin_users WHERE id=$1', [pending.id]);
     const row = r.rows[0];
     if (row?.mfa_secret) {
-      if (code && authenticator.check(code, row.mfa_secret)) ok = true;
-      else if (backupCode) {
+      if (code && Number(row.mfa_last_step) !== step && authenticator.check(code, row.mfa_secret)) {
+        ok = true;
+        await pool.query('UPDATE admin_users SET mfa_last_step=$1 WHERE id=$2', [step, pending.id]);
+      } else if (backupCode) {
         const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
         if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
       }
@@ -711,8 +761,11 @@ app.post('/admin/login/mfa', loginLimiter, async (req, res) => {
   } else if (pending.kind === 'owner') {
     const secret = await getSetting('owner_mfa_secret');
     if (secret) {
-      if (code && authenticator.check(code, secret)) ok = true;
-      else if (backupCode) {
+      const lastStep = Number((await getSetting('owner_mfa_last_step')) || 0);
+      if (code && lastStep !== step && authenticator.check(code, secret)) {
+        ok = true;
+        await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_last_step',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [String(step)]);
+      } else if (backupCode) {
         const backupJson = await getSetting('owner_mfa_backup_codes');
         const updated = consumeBackupCode(backupJson, backupCode);
         if (updated) { ok = true; usedBackup = true; await pool.query("UPDATE settings SET value=$1 WHERE key='owner_mfa_backup_codes'", [JSON.stringify(updated)]); }
@@ -1036,7 +1089,7 @@ app.post('/api/settings', requireRole('owner'), async (req, res) => {
 
 // Brands
 app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, res) => {
-  if (req.userRole === 'designer') {
+  if (isBrandScoped(req)) {
     const r = await pool.query('SELECT * FROM brands WHERE id=$1 ORDER BY name', [req.userBrandId]);
     return res.json(r.rows);
   }
@@ -1112,7 +1165,9 @@ app.get('/api/brands/:id/qrcode', requireBrandScope('owner','agent'), async (req
 // QR d'accès de TOUTES les marques (pour impression sur une feuille A4)
 app.get('/api/brands-qrcodes', requireRole('owner','agent'), async (req, res) => {
   try {
-    const r = await pool.query("SELECT id, name, logo, logo_url FROM brands WHERE subscription_status IS NULL OR subscription_status != 'inactive' ORDER BY name");
+    const r = isBrandScoped(req)
+      ? await pool.query("SELECT id, name, logo, logo_url FROM brands WHERE id=$1 AND (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name", [req.userBrandId])
+      : await pool.query("SELECT id, name, logo, logo_url FROM brands WHERE subscription_status IS NULL OR subscription_status != 'inactive' ORDER BY name");
     const base = getBaseUrl(req);
     const createdBy = req.session?.staffUser?.email;
     const items = await Promise.all(r.rows.map(async b => {
@@ -2244,6 +2299,10 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
     if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
     const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
     const oldStatus = prev.rows[0]?.status || '';
+    // "archived" est un état terminal : au-delà, plus aucun changement de
+    // statut via cet endpoint (évite de ressusciter silencieusement une
+    // commande classée, avec ré-envoi d'email client à l'appui).
+    if (oldStatus === 'archived') return res.status(409).json({ error: 'Commande archivée : statut définitif.' });
     await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
     logAudit(req, 'update_order_status', 'order', orderId, `${oldStatus} → ${status}`);
     const changedBy = req.session?.staffUser?.name || req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
@@ -2609,11 +2668,13 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
       if (!prev.rows[0]) continue;
       if (scoped && prev.rows[0].brand_id !== req.userBrandId) continue; // n'agit que sur sa marque
       const oldStatus = prev.rows[0].status || '';
+      if (oldStatus === 'archived') continue; // statut terminal, cf. PUT /api/orders/:id/status
       await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
       await pool.query(
         'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
         [uuidv4(), orderId, oldStatus, status, changedBy]
       ).catch(e => console.error('bulk history insert error:', e.message));
+      await addOrderEvent(orderId, status, `Statut → ${status} (action groupée)`, changedBy);
       updated++;
     }
     // Copie email au propriétaire : un résumé pour l'action groupée
@@ -3051,7 +3112,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (!buyer_signature) return { error: 'Signature requise' };
   if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
 
-  const brandCheck = await pool.query('SELECT subscription_status, moq_qty, moq_amount FROM brands WHERE id=$1', [brand_id]);
+  const brandCheck = await pool.query('SELECT subscription_status, moq_qty, moq_amount, moq_strict FROM brands WHERE id=$1', [brand_id]);
   if (!brandCheck.rows[0]) return { error: 'Marque introuvable' };
   if (brandCheck.rows[0].subscription_status === 'inactive') {
     return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
@@ -3067,8 +3128,13 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * parseFloat(l.product.price || 0), 0);
   const moqQty = parseInt(brandCheck.rows[0].moq_qty) || 0;
   const moqAmount = parseFloat(brandCheck.rows[0].moq_amount) || 0;
-  if (moqQty > 0 && totalQty < moqQty) return { error: `Minimum ${moqQty} pièces requis pour cette marque (sélection actuelle : ${totalQty}).` };
-  if (moqAmount > 0 && totalAmount < moqAmount) return { error: `Montant minimum de ${moqAmount.toFixed(2)} € HT requis pour cette marque (sélection actuelle : ${totalAmount.toFixed(2)} €).` };
+  // moq_strict=false : minimum indicatif, pas un blocage serveur — même repli
+  // que checkMoq() ci-dessus (double vérification MOQ, l'une pré-checkout,
+  // l'autre ici dans createOrder, doivent rester cohérentes).
+  if (brandCheck.rows[0].moq_strict) {
+    if (moqQty > 0 && totalQty < moqQty) return { error: `Minimum ${moqQty} pièces requis pour cette marque (sélection actuelle : ${totalQty}).` };
+    if (moqAmount > 0 && totalAmount < moqAmount) return { error: `Montant minimum de ${moqAmount.toFixed(2)} € HT requis pour cette marque (sélection actuelle : ${totalAmount.toFixed(2)} €).` };
+  }
 
   const orderId = uuidv4();
   // Clé aléatoire dédiée (jamais l'UUID de la commande) exigée pour accéder au
@@ -3114,6 +3180,8 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   } finally {
     dbClient.release();
   }
+
+  await addOrderEvent(orderId, 'created', 'Commande passée par l\'acheteur', client_name || client_email || 'buyer');
 
   try {
     const pdf = await generateOrderPDF(orderId);
@@ -3496,11 +3564,14 @@ app.post('/editions-showroom-b2b-portail/mfa', loginLimiter, async (req, res) =>
   const backupCode = (req.body.backup_code || '').toString().trim();
   let ok = false, usedBackup = false;
 
-  const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM buyers WHERE id=$1', [pending.id]);
+  const r = await pool.query('SELECT mfa_secret, mfa_backup_codes, mfa_last_step FROM buyers WHERE id=$1', [pending.id]);
   const row = r.rows[0];
   if (row?.mfa_secret) {
-    if (code && authenticator.check(code, row.mfa_secret)) ok = true;
-    else if (backupCode) {
+    const step = currentTotpStep();
+    if (code && Number(row.mfa_last_step) !== step && authenticator.check(code, row.mfa_secret)) {
+      ok = true;
+      await pool.query('UPDATE buyers SET mfa_last_step=$1 WHERE id=$2', [step, pending.id]);
+    } else if (backupCode) {
       const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
       if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE buyers SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
     }
@@ -3754,7 +3825,15 @@ app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) 
     let favs = [];
     try { favs = JSON.parse(r.rows[0]?.favorites_json || '[]'); } catch(e) {}
     const idx = favs.indexOf(productId);
-    if (idx >= 0) { favs.splice(idx, 1); } else { favs.push(productId); }
+    // Le retrait reste toujours possible (permet de nettoyer une entrée
+    // invalide déjà présente) ; l'ajout, lui, exige un produit réel.
+    if (idx >= 0) {
+      favs.splice(idx, 1);
+    } else {
+      const exists = await pool.query('SELECT 1 FROM products WHERE id=$1', [productId]);
+      if (!exists.rows.length) return res.status(404).json({ error: 'Produit introuvable' });
+      favs.push(productId);
+    }
     await pool.query('UPDATE buyers SET favorites_json=$1 WHERE id=$2', [JSON.stringify(favs), buyerId]);
     // Analytics distinctes du panier/shortlist — n'incrémente qu'à l'ajout, jamais au retrait.
     if (idx < 0) {
@@ -3788,7 +3867,13 @@ app.post('/api/portal/shortlist/:productId', requireBuyerAuth, async (req, res) 
     let list = [];
     try { list = JSON.parse(r.rows[0]?.shortlist_json || '[]'); } catch(e) {}
     const idx = list.indexOf(productId);
-    if (idx >= 0) { list.splice(idx, 1); } else { list.push(productId); }
+    if (idx >= 0) {
+      list.splice(idx, 1);
+    } else {
+      const exists = await pool.query('SELECT 1 FROM products WHERE id=$1', [productId]);
+      if (!exists.rows.length) return res.status(404).json({ error: 'Produit introuvable' });
+      list.push(productId);
+    }
     await pool.query('UPDATE buyers SET shortlist_json=$1 WHERE id=$2', [JSON.stringify(list), buyerId]);
     if (idx < 0) {
       pool.query(
@@ -3854,11 +3939,15 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
 
 async function checkMoq(brand_id, lines) {
   const validLines = (lines || []).filter(l => l.quantity > 0);
-  const b = await pool.query('SELECT moq_qty, moq_amount FROM brands WHERE id=$1', [brand_id]);
+  const b = await pool.query('SELECT moq_qty, moq_amount, moq_strict FROM brands WHERE id=$1', [brand_id]);
   if (!b.rows[0]) return 'Marque introuvable';
   const moqQty = parseInt(b.rows[0].moq_qty) || 0;
   const moqAmount = parseFloat(b.rows[0].moq_amount) || 0;
-  if (!moqQty && !moqAmount) return null;
+  // moq_strict=false : le minimum n'est qu'une indication affichée côté
+  // acheteur (barre de progression), pas un blocage serveur — sans ce
+  // contrôle, toute commande sous le minimum échouait quand même à la
+  // soumission, contredisant le réglage choisi par la marque.
+  if (!moqQty && !moqAmount || !b.rows[0].moq_strict) return null;
 
   const ids = validLines.map(l => l.product_id);
   const priceRows = await pool.query('SELECT id, price FROM products WHERE id = ANY($1)', [ids]);
@@ -4228,12 +4317,13 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
       `, p),
       // Activité 30 derniers jours (commandes par jour)
       pool.query(`
-        SELECT DATE(created_at) as day, COUNT(*) as count,
-               COALESCE(SUM(total_amount), 0) as amount
-        FROM orders
-        WHERE created_at >= NOW() - INTERVAL '30 days'
-        ${scoped ? 'AND brand_id = $1' : ''}
-        GROUP BY DATE(created_at)
+        SELECT DATE(o.created_at) as day, COUNT(DISTINCT o.id) as count,
+               COALESCE(SUM(ol.quantity * ol.unit_price), 0) as amount
+        FROM orders o
+        LEFT JOIN order_lines ol ON ol.order_id = o.id
+        WHERE o.created_at >= NOW() - INTERVAL '30 days'
+        ${scoped ? 'AND o.brand_id = $1' : ''}
+        GROUP BY DATE(o.created_at)
         ORDER BY day ASC
       `, p)
     ]);
@@ -4424,6 +4514,7 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     );
     const buyer = bRes.rows[0];
     if (!buyer) return res.status(404).json({ error: 'Acheteur introuvable' });
+    if (!(await checkBuyerBrandScope(req, res))) return;
     // Agent/designer borné à sa marque : n'agrège que les commandes et RDV de
     // sa marque (le propriétaire voit l'historique complet, toutes marques).
     const scoped = isBrandScoped(req);
@@ -4594,6 +4685,7 @@ app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
 // Admin : fil d'un acheteur (marque les messages acheteur comme lus)
 app.get('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    if (!(await checkBuyerBrandScope(req, res))) return;
     const r = await pool.query('SELECT id, sender, body, created_at FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC', [req.params.id]);
     await pool.query("UPDATE buyer_messages SET read_by_staff=true WHERE buyer_id=$1 AND sender='buyer' AND read_by_staff=false", [req.params.id]);
     res.json({ messages: r.rows });
@@ -4608,6 +4700,7 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
     if (body.length > 4000) return res.status(400).json({ error: 'Message trop long' });
     const b = (await pool.query('SELECT id, email, name FROM buyers WHERE id=$1', [req.params.id])).rows[0];
     if (!b) return res.status(404).json({ error: 'Acheteur introuvable' });
+    if (!(await checkBuyerBrandScope(req, res))) return;
     await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, read_by_buyer) VALUES ($1,$2,$3,$4,false)',
       [uuidv4(), b.id, 'staff', body]);
     logAudit(req, 'reply_buyer_message', 'buyer', b.id, '');
@@ -5089,6 +5182,8 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   }
 
   logAudit(req, 'edit_order_lines', 'order', req.params.id, '');
+  const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
+  await addOrderEvent(req.params.id, 'lines_edited', 'Quantités modifiées', changedBy);
   const totRes = await pool.query('SELECT SUM(quantity * unit_price) AS total FROM order_lines WHERE order_id=$1', [req.params.id]);
   notifyOwnerOrder(req.params.id, 'Commande modifiée (quantités)').catch(() => {}); // copie email au propriétaire
   res.json({ ok: true, total: parseFloat(totRes.rows[0]?.total || 0) });
@@ -5340,6 +5435,9 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { brand_id, slot_date, slot_time, notes } = req.body;
   if (!brand_id || !slot_date || !slot_time) return res.status(400).json({ error: 'Données incomplètes' });
+  if (!isValidAppointmentSlot(String(slot_date), String(slot_time))) {
+    return res.status(400).json({ error: 'Créneau invalide' });
+  }
   const id = crypto.randomUUID();
   try {
     await pool.query(
@@ -7066,12 +7164,15 @@ app.post('/api/agent/login/mfa', loginLimiter, async (req, res) => {
   const code = (req.body.code || '').toString().trim();
   const backupCode = (req.body.backup_code || '').toString().trim();
   try {
-    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM admin_users WHERE id=$1', [pending.id]);
+    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes, mfa_last_step FROM admin_users WHERE id=$1', [pending.id]);
     const row = r.rows[0];
     let ok = false, usedBackup = false;
     if (row?.mfa_secret) {
-      if (code && authenticator.check(code, row.mfa_secret)) ok = true;
-      else if (backupCode) {
+      const step = currentTotpStep();
+      if (code && Number(row.mfa_last_step) !== step && authenticator.check(code, row.mfa_secret)) {
+        ok = true;
+        await pool.query('UPDATE admin_users SET mfa_last_step=$1 WHERE id=$2', [step, pending.id]);
+      } else if (backupCode) {
         const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
         if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
       }
@@ -7240,8 +7341,38 @@ async function sendSelectionReminderNow(token) {
   });
 }
 
+// pending_reminders n'a pas de brand_id propre : seul le type
+// 'selection_reminder' est rattachable à une marque (via agent_selections),
+// 'buyer_inactive' concerne l'acheteur tous marques confondues et n'est donc
+// visible/actionnable QUE par un owner (pas de marque unique légitime à qui
+// l'attribuer pour un agent borné).
+async function reminderBrandId(row) {
+  if (row.type !== 'selection_reminder') return null;
+  const s = await pool.query('SELECT brand_id FROM agent_selections WHERE token=$1', [row.target_id]);
+  return s.rows[0]?.brand_id || null;
+}
+async function checkReminderBrandScope(req, res, row) {
+  if (!isBrandScoped(req)) return true;
+  const bId = await reminderBrandId(row);
+  if (bId !== req.userBrandId) {
+    res.status(403).json({ error: 'Accès refusé' });
+    return false;
+  }
+  return true;
+}
+
 app.get('/api/admin/pending-reminders', requireRole('owner','agent'), async (req, res) => {
   try {
+    if (isBrandScoped(req)) {
+      const r = await pool.query(
+        `SELECT p.* FROM pending_reminders p
+         JOIN agent_selections s ON s.token = p.target_id
+         WHERE p.type = 'selection_reminder' AND s.brand_id = $1
+         ORDER BY p.created_at DESC LIMIT 200`,
+        [req.userBrandId]
+      );
+      return res.json(r.rows);
+    }
     const r = await pool.query('SELECT * FROM pending_reminders ORDER BY created_at DESC LIMIT 200');
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -7252,6 +7383,8 @@ app.post('/api/admin/pending-reminders/:id/approve', requireRole('owner','agent'
     const p = await pool.query("SELECT * FROM pending_reminders WHERE id=$1 AND status='pending'", [req.params.id]);
     const row = p.rows[0];
     if (!row) return res.status(404).json({ error: 'Relance introuvable ou déjà traitée' });
+    if (!(await checkReminderBrandScope(req, res, row))) return;
+    if (!process.env.RESEND_API_KEY) return res.status(503).json({ error: 'Email non configuré' });
     if (row.type === 'buyer_inactive') await sendInactiveReminderNow(row.target_id);
     else if (row.type === 'selection_reminder') await sendSelectionReminderNow(row.target_id);
     else return res.status(400).json({ error: 'Type de relance inconnu' });
@@ -7264,13 +7397,13 @@ app.post('/api/admin/pending-reminders/:id/approve', requireRole('owner','agent'
 
 app.post('/api/admin/pending-reminders/:id/reject', requireRole('owner','agent'), async (req, res) => {
   try {
+    const p = await pool.query("SELECT * FROM pending_reminders WHERE id=$1 AND status='pending'", [req.params.id]);
+    const row = p.rows[0];
+    if (!row) return res.status(404).json({ error: 'Relance introuvable ou déjà traitée' });
+    if (!(await checkReminderBrandScope(req, res, row))) return;
     const by = req.session?.staffUser?.email || (req.session?.admin ? 'owner' : 'unknown');
-    const r = await pool.query(
-      "UPDATE pending_reminders SET status='rejected', resolved_at=NOW(), resolved_by=$1 WHERE id=$2 AND status='pending' RETURNING type, target_id, label",
-      [by, req.params.id]
-    );
-    if (!r.rowCount) return res.status(404).json({ error: 'Relance introuvable ou déjà traitée' });
-    logAudit(req, 'reminder_rejected', r.rows[0].type, r.rows[0].target_id, r.rows[0].label);
+    await pool.query("UPDATE pending_reminders SET status='rejected', resolved_at=NOW(), resolved_by=$1 WHERE id=$2", [by, row.id]);
+    logAudit(req, 'reminder_rejected', row.type, row.target_id, row.label);
     res.json({ ok: true });
   } catch(e) { console.error('[pending-reminder-reject]', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -7285,6 +7418,11 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   log.error('[error]', { method: req.method, path: req.path, err: err.message });
   if (res.headersSent) return next(err);
+  // JSON malformé côté client (express.json()) : erreur d'entrée, pas une
+  // panne serveur — 400 plutôt que 500.
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: 'Requête invalide (JSON malformé).' });
+  }
   res.status(500).json({ error: 'Erreur serveur' });
 });
 
