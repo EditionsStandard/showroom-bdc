@@ -4389,7 +4389,7 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
 app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (req, res) => {
   try {
     const bRes = await pool.query(
-      'SELECT id, email, name, company, phone, country, tags, internal_notes, created_at, last_seen_at FROM buyers WHERE id=$1',
+      'SELECT id, email, name, company, phone, country, tags, internal_notes, created_at, last_seen_at, favorites_json, shortlist_json FROM buyers WHERE id=$1',
       [req.params.id]
     );
     const buyer = bRes.rows[0];
@@ -4451,7 +4451,27 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     });
     orderEvents.forEach(e => activity.push({ at: e.created_at, who: e.created_by || '', icon: '📦', text: `Commande ${ordNumById[e.order_id] || ''} — ${e.event_type}${e.note ? ' : ' + e.note : ''}` }));
     activity.sort((a, b) => new Date(b.at) - new Date(a.at));
-    res.json({ buyer, orders: orders.rows, appointments: appts.rows, activity });
+
+    // Favoris & shortlist — signaux d'intention (sans engagement) visibles sur
+    // la fiche 360°, résolus en référence/marque/prix pour l'agence.
+    let favIds = [], shortIds = [];
+    try { favIds = JSON.parse(buyer.favorites_json || '[]'); } catch(e) {}
+    try { shortIds = JSON.parse(buyer.shortlist_json || '[]'); } catch(e) {}
+    delete buyer.favorites_json;
+    delete buyer.shortlist_json;
+    const allProductIds = [...new Set([...favIds, ...shortIds])];
+    let productsById = {};
+    if (allProductIds.length) {
+      const pRes = await pool.query(
+        `SELECT p.id, p.reference, p.price, br.name AS brand_name
+         FROM products p JOIN brands br ON br.id=p.brand_id
+         WHERE p.id = ANY($1) ${scoped ? 'AND p.brand_id=$2' : ''}`,
+        scoped ? [allProductIds, brandId] : [allProductIds]
+      );
+      productsById = Object.fromEntries(pRes.rows.map(p => [p.id, p]));
+    }
+    const resolveList = ids => ids.map(id => productsById[id]).filter(Boolean);
+    res.json({ buyer, orders: orders.rows, appointments: appts.rows, activity, favorites: resolveList(favIds), shortlist: resolveList(shortIds) });
   } catch(e) { console.error('buyer-profile:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
