@@ -412,6 +412,10 @@ async function init() {
     // accepté, pour refuser la réutilisation d'un même code intercepté.
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_last_step BIGINT DEFAULT 0",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS mfa_last_step BIGINT DEFAULT 0",
+    // Scoping des notifications push par marque : sans identité du souscripteur,
+    // sendPushToAdmins() ne pouvait pas distinguer owner/agent ni la marque de
+    // l'agent, et envoyait le contenu de TOUTES les commandes à tout abonné.
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS staff_id TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

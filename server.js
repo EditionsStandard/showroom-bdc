@@ -119,10 +119,19 @@ if (webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   );
 }
 
-async function sendPushToAdmins(title, body) {
+// brandId : si fourni, notifie owner + agents/designers de CETTE marque
+// uniquement (ex. nouvelle commande) ; si omis, notifie uniquement les owners
+// (ex. demande de lien de partage — affaire interne à l'agence, pas aux
+// autres marques). Sans ce filtre, un agent abonné recevait le contenu
+// (nom client + marque) de TOUTES les commandes, toutes marques confondues.
+async function sendPushToAdmins(title, body, brandId) {
   if (!webpush || !process.env.VAPID_PUBLIC_KEY) return;
   try {
-    const subs = await pool.query('SELECT subscription_json FROM push_subscriptions');
+    const subs = await pool.query(`
+      SELECT ps.subscription_json FROM push_subscriptions ps
+      LEFT JOIN admin_users au ON au.id = ps.staff_id
+      WHERE ps.staff_id IS NULL OR au.role = 'owner' ${brandId ? "OR (au.role IN ('agent','designer') AND au.brand_id = $1)" : ''}
+    `, brandId ? [brandId] : []);
     for (const row of subs.rows) {
       const sub = JSON.parse(row.subscription_json);
       webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(e => console.error('[push-error]', e.message));
@@ -2810,14 +2819,29 @@ app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res
   res.json(r.rows);
 });
 
+// SSRF : subscription.endpoint est fourni par le client et sendPushToAdmins()
+// POSTe côté serveur vers CETTE url à chaque nouvelle commande (déclenché
+// automatiquement, pas besoin d'action supplémentaire de l'attaquant une fois
+// l'abonnement enregistré). Sans restriction, un agent peut faire pointer le
+// serveur vers une cible interne. Les navigateurs ne génèrent jamais de
+// subscription en dehors des services push connus des fournisseurs — on
+// n'autorise que ces hôtes.
+const ALLOWED_PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com'];
+function isSafePushEndpoint(endpoint) {
+  let parsed;
+  try { parsed = new URL(endpoint); } catch(e) { return false; }
+  if (parsed.protocol !== 'https:') return false;
+  return ALLOWED_PUSH_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h));
+}
 app.post('/api/admin/push-subscribe', requireRole('owner','agent'), async (req, res) => {
   try {
     const { subscription } = req.body;
-    if (!subscription) return res.status(400).json({ error: 'Missing subscription' });
+    if (!subscription || typeof subscription.endpoint !== 'string' || !subscription.keys) return res.status(400).json({ error: 'Missing subscription' });
+    if (!isSafePushEndpoint(subscription.endpoint)) return res.status(400).json({ error: 'Service de notification non reconnu' });
     const id = uuidv4();
     await pool.query(
-      'INSERT INTO push_subscriptions (id, subscription_json) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [id, JSON.stringify(subscription)]
+      'INSERT INTO push_subscriptions (id, subscription_json, staff_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+      [id, JSON.stringify(subscription), req.session.staffUser?.id || null]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erreur' }); }
@@ -3282,7 +3306,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
 
   // Push notification Web Push vers admins
   const brandNameForPush = (await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]).catch(() => ({ rows: [] }))).rows[0]?.name || '';
-  sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`).catch(e => console.error('[push-order-error]', e.message));
+  sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`, brand_id).catch(e => console.error('[push-order-error]', e.message));
   notifyOwnerOrder(orderId, 'Nouvelle commande').catch(() => {}); // copie email au propriétaire
 
   return { order_id: orderId, total: orderTotal, pdf_token: pdfToken };
