@@ -36,6 +36,22 @@ function loadPdfLogo() {
 // Renvoie un buffer PNG/JPG exploitable par PDFKit, ou null (→ on retombe sur
 // le monogramme showroom). Gère data:URI et URL http(s) ; les logos Cloudinary
 // sont convertis en PNG borné (compatible PDFKit, gère la transparence).
+// SSRF : logo_url/image_url sont saisis librement par du staff (owner/agent/designer,
+// pas seulement owner) et ces buffers sont récupérés CÔTÉ SERVEUR à chaque génération
+// de PDF. Sans restriction d'hôte, un agent peut faire pointer le serveur vers une
+// cible interne (ex. endpoint de métadonnées cloud) simplement en déclenchant le PDF
+// de sa propre commande. Les images légitimes passent toujours par l'upload
+// Cloudinary — on n'autorise QUE cet hôte (vérifié via URL.hostname, jamais une
+// simple sous-chaîne, qui serait contournable par ex. via res.cloudinary.com.evil.com).
+async function fetchCloudinaryImage(url, transform, timeoutMs) {
+  let parsed;
+  try { parsed = new URL(url); } catch(e) { return null; }
+  if (parsed.hostname !== 'res.cloudinary.com') return null;
+  const finalUrl = transform ? url.replace('/upload/', `/upload/${transform}/`) : url;
+  const resp = await fetch(finalUrl, { signal: AbortSignal.timeout(timeoutMs || 10000) });
+  return resp.ok ? Buffer.from(await resp.arrayBuffer()) : null;
+}
+
 async function loadBrandLogoBuffer(ref) {
   if (!ref || typeof ref !== 'string') return null;
   try {
@@ -44,12 +60,7 @@ async function loadBrandLogoBuffer(ref) {
       return Buffer.from(ref.replace(/^data:image\/\w+;base64,/, ''), 'base64');
     }
     if (/^https?:\/\//i.test(ref)) {
-      if (/\.svg(\?|$)/i.test(ref) && !ref.includes('res.cloudinary.com')) return null;
-      const url = ref.includes('res.cloudinary.com')
-        ? ref.replace('/upload/', '/upload/w_240,h_240,c_limit,f_png/')
-        : ref;
-      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (resp.ok) return Buffer.from(await resp.arrayBuffer());
+      return await fetchCloudinaryImage(ref, 'w_240,h_240,c_limit,f_png', 8000);
     }
   } catch (e) { console.error('[pdf-brand-logo]', e.message); }
   return null;
@@ -1142,7 +1153,7 @@ app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
   const id = uuidv4();
   const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(req.body.order_deadline || '') ? req.body.order_deadline : null;
   await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
-    [id, name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600)]);
+    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600)]);
   res.json({ id, name });
 });
 
@@ -1151,7 +1162,7 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
     const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms } = req.body;
     const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(order_deadline || '') ? order_deadline : null;
     await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16 WHERE id=$17',
-      [name, logo_url||'', logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), req.params.id]);
+      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -6262,12 +6273,8 @@ async function generateLinesheetPDF(brandId, seasonId) {
       } else if (/^https?:\/\//i.test(img)) {
         // PNG forcé : PDFKit n'accepte ni le webp ni le JPEG progressif (que Cloudinary
         // peut servir). w_500 borne la taille. f_png garantit la compatibilité.
-        const url = img.includes('res.cloudinary.com')
-          ? img.replace('/upload/', '/upload/w_500,c_limit,f_png/')
-          : img;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) imageBuffers[p.id] = Buffer.from(await resp.arrayBuffer());
-        else console.error('[linesheet-img] HTTP', resp.status, url);
+        const buf = await fetchCloudinaryImage(img, 'w_500,c_limit,f_png', 10000);
+        if (buf) imageBuffers[p.id] = buf;
       }
     } catch(e) { console.error('[linesheet-img] échec', p.reference || p.id, e.message); }
   }));
@@ -6424,9 +6431,8 @@ async function generateOrderPDF(orderId) {
       if (img.startsWith('data:image')) {
         lineImages[pid] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
       } else if (/^https?:\/\//i.test(img)) {
-        const url = img.includes('res.cloudinary.com') ? img.replace('/upload/', '/upload/w_300,h_300,c_limit,f_png/') : img;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) lineImages[pid] = Buffer.from(await resp.arrayBuffer());
+        const buf = await fetchCloudinaryImage(img, 'w_300,h_300,c_limit,f_png', 10000);
+        if (buf) lineImages[pid] = buf;
       }
     } catch(e) { console.error('[order-pdf-img]', l.reference || pid, e.message); }
   }));
@@ -6952,6 +6958,12 @@ async function sendOrderEmails(orderId, pdfBuffer) {
 // ==================== AIRTABLE SYNC ====================
 
 
+// Un email attaquant contenant un guillemet double casserait le littéral de la
+// formule Airtable (injection dans filterByFormula) — échappé ici avant interpolation.
+function airtableFormulaEscape(s) {
+  return String(s || '').replace(/"/g, '\\"');
+}
+
 async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) {
   const apiKey = process.env.AIRTABLE_API_KEY;
   if (!apiKey) return;
@@ -6963,7 +6975,7 @@ async function syncAirtable(clientEmail, clientCompany, clientName, orderTotal) 
   // Search STORES by email
   let storeRecordId = null;
   try {
-    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${clientEmail.toLowerCase()}"&maxRecords=1`;
+    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${airtableFormulaEscape(clientEmail.toLowerCase())}"&maxRecords=1`;
     const sr = await fetch(searchUrl, { headers });
     const sd = await sr.json();
     if (sd.records && sd.records.length > 0) storeRecordId = sd.records[0].id;
@@ -7013,7 +7025,7 @@ async function airtableTouchStore(clientEmail) {
   const base = 'appquOEohNkpH6sbB';
   const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
   try {
-    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${clientEmail.toLowerCase()}"&maxRecords=1`;
+    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${airtableFormulaEscape(clientEmail.toLowerCase())}"&maxRecords=1`;
     const sr = await fetch(searchUrl, { headers });
     const sd = await sr.json();
     const rec = sd.records && sd.records[0];
@@ -7034,7 +7046,7 @@ async function airtableUpsertProspect({ email, name, company }) {
   const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
   const today = new Date().toISOString().split('T')[0];
   try {
-    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${email.toLowerCase()}"&maxRecords=1`;
+    const searchUrl = `https://api.airtable.com/v0/${base}/tblQCsZU8DeokGygm?filterByFormula=LOWER({fldbGIrhVTpvBBnZk})="${airtableFormulaEscape(email.toLowerCase())}"&maxRecords=1`;
     const sr = await fetch(searchUrl, { headers });
     const sd = await sr.json();
     if (sd.records && sd.records[0]) {
