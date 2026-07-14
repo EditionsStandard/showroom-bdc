@@ -497,6 +497,14 @@ function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// Neutralise l'injection de formule CSV/XLSX (Excel/Sheets exécutent les cellules
+// commençant par =, +, -, @ comme des formules à l'ouverture) en préfixant d'une
+// apostrophe — inoffensif pour les valeurs normales, désamorce =CMD(), +HYPERLINK() etc.
+function csvSafe(v) {
+  const s = String(v == null ? '' : v);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
 function cloudinaryOpt(url) {
   if (!url || !url.includes('res.cloudinary.com')) return url;
   return url.replace('/upload/', '/upload/q_auto,f_auto/');
@@ -925,6 +933,8 @@ app.post('/api/staff/ping', requireAdmin, async (req, res) => {
 app.post('/api/staff', requireRole('owner'), async (req, res) => {
   const { email, password, role, brand_id, name } = req.body;
   if (!email || !password || !role) return res.status(400).json({ error: 'Email, mot de passe et rôle requis' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
+  if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
   if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
 
@@ -946,22 +956,45 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
 // Invalide les sessions actives d'un membre du staff (changement de rôle, blocage,
 // suppression) — sans ça, un rôle modifié ne prend effet qu'à la prochaine connexion,
 // le `req.session.staffUser` déjà en mémoire côté navigateur restant valide.
-async function invalidateStaffSessions(userId) {
-  try { await pool.query("DELETE FROM user_sessions WHERE sess->'staffUser'->>'id' = $1", [userId]); }
-  catch(e) { console.error('invalidateStaffSessions:', e.message); }
+async function invalidateStaffSessions(userId, exceptSid) {
+  try {
+    await pool.query(
+      "DELETE FROM user_sessions WHERE sess->'staffUser'->>'id' = $1 AND sid != COALESCE($2, '')",
+      [userId, exceptSid || null]
+    );
+  } catch(e) { console.error('invalidateStaffSessions:', e.message); }
 }
 
 app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
   try {
     const { name, email, role, brand_id, password } = req.body;
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
+    if (password && password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
+    if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+    if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
+    // Même garde-fou que DELETE : jamais retirer le dernier owner (auto-verrouillage
+    // total de l'admin sinon — plus personne pour gérer le staff/les marques).
+    const target = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
+    const oldRole = target.rows[0]?.role;
+    if (role !== 'owner' && oldRole === 'owner') {
+      const ownerCount = await pool.query("SELECT COUNT(*) FROM admin_users WHERE role='owner'");
+      if (parseInt(ownerCount.rows[0].count) <= 1) {
+        return res.status(400).json({ error: 'Impossible de rétrograder le dernier compte owner.' });
+      }
+    }
+    const normalizedEmail = email.toLowerCase().trim();
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, email, role, brand_id || null, hash, req.params.id]);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, normalizedEmail, role, role === 'designer' ? brand_id : null, hash, req.params.id]);
     } else {
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, email, role, brand_id || null, req.params.id]);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, normalizedEmail, role, role === 'designer' ? brand_id : null, req.params.id]);
     }
     logAudit(req, 'update_staff', 'staff', req.params.id, `role=${role}`);
-    await invalidateStaffSessions(req.params.id);
+    // Editer sa propre fiche (nom/email/mdp) sans changer son propre rôle ne doit
+    // pas déconnecter la session en cours — sinon l'owner qui modifie son propre
+    // profil se retrouve immédiatement délogué au milieu de l'opération.
+    const isSelfEditNoRoleChange = req.session?.staffUser?.id === req.params.id && role === oldRole;
+    await invalidateStaffSessions(req.params.id, isSelfEditNoRoleChange ? req.sessionID : null);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1565,7 +1598,7 @@ app.get('/api/brands/:brandId/products/export-csv', requireBrandScope('owner','a
       p.reference, p.description, p.color, p.sizes,
       p.price, p.price_retail, p.collection_name, p.composition, p.category
     ]);
-    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const csv = [headers, ...rows].map(row => row.map(v => `"${csvSafe(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="produits-${req.params.brandId.slice(0,8)}.csv"`);
     res.send('﻿' + csv);
@@ -1763,6 +1796,9 @@ const uploadPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 
 app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadPdf.single('pdf'), async (req, res) => {
   try {
     if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Fichier PDF requis' });
+    // resource_type:'raw' ne transcode pas le contenu côté Cloudinary (contrairement aux
+    // images) : le Content-Type déclaré ne suffit pas, on vérifie la signature réelle du fichier.
+    if (req.file.buffer.slice(0, 4).toString('latin1') !== '%PDF') return res.status(400).json({ error: 'Fichier PDF invalide' });
     const base64 = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
     const slug = `lookbook-${Date.now()}`;
     const result = await cloudinary.uploader.upload(base64, {
@@ -2025,7 +2061,9 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
     }
     const entry = pending.get(product.id);
     const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    let imageData = base64;
+    // Ne jamais stocker le base64 brut en base en cas d'échec Cloudinary : ça
+    // gonflerait la ligne produit sans limite (jusqu'à 200 fichiers/appel) tout
+    // en répondant "ok" côté client alors que l'upload a en réalité échoué.
     try {
       const slug = `${product.reference}-${colorHint || product.color}-${Date.now()}`.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
       const uploaded = await cloudinary.uploader.upload(base64, {
@@ -2034,11 +2072,13 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
         overwrite: false,
         transformation: [{ width: 1200, height: 1200, crop: 'limit', quality: 80, fetch_format: 'auto', flags: 'strip_profile' }]
       });
-      imageData = uploaded.secure_url;
-    } catch(e) { console.error('Cloudinary upload error:', e.message); /* keep original value on error */ }
-    entry.images.push(imageData);
-    entry.ranks.push(viewRank(colorHint));
-    results.push({ file: file.originalname, status: 'ok', ref, color: colorHint || product.color });
+      entry.images.push(uploaded.secure_url);
+      entry.ranks.push(viewRank(colorHint));
+      results.push({ file: file.originalname, status: 'ok', ref, color: colorHint || product.color });
+    } catch(e) {
+      console.error('Cloudinary upload error:', e.message);
+      results.push({ file: file.originalname, status: 'error', reason: 'échec upload Cloudinary' });
+    }
   }
 
   for (const [productId, entry] of pending) {
@@ -2523,7 +2563,7 @@ app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res)
       row.status, row.brand_name, row.reference, row.description, row.color,
       row.size, row.quantity, row.unit_price, row.price_retail
     ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    const csv = [headers, ...rows].map(r => r.map(v => `"${csvSafe(v).replace(/"/g,'""')}"`).join(';')).join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="commandes-${new Date().toISOString().slice(0,10)}.csv"`);
     res.send('﻿' + csv); // BOM for Excel
@@ -2554,7 +2594,7 @@ app.get('/api/orders/export-csv', requireRole('owner','agent'), async (req, res)
       row.status,
       parseFloat(row.total_ht).toFixed(2)
     ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    const csv = [headers, ...rows].map(r => r.map(v => `"${csvSafe(v).replace(/"/g,'""')}"`).join(';')).join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="commandes.csv"');
     res.send('﻿' + csv);
@@ -2566,18 +2606,17 @@ app.get('/api/buyers/export-csv', requireRole('owner','agent'), async (req, res)
     logAudit(req, 'export_buyers_csv', 'buyers', '', '');
     const scoped = isBrandScoped(req);
     const r = await pool.query(`
-      SELECT name, email, company, phone, country, instagram, created_at
+      SELECT name, email, company, phone, country, created_at
       FROM buyers
       ${scoped ? 'WHERE id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}
       ORDER BY created_at DESC
     `, scoped ? [req.userBrandId] : []);
-    const headers = ['Nom','Email','Société','Téléphone','Pays','Instagram','Inscrit le'];
+    const headers = ['Nom','Email','Société','Téléphone','Pays','Inscrit le'];
     const rows = r.rows.map(row => [
       row.name, row.email, row.company || '', row.phone || '', row.country || '',
-      row.instagram || '',
       new Date(row.created_at).toLocaleDateString('fr-FR')
     ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+    const csv = [headers, ...rows].map(r => r.map(v => `"${csvSafe(v).replace(/"/g,'""')}"`).join(';')).join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="acheteurs.csv"');
     res.send('﻿' + csv);
@@ -2592,9 +2631,10 @@ app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (re
   const { status, from, to } = req.query;
   // Agent scopé : forcer sa marque, ignorer tout brand_id fourni dans la query.
   const brand_id = isBrandScoped(req) ? req.userBrandId : req.query.brand_id;
-  let q = `SELECT o.order_number, b.name as marque, o.client_name, o.client_company, o.client_email, o.client_country, o.status, o.total_amount, o.created_at,
-    STRING_AGG(ol.reference || ' x' || ol.quantity || ' (' || ol.size || ')', ', ') as lignes
-    FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines ol ON ol.order_id=o.id WHERE 1=1`;
+  let q = `SELECT o.order_number, b.name as marque, o.client_name, o.client_company, o.client_email, o.client_country, o.status, o.created_at,
+    COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
+    STRING_AGG(p.reference || ' x' || ol.quantity || ' (' || ol.size || ')', ', ') as lignes
+    FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines ol ON ol.order_id=o.id LEFT JOIN products p ON p.id=ol.product_id WHERE 1=1`;
   const params = [];
   if (brand_id) { params.push(brand_id); q += ` AND o.brand_id=$${params.length}`; }
   if (status) { params.push(status); q += ` AND o.status=$${params.length}`; }
@@ -2603,10 +2643,10 @@ app.get('/api/admin/export/orders.xlsx', requireRole('owner','agent'), async (re
   q += ' GROUP BY o.id, b.name ORDER BY o.created_at DESC';
   const r = await pool.query(q, params);
   const ws = XLSX.utils.json_to_sheet(r.rows.map(row => ({
-    'N° commande': row.order_number, 'Marque': row.marque, 'Client': row.client_name,
-    'Société': row.client_company, 'Email': row.client_email, 'Pays': row.client_country,
+    'N° commande': row.order_number, 'Marque': csvSafe(row.marque), 'Client': csvSafe(row.client_name),
+    'Société': csvSafe(row.client_company), 'Email': csvSafe(row.client_email), 'Pays': csvSafe(row.client_country),
     'Statut': row.status, 'Montant': row.total_amount,
-    'Date': new Date(row.created_at).toLocaleDateString('fr-FR'), 'Lignes': row.lignes
+    'Date': new Date(row.created_at).toLocaleDateString('fr-FR'), 'Lignes': csvSafe(row.lignes)
   })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
@@ -2627,10 +2667,10 @@ app.get('/api/admin/export/products.xlsx', requireRole('owner','agent'), async (
   q += ' ORDER BY b.name, p.reference';
   const r = await pool.query(q, params);
   const ws = XLSX.utils.json_to_sheet(r.rows.map(row => ({
-    'Marque': row.marque, 'Référence': row.reference, 'Description': row.description,
-    'Couleur': row.color, 'Tailles': row.sizes, 'Prix HT': row.price,
-    'Prix retail': row.price_retail, 'Collection': row.collection_name,
-    'Catégorie': row.category, 'Composition': row.composition, 'Actif': row.active ? 'Oui' : 'Non'
+    'Marque': csvSafe(row.marque), 'Référence': row.reference, 'Description': csvSafe(row.description),
+    'Couleur': csvSafe(row.color), 'Tailles': row.sizes, 'Prix HT': row.price,
+    'Prix retail': row.price_retail, 'Collection': csvSafe(row.collection_name),
+    'Catégorie': csvSafe(row.category), 'Composition': csvSafe(row.composition), 'Actif': row.active ? 'Oui' : 'Non'
   })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Produits');
@@ -4262,7 +4302,9 @@ app.get('/api/admin/buyers-by-country', requireRole('owner', 'agent'), async (re
     const p = scoped ? [req.userBrandId] : [];
     const [buyers, orders] = await Promise.all([
       pool.query(`SELECT TRIM(country) AS country, COUNT(*)::int AS buyers
-                  FROM buyers WHERE COALESCE(TRIM(country),'') <> '' GROUP BY TRIM(country)`),
+                  FROM buyers WHERE COALESCE(TRIM(country),'') <> ''
+                  ${scoped ? 'AND id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}
+                  GROUP BY TRIM(country)`, p),
       pool.query(`
         SELECT TRIM(COALESCE(NULLIF(TRIM(o.client_country),''), b.country, '')) AS country,
                COUNT(DISTINCT o.id)::int AS orders,
@@ -5319,7 +5361,12 @@ app.get('/api/admin/dashboard/timeline', requireRole('owner','agent'), async (re
                   FROM appointments a JOIN brands b ON b.id = a.brand_id
                   WHERE 1=1 ${scoped ? 'AND a.brand_id = $1' : ''}
                   ORDER BY a.created_at DESC LIMIT ${LIMIT}`, p),
-      pool.query(`SELECT resolved_at AS at, type, label, status, resolved_by
+      scoped
+        ? pool.query(`SELECT p.resolved_at AS at, p.type, p.label, p.status, p.resolved_by
+                      FROM pending_reminders p JOIN agent_selections s ON s.token = p.target_id
+                      WHERE p.status != 'pending' AND p.resolved_at IS NOT NULL AND p.type = 'selection_reminder' AND s.brand_id = $1
+                      ORDER BY p.resolved_at DESC LIMIT ${LIMIT}`, [bId])
+        : pool.query(`SELECT resolved_at AS at, type, label, status, resolved_by
                   FROM pending_reminders WHERE status != 'pending' AND resolved_at IS NOT NULL
                   ORDER BY resolved_at DESC LIMIT ${LIMIT}`),
       pool.query(`SELECT e.created_at AS at, e.event_type, e.note, e.created_by, o.order_number, b.name AS brand_name
@@ -5350,7 +5397,12 @@ app.get('/api/admin/dashboard/priorities', requireRole('owner','agent'), async (
     const bId = req.userBrandId;
     const p = scoped ? [bId] : [];
     const [pendingReminders, todayAppts, accessRequests, expiringSels, unsignedOrders] = await Promise.all([
-      pool.query(`SELECT id, type, label, created_at FROM pending_reminders WHERE status='pending' ORDER BY created_at ASC LIMIT 20`),
+      scoped
+        ? pool.query(`SELECT p.id, p.type, p.label, p.created_at
+                      FROM pending_reminders p JOIN agent_selections s ON s.token = p.target_id
+                      WHERE p.status = 'pending' AND p.type = 'selection_reminder' AND s.brand_id = $1
+                      ORDER BY p.created_at ASC LIMIT 20`, [bId])
+        : pool.query(`SELECT id, type, label, created_at FROM pending_reminders WHERE status='pending' ORDER BY created_at ASC LIMIT 20`),
       pool.query(`SELECT a.id, a.client_name, a.slot_time, b.name AS brand_name
                   FROM appointments a JOIN brands b ON b.id = a.brand_id
                   WHERE a.slot_date = CURRENT_DATE ${scoped ? 'AND a.brand_id = $1' : ''}
@@ -7051,12 +7103,14 @@ app.post('/api/selections/drafts/:token/send', requireRole('owner', 'agent'), as
 
 app.get('/api/admin/badge-counts', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
+    const p = scoped ? [req.userBrandId] : [];
     const r = await pool.query(`
       SELECT
-        (SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '24 hours') as new_orders,
+        (SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '24 hours' ${scoped ? 'AND brand_id = $1' : ''}) as new_orders,
         (SELECT COUNT(*) FROM access_requests WHERE status='pending') as pending_requests,
-        (SELECT COUNT(*) FROM appointments WHERE created_at > NOW() - INTERVAL '48 hours') as pending_appointments
-    `);
+        (SELECT COUNT(*) FROM appointments WHERE created_at > NOW() - INTERVAL '48 hours' ${scoped ? 'AND brand_id = $1' : ''}) as pending_appointments
+    `, p);
     res.json({
       new_orders: parseInt(r.rows[0].new_orders) || 0,
       pending_requests: parseInt(r.rows[0].pending_requests) || 0,
@@ -7429,6 +7483,11 @@ app.use((err, req, res, next) => {
   // panne serveur — 400 plutôt que 500.
   if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
     return res.status(400).json({ error: 'Requête invalide (JSON malformé).' });
+  }
+  // Upload trop volumineux / malformé (multer) : erreur d'entrée, pas une panne serveur.
+  if (err.name === 'MulterError') {
+    const code = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    return res.status(code).json({ error: 'Fichier invalide ou trop volumineux.' });
   }
   res.status(500).json({ error: 'Erreur serveur' });
 });
