@@ -15,7 +15,8 @@
 <link rel="apple-touch-icon" href="/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
 <style>
   :root {
     --black: #0a0a0a;
@@ -2399,6 +2400,10 @@ function showSuccess(email, offline, orderId, pdfToken) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.step').forEach(s => s.classList.add('done'));
   document.getElementById('page-success').classList.add('active');
+  // La page pouvait rester scrollée à la position du dernier écran (récap/signature)
+  // : l'acheteur atterrissait sur l'écran de confirmation déjà défilé, sans voir
+  // le titre/la coche de succès en haut. Même remontée que les transitions d'étape.
+  window.scrollTo(0, 0);
 
   document.getElementById('success-email-msg').textContent = offline ? T('queued') : T('email_sent', email);
 

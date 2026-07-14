@@ -12,8 +12,12 @@
 <title>Editions Standard B2B Showroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
+<!-- defer : usage mineur (partage QR, déjà protégé par un if(window.QRCode) à l'appel) —
+     un <script> synchrone en <head> bloque le parsing de TOUTE la page tant que ce
+     CDN externe ne répond pas, avant même le premier octet de CSS/HTML utile. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" defer></script>
 <style>
   :root {
     --black:#0a0a0a; --dark:#111; --mid:#1c1c1c; --border:#252525; --muted:#777; --soft:#bbb; --white:#f5f4f0; --accent:#CCEB3C;
