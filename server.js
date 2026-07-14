@@ -1140,7 +1140,11 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
 // ==================== API ADMIN ====================
 
 app.get('/api/settings', requireRole('owner'), async (req, res) => {
-  const r = await pool.query("SELECT key, value FROM settings WHERE key != 'admin_password'");
+  // Les secrets ne doivent jamais faire l'aller-retour vers le navigateur, même
+  // vers un owner légitime — admin_password était déjà exclu, smtp_pass ne
+  // l'était pas (aucun champ ne l'affiche côté UI, mais l'API le renvoyait
+  // quand même s'il avait été défini, ex. via un appel API manuel).
+  const r = await pool.query("SELECT key, value FROM settings WHERE key NOT IN ('admin_password', 'smtp_pass')");
   const s = {};
   r.rows.forEach(row => s[row.key] = row.value);
   res.json(s);
