@@ -956,6 +956,7 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
   if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
   if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+  if (brand_id != null && typeof brand_id !== 'string') return res.status(400).json({ error: 'Marque invalide' });
   if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
 
   const hash = await bcrypt.hash(password, 10);
@@ -991,6 +992,7 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
     if (password && password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
     if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+    if (brand_id != null && typeof brand_id !== 'string') return res.status(400).json({ error: 'Marque invalide' });
     if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
     // Même garde-fou que DELETE : jamais retirer le dernier owner (auto-verrouillage
     // total de l'admin sinon — plus personne pour gérer le staff/les marques).
@@ -1078,7 +1080,7 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
 // mailto (prospect → agence), c'est l'agence qui écrit au prospect.
 app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res) => {
   try {
-    const email = (req.body.email || '').trim().toLowerCase();
+    const email = String(req.body.email || '').trim().toLowerCase();
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email prospect invalide' });
     const customMsg = (req.body.message || '').toString().trim().slice(0, 2000);
     const brandId = (req.body.brand_id || '').toString().trim();
@@ -1161,7 +1163,7 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 // il n'a jamais besoin d'en créer une autre.
 app.post('/api/brands', requireRole('owner'), async (req, res) => {
   const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nom requis' });
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
   const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(req.body.order_deadline || '') ? req.body.order_deadline : null;
   await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
@@ -1172,6 +1174,7 @@ app.post('/api/brands', requireRole('owner'), async (req, res) => {
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms } = req.body;
+    if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
     const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(order_deadline || '') ? order_deadline : null;
     await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16 WHERE id=$17',
       [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), req.params.id]);
@@ -1628,6 +1631,7 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
     let created = 0, updated = 0;
     const errors = [];
     for (const row of rows) {
+      if (!row || typeof row !== 'object') { errors.push('Ligne invalide ignorée'); continue; }
       const ref = (row.reference || row.Reference || row.ref || '').trim();
       if (!ref) { errors.push('Ligne sans référence ignorée'); continue; }
       try {
@@ -2382,14 +2386,14 @@ app.put('/api/agent-selections/:token/client', requireRole('owner','agent'), asy
     if (!sel.rows[0]) return res.status(404).json({ error: 'Sélection introuvable' });
     if (isBrandScoped(req) && sel.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     if (sel.rows[0].used) return res.status(409).json({ error: 'Sélection déjà validée — impossible de la modifier.' });
-    const email = (client_email || '').trim().toLowerCase();
+    const email = String(client_email || '').trim().toLowerCase();
     if (email && !email.includes('@')) return res.status(400).json({ error: 'Email acheteur invalide' });
-    const sentBy = (created_by || '').trim().toLowerCase();
+    const sentBy = String(created_by || '').trim().toLowerCase();
     if (sentBy && !sentBy.includes('@')) return res.status(400).json({ error: "Email d'envoi invalide" });
     // Email(s) : mis à jour seulement s'ils sont fournis (sinon on conserve l'existant)
     await pool.query(
       "UPDATE agent_selections SET client_name=$1, client_company=$2, client_email=COALESCE(NULLIF($3,''), client_email), created_by=COALESCE(NULLIF($4,''), created_by) WHERE token=$5",
-      [(client_name || '').slice(0, 160), (client_company || '').slice(0, 160), email, sentBy, req.params.token]);
+      [String(client_name || '').slice(0, 160), String(client_company || '').slice(0, 160), email, sentBy, req.params.token]);
     logAudit(req, 'edit_selection_client', 'agent_selection', req.params.token, email || '');
     res.json({ ok: true });
   } catch(e) { console.error('edit selection client:', e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -2432,13 +2436,27 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
     const orderId = req.params.id;
     const validStatuses = ['confirmed','validated','in_production','shipped','cancelled','archived'];
     if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Statut invalide' });
-    const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
-    const oldStatus = prev.rows[0]?.status || '';
-    // "archived" est un état terminal : au-delà, plus aucun changement de
-    // statut via cet endpoint (évite de ressusciter silencieusement une
-    // commande classée, avec ré-envoi d'email client à l'appui).
-    if (oldStatus === 'archived') return res.status(409).json({ error: 'Commande archivée : statut définitif.' });
-    await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
+    // SELECT ... FOR UPDATE + transaction : sans verrou, deux changements de statut
+    // concurrents sur la même commande lisent le même oldStatus et écrivent chacun
+    // une ligne d'historique avec un old_status devenu faux (piste d'audit corrompue).
+    const dbClient = await pool.connect();
+    let oldStatus;
+    try {
+      await dbClient.query('BEGIN');
+      const prev = await dbClient.query('SELECT status FROM orders WHERE id=$1 FOR UPDATE', [orderId]);
+      oldStatus = prev.rows[0]?.status || '';
+      // "archived" est un état terminal : au-delà, plus aucun changement de
+      // statut via cet endpoint (évite de ressusciter silencieusement une
+      // commande classée, avec ré-envoi d'email client à l'appui).
+      if (oldStatus === 'archived') { await dbClient.query('ROLLBACK'); return res.status(409).json({ error: 'Commande archivée : statut définitif.' }); }
+      await dbClient.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
+      await dbClient.query('COMMIT');
+    } catch(e) {
+      await dbClient.query('ROLLBACK');
+      throw e;
+    } finally {
+      dbClient.release();
+    }
     logAudit(req, 'update_order_status', 'order', orderId, `${oldStatus} → ${status}`);
     const changedBy = req.session?.staffUser?.name || req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
     // Log status change
@@ -3254,8 +3272,11 @@ app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, 
 
 const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
 async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
-  // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées)
+  // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées).
+  // Filtre d'abord les lignes non-objet (null, tableau, primitive) — sinon le spread/accès
+  // à .quantity plante avant même la validation de quantité qui suit.
   const validLines = (lines || [])
+    .filter(l => l && typeof l === 'object' && !Array.isArray(l))
     .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)) }))
     .filter(l => Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= MAX_LINE_QTY);
   if (!validLines.length) return { error: 'Aucune quantité saisie' };
@@ -3380,19 +3401,21 @@ app.post('/api/public/orders', publicLimiter, requireCommandeAccessBody, async (
 app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agent'), async (req, res) => {
   try {
     const { client_name, client_email, client_company, notes, items } = req.body;
-    if (!client_email || !client_email.includes('@')) return res.status(400).json({ error: 'Email acheteur valide requis' });
-    if (!Array.isArray(items) || !items.filter(i => i.quantity > 0).length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
+    if (!client_email || typeof client_email !== 'string' || !client_email.includes('@')) return res.status(400).json({ error: 'Email acheteur valide requis' });
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
+    const validItems = items.filter(i => i && typeof i === 'object' && i.quantity > 0);
+    if (!validItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const brandId = req.params.brandId;
     const b = await pool.query('SELECT name FROM brands WHERE id=$1', [brandId]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     // Ne garder que des product_id appartenant réellement à cette marque : sinon le
     // catalogue/prix d'une autre marque peut être injecté dans la sélection envoyée à l'acheteur.
-    const candidateIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
+    const candidateIds = [...new Set(validItems.map(i => i.product_id).filter(Boolean))];
     const ownProducts = candidateIds.length
       ? await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, brandId])
       : { rows: [] };
     const ownProductIds = new Set(ownProducts.rows.map(r => r.id));
-    const cleanItems = items.filter(i => i.quantity > 0 && ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
+    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
     if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const token = crypto.randomBytes(24).toString('hex');
     const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
@@ -3590,6 +3613,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     // Agrège par product_id|size et ne garde que le valide
     const agg = {};
     for (const l of submitted) {
+      if (!l || typeof l !== 'object') continue;
       const pid = l.product_id;
       if (!selectedIds.has(pid)) continue;                       // uniquement les références de la sélection
       const sz = (l.size || '').toString();
@@ -4133,6 +4157,7 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes } = req.body;
   if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'Sélection vide' });
   if (lines.length > 500) return res.status(400).json({ error: 'Commande trop volumineuse' });
+  if (lines.some(l => !l || typeof l !== 'object' || !l.brand_id)) return res.status(400).json({ error: 'Sélection invalide' });
   if (!client_name || typeof client_name !== 'string' || client_name.length > 200) return res.status(400).json({ error: 'Nom requis' });
   if (!buyer_signature) return res.status(400).json({ error: 'Signature requise' });
   if (!cgv_accepted) return res.status(400).json({ error: 'Acceptation des CGV requise' });
@@ -5618,6 +5643,8 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   }
   const id = crypto.randomUUID();
   try {
+    const brand = await pool.query('SELECT 1 FROM brands WHERE id=$1', [brand_id]);
+    if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
     await pool.query(
       'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, brand_id, buyer.name, buyer.email, buyer.phone||'', slot_date, slot_time, notes||'']
@@ -5633,6 +5660,10 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { email, password, name, company, phone, country } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+  for (const [k, v] of Object.entries({ email, name, company, phone, country })) {
+    if (v !== undefined && v !== null && typeof v !== 'string') return res.status(400).json({ error: `Champ "${k}" invalide` });
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
   if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
