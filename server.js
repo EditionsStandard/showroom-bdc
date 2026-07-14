@@ -4233,6 +4233,7 @@ app.post('/api/portal/stats/cart/:productId', requireBuyerAuth, async (req, res)
 
 app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, res) => {
   try {
+    const scoped = isBrandScoped(req);
     const r = await pool.query(`
       SELECT p.id, p.reference, p.description, p.color, p.price, b.name as brand_name,
              COALESCE(ps.views, 0) as views,
@@ -4242,10 +4243,10 @@ app.get('/api/admin/product-stats', requireRole('owner', 'agent'), async (req, r
       FROM products p
       JOIN brands b ON p.brand_id = b.id
       LEFT JOIN product_stats ps ON ps.product_id = p.id
-      WHERE p.active != 0
+      WHERE p.active != 0 ${scoped ? 'AND p.brand_id = $1' : ''}
       ORDER BY COALESCE(ps.views, 0) DESC
       LIMIT 100
-    `);
+    `, scoped ? [req.userBrandId] : []);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
