@@ -48,7 +48,11 @@ self.addEventListener('fetch', e => {
   // un changement de compte pourrait re-servir les données de l'acheteur
   // précédent depuis le cache (le cache-fallback générique ci-dessous les
   // aurait sinon capturées comme n'importe quelle réponse GET same-origin).
-  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff')) {
+  // /api/me inclus : utilisé par commande.html (detectAgentMode) pour afficher le
+  // nom/rôle de l'agent connecté — sur un appareil de vente partagé, une coupure
+  // réseau juste après le changement d'agent pourrait sinon réafficher l'identité
+  // de l'agent précédent depuis le cache générique ci-dessous.
+  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff') || url.pathname === '/api/me') {
     e.respondWith(fetch(e.request));
     return;
   }

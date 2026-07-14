@@ -520,9 +520,18 @@ function escHtml(str) {
 // Neutralise l'injection de formule CSV/XLSX (Excel/Sheets exécutent les cellules
 // commençant par =, +, -, @ comme des formules à l'ouverture) en préfixant d'une
 // apostrophe — inoffensif pour les valeurs normales, désamorce =CMD(), +HYPERLINK() etc.
+// Neutralise l'injection de formule CSV (un champ ouvert par un tableur qui
+// commence par un caractère déclencheur peut exécuter du code — cf. OWASP CSV
+// Injection). On se limite à '=' et '@' (déclencheurs de formule sans
+// ambiguïté) et aux caractères de contrôle tabulation/retour chariot : '+' et
+// '-' ont été retirés du jeu de caractères piégés — un numéro de téléphone
+// international ("+33 6 12 34 56 78", donnée courante pour cette app B2B
+// France) partageait leur préfixe et se retrouvait corrompu par l'apostrophe
+// ajoutée (invisible dans Excel mais visible et cassante pour tout autre
+// consommateur du CSV — réimport, autre tableur, script).
 function csvSafe(v) {
   const s = String(v == null ? '' : v);
-  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+  return /^[=@\t\r]/.test(s) ? "'" + s : s;
 }
 
 function cloudinaryOpt(url) {
@@ -1074,7 +1083,7 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
       const resend = newResendClient(resendKey);
       const loginUrl = `${getBaseUrl(req)}/admin/login`;
       const roleLabel = { owner: 'Propriétaire', agent: 'Agent', designer: 'Marque / Designer' }[u.role] || u.role;
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
         to: [u.email],
         subject: `${showroomName || 'Showroom'} — vos identifiants d'accès`,
@@ -1086,7 +1095,12 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
            ${emailBtn(loginUrl, 'SE CONNECTER')}
            <p style="color:#888;font-size:12px">Conservez cet email en lieu sûr et ne le transférez pas. Ce mot de passe remplace le précédent.</p>` })
       });
-      emailed = true;
+      // Le SDK Resend résout avec {data:null,error} au lieu de rejeter sur un échec
+      // API — sans cette vérification, `emailed` restait à true et le mot de passe
+      // (déjà remplacé en base) n'était renvoyé ni par email ni dans la réponse :
+      // le compte se retrouvait verrouillé alors que tout semblait avoir réussi.
+      if (error) console.error('[resend] resend-credentials:', error.message || error);
+      else emailed = true;
     }
     res.json({ ok: true, emailed, email: u.email, password: emailed ? undefined : newPw });
   } catch(e) { console.error('resend staff creds:', e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -1127,7 +1141,7 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
     const introDefault = brandName
       ? `<p>Bonjour,</p><p>Vous êtes invité(e) à découvrir la collection <strong>${escHtml(brandName)}</strong> sur notre showroom B2B ${escHtml(showroomName || '')}.</p>`
       : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez toutes les marques et demandez votre accès en quelques clics.</p>`;
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       replyTo: ownerEmail || undefined,
@@ -1140,6 +1154,10 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
          ${emailBtn(link, brandName ? 'REJOINDRE' : 'DEMANDER UN ACCÈS')}
          <p style="color:#888;font-size:12px">À très bientôt,<br>${escHtml(showroomName || "L'équipe")}</p>` })
     });
+    // Le SDK Resend résout avec {data:null,error} sur un échec API au lieu de
+    // rejeter — sans cette vérification, la réponse affirmait emailed:true
+    // même si le prospect n'avait rien reçu.
+    if (error) { console.error('[resend] prospect-invite:', error.message || error); return res.json({ ok: true, emailed: false, email, brand: brandName || null }); }
     res.json({ ok: true, emailed: true, email, brand: brandName || null });
   } catch(e) { console.error('prospect invite:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -1602,6 +1620,26 @@ function parseCSVRow(line) {
   return fields;
 }
 
+// Accepte le séparateur décimal virgule (format tableur français : "12,50",
+// "1.234,56") en plus du point — parseFloat('0,50') renverrait sinon 0 et
+// ferait passer un article importé en gratuit sans aucune erreur remontée.
+// Échappe les métacaractères LIKE/ILIKE (% et _, backslash = caractère d'échappement
+// par défaut de Postgres) avant interpolation dans un motif `%...%` construit
+// côté serveur — sans ça, une recherche littérale contenant un % (ex. "50%")
+// ou un _ (ex. une référence "SKU_1") se comporte comme un joker et remonte
+// des résultats sans rapport avec la requête de l'utilisateur.
+function escapeLike(s) {
+  return String(s == null ? '' : s).replace(/[\\%_]/g, m => '\\' + m);
+}
+function parsePrice(v) {
+  if (v === null || v === undefined) return 0;
+  let s = String(v).trim();
+  if (!s) return 0;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
 app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','agent'), uploadCsv.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Fichier CSV requis' });
@@ -1621,8 +1659,8 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
       const description = get('description');
       const color = get('color');
       const sizes = get('sizes');
-      const price = parseFloat(get('price')) || 0;
-      const price_retail = parseFloat(get('price_retail')) || 0;
+      const price = parsePrice(get('price'));
+      const price_retail = parsePrice(get('price_retail'));
       const collection_name = get('collection');
       const composition = get('composition');
       const category = get('category');
@@ -1661,8 +1699,8 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
           description: row.description || row.Description || '',
           color: row.color || row.Color || row.couleur || '',
           sizes: row.sizes || row.tailles || row.Sizes || '',
-          price: parseFloat(row.price || row.prix || row.Price || 0) || 0,
-          price_retail: parseFloat(row.price_retail || row.prix_retail || 0) || 0,
+          price: parsePrice(row.price || row.prix || row.Price || 0),
+          price_retail: parsePrice(row.price_retail || row.prix_retail || 0),
           collection_name: row.collection_name || row.collection || row.Collection || '',
           composition: row.composition || row.Composition || '',
           category: row.category || row.categorie || row.Category || '',
@@ -2046,12 +2084,13 @@ async function sendAppointmentConfirmationEmail(appt) {
     <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong>${agentPhone ? `<br>${escHtml(agentPhone)}` : ''}</p>
   `;
 
-  await resend.emails.send({
+  const clientSend = await resend.emails.send({
     from: `${showroomName} <${from}>`,
     to: [appt.client_email],
     subject,
     html: emailLayout({ showroomName, brandName, content: clientContent })
   });
+  if (clientSend.error) console.error('[resend] appointment-confirm client:', clientSend.error.message || clientSend.error);
 
   // Admin notification
   if (adminEmail) {
@@ -2067,12 +2106,13 @@ async function sendAppointmentConfirmationEmail(appt) {
         ${appt.notes ? `<tr><td style="padding:4px 12px 4px 0;color:#888">Notes</td><td>${escHtml(appt.notes)}</td></tr>` : ''}
       </table>
     `;
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [adminEmail],
       subject: `[RDV] ${appt.client_name} — ${brandName} — ${dateStr} ${appt.slot_time}`,
       html: emailLayout({ showroomName, brandName, content: adminContent })
     });
+    if (error) console.error('[resend] appointment-confirm admin:', error.message || error);
   }
 }
 
@@ -2602,7 +2642,7 @@ async function sendOrderStatusEmail(orderId, status) {
     in_production: isEn ? 'In production' : 'En production',
     shipped: isEn ? 'Shipped 🚚' : 'Expédiée 🚚'
   };
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [order.client_email],
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
@@ -2616,6 +2656,7 @@ async function sendOrderStatusEmail(orderId, status) {
       <p style="margin-top:28px">${isEn ? 'Best regards' : 'Cordialement'},<br><strong>${escHtml(agentName || showroomName)}</strong></p>
     ` })
   });
+  if (error) console.error('[resend] order-status-email:', error.message || error);
 }
 
 // Bon de commande définitif (signé par l'acheteur ET par l'agence/marque) —
@@ -2645,7 +2686,7 @@ async function sendOrderSignedEmail(orderId, pdfBuffer) {
   const resend = newResendClient(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [order.client_email],
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
@@ -2665,6 +2706,7 @@ async function sendOrderSignedEmail(orderId, pdfBuffer) {
       <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
     ` })
   });
+  if (error) console.error('[resend] order-signed-email:', error.message || error);
 }
 
 app.get('/api/orders/export/csv', requireRole('owner','agent'), async (req, res) => {
@@ -2986,12 +3028,13 @@ async function sendAppointmentVideoEmail(appt) {
     <p style="font-size:12px;color:#888;word-break:break-all">${escHtml(appt.video_link)}</p>
     <p style="margin-top:28px">À bientôt,<br><strong>${escHtml(agentName || showroomName)}</strong>${agentPhone ? `<br>${escHtml(agentPhone)}` : ''}</p>
   `;
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: `${showroomName} <${from}>`,
     to: [appt.client_email],
     subject: `Lien visioconférence — votre rendez-vous ${brandName}`,
     html: emailLayout({ showroomName, brandName, content })
   });
+  if (error) { console.error('[resend] video-link-email:', error.message || error); return false; }
   return true;
 }
 
@@ -3015,7 +3058,7 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
     const link = `${getBaseUrl(req)}/portal/access?token=${token}`;
     const resend = newResendClient(resendKey);
     const isEn = buyer.lang === 'en';
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
       subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
@@ -3026,6 +3069,7 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
         <p style="font-size:12px;color:#888;margin-top:20px">${isEn ? 'This link expires in 24 hours.' : 'Ce lien est valable 24 heures.'}</p>
       ` })
     });
+    if (error) { console.error('[resend] send-access:', error.message || error); return res.status(502).json({ error: 'Échec envoi email' }); }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -3518,12 +3562,13 @@ async function notifyOwner(subject, contentHtml) {
     ]);
     if (!ownerEmail) return; // pas d'adresse propriétaire configurée dans Réglages
     const resend = newResendClient(resendKey);
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [ownerEmail],
       subject,
       html: emailLayout({ showroomName, content: contentHtml })
     });
+    if (error) console.error('[resend] notifyOwner:', error.message || error);
   } catch(e) { console.error('notifyOwner:', e.message); }
 }
 
@@ -4389,13 +4434,14 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
     });
 
     const resend = newResendClient(resendKey);
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress}>`,
       to: [to],
       subject: `Sélection B2B — ${showroomName} — ${dateStr}`,
       html: emailLayout({ showroomName, content: `<p>Bonjour,</p>${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${escHtml(buyer.name)}</strong> (${escHtml(buyer.email)}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>` }),
       attachments: [{ filename: `Selection-${dateStr}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
     });
+    if (error) { console.error('[resend] email-selection:', error.message || error); return res.status(502).json({ error: 'Échec envoi email' }); }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -4957,7 +5003,7 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
       const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
       const resend = newResendClient(resendKey);
       const portalUrl = `${getBaseUrl(req)}/portal`;
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
         to: [b.email],
         replyTo: ownerEmail || undefined,
@@ -4968,6 +5014,7 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
            <blockquote style="border-left:3px solid rgba(17,17,17,.2);padding-left:12px;color:#444444">${escHtml(body)}</blockquote>
            <p><a href="${portalUrl}" style="color:#6b8500">Répondre depuis votre espace →</a></p>` })
       });
+      if (error) console.error('[resend] buyer-message-email:', error.message || error);
     })().catch(e => console.error('buyer message email:', e.message));
     res.json({ ok: true });
   } catch(e) { console.error('admin send message:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -5080,7 +5127,7 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json([]);
   try {
-    const like = `%${q}%`;
+    const like = `%${escapeLike(q)}%`;
     const r = await pool.query(`
       SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id,
              b.name as brand_name
@@ -5228,7 +5275,7 @@ app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
     const resetUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail?token=${token}`;
     const buyerFull = await pool.query('SELECT lang FROM buyers WHERE id=$1', [buyer.id]);
     const isEn = buyerFull.rows[0]?.lang === 'en';
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       subject: isEn
@@ -5251,6 +5298,7 @@ app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
         `
       })
     });
+    if (error) console.error('[resend] forgot-password:', error.message || error);
   } catch (e) { console.error('forgot-password error:', e.message); }
 });
 
@@ -5452,7 +5500,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
     const resend = newResendClient(resendKey);
     const { message } = req.body;
     const isEn = buyer.lang === 'en';
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
       ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
@@ -5470,6 +5518,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
         <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
       ` })
     });
+    if (error) { console.error('[resend] relance:', error.message || error); return res.status(502).json({ error: 'Échec envoi email' }); }
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -5477,7 +5526,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
 app.get('/api/admin/search', requireRole('owner','agent'), async (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json({ orders: [], buyers: [], selections: [] });
-  const like = `%${q}%`;
+  const like = `%${escapeLike(q)}%`;
   // Agent scopé : la recherche ne remonte que les données de sa marque.
   const scoped = isBrandScoped(req);
   const bId = req.userBrandId;
@@ -5747,7 +5796,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
   const portalUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
   const isEn = lang === 'en';
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: `${showroomName} <${fromField}>`,
     to: [email],
     subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès au showroom — ${showroomName}`,
@@ -5776,6 +5825,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
       `
     })
   });
+  if (error) console.error('[resend] buyer-welcome-email:', error.message || error);
 }
 
 app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
@@ -5856,7 +5906,7 @@ app.post('/api/brands/:brandId/share-request', emailLimiter, requireBrandScope('
       ]);
       if (!resendKey || !adminEmail) return;
       const resend = newResendClient(resendKey);
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
         to: [adminEmail],
         subject: `Demande de lien de partage — ${brand.rows[0].name}`,
@@ -5867,6 +5917,7 @@ app.post('/api/brands/:brandId/share-request', emailLimiter, requireBrandScope('
           <p style="color:#888;font-size:13px">Gérez les demandes depuis votre tableau de bord admin.</p>
         ` })
       });
+      if (error) console.error('[resend] share-request-notify:', error.message || error);
     })().catch(e => console.error('share-request notify:', e.message));
     res.json({ ok: true });
   } catch(e) { console.error('share-request:', e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -5929,7 +5980,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
     const resend = newResendClient(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
     const adminUrl = `${req.protocol}://${req.get('host')}/admin`;
-    await resend.emails.send({
+    const { error: sendErr } = await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [adminEmail],
       subject: `Nouvelle demande d'accès — ${name} (${company || email})`,
@@ -5947,7 +5998,8 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
         </table>
         ${emailBtn(adminUrl, 'GÉRER LES DEMANDES →')}
       ` })
-    }).catch(e => console.error('access-request notify:', e.message));
+    });
+    if (sendErr) console.error('[resend] access-request-notify:', sendErr.message || sendErr);
   }
   res.json({ ok: true });
  } catch(e) { console.error('access-request error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -6009,7 +6061,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
     // Fetch buyer lang (just created — default 'fr', can't be 'en' yet unless set elsewhere)
     const buyerLangRes = await pool.query('SELECT lang FROM buyers WHERE id=$1', [buyerId]);
     const isEn = buyerLangRes.rows[0]?.lang === 'en';
-    await resend.emails.send({
+    const { error: sendErr } = await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [req2.email],
       subject: isEn
@@ -6036,7 +6088,13 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
         <p style="font-size:12px;color:#888">Vous pourrez modifier votre mot de passe après votre première connexion.</p>
         ${emailBtn(loginUrl, 'ACCÉDER AU SHOWROOM →')}
       ` })
-    }).catch(e => console.error('access-request approve email:', e.message));
+    });
+    // Le SDK Resend résout avec {data:null,error} au lieu de rejeter — sans cette
+    // vérification, un envoi échoué laissait le compte acheteur créé avec un mot
+    // de passe temporaire que ni l'acheteur (pas d'email) ni l'admin (réponse sans
+    // mot de passe) ne connaissaient. On le renvoie dans la réponse si l'email
+    // n'est pas confirmé envoyé, pour transmission manuelle.
+    if (sendErr) { console.error('[resend] access-request-approve:', sendErr.message || sendErr); return res.json({ ok: true, reused, emailed: false, temp_password: tempPassword }); }
   }
   res.json({ ok: true, reused });
  } catch(e) { console.error('approve access request:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -6055,7 +6113,7 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
   if (resendKey) {
     const resend = newResendClient(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
-    await resend.emails.send({
+    const { error: sendErr } = await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [req2.email],
       subject: `Votre demande d'accès — ${showroomName}`,
@@ -6065,7 +6123,8 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
         <p>Après examen, nous ne sommes pas en mesure de donner suite à votre demande pour le moment.</p>
         <p>N'hésitez pas à nous contacter directement pour plus d'informations.</p>
       ` })
-    }).catch(e => console.error('access-request reject email:', e.message));
+    });
+    if (sendErr) console.error('[resend] access-request-reject:', sendErr.message || sendErr);
   }
   res.json({ ok: true });
 });
@@ -6211,7 +6270,7 @@ app.post('/api/buyer/request-link', buyerAuthLimiter, async (req, res) => {
       const showroomName = await getSetting('showroom_name');
       const fromField = fromAddress || 'showroom@editionsstandard.com';
       const url = `${getBaseUrl(req)}/buyer/${brand_id}?token=${token}`;
-      await resend.emails.send({
+      const { error: sendErr } = await resend.emails.send({
         from: `${showroomName} <${fromField}>`,
         to: [email],
         subject: `Votre espace commandes — ${b.rows[0].name}`,
@@ -6225,7 +6284,8 @@ app.post('/api/buyer/request-link', buyerAuthLimiter, async (req, res) => {
             <p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>30 minutes</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
           `
         })
-      }).catch(e => console.error('Buyer magic link email error:', e.message));
+      });
+      if (sendErr) console.error('[resend] buyer-magic-link:', sendErr.message || sendErr);
     }
   }
 
@@ -6345,14 +6405,20 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
     lines.forEach((l, i) => {
       const p = l.product || {};
       const nameText = p.description || '';
+      const colorText = l.color || p.color || '—';
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
-      const rowH = Math.max(nameH, 12) + 7;
+      // La couleur peut être plus longue que sa colonne étroite (45pt) et donc
+      // se retrouver sur plusieurs lignes — la hauteur de ligne doit en tenir
+      // compte, sinon la ligne suivante (et in fine le total/CGV/signature)
+      // chevauche visuellement le texte de couleur encore en cours de rendu.
+      const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
+      const rowH = Math.max(nameH, colorH, 12) + 7;
       if (rowY + rowH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
       if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(p.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
       doc.fillColor(SOFT)
-        .text(l.color || p.color || '—', col.color, rowY, { width: colW.color })
+        .text(colorText, col.color, rowY, { width: colW.color })
         .text(l.size || '—', col.size, rowY, { width: colW.size });
       doc.font(F.bold).fillColor(INK).text(String(l.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
       doc.font(F.reg).fillColor('#333')
@@ -6666,8 +6732,14 @@ async function generateOrderPDF(orderId) {
 
     lines.forEach((line, i) => {
       const nameText = line.product_name || '';
+      const colorText = line.color || '—';
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
-      const rowH  = Math.max(nameH, 12) + 7;
+      // Voir generateSelectionPDF : la couleur peut déborder de sa colonne
+      // étroite sur plusieurs lignes, il faut en tenir compte dans rowH pour
+      // éviter que la ligne suivante (et le total/CGV/signature en bas de
+      // document) ne chevauche visuellement le texte de couleur.
+      const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
+      const rowH  = Math.max(nameH, colorH, 12) + 7;
       const noteTxt = line.note ? `Note : ${line.note}` : '';
       const noteH = noteTxt ? doc.font(F.reg).fontSize(7.5).heightOfString(noteTxt, { width: 480 }) + 3 : 0;
 
@@ -6678,7 +6750,7 @@ async function generateOrderPDF(orderId) {
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(line.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
       doc.fillColor(SOFT)
-        .text(line.color || '—', col.color, rowY, { width: colW.color })
+        .text(colorText, col.color, rowY, { width: colW.color })
         .text(line.size  || '—', col.size,  rowY, { width: colW.size });
       doc.font(F.bold).fillColor(INK).text(String(line.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
       doc.font(F.reg).fillColor('#333')
@@ -7011,7 +7083,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   } catch(e) { console.error('[order-email-thumbs]', e.message); }
 
   // ── Email acheteur ──
-  await resend.emails.send({
+  const buyerSend = await resend.emails.send({
     from: fromFormatted,
     to: [order.client_email],
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
@@ -7078,10 +7150,11 @@ async function sendOrderEmails(orderId, pdfBuffer) {
     }),
     attachments: [attachment]
   });
+  if (buyerSend.error) console.error('[resend] order-proposal-buyer:', buyerSend.error.message || buyerSend.error);
 
   // ── Copie showroom ──
   const copyTo = showroomEmail || fromField;
-  await resend.emails.send({
+  const { error: ownerCopyErr } = await resend.emails.send({
     from: fromFormatted,
     to: [copyTo],
     subject: `[BDC] ${order.client_name} — ${order.brand_name} — ${totalStr}`,
@@ -7109,6 +7182,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
     }),
     attachments: [attachment]
   });
+  if (ownerCopyErr) console.error('[resend] order-proposal-owner-copy:', ownerCopyErr.message || ownerCopyErr);
 }
 
 // ==================== AIRTABLE SYNC ====================
@@ -7370,12 +7444,13 @@ async function sendAppointmentReminders() {
         ${appt.video_link ? `<p style="margin:18px 0"><a href="${escHtml(appt.video_link)}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}
         <p style="color:#999;font-size:12px">Pour toute modification, contactez-nous directement.</p>
       ` });
-      await resend.emails.send({
+      const { error: sendErr } = await resend.emails.send({
         from: `${showroomName} <${fromAddress}>`,
         to: appt.client_email,
         subject,
         html
-      }).catch(e => console.error('[appt-reminder-email-error]', e.message));
+      }).catch(e => ({ error: e }));
+      if (sendErr) console.error('[appt-reminder-email-error]', sendErr.message || sendErr);
     }
     console.log(`Rappels RDV J-1 envoyés pour ${rows.length} rendez-vous (${dateStr})`);
   } catch(e) {
