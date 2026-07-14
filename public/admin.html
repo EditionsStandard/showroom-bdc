@@ -565,7 +565,7 @@
     <a data-section="brands"><span class="icon">🏷️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
     <a data-section="orders"><span class="icon">📋</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
-    <a data-section="security" id="nav-security" style="display:none"><span class="icon">🔒</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> <span>Sécurité</span></a>
+    <a data-section="security" id="nav-security" style="display:none"><span class="icon">🔒</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> <span>Sécurité &amp; audit</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
     <a data-section="access-requests" id="nav-access-requests"><span class="icon">🔔</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span>Demandes d'accès</span> <span id="access-requests-badge" style="display:none;background:#f472b6;color:#fff;border-radius: 0;font-size:10px;padding:1px 6px;margin-left:4px;font-weight:700"></span></a>
@@ -649,7 +649,41 @@
       <div style="font-size:34px;font-weight:700;color:var(--accent);line-height:1" id="stat-conversion">—</div>
     </div>
 
-    <!-- Carte partage prospection — distribution réservée à l'agence -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card" style="margin-bottom:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="margin:0;font-size:14px">CA mensuel</h3>
+          <span id="chart-total" style="font-size:11px;color:#888"></span>
+        </div>
+        <canvas id="revenue-chart" height="120" style="width:100%;display:block"></canvas>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <h3 style="margin:0 0 14px;font-size:14px">CA par marque</h3>
+        <div id="brand-revenue-chart"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 data-t="recent_orders">Dernières commandes</h3>
+      <div class="table-wrap"><table id="recent-orders-table">
+        <thead><tr><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total">Total</th><th data-t="th_actions">Actions</th></tr></thead>
+        <tbody id="recent-orders-body"></tbody>
+      </table></div>
+    </div>
+
+    <!-- Timeline commerciale — fil chronologique tous acheteurs confondus.
+         agency-only : le endpoint est requireRole('owner','agent'), un
+         designer (rattaché à une seule marque) recevrait un 403. -->
+    <div class="card agency-only">
+      <h3 style="margin:0 0 14px;font-size:14px">🕘 Timeline commerciale</h3>
+      <div id="dash-timeline" style="max-height:340px;overflow-y:auto">
+        <p style="font-size:12px;color:#555">Chargement…</p>
+      </div>
+    </div>
+
+    <!-- Carte partage prospection — distribution réservée à l'agence.
+         Placée après les métriques du quotidien (CA, commandes, timeline) :
+         c'est un outil d'action ponctuelle (envoyer une invitation), pas un
+         indicateur consulté à chaque ouverture du tableau de bord. -->
     <div class="card agency-only" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <span style="font-size:18px">📤</span>
@@ -687,37 +721,6 @@
     <div class="card agency-only" id="share-requests-card" style="display:none;margin-bottom:16px">
       <h3 style="margin:0 0 12px;font-size:14px">Demandes de lien de partage</h3>
       <div id="share-requests-list"></div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-      <div class="card" style="margin-bottom:0">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="margin:0;font-size:14px">CA mensuel</h3>
-          <span id="chart-total" style="font-size:11px;color:#888"></span>
-        </div>
-        <canvas id="revenue-chart" height="120" style="width:100%;display:block"></canvas>
-      </div>
-      <div class="card" style="margin-bottom:0">
-        <h3 style="margin:0 0 14px;font-size:14px">CA par marque</h3>
-        <div id="brand-revenue-chart"></div>
-      </div>
-    </div>
-    <div class="card">
-      <h3 data-t="recent_orders">Dernières commandes</h3>
-      <div class="table-wrap"><table id="recent-orders-table">
-        <thead><tr><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total">Total</th><th data-t="th_actions">Actions</th></tr></thead>
-        <tbody id="recent-orders-body"></tbody>
-      </table></div>
-    </div>
-
-    <!-- Timeline commerciale — fil chronologique tous acheteurs confondus.
-         agency-only : le endpoint est requireRole('owner','agent'), un
-         designer (rattaché à une seule marque) recevrait un 403. -->
-    <div class="card agency-only">
-      <h3 style="margin:0 0 14px;font-size:14px">🕘 Timeline commerciale</h3>
-      <div id="dash-timeline" style="max-height:340px;overflow-y:auto">
-        <p style="font-size:12px;color:#555">Chargement…</p>
-      </div>
     </div>
 
     <!-- ANALYTIQUES ACHETEURS -->
@@ -985,7 +988,7 @@
 
   <!-- SECURITY -->
   <div id="security" class="section">
-    <h1>Sécurité</h1>
+    <h1>Sécurité &amp; audit</h1>
     <div class="card">
       <h3>Mode maintenance</h3>
       <p style="font-size:12px;color:#888;margin-bottom:14px">Coupe l'accès buyer/public à tout le showroom (page « Maintenance » affichée), sans toucher à votre accès admin. À utiliser en cas d'incident.</p>
@@ -1073,7 +1076,7 @@
       </div>
       <div id="integration-result" style="font-size:12px;margin-top:10px"></div>
       <div class="sep"></div>
-      <h3 data-t="settings_security">Sécurité</h3>
+      <h3 data-t="settings_security">Mot de passe admin</h3>
       <div class="form-group" style="max-width:260px"><label data-t="s_admin_pass_label">Nouveau mot de passe admin</label><input id="s-admin-pass" type="password" data-tp="s_admin_pass_placeholder"></div>
       <button class="btn btn-primary" onclick="saveSettings()" data-t="btn_save">Enregistrer</button>
     </div>
@@ -2131,7 +2134,7 @@ const TRANSLATIONS = {
     // Settings
     settings_showroom: 'Showroom', settings_smtp: 'Configuration SMTP (envoi emails)', settings_email: 'Envoi des emails',
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Conditions Générales de Vente',
-    settings_currencies: 'Devises', settings_security: 'Sécurité',
+    settings_currencies: 'Devises', settings_security: 'Mot de passe admin',
     s_name_label: 'Nom du showroom', s_email_label: 'Email showroom (copie BDC)',
     s_season_label: 'Saison en cours (pastille sur les cartes marque, ex. SS27)',
     s_smtp_host_label: 'Serveur SMTP', s_smtp_port_label: 'Port',
@@ -2270,7 +2273,7 @@ const TRANSLATIONS = {
     // Settings
     settings_showroom: 'Showroom', settings_smtp: 'SMTP configuration (email sending)', settings_email: 'Email sending',
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Terms & Conditions',
-    settings_currencies: 'Currencies', settings_security: 'Security',
+    settings_currencies: 'Currencies', settings_security: 'Admin password',
     s_name_label: 'Showroom name', s_email_label: 'Showroom email (BDC copy)',
     s_season_label: 'Current season (badge on brand cards, e.g. SS27)',
     s_smtp_host_label: 'SMTP server', s_smtp_port_label: 'Port',
@@ -6474,6 +6477,67 @@ async function revokeAllPdfTokens() {
   else toast(r.error || t('js_error'), true);
 }
 
+// Libellés lisibles pour les codes techniques stockés en base (colonne `action`
+// de admin_audit_log) — voir logAudit()/logAuditRaw() côté serveur pour la liste
+// des codes émis. Non exhaustif par design : un code non mappé retombe sur son
+// nom brut avec les underscores remplacés par des espaces.
+const AUDIT_ACTION_LABELS = {
+  approve_access_request: "Demande d'accès approuvée",
+  buyer_terms_cleared: 'CGV acheteur réinitialisées',
+  buyer_terms_updated: 'CGV acheteur mises à jour',
+  commande_access_denied: 'Accès commande refusé',
+  create_commande_link: 'Lien de commande créé',
+  create_sample: 'Échantillon créé',
+  create_staff: 'Compte staff créé',
+  delete_buyer: 'Acheteur supprimé',
+  delete_selection: 'Sélection supprimée',
+  delete_staff: 'Compte staff supprimé',
+  download_order_pdf: 'PDF de commande téléchargé',
+  edit_order_lines: 'Lignes de commande modifiées',
+  edit_selection_client: 'Client de la sélection modifié',
+  edit_selection_items: 'Articles de la sélection modifiés',
+  export_buyers_csv: 'Export CSV acheteurs',
+  export_orders_csv: 'Export CSV commandes',
+  export_orders_xlsx: 'Export XLSX commandes',
+  export_products_csv: 'Export CSV produits',
+  export_products_xlsx: 'Export XLSX produits',
+  invite_prospect: 'Prospect invité',
+  login_blocked_mfa_setup_required: 'Connexion bloquée (MFA requise)',
+  login_failed: 'Échec de connexion',
+  login_mfa_failed: 'Code MFA invalide',
+  login_password_ok_mfa_pending: 'Mot de passe validé, MFA en attente',
+  login_success: 'Connexion réussie',
+  login_success_mfa: 'Connexion réussie (MFA)',
+  login_success_mfa_backup: 'Connexion réussie (code de secours)',
+  logout: 'Déconnexion',
+  maintenance_on: 'Mode maintenance activé',
+  maintenance_off: 'Mode maintenance désactivé',
+  mfa_check_failed: 'Vérification MFA en erreur',
+  mfa_disabled: 'MFA désactivée',
+  mfa_enabled: 'MFA activée',
+  mfa_reset: 'MFA réinitialisée',
+  order_signed: 'Commande signée',
+  password_reset: 'Mot de passe réinitialisé',
+  rate_limit_exceeded: 'Limite de requêtes dépassée',
+  reject_access_request: "Demande d'accès refusée",
+  remind_selection: 'Relance de sélection envoyée',
+  reminder_approved: 'Relance approuvée',
+  reminder_rejected: 'Relance refusée',
+  reply_buyer_message: 'Réponse envoyée à un acheteur',
+  resend_staff_credentials: 'Identifiants staff renvoyés',
+  revoke_all_buyer_sessions: 'Toutes les sessions acheteurs révoquées',
+  revoke_all_order_links: 'Tous les liens de commande révoqués',
+  revoke_all_pdf_tokens: 'Tous les PDF publics révoqués',
+  revoke_all_staff_sessions: 'Toutes les sessions staff révoquées',
+  revoke_commande_link: 'Lien de commande révoqué',
+  revoke_order_pdf: 'PDF de commande révoqué',
+  update_order_status: 'Statut de commande modifié',
+  update_staff: 'Compte staff modifié',
+};
+function auditActionLabel(action) {
+  return AUDIT_ACTION_LABELS[action] || String(action || '').replace(/_/g, ' ');
+}
+
 async function loadAuditLog(offset) {
   auditLogOffset = offset || 0;
   const rows = await fetch(`/api/admin/audit-log?limit=100&offset=${auditLogOffset}`).then(r => r.json()).catch(() => []);
@@ -6482,7 +6546,7 @@ async function loadAuditLog(offset) {
   const html = rows.map(row => `<tr style="border-bottom:1px solid #1a1a1a">
     <td style="padding:6px 8px;white-space:nowrap;color:#888">${esc(new Date(row.created_at).toLocaleString('fr-FR'))}</td>
     <td style="padding:6px 8px">${esc(row.user_email)}</td>
-    <td style="padding:6px 8px">${esc(row.action)}</td>
+    <td style="padding:6px 8px" title="${esc(row.action)}">${esc(auditActionLabel(row.action))}</td>
     <td style="padding:6px 8px;color:#888">${esc(row.target_type)}${row.target_id ? ' · ' + esc(String(row.target_id).slice(0,8)) : ''}</td>
     <td style="padding:6px 8px;color:#888">${esc(row.details)}</td>
   </tr>`).join('');
