@@ -4023,10 +4023,18 @@ app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) =>
 });
 
 app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) => {
+  const buyerId = req.session.buyerPortal.id;
+  const productId = req.params.productId;
+  // SELECT...FOR UPDATE dans une transaction : sans verrou, deux clics rapides
+  // (double-clic, requêtes concurrentes) lisent tous deux le même état de
+  // départ et décident tous deux "ajouter" — le serveur finit par ajouter
+  // l'article alors que côté client, deux toggles optimistes successifs
+  // affichent "retiré". Même classe de bug que la race condition déjà
+  // corrigée sur le changement de statut de commande.
+  const dbClient = await pool.connect();
   try {
-    const buyerId = req.session.buyerPortal.id;
-    const productId = req.params.productId;
-    const r = await pool.query('SELECT favorites_json FROM buyers WHERE id=$1', [buyerId]);
+    await dbClient.query('BEGIN');
+    const r = await dbClient.query('SELECT favorites_json FROM buyers WHERE id=$1 FOR UPDATE', [buyerId]);
     let favs = [];
     try { favs = JSON.parse(r.rows[0]?.favorites_json || '[]'); } catch(e) {}
     const idx = favs.indexOf(productId);
@@ -4035,11 +4043,12 @@ app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) 
     if (idx >= 0) {
       favs.splice(idx, 1);
     } else {
-      const exists = await pool.query('SELECT 1 FROM products WHERE id=$1', [productId]);
-      if (!exists.rows.length) return res.status(404).json({ error: 'Produit introuvable' });
+      const exists = await dbClient.query('SELECT 1 FROM products WHERE id=$1', [productId]);
+      if (!exists.rows.length) { await dbClient.query('ROLLBACK'); return res.status(404).json({ error: 'Produit introuvable' }); }
       favs.push(productId);
     }
-    await pool.query('UPDATE buyers SET favorites_json=$1 WHERE id=$2', [JSON.stringify(favs), buyerId]);
+    await dbClient.query('UPDATE buyers SET favorites_json=$1 WHERE id=$2', [JSON.stringify(favs), buyerId]);
+    await dbClient.query('COMMIT');
     // Analytics distinctes du panier/shortlist — n'incrémente qu'à l'ajout, jamais au retrait.
     if (idx < 0) {
       pool.query(
@@ -4048,7 +4057,8 @@ app.post('/api/portal/favorites/:productId', requireBuyerAuth, async (req, res) 
       ).catch(() => {});
     }
     res.json({ favorites: favs, active: idx < 0 });
-  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch(e) { await dbClient.query('ROLLBACK'); res.status(500).json({ error: 'Erreur serveur' }); }
+  finally { dbClient.release(); }
 });
 
 // ── Shortlist — niveau d'intention intermédiaire entre favoris et commande
@@ -4065,21 +4075,25 @@ app.get('/api/portal/shortlist', requireBuyerAuth, async (req, res) => {
 });
 
 app.post('/api/portal/shortlist/:productId', requireBuyerAuth, async (req, res) => {
+  const buyerId = req.session.buyerPortal.id;
+  const productId = req.params.productId;
+  // Même verrou que /api/portal/favorites/:productId — voir commentaire là-bas.
+  const dbClient = await pool.connect();
   try {
-    const buyerId = req.session.buyerPortal.id;
-    const productId = req.params.productId;
-    const r = await pool.query('SELECT shortlist_json FROM buyers WHERE id=$1', [buyerId]);
+    await dbClient.query('BEGIN');
+    const r = await dbClient.query('SELECT shortlist_json FROM buyers WHERE id=$1 FOR UPDATE', [buyerId]);
     let list = [];
     try { list = JSON.parse(r.rows[0]?.shortlist_json || '[]'); } catch(e) {}
     const idx = list.indexOf(productId);
     if (idx >= 0) {
       list.splice(idx, 1);
     } else {
-      const exists = await pool.query('SELECT 1 FROM products WHERE id=$1', [productId]);
-      if (!exists.rows.length) return res.status(404).json({ error: 'Produit introuvable' });
+      const exists = await dbClient.query('SELECT 1 FROM products WHERE id=$1', [productId]);
+      if (!exists.rows.length) { await dbClient.query('ROLLBACK'); return res.status(404).json({ error: 'Produit introuvable' }); }
       list.push(productId);
     }
-    await pool.query('UPDATE buyers SET shortlist_json=$1 WHERE id=$2', [JSON.stringify(list), buyerId]);
+    await dbClient.query('UPDATE buyers SET shortlist_json=$1 WHERE id=$2', [JSON.stringify(list), buyerId]);
+    await dbClient.query('COMMIT');
     if (idx < 0) {
       pool.query(
         'INSERT INTO product_stats (product_id, shortlist_adds) VALUES ($1,1) ON CONFLICT (product_id) DO UPDATE SET shortlist_adds = product_stats.shortlist_adds + 1, updated_at = NOW()',
@@ -4087,7 +4101,8 @@ app.post('/api/portal/shortlist/:productId', requireBuyerAuth, async (req, res) 
       ).catch(() => {});
     }
     res.json({ shortlist: list, active: idx < 0 });
-  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch(e) { await dbClient.query('ROLLBACK'); res.status(500).json({ error: 'Erreur serveur' }); }
+  finally { dbClient.release(); }
 });
 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
