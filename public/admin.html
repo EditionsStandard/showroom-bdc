@@ -211,12 +211,19 @@
   #orders-table { table-layout: fixed; width: 100%; }
   #orders-table th:nth-child(1) { width: 32px; }   /* checkbox */
   #orders-table th:nth-child(2) { width: 5%; }      /* réf */
-  #orders-table th:nth-child(3) { width: 10%; }     /* date */
-  #orders-table th:nth-child(4) { width: 22%; }     /* client */
-  #orders-table th:nth-child(5) { width: 15%; }     /* marque */
+  #orders-table th:nth-child(3) { width: 12%; }     /* date */
+  #orders-table th:nth-child(4) { width: 21%; }     /* client */
+  #orders-table th:nth-child(5) { width: 14%; }     /* marque */
   #orders-table th:nth-child(6) { width: 10%; }     /* montant */
   #orders-table th:nth-child(7) { width: 10%; }     /* statut */
   #orders-table th:nth-child(8) { width: 26%; }     /* actions */
+  /* table-layout:fixed + colonnes en % : un contenu plus large que sa cellule
+     (ex. date DD/MM/YYYY dans une cellule trop étroite sur mobile) déborde
+     visuellement DANS la colonne suivante avec overflow:visible par défaut.
+     Filet de sécurité : tronque proprement au lieu de chevaucher. Exclut la
+     colonne actions (dernier enfant, boutons en flex-wrap qui doivent rester
+     visibles sur plusieurs lignes). */
+  #orders-table td:not(:last-child) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Responsive mobile supplémentaire ── */
   @media (max-width: 768px) {
