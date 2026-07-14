@@ -4255,10 +4255,16 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
 });
 
 // ── Email sélection ──────────────────────────────────────────────────
-app.post('/api/portal/selection-email', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (req, res) => {
   try {
     const { to, message, items } = req.body;
     if (!to || !items?.length) return res.status(400).json({ error: 'Données manquantes' });
+    // Destinataire volontairement libre (partage de sélection à un tiers) — mais
+    // sans limite ni plafond, un compte acheteur devient un relais de spam/phishing
+    // exploitant le domaine d'envoi vérifié du showroom. Rate-limit ci-dessus +
+    // plafond d'articles (même limite que /api/portal/selection-pdf, alignée pour
+    // éviter le même DoS PDFKit synchrone).
+    if (!Array.isArray(items) || items.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
     const buyer = req.session.buyerPortal;
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(500).json({ error: 'Email non configuré' });
@@ -5274,6 +5280,8 @@ app.patch('/api/buyers/:id/tags-notes', requireRole('owner','agent'), async (req
   try {
     if (!await checkBuyerBrandScope(req, res)) return;
     const { tags, internal_notes } = req.body;
+    if (tags !== undefined && tags !== null && typeof tags !== 'string') return res.status(400).json({ error: 'tags invalide' });
+    if (internal_notes !== undefined && internal_notes !== null && typeof internal_notes !== 'string') return res.status(400).json({ error: 'internal_notes invalide' });
     await pool.query('UPDATE buyers SET tags=$1, internal_notes=$2 WHERE id=$3',
       [tags || '', internal_notes || '', req.params.id]);
     res.json({ ok: true });
@@ -7230,22 +7238,18 @@ app.delete('/api/selections/drafts/:token', requireRole('owner', 'agent'), async
   try {
     // Récupère la sélection avant suppression pour la copie email au propriétaire
     const sel = (await pool.query("SELECT a.*, b.name AS brand_name FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1 AND a.status='draft'", [req.params.token])).rows[0];
-    if (isBrandScoped(req)) {
-      await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft' AND brand_id=$2", [req.params.token, req.userBrandId]);
-    } else {
-      await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
-    }
-    if (sel && (!isBrandScoped(req) || sel.brand_id === req.userBrandId)) {
-      notifyOwner(
-        `Sélection supprimée — ${sel.client_company || sel.client_name || ''} (${sel.brand_name})`,
-        `<p><strong>Brouillon de sélection supprimé</strong></p>
-         <table style="margin:14px 0;font-size:13px;border-collapse:collapse">
-           <tr><td style="padding:3px 14px 3px 0;color:#888">Client</td><td>${escHtml(sel.client_name||'')}${sel.client_company?(' — '+escHtml(sel.client_company)):''}</td></tr>
-           <tr><td style="padding:3px 14px 3px 0;color:#888">Email</td><td>${escHtml(sel.client_email||'')}</td></tr>
-           <tr><td style="padding:3px 14px 3px 0;color:#888">Marque</td><td>${escHtml(sel.brand_name)}</td></tr>
-         </table>`
-      ).catch(() => {});
-    }
+    if (!sel) return res.status(404).json({ error: 'Brouillon introuvable' });
+    if (isBrandScoped(req) && sel.brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    await pool.query("DELETE FROM agent_selections WHERE token=$1 AND status='draft'", [req.params.token]);
+    notifyOwner(
+      `Sélection supprimée — ${sel.client_company || sel.client_name || ''} (${sel.brand_name})`,
+      `<p><strong>Brouillon de sélection supprimé</strong></p>
+       <table style="margin:14px 0;font-size:13px;border-collapse:collapse">
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Client</td><td>${escHtml(sel.client_name||'')}${sel.client_company?(' — '+escHtml(sel.client_company)):''}</td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Email</td><td>${escHtml(sel.client_email||'')}</td></tr>
+         <tr><td style="padding:3px 14px 3px 0;color:#888">Marque</td><td>${escHtml(sel.brand_name)}</td></tr>
+       </table>`
+    ).catch(() => {});
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
