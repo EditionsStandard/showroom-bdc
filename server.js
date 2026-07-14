@@ -728,7 +728,10 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
         if (err) return res.redirect('/admin/login?error=1');
         req.session.staffUser = { id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name, mfaEnrolled: false };
         logAuditRaw(user.email, 'login_success', 'staff', user.id, req.ip);
-        res.redirect('/admin');
+        // Sauvegarde explicite avant redirection — voir commentaire équivalent
+        // sur /admin/login/mfa (évite un rebond vers /admin/login si le
+        // navigateur suit le 302 avant la persistance garantie de la session).
+        req.session.save(err2 => err2 ? res.redirect('/admin/login?error=1') : res.redirect('/admin'));
       });
     }
     logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip);
@@ -759,7 +762,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
       req.session.admin = true;
       req.session.ownerMfaEnrolled = false;
       logAuditRaw('admin', 'login_success', 'staff', '', req.ip);
-      res.redirect('/admin');
+      req.session.save(err2 => err2 ? res.redirect('/admin/login?error=1') : res.redirect('/admin'));
     });
   } else {
     logAuditRaw('admin', 'login_failed', 'staff', '', req.ip);
@@ -821,7 +824,14 @@ app.post('/admin/login/mfa', loginLimiter, async (req, res) => {
       req.session.ownerMfaEnrolled = true;
     }
     logAuditRaw(pending.email || 'admin', usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'staff', pending.id || '', req.ip);
-    res.redirect('/admin');
+    // Sauvegarde explicite avant la redirection : sans ça, un navigateur qui suit
+    // le 302 immédiatement peut arriver sur /admin avant que la nouvelle session
+    // (régénérée juste au-dessus) ne soit garantie persistée en base — requireAdmin
+    // ne la trouve pas encore et rebondit vers /admin/login (observé en test réel).
+    req.session.save(err2 => {
+      if (err2) return res.redirect('/admin/login?error=1');
+      res.redirect('/admin');
+    });
   });
 });
 
@@ -3645,7 +3655,10 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     req.session.regenerate(err => {
       if (err) return res.json({ ok: true, order_id: result.order_id });
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
-      res.json({ ok: true, order_id: result.order_id });
+      // Sauvegarde explicite avant de répondre : le JS client enchaîne
+      // généralement sur un appel authentifié juste après ce {ok:true}, qui
+      // échouerait si la nouvelle session n'est pas encore garantie persistée.
+      req.session.save(() => res.json({ ok: true, order_id: result.order_id }));
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -3734,7 +3747,10 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
       if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
       logAuditRaw(buyer.email, 'login_success', 'buyer', buyer.id, req.ip);
-      res.redirect(safeNext || '/portal');
+      // Sauvegarde explicite avant redirection — voir commentaire équivalent
+      // sur /admin/login/mfa (évite un rebond côté navigateur si le 302 est
+      // suivi avant la persistance garantie de la nouvelle session).
+      req.session.save(err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(safeNext || '/portal'));
     });
     return;
   }
@@ -3774,7 +3790,7 @@ app.post('/editions-showroom-b2b-portail/mfa', loginLimiter, async (req, res) =>
     if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
     req.session.buyerPortal = { id: pending.id, email: pending.email, name: pending.name, company: pending.company, phone: pending.phone, country: pending.country };
     logAuditRaw(pending.email, usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'buyer', pending.id, req.ip);
-    res.redirect(pending.next || '/portal');
+    req.session.save(err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(pending.next || '/portal'));
   });
 });
 
@@ -6131,7 +6147,7 @@ app.post('/api/invite/:token', async (req, res) => {
     // Régénération de session — anti session fixation (cohérent avec les autres logins)
     req.session.regenerate(() => {
       req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
-      res.json({ ok: true });
+      req.session.save(() => res.json({ ok: true }));
       sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
     });
   } catch (err) {
@@ -7422,7 +7438,7 @@ app.post('/api/agent/login/mfa', loginLimiter, async (req, res) => {
       if (err) return res.status(500).json({ error: 'Server error' });
       req.session.staffUser = { id: pending.id, email: pending.email, role: pending.role, brand_id: pending.brand_id, name: pending.name, mfaEnrolled: true };
       logAuditRaw(pending.email, usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'staff', pending.id, req.ip);
-      res.json({ name: pending.name || pending.email, email: pending.email, role: pending.role, brands });
+      req.session.save(err2 => err2 ? res.status(500).json({ error: 'Server error' }) : res.json({ name: pending.name || pending.email, email: pending.email, role: pending.role, brands }));
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
