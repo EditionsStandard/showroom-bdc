@@ -3979,10 +3979,10 @@ async function loadBrands() {
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick='editBrand(${bJson})'>✏️ ${t('btn_modify')}</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="loadProducts('${escJs(b.id)}','${escJs(b.name)}')">📦 Collection</button>
         <button class="btn btn-secondary btn-sm agency-only" onclick="openAgentSelection('${escJs(b.id)}','${escJs(b.name)}')">📝 Sélection acheteur</button>
-        <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${b.name.replace(/'/g,"\\'")}')">📅 Rendez-vous</button>
-        <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${b.name.replace(/'/g,"\\'")}')">📊 Stats</button>
-        ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}
-        ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 ${t('label_billing')}</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="loadAppointments('${b.id}','${escJs(b.name)}')">📅 Rendez-vous</button>
+        <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${escJs(b.name)}')">📊 Stats</button>
+        ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${escJs(b.name)}')">🔗 ${t('invite_modal_title')}</button>` : ''}
+        ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${escJs(b.name)}','${b.subscription_status||'trial'}')">💳 ${t('label_billing')}</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${escJs(b.id)}','${escJs(b.name)}')">${t('btn_delete_text')}</button>` : ''}
       </div>
     </div>`;
