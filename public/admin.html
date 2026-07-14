@@ -75,7 +75,10 @@
   .btn-primary:hover { opacity: .82; }
   .btn-secondary { background: transparent; color: var(--muted); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .16em; font-weight: 400; }
   .btn-secondary:hover { color: var(--white); }
-  .btn-danger { background: transparent; color: #e74c3c; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
+  /* #c0392b plutôt que le #e74c3c d'origine : ~4.8:1 sur fond blanc (WCAG AA),
+     l'ancien ton ne passait pas ~3.8:1 pour ce texte 11px partout utilisé sur
+     les actions de suppression. */
+  .btn-danger { background: transparent; color: #c0392b; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
   .btn-danger:hover { opacity: .7; }
   .btn-sm { padding: 5px 10px; font-size: 11px; }
   .btn-green { background: transparent; color: #2ecc71; border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
@@ -211,13 +214,13 @@
   /* Orders table — colonnes proportionnelles */
   #orders-table { table-layout: fixed; width: 100%; }
   #orders-table th:nth-child(1) { width: 32px; }   /* checkbox */
-  #orders-table th:nth-child(2) { width: 5%; }      /* réf */
+  #orders-table th:nth-child(2) { width: 8%; }      /* réf — seule colonne d'identification unique de la ligne */
   #orders-table th:nth-child(3) { width: 12%; }     /* date */
   #orders-table th:nth-child(4) { width: 21%; }     /* client */
   #orders-table th:nth-child(5) { width: 14%; }     /* marque */
   #orders-table th:nth-child(6) { width: 10%; }     /* montant */
   #orders-table th:nth-child(7) { width: 10%; }     /* statut */
-  #orders-table th:nth-child(8) { width: 26%; }     /* actions */
+  #orders-table th:nth-child(8) { width: 23%; }     /* actions */
   /* table-layout:fixed + colonnes en % : un contenu plus large que sa cellule
      (ex. date DD/MM/YYYY dans une cellule trop étroite sur mobile) déborde
      visuellement DANS la colonne suivante avec overflow:visible par défaut.
@@ -2476,9 +2479,11 @@ function resetOrderFilters() {
 
 let currentUserRole = null;
 let currentUserBrandId = null;
+let currentUserEmail = null;
 async function initUserRole() {
   const me = await fetch('/api/me').then(r => r.json());
   currentUserRole = me.role;
+  currentUserEmail = me.email || null;
   if (me.role === 'owner') {
     document.getElementById('nav-staff').style.display = '';
     document.getElementById('nav-security').style.display = '';
@@ -2574,7 +2579,7 @@ async function loadStaff() {
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="openEditStaff(${esc(JSON.stringify(s))})">${t('btn_modify')}</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resendStaffCredentials('${esc(s.id)}','${esc(s.email)}')" title="Régénérer et renvoyer les identifiants par email">✉ ${t('btn_credentials')}</button>
         <button class="btn btn-sm" style="background:var(--border);color:var(--white)" onclick="resetStaffMfa('${esc(s.id)}','${esc(s.email)}')" title="Désactive la MFA de ce compte (perte de téléphone, codes de secours perdus…)">🔐 Réinit. MFA</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">${t('btn_delete_text')}</button>
+        ${s.email !== currentUserEmail ? `<button class="btn btn-danger btn-sm" onclick="deleteStaff('${escJs(s.id)}','${escJs(s.name || s.email)}')">${t('btn_delete_text')}</button>` : `<span style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em" title="Vous ne pouvez pas supprimer votre propre compte">Vous</span>`}
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" style="color:#666;text-align:center;padding:20px">${t('no_account')}</td></tr>`;
@@ -2609,13 +2614,13 @@ async function createStaff() {
   const password = document.getElementById('staff-password').value;
   const role = document.getElementById('staff-role').value;
   const brand_id = document.getElementById('staff-brand-id').value;
-  if (!email || !password) { alert('Email et mot de passe requis'); return; }
+  if (!email || !password) { toast('Email et mot de passe requis', true); return; }
 
   const r = await fetch('/api/staff', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password, role, brand_id })
   }).then(r => r.json());
-  if (r.error) { alert(r.error); return; }
+  if (r.error) { toast(r.error, true); return; }
 
   document.getElementById('staff-name').value = '';
   document.getElementById('staff-email').value = '';
@@ -2624,8 +2629,8 @@ async function createStaff() {
   toast(t('js_account_created'));
 }
 
-async function deleteStaff(id) {
-  if (!confirm(t('confirm_delete_staff'))) return;
+async function deleteStaff(id, label) {
+  if (!confirm(t('confirm_delete_staff') + (label ? ` (${label})` : ''))) return;
   await fetch(`/api/staff/${id}`, { method: 'DELETE' });
   loadStaff();
   toast(t('js_account_deleted'));
@@ -3217,21 +3222,21 @@ async function createBuyer() {
   const password = document.getElementById('buyer-password').value;
   const phone = document.getElementById('buyer-phone').value.trim();
   const country = document.getElementById('buyer-country').value.trim();
-  if (!email || !password) { alert('Email et mot de passe requis'); return; }
+  if (!email || !password) { toast('Email et mot de passe requis', true); return; }
 
   const r = await fetch('/api/buyers', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, company, email, password, phone, country })
   }).then(r => r.json());
-  if (r.error) { alert(r.error); return; }
+  if (r.error) { toast(r.error, true); return; }
 
   ['buyer-name','buyer-company','buyer-email','buyer-password','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
   loadBuyers();
   toast(t('js_buyer_created'));
 }
 
-async function deleteBuyer(id) {
-  if (!confirm(t('confirm_delete_buyer'))) return;
+async function deleteBuyer(id, label) {
+  if (!confirm(t('confirm_delete_buyer') + (label ? ` (${label})` : ''))) return;
   await fetch(`/api/buyers/${id}`, { method: 'DELETE' });
   loadBuyers();
   toast(t('js_account_deleted'));
@@ -3970,7 +3975,7 @@ async function loadBrands() {
         <button class="btn btn-secondary btn-sm" onclick="loadBrandProductStats('${b.id}','${b.name.replace(/'/g,"\\'")}')">📊 Stats</button>
         ${currentUserRole !== 'designer' ? `<button class="btn btn-secondary btn-sm" onclick="openInvitePanel('${b.id}','${b.name.replace(/'/g,"\\'")}')">🔗 ${t('invite_modal_title')}</button>` : ''}
         ${currentUserRole === 'owner' ? `<button class="btn btn-secondary btn-sm" onclick="openBilling('${b.id}','${b.name.replace(/'/g,"\\'")}','${b.subscription_status||'trial'}')">💳 ${t('label_billing')}</button>` : ''}
-        ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.id}')">${t('btn_delete_text')}</button>` : ''}
+        ${currentUserRole === 'owner' ? `<button class="btn btn-danger btn-sm" onclick="deleteBrand('${escJs(b.id)}','${escJs(b.name)}')">${t('btn_delete_text')}</button>` : ''}
       </div>
     </div>`;
   }).join('') || `<p style="color:#666">${t('no_brand')}</p>`;
@@ -4152,8 +4157,8 @@ async function saveBrand() {
   else toast(t('js_error'), true);
 }
 
-async function deleteBrand(id) {
-  if (!confirm(t('confirm_delete_brand'))) return;
+async function deleteBrand(id, label) {
+  if (!confirm(t('confirm_delete_brand') + (label ? ` (${label})` : ''))) return;
   const r = await fetch(`/api/brands/${id}`, { method: 'DELETE' }).catch(e => { toast(e.message || 'Erreur réseau', true); return null; });
   if (!r) return;
   if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || 'Suppression impossible', true); return; }
@@ -4175,7 +4180,7 @@ function openBilling(brandId, brandName, status) {
 
 async function generateCheckoutLink() {
   const priceId = document.getElementById('billing-price-id').value.trim();
-  if (!priceId) { alert('Renseigne l\'ID du prix Stripe'); return; }
+  if (!priceId) { toast('Renseigne l\'ID du prix Stripe', true); return; }
   const resultDiv = document.getElementById('billing-link-result');
   resultDiv.style.display = 'block';
   resultDiv.textContent = 'Génération...';
@@ -4202,7 +4207,7 @@ async function setSubscriptionStatus(status) {
 async function cancelBrandSubscription() {
   if (!confirm(t('confirm_deactivate_brand'))) return;
   const r = await fetch(`/api/brands/${billingBrandId}/cancel-subscription`, { method: 'POST' }).then(r => r.json());
-  if (r.error) { alert(r.error); return; }
+  if (r.error) { toast(r.error, true); return; }
   closeModal('modal-billing');
   loadBrands();
   toast(t('js_link_deactivated'));
@@ -5645,7 +5650,7 @@ function renderOrdersPage() {
   tbody.innerHTML = page.length ? page.map(o => `
     <tr>
       <td><input type="checkbox" class="order-check" data-id="${o.id}" onchange="updateBulkBar()"></td>
-      <td style="font-size:11px;color:#888;font-family:monospace">${o.order_number || o.id.slice(0,8)}</td>
+      <td style="font-size:11px;color:#888;font-family:monospace" title="${esc(o.order_number || o.id.slice(0,8))}">${o.order_number || o.id.slice(0,8)}</td>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
       <td><strong>${esc(o.client_name||'')}</strong><br><span style="font-size:11px;color:#888">${esc(o.client_company||'')}</span></td>
       <td>${esc(o.brand_name||'')}</td>
@@ -5653,7 +5658,7 @@ function renderOrdersPage() {
       <td><span class="badge badge-${STATUS_BADGE[o.status]||'confirmed'}">${STATUS_LABEL()[o.status]||o.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">${t('btn_view')}</button>
-        ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>` : ''}
+        ${currentUserRole !== 'designer' ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}','${escJs(o.order_number || o.id.slice(0,8))} — ${escJs(o.client_name||'')}')">🗑</button>` : ''}
       </td>
     </tr>
   `).join('') : `<tr><td colspan="8" style="color:#666;text-align:center;padding:20px">${t('no_order')}</td></tr>`;
@@ -5695,7 +5700,7 @@ function renderBuyersPage() {
         <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
         <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${escJs(b.id)}','${escJs(b.name)}','${escJs(b.email)}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
         <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${escJs(b.id)}','${escJs(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${b.id}')">${t('btn_delete_text')}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${escJs(b.id)}','${escJs(b.name || b.email)}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="9" style="color:#666;text-align:center;padding:20px">${t('no_buyer_account')}</td></tr>`;
@@ -6370,8 +6375,8 @@ async function submitOrderSignature() {
   viewOrder(_currentOrderId); // rafraîchit le bandeau de signature + statut dans la modale
 }
 
-async function deleteOrder(id) {
-  if (!confirm(t('confirm_delete_order'))) return;
+async function deleteOrder(id, label) {
+  if (!confirm(t('confirm_delete_order') + (label ? ` (${label})` : ''))) return;
   const r = await fetch('/api/orders/' + id, { method: 'DELETE' });
   if (r.ok) {
     _allOrders = _allOrders.filter(o => o.id !== id);
@@ -6384,8 +6389,10 @@ async function deleteOrder(id) {
 
 async function deleteOrderFromModal() {
   if (!_currentOrderId) return;
+  const o = _allOrders.find(x => x.id === _currentOrderId);
+  const label = o ? `${o.order_number || o.id.slice(0,8)} — ${o.client_name||''}` : '';
   closeModal('modal-order');
-  await deleteOrder(_currentOrderId);
+  await deleteOrder(_currentOrderId, label);
   _currentOrderId = null;
 }
 
