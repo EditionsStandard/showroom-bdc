@@ -5,6 +5,14 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
+// Sans ce handler, une erreur sur un client idle du pool (reset réseau, etc.)
+// remonte comme exception non interceptée et plante tout le process — piège
+// classique de node-postgres, documenté dans son propre README. Logger et
+// continuer : le pool recrée les connexions mortes tout seul.
+pool.on('error', (err) => {
+  console.error('[pg-pool] Erreur client idle :', err.message);
+});
+
 async function init() {
   // Tables créées dans l'ordre des dépendances (clés étrangères) :
   // d'abord les tables de base, puis celles qui les référencent, puis les colonnes ALTER.

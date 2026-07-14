@@ -1187,6 +1187,14 @@ app.put('/api/brands/:brandId/lookbook', requireBrandScope('owner','agent','desi
 
 app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
+    // orders.brand_id n'a pas de ON DELETE CASCADE (les commandes sont des pièces
+    // comptables à conserver) : une marque ayant reçu ne serait-ce qu'une commande
+    // fait échouer le DELETE en bloc (rollback atomique, rien n'est supprimé) avec
+    // une 500 opaque. Message clair + suggestion de désactivation à la place.
+    const used = await pool.query('SELECT 1 FROM orders WHERE brand_id=$1 LIMIT 1', [req.params.id]);
+    if (used.rows.length) {
+      return res.status(409).json({ error: 'Cette marque a des commandes enregistrées : elle ne peut pas être supprimée. Désactivez-la (statut abonnement) pour la masquer.', used: true });
+    }
     await pool.query('DELETE FROM brands WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -1458,17 +1466,48 @@ app.post('/api/brands/:brandId/products/reorder', requireBrandScope('owner','age
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Même contrainte FK que DELETE /api/products/:id (order_lines.product_id) :
+// un seul produit référencé par une commande fait échouer TOUT le DELETE en
+// masse (rollback atomique) avec une 500 opaque, sans rien supprimer, même
+// les produits légitimement supprimables. Même remède que collection-bulk
+// ci-dessous : désactiver les produits référencés, supprimer le reste.
+async function deleteOrDeactivateProducts(whereClause, params) {
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query('BEGIN');
+    const deact = await dbClient.query(
+      `UPDATE products SET active=0 WHERE ${whereClause} AND EXISTS (SELECT 1 FROM order_lines ol WHERE ol.product_id = products.id)`,
+      params
+    );
+    const del = await dbClient.query(
+      `DELETE FROM products WHERE ${whereClause} AND NOT EXISTS (SELECT 1 FROM order_lines ol WHERE ol.product_id = products.id)`,
+      params
+    );
+    await dbClient.query('COMMIT');
+    return { deleted: del.rowCount, deactivated: deact.rowCount };
+  } catch(e) {
+    await dbClient.query('ROLLBACK');
+    throw e;
+  } finally {
+    dbClient.release();
+  }
+}
+
 // bulk MUST be declared before the catch-all /:brandId/products route
 app.delete('/api/brands/:brandId/products/bulk', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { ids } = req.body;
-  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'IDs requis' });
-  await pool.query('DELETE FROM products WHERE id = ANY($1) AND brand_id=$2', [ids, req.params.brandId]);
-  res.json({ ok: true, deleted: ids.length });
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'IDs requis' });
+    const r = await deleteOrDeactivateProducts('id = ANY($1) AND brand_id=$2', [ids, req.params.brandId]);
+    res.json({ ok: true, ...r });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.delete('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const r = await pool.query('DELETE FROM products WHERE brand_id=$1', [req.params.brandId]);
-  res.json({ ok: true, deleted: r.rowCount });
+  try {
+    const r = await deleteOrDeactivateProducts('brand_id=$1', [req.params.brandId]);
+    res.json({ ok: true, ...r });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // Action groupée sur une collection entière : activer / désactiver / supprimer
