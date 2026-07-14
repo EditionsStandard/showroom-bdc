@@ -707,7 +707,14 @@ const cartLimiter = rateLimit({
 });
 // ==================== ADMIN ROUTES ====================
 
-app.get('/admin/login', (req, res) => sendPage(res, 'admin-login.html'));
+// Un admin déjà connecté qui revient sur /admin/login (ex. bouton Précédent
+// après une connexion réussie, la navigation par section ne poussant pas
+// d'historique) tombait sur un formulaire figé — parfois même l'étape MFA,
+// laissant croire à une déconnexion. On redirige directement vers /admin.
+app.get('/admin/login', (req, res) => {
+  if (getRole(req)) return res.redirect('/admin');
+  sendPage(res, 'admin-login.html');
+});
 
 app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
@@ -3719,7 +3726,13 @@ function requireBuyerAuth(req, res, next) {
 // Ancien lien conservé pour compatibilité
 app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-portail'));
 
-app.get('/editions-showroom-b2b-portail', (req, res) => sendPage(res, 'portal-login.html'));
+// Même correction que /admin/login : un acheteur déjà connecté qui revient
+// ici (bouton Précédent) est redirigé plutôt que de revoir un formulaire de
+// connexion (potentiellement figé sur l'étape MFA).
+app.get('/editions-showroom-b2b-portail', (req, res) => {
+  if (req.session?.buyerPortal) return res.redirect('/portal');
+  sendPage(res, 'portal-login.html');
+});
 
 // Redirection post-login (next=) : n'accepte qu'un chemin RELATIF sous /portal
 // (pas de schéma, pas d'hôte, pas de // protocol-relative, pas de .. ni de
