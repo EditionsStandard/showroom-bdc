@@ -2552,10 +2552,15 @@ function toggleStaffBrandField() {
 
 let _staffPresenceTimer = null;
 async function loadStaff() {
+  // Chaque fetch retombe sur [] si la réponse n'est pas 2xx (ex. 403 pour un
+  // rôle non-owner qui aurait forcé cette section) — un corps d'erreur JSON
+  // {error:...} n'est pas un tableau et ferait planter .map()/new Set() plus
+  // bas si on le laissait passer tel quel.
+  const asArray = p => p.then(r => r.ok ? r.json() : []).catch(() => []);
   const [brands, staff, onlineIds] = await Promise.all([
-    fetch('/api/brands').then(r => r.json()),
-    fetch('/api/staff').then(r => r.json()),
-    fetch('/api/staff/presence').then(r => r.json()).catch(() => [])
+    asArray(fetch('/api/brands')),
+    asArray(fetch('/api/staff')),
+    asArray(fetch('/api/staff/presence'))
   ]);
   const sel = document.getElementById('staff-brand-id');
   sel.innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
