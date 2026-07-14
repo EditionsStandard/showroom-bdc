@@ -1372,6 +1372,17 @@ app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req
   try {
     if (!await checkProductBrandScope(req, res)) return;
     const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
+    if (!reference || typeof reference !== 'string' || !reference.trim()) return res.status(400).json({ error: 'Référence requise' });
+    if (price !== undefined && !Number.isFinite(parseFloat(price))) return res.status(400).json({ error: 'Prix invalide' });
+    if (price_retail !== undefined && !Number.isFinite(parseFloat(price_retail))) return res.status(400).json({ error: 'Prix retail invalide' });
+    if (images !== undefined && !Array.isArray(images)) return res.status(400).json({ error: 'images doit être un tableau' });
+    if (variants !== undefined && !Array.isArray(variants)) return res.status(400).json({ error: 'variants doit être un tableau' });
+    // Même contrainte implicite que l'upsert POST (brand_id+reference) : deux
+    // produits de la même marque partageant une référence rendent les futurs
+    // upserts CSV / le matching bulk-photos ambigus (mise à jour du mauvais produit).
+    const brandRow = await pool.query('SELECT brand_id FROM products WHERE id=$1', [req.params.id]);
+    const dup = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2 AND id<>$3', [brandRow.rows[0].brand_id, reference.trim(), req.params.id]);
+    if (dup.rows[0]) return res.status(409).json({ error: 'Cette référence est déjà utilisée par un autre produit de cette marque' });
     await pool.query(
       'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14,video_url=$15 WHERE id=$16',
       [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'', req.params.id]
@@ -1869,6 +1880,14 @@ function isValidAppointmentSlot(slot_date, slot_time) {
   const max = new Date(today); max.setDate(max.getDate() + 22);
   if (d < today || d > max) return false;          // dans la fenêtre proposée
   if (d.getDay() === 0 || d.getDay() === 6) return false; // pas le week-end
+  // Le jour même, refuser un créneau déjà passé dans la journée (sinon un
+  // acheteur peut réserver "aujourd'hui 10h" à 16h, créant un RDV fantôme).
+  if (d.getTime() === today.getTime()) {
+    const [h, m] = slot_time.split(':').map(Number);
+    const slotMinutes = h * 60 + m;
+    const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+    if (slotMinutes <= nowMinutes) return false;
+  }
   return true;
 }
 
@@ -2241,11 +2260,19 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
     // Une sélection = une liste de RÉFÉRENCES. Les quantités sont fixées par l'acheteur
     // sur /selection/, donc on accepte des lignes sans quantité (quantity 0). On garde
     // toute ligne avec un product_id valide, dédupliquée par product_id|taille.
+    const candidateIds = [...new Set((items || []).map(i => i && i.product_id).filter(Boolean))];
+    const ownProducts = candidateIds.length
+      ? await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, sel.rows[0].brand_id])
+      : { rows: [] };
+    const ownProductIds = new Set(ownProducts.rows.map(r => r.id));
     const seen = new Set();
     const cleanItems = [];
     for (const i of (items || [])) {
       const pid = i && i.product_id;
-      if (!pid) continue;
+      // Un product_id qui n'appartient pas à la marque de la sélection est ignoré :
+      // sinon le catalogue/prix d'une autre marque se retrouve exposé à l'acheteur
+      // via /selection/:token, et pourrait finir dans une commande de cette marque.
+      if (!pid || !ownProductIds.has(pid)) continue;
       const size = (i.size || '').toString();
       const key = pid + '|' + size;
       if (seen.has(key)) continue;
@@ -3164,11 +3191,15 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
   }
 
-  // Resolve product prices server-side (never trust client-submitted prices)
+  // Resolve product prices server-side (never trust client-submitted prices).
+  // brand_id=$2 est obligatoire ici : sans ce filtre, un product_id d'une autre
+  // marque glissé dans les lignes serait résolu quand même (prix/catalogue
+  // d'une marque tiers injectés dans la commande de la marque courante).
   const productIds = validLines.map(l => l.product_id);
-  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1)', [productIds]);
+  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id = $2', [productIds, brand_id]);
   const productMap = Object.fromEntries(productRows.rows.map(r => [r.id, r]));
   const resolvedLines = validLines.map(line => ({ ...line, product: productMap[line.product_id] })).filter(l => l.product);
+  if (!resolvedLines.length) return { error: 'Aucun produit valide pour cette marque' };
 
   const totalQty = resolvedLines.reduce((s, l) => s + l.quantity, 0);
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * parseFloat(l.product.price || 0), 0);
@@ -3277,7 +3308,15 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
     const brandId = req.params.brandId;
     const b = await pool.query('SELECT name FROM brands WHERE id=$1', [brandId]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
-    const cleanItems = items.filter(i => i.quantity > 0).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
+    // Ne garder que des product_id appartenant réellement à cette marque : sinon le
+    // catalogue/prix d'une autre marque peut être injecté dans la sélection envoyée à l'acheteur.
+    const candidateIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
+    const ownProducts = candidateIds.length
+      ? await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, brandId])
+      : { rows: [] };
+    const ownProductIds = new Set(ownProducts.rows.map(r => r.id));
+    const cleanItems = items.filter(i => i.quantity > 0 && ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
+    if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const token = crypto.randomBytes(24).toString('hex');
     const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
     const seqSel = await pool.query("SELECT LPAD(nextval('selection_number_seq')::TEXT, 4, '0') AS num");
@@ -3536,6 +3575,7 @@ app.get('/api/agent-selections/templates', requireRole('owner','agent','designer
 // Créer une sélection depuis un template (copie)
 app.post('/api/agent-selections/:token/use-template', requireRole('owner','agent'), async (req, res) => {
   const { client_name, client_email, client_company } = req.body;
+  if (!client_email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(client_email).trim())) return res.status(400).json({ error: 'Email acheteur valide requis' });
   const src = await pool.query('SELECT * FROM agent_selections WHERE token=$1 AND is_template=true', [req.params.token]);
   if (!src.rows[0]) return res.status(404).json({ error: 'Template introuvable' });
   const t = src.rows[0];
@@ -3799,9 +3839,10 @@ app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
 app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
   const { name, company, phone, country } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Le nom est requis' });
+  const c = String(company||'').trim(), ph = String(phone||'').trim(), co = String(country||'').trim();
   await pool.query('UPDATE buyers SET name=$1, company=$2, phone=$3, country=$4 WHERE id=$5',
-    [name.trim(), company||'', phone||'', country||'', req.session.buyerPortal.id]);
-  req.session.buyerPortal = { ...req.session.buyerPortal, name: name.trim(), company: company||'', phone: phone||'', country: country||'' };
+    [name.trim(), c, ph, co, req.session.buyerPortal.id]);
+  req.session.buyerPortal = { ...req.session.buyerPortal, name: name.trim(), company: c, phone: ph, country: co };
   res.json({ ok: true });
 });
 
@@ -4437,7 +4478,7 @@ async function getSalesReportData(bid, from, to) {
                 FROM order_lines ol
                 JOIN orders o ON o.id=ol.order_id
                 JOIN products p ON p.id=ol.product_id
-                WHERE o.brand_id=$1 AND o.status <> 'cancelled'${dc}
+                WHERE o.brand_id=$1 AND p.brand_id=$1 AND o.status <> 'cancelled'${dc}
                 GROUP BY p.id, p.reference, p.description
                 ORDER BY units DESC LIMIT 10`, params),
     pool.query(`SELECT to_char(date_trunc('month', o.created_at),'YYYY-MM') AS month,
@@ -4902,7 +4943,7 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
 app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
   try {
     const items = req.body.items || [];
-    if (!items.length) return res.status(400).json({ error: 'Sélection vide' });
+    if (!Array.isArray(items) || !items.length || items.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
     const buyer = req.session.buyerPortal;
     const showroomName = await getSetting('showroom_name') || 'Showroom';
     const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -5577,6 +5618,13 @@ app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkBuyerBrandScope(req, res)) return;
     const { name, company, email, phone, country, password } = req.body;
+    // Un tableau/objet accepté tel quel dans une colonne text se sérialise en
+    // littéral Postgres illisible (ex. email="{a@x.com,b@x.com}") et corrompt
+    // silencieusement le compte (login impossible) sans jamais lever d'erreur.
+    for (const [k, v] of Object.entries({ name, company, email, phone, country })) {
+      if (v !== undefined && v !== null && typeof v !== 'string') return res.status(400).json({ error: `Champ "${k}" invalide` });
+    }
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
     if (password) {
       if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
@@ -5739,7 +5787,14 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
 });
 
 app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query('SELECT * FROM access_requests ORDER BY created_at DESC');
+  // existing_account : signale au staff qu'un compte acheteur existe déjà pour cet
+  // email — approuver réinitialisera son mot de passe plutôt que d'en créer un nouveau.
+  const r = await pool.query(`
+    SELECT ar.*, (b.id IS NOT NULL) AS existing_account
+    FROM access_requests ar
+    LEFT JOIN buyers b ON LOWER(b.email) = LOWER(ar.email)
+    ORDER BY ar.created_at DESC
+  `);
   res.json(r.rows);
 });
 
@@ -5755,7 +5810,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
   // antérieure) : dans ce cas on réinitialise son mot de passe au lieu
   // d'échouer, sinon la demande resterait bloquée « en attente » pour toujours.
   const email = String(req2.email || '').toLowerCase().trim();
-  const tempPassword = crypto.randomBytes(4).toString('hex'); // ex: a3f9c12d
+  const tempPassword = crypto.randomBytes(12).toString('hex'); // mot de passe temporaire, envoyé par email — forte entropie requise
   const hash = await bcrypt.hash(tempPassword, 10);
   const existing = await pool.query('SELECT id FROM buyers WHERE LOWER(email)=$1', [email]);
   let buyerId, reused = false;
@@ -5763,6 +5818,10 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
     buyerId = existing.rows[0].id;
     reused = true;
     await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyerId]);
+    // Cohérent avec change-password et reset-password : un mot de passe réinitialisé
+    // invalide les sessions existantes (sinon une session déjà ouverte reste valide
+    // avec l'ancien mot de passe alors que le nouveau vient d'être envoyé par email).
+    await invalidateBuyerSessions(buyerId, null);
   } else {
     buyerId = uuidv4();
     await pool.query(

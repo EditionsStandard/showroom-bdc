@@ -2915,15 +2915,15 @@ function renderArList() {
         : '<span style="color:#f87171;font-size:11px">✗ Refusée</span>';
       const actions = _arTab === 'pending'
         ? `<td style="white-space:nowrap">
-            <button class="btn btn-sm" onclick="handleAccessRequest('${x.id}','approve')" style="background:#34d399;color:#000;margin-right:4px">✓ Approuver</button>
-            <button class="btn btn-secondary btn-sm" onclick="handleAccessRequest('${x.id}','reject')">✗ Refuser</button>
+            <button class="btn btn-sm" onclick="handleAccessRequest('${x.id}','approve',${x.existing_account ? 'true' : 'false'})" style="background:#34d399;color:#000;margin-right:4px">✓ Approuver</button>
+            <button class="btn btn-secondary btn-sm" onclick="handleAccessRequest('${x.id}','reject',false)">✗ Refuser</button>
            </td>`
         : `<td>${statusBadge}</td>`;
       return `<tr>
         <td style="white-space:nowrap;font-size:12px">${date}</td>
         <td><strong>${esc(x.name)}</strong></td>
         <td>${esc(x.company||'—')}</td>
-        <td style="font-size:12px">${esc(x.email)}</td>
+        <td style="font-size:12px">${esc(x.email)}${x.existing_account ? ' <span title="Un compte existe déjà pour cet email — approuver réinitialisera son mot de passe" style="color:#fbbf24">⚠️ compte existant</span>' : ''}</td>
         <td style="font-size:12px">${esc(x.phone||'—')}</td>
         <td style="font-size:12px">${esc(x.country||'—')}</td>
         <td style="font-size:12px">${x.instagram ? `<a href="https://instagram.com/${esc(x.instagram.replace('@',''))}" target="_blank" style="color:var(--accent)">${esc(x.instagram)}</a>` : '—'}</td>
@@ -2935,9 +2935,12 @@ function renderArList() {
   </table></div>`;
 }
 
-async function handleAccessRequest(id, action) {
+async function handleAccessRequest(id, action, existingAccount) {
   const label = action === 'approve' ? 'approuver' : 'refuser';
-  if (!confirm(`Confirmer : ${label} cette demande ?`)) return;
+  const msg = (action === 'approve' && existingAccount)
+    ? 'Un compte existe déjà pour cet email : approuver va RÉINITIALISER son mot de passe (l\'acheteur sera déconnecté de ses sessions en cours). Confirmer ?'
+    : `Confirmer : ${label} cette demande ?`;
+  if (!confirm(msg)) return;
   const r = await fetch(`/api/access-requests/${id}/${action}`, { method: 'POST' }).catch(() => null);
   if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
   const d = await r.json().catch(() => ({}));
