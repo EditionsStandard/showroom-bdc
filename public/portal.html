@@ -666,6 +666,7 @@ const TRANSLATIONS = {
     cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
     book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
     appt_err_datetime: 'Veuillez choisir une date et une heure.',
+    img_unavailable: 'Image indisponible', compare_limit: 'Maximum 3 produits à comparer.',
     moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
     moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € HT (actuellement ${cur} €)`,
@@ -808,6 +809,7 @@ const TRANSLATIONS = {
     cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
     book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
     appt_err_datetime: 'Please select a date and time.',
+    img_unavailable: 'Image unavailable', compare_limit: 'Maximum 3 products to compare.',
     moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
     moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € excl. tax (currently ${cur} €)`,
@@ -1465,7 +1467,11 @@ function applyLang() {
   <button class="img-close" id="img-close" aria-label="Fermer">✕</button>
   <div class="img-modal-main">
     <button class="img-nav img-nav-prev" id="img-prev">‹</button>
-    <img id="img-modal-src" src="" alt="" onerror="this.style.visibility='hidden'">
+    <img id="img-modal-src" src="" alt="" onerror="imgModalFail(this)">
+    <div id="img-modal-fallback" style="display:none;flex-direction:column;align-items:center;gap:10px;color:#999;font-size:14px">
+      <span style="font-size:48px;opacity:.4">🏷️</span>
+      <span data-t="img_unavailable">Image indisponible</span>
+    </div>
     <button class="img-nav img-nav-next" id="img-next">›</button>
   </div>
   <div class="img-dots" id="img-dots"></div>
@@ -1612,6 +1618,16 @@ function imgFail(img) {
     (img.parentElement || wrap).insertBefore(ph, img);
   }
 }
+// Échec de chargement dans la visionneuse plein écran — contrairement à la grille produits
+// (imgFail ci-dessus), cette image n'avait aucun état de repli avant, juste un visibility:hidden
+// silencieux laissant un écran blanc au clic le plus fréquent du parcours de consultation produit.
+function imgModalFail(img) {
+  img.style.visibility = 'hidden';
+  const fb = document.getElementById('img-modal-fallback');
+  if (fb) fb.style.display = 'flex';
+  const hint = document.getElementById('img-hint');
+  if (hint) hint.textContent = '';
+}
 function showPortalToast(msg, err) {
   let el = document.getElementById('portal-toast');
   if (!el) {
@@ -1723,7 +1739,7 @@ async function submitAppt() {
   const time = document.getElementById('appt-time').value;
   const phone = document.getElementById('appt-phone').value.trim();
   const notes = document.getElementById('appt-notes').value.trim();
-  if (!date || !time) { alert(t('appt_err_datetime')); return; }
+  if (!date || !time) { showPortalToast(t('appt_err_datetime'), true); return; }
   const apptBtn = document.querySelector('#modal-appt button[onclick="submitAppt()"]');
   if (apptBtn) { apptBtn.disabled = true; apptBtn.textContent = '\u2026'; }
   try {
@@ -2074,9 +2090,10 @@ async function sendPortalMessage() {
   finally { btn.disabled = false; }
 }
 function setMsgBadge(n) {
-  const badge = document.getElementById('dd-msg-badge');
-  if (!badge) return;
-  if (n > 0) { badge.textContent = n; badge.style.display = ''; } else { badge.style.display = 'none'; }
+  [document.getElementById('dd-msg-badge'), document.getElementById('mn-msg-badge')].forEach(badge => {
+    if (!badge) return;
+    if (n > 0) { badge.textContent = n; badge.style.display = ''; } else { badge.style.display = 'none'; }
+  });
 }
 async function refreshMsgBadge() {
   try { const d = await fetch('/api/portal/messages/unread').then(r => r.json()); setMsgBadge((d && d.unread) || 0); } catch(e) {}
@@ -2895,7 +2912,7 @@ async function loadDashboard() {
     recentBrandsEl.innerHTML = recentlyViewedBrands.map(b => `
       <div class="dash-brand-chip" onclick="openBrand('${b.id}')">${brandLogoImg(b, 20)}<span>${esc(b.name)}</span></div>`).join('');
   } else {
-    recentBrandsEl.innerHTML = `<div class="dash-card-empty">${t('dash_view_catalog')}</div>`;
+    recentBrandsEl.innerHTML = `<div class="dash-card-empty" style="cursor:pointer" onclick="showView('catalog')">${t('dash_view_catalog')}</div>`;
   }
 
   // Collections ouvertes + dates limites (à partir des marques déjà chargées par init())
@@ -3533,6 +3550,8 @@ function cldTransform(url, t) {
 function renderCarousel() {
   const mImg = document.getElementById('img-modal-src');
   mImg.style.visibility = ''; // réinitialise si une image précédente avait échoué (onerror)
+  const fb = document.getElementById('img-modal-fallback');
+  if (fb) fb.style.display = 'none';
   zoomReset(mImg);            // réinitialise zoom/translation à chaque image
   const base = carouselImgs[carouselIdx];
   // Plein écran : version nette bornée. Zoom : version haute résolution chargée à la demande.
@@ -4045,6 +4064,10 @@ window.addEventListener('pageshow', (e) => {
   <button id="mn-favs" onclick="showView('favs')" aria-label="Mes favoris">
     <span class="mn-icon">♡</span>Favoris
   </button>
+  <button id="mn-messages" onclick="showView('messages')" aria-label="Messages" style="position:relative">
+    <span class="mn-icon">💬</span>Messages
+    <span id="mn-msg-badge" style="display:none;position:absolute;top:4px;right:calc(50% - 20px);background:var(--accent);color:#111;font-size:9px;font-weight:700;border-radius:0;padding:1px 5px;min-width:14px;text-align:center;line-height:1.4"></span>
+  </button>
   <button id="mn-profile" onclick="showView('account')" aria-label="Mon profil">
     <span class="mn-icon">✏️</span>Profil
   </button>
@@ -4057,7 +4080,7 @@ window.addEventListener('pageshow', (e) => {
 const _origShowView = typeof showView === 'function' ? showView : null;
 function updateMobileNav(view) {
   document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
-  const map = { catalog: 'mn-catalog', orders: 'mn-orders', favs: 'mn-favs', account: 'mn-profile' };
+  const map = { catalog: 'mn-catalog', orders: 'mn-orders', favs: 'mn-favs', messages: 'mn-messages', account: 'mn-profile' };
   if (map[view]) document.getElementById(map[view])?.classList.add('active');
 }
 // Patch showView pour synchroniser la barre
@@ -4077,7 +4100,7 @@ function toggleCompare(pid) {
   if (idx >= 0) {
     compareList.splice(idx, 1);
   } else {
-    if (compareList.length >= 3) { alert('Maximum 3 produits à comparer.'); return; }
+    if (compareList.length >= 3) { showPortalToast(t('compare_limit'), true); return; }
     compareList.push(pid);
   }
   refreshCompareUI();
