@@ -557,7 +557,18 @@ async function getSetting(key) {
   return r.rows[0]?.value || '';
 }
 
+// Host/X-Forwarded-Host viennent du client et sont trivialement falsifiables
+// (n'importe qui peut envoyer un en-tête Host arbitraire) — les faire confiance
+// aveuglément permettait d'empoisonner tous les liens générés par le serveur
+// (réinitialisation de mot de passe, invitations, QR codes, liens de sélection…)
+// vers un domaine contrôlé par l'attaquant, avec le token en clair dans l'URL :
+// une victime cliquant le lien envoie son token de réinitialisation à l'attaquant,
+// qui le rejoue ensuite sur le vrai domaine → prise de contrôle du compte.
+// BASE_URL doit être défini en production ; le repli sur les en-têtes de requête
+// n'est acceptable qu'en développement local (jamais exposé à Internet).
 function getBaseUrl(req) {
+  if (process.env.BASE_URL) return process.env.BASE_URL;
+  if (process.env.NODE_ENV === 'production') return 'https://showroom.editionsstandard.com';
   const proto = req.headers['x-forwarded-proto'] || req.protocol;
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return `${proto}://${host}`;
@@ -3084,11 +3095,28 @@ app.get('/portal/access', async (req, res) => {
     )`);
     const r = await pool.query('SELECT * FROM buyer_access_tokens WHERE token=$1 AND used=false AND expires_at > NOW()', [token]);
     if (!r.rows[0]) return res.redirect('/portal?error=link_expired');
-    const buyer = await pool.query('SELECT * FROM buyers WHERE id=$1', [r.rows[0].buyer_id]);
-    if (!buyer.rows[0]) return res.redirect('/portal');
+    const buyer = (await pool.query('SELECT * FROM buyers WHERE id=$1', [r.rows[0].buyer_id])).rows[0];
+    if (!buyer) return res.redirect('/portal');
     await pool.query('UPDATE buyer_access_tokens SET used=true WHERE token=$1', [token]);
-    req.session.buyerPortal = { id: buyer.rows[0].id, email: buyer.rows[0].email, name: buyer.rows[0].name };
-    res.redirect('/portal');
+    // Un lien magique authentifie au même niveau qu'un mot de passe — s'il
+    // contournait le MFA de l'acheteur quand celui-ci est activé, n'importe quel
+    // staff pouvant déclencher /api/admin/buyers/:id/send-access (agent inclus,
+    // simple prérequis : une commande passée) obtiendrait un accès complet sans
+    // jamais avoir à fournir le second facteur. Même passage par mfaPendingBuyer
+    // que la connexion par mot de passe (/editions-showroom-b2b-portail).
+    if (buyer.mfa_enabled) {
+      req.session.mfaPendingBuyer = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country, next: '' };
+      logAuditRaw(buyer.email, 'login_password_ok_mfa_pending', 'buyer', buyer.id, req.ip);
+      return res.redirect('/editions-showroom-b2b-portail?step=mfa');
+    }
+    // Régénération de session — anti session fixation (même principe que les
+    // autres points de connexion buyer/admin de ce fichier).
+    req.session.regenerate(err => {
+      if (err) return res.redirect('/portal');
+      req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
+      logAuditRaw(buyer.email, 'login_success', 'buyer', buyer.id, req.ip);
+      req.session.save(() => res.redirect('/portal'));
+    });
   } catch(e) { res.redirect('/portal'); }
 });
 
@@ -4917,6 +4945,11 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
 app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), async (req, res) => {
   try {
     if (isBrandScoped(req) && req.userBrandId !== req.params.brandId) return res.status(403).json({ error: 'Accès refusé pour cette marque' });
+    // Le check ci-dessus ne garantit que "brandId == la marque de l'agent" — sans
+    // checkBuyerBrandScope, un agent pouvait écrire des conditions négociées pour
+    // N'IMPORTE QUEL acheteur (via :id), même sans la moindre commande avec sa
+    // propre marque, tant qu'il indiquait correctement son propre brandId.
+    if (!await checkBuyerBrandScope(req, res)) return;
     const paymentTerms = (req.body.payment_terms || '').toString().trim();
     const deliveryTerms = (req.body.delivery_terms || '').toString().trim();
     const returnTerms = (req.body.return_terms || '').toString().trim();
@@ -5284,13 +5317,13 @@ app.post('/api/portal/forgot-password', buyerAuthLimiter, async (req, res) => {
       html: emailLayout({
         showroomName,
         content: isEn ? `
-          <p>Hello${buyer.name ? ' <strong>' + buyer.name + '</strong>' : ''},</p>
+          <p>Hello${buyer.name ? ' <strong>' + escHtml(buyer.name) + '</strong>' : ''},</p>
           <p>You requested to reset your password for the <strong>${showroomName}</strong> B2B showroom.</p>
           ${emailBtn(resetUrl, 'Choose a new password →')}
           <p style="font-size:13px;color:#888;margin-top:24px">This link is valid for <strong>1 hour</strong>. If you did not make this request, ignore this email.</p>
           <p>Best regards,<br><strong>${showroomName}</strong></p>
         ` : `
-          <p>Bonjour${buyer.name ? ' <strong>' + buyer.name + '</strong>' : ''},</p>
+          <p>Bonjour${buyer.name ? ' <strong>' + escHtml(buyer.name) + '</strong>' : ''},</p>
           <p>Vous avez demandé à réinitialiser votre mot de passe pour le showroom B2B <strong>${showroomName}</strong>.</p>
           ${emailBtn(resetUrl, 'Choisir un nouveau mot de passe →')}
           <p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
@@ -6300,9 +6333,14 @@ app.get('/api/buyer/verify', async (req, res) => {
     return res.status(401).json({ error: 'Lien invalide ou expiré' });
   }
   await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1', [token]);
-  req.session.buyerEmail = link.email;
-  req.session.buyerBrandId = brand_id;
-  res.json({ ok: true, email: link.email });
+  // Régénération de session — anti fixation, même principe que les autres points
+  // de connexion (cette route héritée était la seule à en manquer).
+  req.session.regenerate(err => {
+    if (err) return res.status(500).json({ error: 'Erreur serveur' });
+    req.session.buyerEmail = link.email;
+    req.session.buyerBrandId = brand_id;
+    req.session.save(() => res.json({ ok: true, email: link.email }));
+  });
 });
 
 app.get('/api/buyer/brand', async (req, res) => {
@@ -7895,16 +7933,21 @@ init().then(() => {
       ).catch(() => ({ rows: [] }));
 
       for (const rdv of rdvs.rows) {
-        await fetch('https://api.resend.com/emails', {
+        // client_name/video_link viennent du formulaire de prise de RDV (public,
+        // non authentifié) — jamais interpolés bruts en HTML, sinon un rendez-vous
+        // pris avec un nom contenant du markup s'exécuterait dans la boîte mail du
+        // client au rappel J-1 (cf. escHtml partout ailleurs pour le même champ).
+        const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: `${showroomName} <noreply@editionsstandard.com>`,
             to: [rdv.client_email],
             subject: `Rappel — Rendez-vous ${showroomName} demain`,
-            html: `<p>Bonjour ${rdv.client_name},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${rdv.video_link ? `<p style="margin:16px 0"><a href="${rdv.video_link}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}${agentPhone ? `<p>Contact : ${agentPhone}</p>` : ''}<p>À demain !</p>`
+            html: `<p>Bonjour ${escHtml(rdv.client_name)},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${rdv.video_link ? `<p style="margin:16px 0"><a href="${escHtml(rdv.video_link)}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}${agentPhone ? `<p>Contact : ${escHtml(agentPhone)}</p>` : ''}<p>À demain !</p>`
           })
-        }).catch(e => console.error('[rdv-email-error]', e.message));
+        }).catch(e => { console.error('[rdv-email-error]', e.message); return null; });
+        if (r && !r.ok) console.error('[rdv-email-error] Resend a répondu', r.status);
 
         await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(e => console.error('[rdv-reminder-update-error]', e.message));
       }

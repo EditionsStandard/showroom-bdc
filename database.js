@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const crypto = require('crypto');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -469,6 +470,26 @@ async function init() {
   // Backfill: brands existantes sans statut → 'trial' (évite qu'elles soient masquées du portail)
   await pool.query("UPDATE brands SET subscription_status = 'trial' WHERE subscription_status IS NULL").catch(() => {});
 
+  // Pas de mot de passe par défaut codé en dur (ex. l'ancien 'admin123') : une
+  // valeur visible dans le code source est devinable par quiconque a accès au
+  // dépôt et suffirait, combinée au fait que l'enrôlement MFA de ce compte n'est
+  // pas lui-même vérifié par une preuve d'identité, à prendre durablement le
+  // contrôle total du compte owner sur un déploiement fraîchement installé sans
+  // ADMIN_PASSWORD défini. Un mot de passe aléatoire est généré et affiché une
+  // seule fois dans les logs — uniquement au tout premier démarrage (la ligne
+  // 'admin_password' n'existe pas encore en base), pour ne pas ré-imprimer à
+  // chaque redémarrage un mot de passe qui ne serait de toute façon plus celui
+  // réellement actif (INSERT ... ON CONFLICT DO NOTHING plus bas).
+  async function resolveAdminPasswordDefault() {
+    if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
+    const existing = await pool.query("SELECT 1 FROM settings WHERE key='admin_password'").catch(() => ({ rows: [] }));
+    if (existing.rows.length) return ''; // déjà seedé — ignoré par ON CONFLICT DO NOTHING
+    const generated = crypto.randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+    console.warn(`⚠️  ADMIN_PASSWORD non défini — mot de passe owner généré aléatoirement au premier démarrage : ${generated}`);
+    console.warn('⚠️  Notez-le maintenant : changez-le depuis Paramètres > Sécurité, il ne sera plus jamais affiché.');
+    return generated;
+  }
+  const adminPasswordDefault = await resolveAdminPasswordDefault();
   const defaults = {
     showroom_name: 'Editions Standard',
     current_season: 'SS27',
@@ -478,7 +499,7 @@ async function init() {
     smtp_user: '',
     smtp_pass: '',
     smtp_from: '',
-    admin_password: process.env.ADMIN_PASSWORD || 'admin123',
+    admin_password: adminPasswordDefault,
     maintenance_mode: 'off',
     agent_name: '',
     agent_title: 'Agent Commercial',

@@ -386,7 +386,7 @@ function refCard(r) {
 function render() {
   const b = DATA.brand;
   initCart();
-  const logo = (b.logo || b.logo_url) ? `<img src="${b.logo||b.logo_url}" alt="">` : '';
+  const logo = (b.logo || b.logo_url) ? `<img src="${esc(b.logo||b.logo_url)}" alt="">` : '';
   const cards = (DATA.references||[]).map(refCard).join('') || `<div class="msg">${t('empty_sel')}</div>`;
   const clientName = DATA.client.company || DATA.client.name || 'vous';
   const accountField = DATA.account_exists

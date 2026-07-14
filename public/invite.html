@@ -193,6 +193,7 @@ function toggleLang() {
 
 applyLang();
 
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 const token = location.pathname.split('/rejoindre/')[1];
 
 async function init() {
@@ -208,9 +209,9 @@ async function init() {
   if (data.brand_name) {
     brandBlock.style.display = '';
     if (data.brand_logo) {
-      brandBlock.innerHTML = `<img class="brand-logo" src="${data.brand_logo}" alt="${data.brand_name}"><div class="brand-name">${data.brand_name}</div>`;
+      brandBlock.innerHTML = `<img class="brand-logo" src="${esc(data.brand_logo)}" alt="${esc(data.brand_name)}"><div class="brand-name">${esc(data.brand_name)}</div>`;
     } else {
-      brandBlock.innerHTML = `<div class="brand-name">${data.brand_name}</div>`;
+      brandBlock.innerHTML = `<div class="brand-name">${esc(data.brand_name)}</div>`;
     }
   }
 
