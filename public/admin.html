@@ -5658,6 +5658,11 @@ function renderOrdersPage() {
   `).join('') : `<tr><td colspan="8" style="color:#666;text-align:center;padding:20px">${t('no_order')}</td></tr>`;
   const info = document.getElementById('orders-page-info');
   if (info) info.textContent = `Page ${_ordersPage} / ${totalPages}`;
+  // Le tbody est reconstruit à chaque rendu (changement de page/filtre) : les
+  // cases cochées précédentes disparaissent avec lui, mais sans cet appel la
+  // barre d'actions groupées et la case "tout sélectionner" gardaient l'état
+  // (et le compte) de la page précédente, désynchronisés de la sélection réelle.
+  updateBulkBar();
 }
 
 function renderBuyersPage() {
@@ -6065,6 +6070,7 @@ function filterOrders() {
     if (sort === 'total_desc') return (b.total||0) - (a.total||0);
     if (sort === 'total_asc')  return (a.total||0) - (b.total||0);
     if (sort === 'client')    return (a.client_name||'').localeCompare(b.client_name||'');
+    if (sort === 'brand')     return (a.brand_name||'').localeCompare(b.brand_name||'');
     return 0;
   });
 
