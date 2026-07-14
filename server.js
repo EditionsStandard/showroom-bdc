@@ -1156,7 +1156,10 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
   res.json(r.rows);
 });
 
-app.post('/api/brands', requireRole('owner', 'agent'), async (req, res) => {
+// Créer une marque = créer un nouveau tenant : action owner uniquement (comme
+// PUT/DELETE /api/brands/:id). Un agent est rattaché à UNE marque existante,
+// il n'a jamais besoin d'en créer une autre.
+app.post('/api/brands', requireRole('owner'), async (req, res) => {
   const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url } = req.body;
   if (!name) return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
@@ -5797,6 +5800,9 @@ app.get('/api/share-requests', requireRole('owner','agent'), async (req, res) =>
 // Marque une demande comme traitée
 app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (req, res) => {
   try {
+    const row = await pool.query('SELECT brand_id FROM share_requests WHERE id=$1', [req.params.id]);
+    if (!row.rows[0]) return res.status(404).json({ error: 'Demande introuvable' });
+    if (isBrandScoped(req) && row.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     await pool.query("UPDATE share_requests SET status='handled' WHERE id=$1", [req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
