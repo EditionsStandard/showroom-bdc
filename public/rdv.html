@@ -11,8 +11,8 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'Plex Mono','Space Mono',monospace; }
-  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'Plex Mono','Space Mono',monospace; --line:rgba(255,255,255,.38); }
+  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; --line:rgba(17,17,17,.45); }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; transition: background .2s, color .2s; }
   .wrap { width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 20px calc(60px + env(safe-area-inset-bottom)); }
@@ -27,7 +27,10 @@
   .slots { display: flex; flex-wrap: wrap; gap: 8px; }
   .slot-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius:0; padding: 8px 14px; font-size: 12px; letter-spacing: .04em; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; transition: border-color .15s, color .15s; }
   .slot-btn.selected { border-color: var(--accent); color: var(--accent); }
-  .btn { display: block; width: 100%; background: var(--accent); color: var(--black); border: none; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .12em; text-transform: uppercase; border-radius:0; font-family: 'Plex Mono', 'Space Mono', monospace; margin-top: 20px; }
+  /* Bouton fantôme aligné sur portal.html/portal-login.html (référence esthétique
+     du site) plutôt que le remplissage plein citron vert utilisé ici auparavant. */
+  .btn { display: block; width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); padding: 15px 14px 14px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; border-radius:0; font-family: 'Plex Mono', 'Space Mono', monospace; margin-top: 20px; transition: background .25s, color .25s, opacity .15s; }
+  .btn:hover:not(:disabled) { background: var(--white); color: var(--black); }
   .btn:disabled { opacity: .4; cursor: default; }
   .msg { font-family: 'Plex Mono','Space Mono',monospace; font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 16px; padding: 14px; background: var(--dark); border: 1px dotted var(--border); border-radius:0; }
   .msg.error { color: var(--accent); }

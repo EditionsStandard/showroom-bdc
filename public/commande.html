@@ -29,6 +29,7 @@
     --accent: #CCEB3C;
     --accent2: #6b8500;
     --dot: 'Plex Mono', 'Space Mono', monospace;
+    --line: rgba(255,255,255,.38);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; font-weight: 400; }
@@ -206,7 +207,8 @@
   .btn-back { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 16px 20px; font-weight: 500; touch-action: manipulation; display: flex; align-items: center; gap: 6px; letter-spacing: .08em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; }
 
   /* ── Confirm btn ── */
-  .btn-confirm { width: 100%; background: var(--accent); color: var(--black); border: none; padding: 18px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: .14em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; margin-top: 2px; transition: background .2s; }
+  .btn-confirm { width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); padding: 18px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; margin-top: 2px; transition: background .25s, color .25s; }
+  .btn-confirm:hover:not(:disabled) { background: var(--white); color: var(--black); }
   .btn-confirm:disabled { background: #2a2a2a; color: #666; border: 1px solid #333; cursor: not-allowed; }
 
   /* ── Collection filters ── */
@@ -363,7 +365,8 @@
   .landing-agent-name { font-size:13px; font-weight:700; color:var(--white); }
   .landing-agent-title { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-top:2px; }
   .landing-agent-phone { font-size:11px; color:var(--accent); margin-top:4px; }
-  .landing-btn { display:block; width:100%; background:var(--accent); color:var(--black); border:none; padding:18px; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:.12em; text-transform:uppercase; font-family:'Plex Mono','Space Mono',monospace; margin-top:6px; }
+  .landing-btn { display:block; width:100%; background:transparent; color:var(--white); border:1px solid var(--line); padding:18px; font-size:11px; font-weight:400; cursor:pointer; letter-spacing:.3em; text-transform:uppercase; font-family:'Plex Mono','Space Mono',monospace; margin-top:6px; transition:background .25s, color .25s; }
+  .landing-btn:hover { background:var(--white); color:var(--black); }
   .landing-moq { background:rgba(204,235,60,.06); border:1px solid rgba(204,235,60,.15); padding:12px 16px; margin-bottom:16px; font-size:11px; color:var(--accent); letter-spacing:.04em; line-height:1.6; display:none; }
   @media (min-width:768px) {
     .landing-hero { min-height:50vh; }
@@ -424,6 +427,7 @@
     --muted: #bbb;
     --soft: #777;
     --white: #111111;
+    --line: rgba(17,17,17,.45);
   }
   /* Red-on-white: switch to darker red for legibility */
   [data-theme="light"] .product-collection,
