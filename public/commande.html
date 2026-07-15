@@ -451,8 +451,17 @@
   [data-theme="light"] .email-sent { background: rgba(107,133,0,.07); border-color: rgba(107,133,0,.25); color: #6b8500; }
   /* CGV text box */
   [data-theme="light"] #cgv-text-display { background: var(--mid); color: var(--soft); border-color: var(--border); }
-  /* Signature canvas */
+  /* Signature canvas : le fond blanc du cadre est volontaire dans les deux
+     thèmes (surface "papier" pour une signature) — en clair, --border
+     (#d8d6d1) est trop proche en luminosité du blanc et du fond de page
+     (#f5f4f0), le cadre devient presque invisible. Bordure plus marquée
+     uniquement en thème clair pour redonner de la définition. */
   [data-theme="light"] #sig-canvas { background: #fff; }
+  /* Le div a border:1px solid var(--border) en style inline (jamais modifié
+     ici) — on redéfinit la variable elle-même plutôt que border-color, sinon
+     la règle externe perd face à la déclaration inline (même valeur de
+     spécificité, mais l'inline l'emporte toujours). */
+  [data-theme="light"] #sig-canvas-wrap { --border: #b5b2ab; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   /* Image modal stays dark */
   [data-theme="light"] #img-modal { background: rgba(0,0,0,.97); }
   /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
@@ -666,7 +675,7 @@
     <h4 data-i18n="sig_title">Signature de l'acheteur</h4>
     <p data-i18n="sig_instr" style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.04em">Signez dans le cadre ci-dessous avec votre doigt ou votre souris.</p>
     <div id="sig-draw-wrap">
-      <div style="position:relative;background:#fff;border:1px solid var(--border)">
+      <div id="sig-canvas-wrap" style="position:relative;background:#fff;border:1px solid var(--border)">
         <canvas id="sig-canvas" style="display:block;width:100%;height:140px;cursor:crosshair;touch-action:none"></canvas>
         <span id="sig-hint" data-i18n="sig_hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ccc;font-size:12px;pointer-events:none;letter-spacing:.06em;text-transform:uppercase">Signez ici</span>
       </div>
