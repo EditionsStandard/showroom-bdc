@@ -3072,7 +3072,10 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
     const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
     const link = `${getBaseUrl(req)}/portal/access?token=${token}`;
     const resend = newResendClient(resendKey);
-    const isEn = buyer.lang === 'en';
+    // Langue explicitement choisie par l'agent dans la modale d'envoi,
+    // repli sur la langue enregistrée de l'acheteur si non précisée.
+    const { lang } = req.body;
+    const isEn = (lang === 'en' || lang === 'fr') ? lang === 'en' : buyer.lang === 'en';
     const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
@@ -8028,16 +8031,15 @@ init().then(() => {
       setTimeout(runReminders, 7 * 24 * 60 * 60 * 1000);
     }
 
-    const msUntil8h = () => {
-      const now = new Date();
-      const next = new Date(now);
-      next.setUTCHours(8, 0, 0, 0);
-      const day = now.getUTCDay();
-      const days = day === 1 ? (now.getUTCHours() >= 8 ? 7 : 0) : (8 - day) % 7;
-      next.setUTCDate(now.getUTCDate() + days);
-      return next.getTime() - now.getTime();
-    };
-    setTimeout(runReminders, msUntil8h());
+    // Le déclenchement attendait auparavant le prochain lundi 8h UTC via un
+    // setTimeout à durée fixe — sur une plateforme qui redéploie fréquemment
+    // (chaque merge redémarre le process), ce minuteur repart de zéro à
+    // chaque redémarrage et n'atteint jamais l'échéance si les déploiements
+    // sont plus fréquents qu'une semaine, laissant l'onglet "Relances à
+    // valider" vide indéfiniment. Un premier passage a désormais lieu peu
+    // après le démarrage (comme pour les relances de sélection ci-dessous),
+    // puis toutes les 7 jours à partir de ce moment-là.
+    setTimeout(runReminders, 2 * 60 * 1000);
   }
   scheduleInactiveReminders();
 
