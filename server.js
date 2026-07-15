@@ -6723,14 +6723,17 @@ async function generateOrderPDF(orderId) {
   ]);
   const cgvText      = order.brand_cgv || globalCgv;
 
-  // Condition de paiement négociée spécifiquement pour cet acheteur × cette
-  // marque (voir /api/admin/buyers/:id/terms/:brandId) — n'est rendue que si
-  // elle existe, pour que la marque la voie explicitement sur le document
-  // envoyé, plutôt que seulement sur l'écran de commande de l'acheteur.
+  // Conditions de paiement/livraison négociées spécifiquement pour cet
+  // acheteur × cette marque (voir /api/admin/buyers/:id/terms/:brandId) —
+  // rendues seulement si elles existent, pour que la marque les voie
+  // explicitement sur le document envoyé, plutôt que seulement sur l'écran
+  // de commande de l'acheteur.
   let negotiatedPayment = null;
+  let negotiatedDelivery = null;
   if (order.buyer_id) {
-    const termsRes = await pool.query('SELECT payment_terms FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [order.buyer_id, order.brand_id]);
+    const termsRes = await pool.query('SELECT payment_terms, delivery_terms FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [order.buyer_id, order.brand_id]);
     negotiatedPayment = termsRes.rows[0]?.payment_terms || null;
+    negotiatedDelivery = termsRes.rows[0]?.delivery_terms || null;
   }
 
   // Logo de la marque (si dispo) sinon monogramme showroom
@@ -6878,7 +6881,7 @@ async function generateOrderPDF(orderId) {
       rowY = doc.y + 10;
     }
 
-    // ── Condition de paiement négociée (mise en avant, avant les CGV standard) ──
+    // ── Conditions de paiement/livraison négociées (mises en avant, avant les CGV standard) ──
     if (negotiatedPayment) {
       const npH = doc.font(F.bold).fontSize(9).heightOfString(negotiatedPayment, { width: WIDTH - 32 });
       ensure(34 + npH);
@@ -6887,6 +6890,15 @@ async function generateOrderPDF(orderId) {
       doc.font(F.reg).fontSize(7).fillColor(MUTE).text('CONDITIONS DE PAIEMENT NÉGOCIÉES', LEFT + 16, rowY + 9, { characterSpacing: 1.4 });
       doc.font(F.bold).fontSize(9).fillColor(INK).text(negotiatedPayment, LEFT + 16, rowY + 21, { width: WIDTH - 32 });
       rowY += npH + 26 + 12;
+    }
+    if (negotiatedDelivery) {
+      const ndH = doc.font(F.bold).fontSize(9).heightOfString(negotiatedDelivery, { width: WIDTH - 32 });
+      ensure(34 + ndH);
+      doc.rect(LEFT, rowY, WIDTH, ndH + 26).fillColor(ZEBRA).fill();
+      doc.rect(LEFT, rowY, 3, ndH + 26).fillColor(INK).fill();
+      doc.font(F.reg).fontSize(7).fillColor(MUTE).text('CONDITIONS DE LIVRAISON NÉGOCIÉES', LEFT + 16, rowY + 9, { characterSpacing: 1.4 });
+      doc.font(F.bold).fontSize(9).fillColor(INK).text(negotiatedDelivery, LEFT + 16, rowY + 21, { width: WIDTH - 32 });
+      rowY += ndH + 26 + 12;
     }
 
     // ── CGV (toujours incluses au bon de commande final, avec pagination auto) ──
