@@ -2860,7 +2860,19 @@ async function submitCheckout() {
   const origBtnText = btnConfirm.textContent;
   btnConfirm.textContent = t('sending');
   const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
-  const buyer_signature = sigCanvas.toDataURL('image/jpeg', 0.7);
+  // Le canvas de signature n'a jamais de fond opaque (transparent tant qu'aucun
+  // trait n'est dessiné) — l'exporter directement en JPEG (pas de canal alpha)
+  // remplissait tout le fond transparent en noir, rendant la signature illisible
+  // (trait presque noir sur fond noir) sur le bon de commande PDF. On compose
+  // d'abord sur un canvas temporaire à fond blanc, comme pour la signature tapée.
+  const sigTemp = document.createElement('canvas');
+  sigTemp.width = sigCanvas.width;
+  sigTemp.height = sigCanvas.height;
+  const sigTempCtx = sigTemp.getContext('2d');
+  sigTempCtx.fillStyle = '#fff';
+  sigTempCtx.fillRect(0, 0, sigTemp.width, sigTemp.height);
+  sigTempCtx.drawImage(sigCanvas, 0, 0);
+  const buyer_signature = sigTemp.toDataURL('image/png');
 
   try {
     const r = await fetch('/api/portal/checkout', {
