@@ -2870,7 +2870,7 @@ app.get('/api/buyers/stats', requireRole('owner','agent'), async (req, res) => {
     const scoped = isBrandScoped(req);
     const joinFilter = scoped ? 'AND o.brand_id = $1' : '';
     const r = await pool.query(`
-      SELECT b.id, b.email, b.name, b.company, b.last_seen_at,
+      SELECT b.id, b.email, b.name, b.company, b.last_seen_at, b.lang,
              COUNT(DISTINCT o.id) as order_count,
              COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
              COUNT(DISTINCT o.brand_id) as brands_count
@@ -5391,7 +5391,7 @@ app.get('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   }
   const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
   const r = await pool.query(
-    `SELECT id, email, name, company, phone, country, created_at, last_seen_at, tags, internal_notes FROM buyers ${where} ORDER BY created_at DESC`,
+    `SELECT id, email, name, company, phone, country, lang, created_at, last_seen_at, tags, internal_notes FROM buyers ${where} ORDER BY created_at DESC`,
     params
   );
   let rows = r.rows;
@@ -5538,8 +5538,10 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
       getSetting('showroom_name'), getSetting('agent_name'), getSetting('smtp_from'), getSetting('showroom_email')
     ]);
     const resend = newResendClient(resendKey);
-    const { message } = req.body;
-    const isEn = buyer.lang === 'en';
+    const { message, lang } = req.body;
+    // Langue explicitement choisie par l'agent dans la modale de relance,
+    // repli sur la langue enregistrée de l'acheteur si non précisée.
+    const isEn = (lang === 'en' || lang === 'fr') ? lang === 'en' : buyer.lang === 'en';
     const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
@@ -5551,11 +5553,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
         ${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : `<p>${isEn
           ? 'Your showroom selections are waiting for you. Don\'t hesitate to browse the collections and place your order.'
           : 'Vos sélections showroom vous attendent. N\'hésitez pas à parcourir les collections et passer commande.'}</p>`}
-        <p style="margin-top:24px">
-          <a href="${getBaseUrl(req)}/portal" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 28px;border-radius:4px;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">
-            ${isEn ? 'ACCESS SHOWROOM →' : 'ACCÉDER AU SHOWROOM →'}
-          </a>
-        </p>
+        ${emailBtn(`${getBaseUrl(req)}/portal`, isEn ? 'Access showroom →' : 'Accéder au showroom →')}
         <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
       ` })
     });
