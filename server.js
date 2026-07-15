@@ -1156,6 +1156,7 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
       from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       replyTo: ownerEmail || undefined,
+      ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
       subject: brandName
         ? `${showroomName || 'Showroom'} — invitation à découvrir ${brandName}`
         : `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`,
@@ -2657,6 +2658,7 @@ async function sendOrderStatusEmail(orderId, status) {
     from: `${showroomName} <${fromField}>`,
     to: [order.client_email],
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
+    ...(showroomEmail && showroomEmail.toLowerCase() !== order.client_email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
     subject: isEn
       ? `Order update — ${order.brand_name} — ${statusLabels[status]}`
       : `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}`,
@@ -2701,6 +2703,7 @@ async function sendOrderSignedEmail(orderId, pdfBuffer) {
     from: `${showroomName} <${fromField}>`,
     to: [order.client_email],
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
+    ...(showroomEmail && showroomEmail.toLowerCase() !== order.client_email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
     subject: isEn
       ? `Final signed order — ${order.brand_name} — ${showroomName}`
       : `Bon de commande définitif signé — ${order.brand_name} — ${showroomName}`,
@@ -3020,8 +3023,8 @@ app.put('/api/admin/appointments/:id', requireRole('owner','agent','designer'), 
 async function sendAppointmentVideoEmail(appt) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) return false;
-  const [showroomName, fromAddress, agentName, agentPhone] = await Promise.all([
-    getSetting('showroom_name'), getSetting('smtp_from'), getSetting('agent_name'), getSetting('agent_phone')
+  const [showroomName, fromAddress, agentName, agentPhone, showroomEmail] = await Promise.all([
+    getSetting('showroom_name'), getSetting('smtp_from'), getSetting('agent_name'), getSetting('agent_phone'), getSetting('showroom_email')
   ]);
   const from = fromAddress || 'showroom@editionsstandard.com';
   const resend = newResendClient(resendKey);
@@ -3042,6 +3045,7 @@ async function sendAppointmentVideoEmail(appt) {
   const { error } = await resend.emails.send({
     from: `${showroomName} <${from}>`,
     to: [appt.client_email],
+    ...(showroomEmail && showroomEmail.toLowerCase() !== appt.client_email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
     subject: `Lien visioconférence — votre rendez-vous ${brandName}`,
     html: emailLayout({ showroomName, brandName, content })
   });
@@ -4393,6 +4397,7 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
     // Reuse selection-pdf generation logic inline
     const showroomName = await getSetting('showroom_name') || 'Showroom';
     const fromAddress = await getSetting('smtp_from') || 'showroom@editionsstandard.com';
+    const showroomEmail = await getSetting('showroom_email');
     const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     const byBrand = {};
     items.forEach(l => { (byBrand[l.brand_id] = byBrand[l.brand_id] || { name: l.brand_name, lines: [] }).lines.push(l); });
@@ -4465,6 +4470,7 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
     const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress}>`,
       to: [to],
+      ...(showroomEmail && showroomEmail.toLowerCase() !== String(to).toLowerCase() ? { bcc: [showroomEmail] } : {}),
       subject: `Sélection B2B — ${showroomName} — ${dateStr}`,
       html: emailLayout({ showroomName, content: `<p>Bonjour,</p>${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : ''}<p>Veuillez trouver ci-joint la sélection de <strong>${escHtml(buyer.name)}</strong> (${escHtml(buyer.email)}).</p><p>Total HT : <strong>${grandTotal.toFixed(2)} €</strong></p><p style="color:#888;font-size:12px">Ce document est non contractuel.</p>` }),
       attachments: [{ filename: `Selection-${dateStr}.pdf`, content: pdf.toString('base64'), contentType: 'application/pdf' }]
@@ -5040,6 +5046,7 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
         from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
         to: [b.email],
         replyTo: ownerEmail || undefined,
+        ...(ownerEmail && ownerEmail.toLowerCase() !== b.email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
         subject: `${showroomName || 'Showroom'} — nouveau message`,
         html: emailLayout({ showroomName, content:
           `<p>Bonjour ${escHtml(b.name || '')},</p>
@@ -5537,6 +5544,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
       ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
+      ...(showroomEmail && showroomEmail.toLowerCase() !== buyer.email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
       subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
       html: emailLayout({ showroomName, content: `
         <p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p>
@@ -6141,7 +6149,7 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
   await pool.query("UPDATE access_requests SET status='rejected' WHERE id=$1", [req.params.id]);
   logAudit(req, 'reject_access_request', 'access_request', req.params.id, req2.email);
 
-  const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+  const [showroomName, fromAddress, showroomEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
     const resend = newResendClient(resendKey);
@@ -6149,6 +6157,7 @@ app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async 
     const { error: sendErr } = await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [req2.email],
+      ...(showroomEmail && showroomEmail.toLowerCase() !== req2.email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
       subject: `Votre demande d'accès — ${showroomName}`,
       html: emailLayout({ showroomName, content: `
         <p>Bonjour <strong>${escHtml(req2.name)}</strong>,</p>
@@ -7454,61 +7463,6 @@ app.get('/api/admin/badge-counts', requireRole('owner', 'agent'), async (req, re
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-// ==================== RAPPELS EMAIL RDV J-1 ====================
-
-async function sendAppointmentReminders() {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return;
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dateStr = tomorrow.toISOString().split('T')[0];
-  try {
-    const { rows } = await pool.query(
-      `SELECT a.*, b.name as brand_name
-       FROM appointments a
-       JOIN brands b ON b.id = a.brand_id
-       WHERE a.slot_date = $1`,
-      [dateStr]
-    );
-    const resend = newResendClient(resendKey);
-    const fromAddress = (await getSetting('smtp_from')) || 'showroom@editionsstandard.com';
-    const showroomName = await getSetting('showroom_name');
-    for (const appt of rows) {
-      const subject = `Rappel : votre rendez-vous demain — ${appt.brand_name}`;
-      const html = emailLayout({ showroomName, content: `
-        <h2 style="font-size:18px;margin:0 0 16px">Rappel de rendez-vous</h2>
-        <p>Bonjour ${escHtml(appt.client_name)},</p>
-        <p>Nous vous rappelons votre rendez-vous <strong>demain ${dateStr}</strong> à <strong>${appt.slot_time}</strong> avec <strong>${escHtml(appt.brand_name)}</strong>.</p>
-        ${appt.video_link ? `<p style="margin:18px 0"><a href="${escHtml(appt.video_link)}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}
-        <p style="color:#999;font-size:12px">Pour toute modification, contactez-nous directement.</p>
-      ` });
-      const { error: sendErr } = await resend.emails.send({
-        from: `${showroomName} <${fromAddress}>`,
-        to: appt.client_email,
-        subject,
-        html
-      }).catch(e => ({ error: e }));
-      if (sendErr) console.error('[appt-reminder-email-error]', sendErr.message || sendErr);
-    }
-    console.log(`Rappels RDV J-1 envoyés pour ${rows.length} rendez-vous (${dateStr})`);
-  } catch(e) {
-    console.error('Erreur rappels RDV:', e.message);
-  }
-}
-
-function scheduleDailyReminders() {
-  const now = new Date();
-  const next9am = new Date(now);
-  next9am.setHours(9, 0, 0, 0);
-  if (next9am <= now) next9am.setDate(next9am.getDate() + 1);
-  const msUntil9am = next9am - now;
-  setTimeout(() => {
-    sendAppointmentReminders();
-    setInterval(sendAppointmentReminders, 24 * 60 * 60 * 1000);
-  }, msUntil9am);
-}
-scheduleDailyReminders();
-
 // PWA assets
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manifest.json')));
 app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'public', 'agent-manifest.json')));
@@ -7707,6 +7661,7 @@ async function sendInactiveReminderNow(buyerId) {
   const buyer = r.rows[0];
   if (!buyer) throw new Error('Acheteur introuvable');
   const showroomName = await getSetting('showroom_name');
+  const showroomEmail = await getSetting('showroom_email');
   const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
   const isFr = (buyer.lang || 'fr') === 'fr';
   const subject = isFr ? `${showroomName} — Découvrez les nouveautés` : `${showroomName} — Discover new arrivals`;
@@ -7717,7 +7672,7 @@ async function sendInactiveReminderNow(buyerId) {
   // Le SDK Resend résout avec { data: null, error } sur une erreur API plutôt
   // que de lever une exception — sans ce contrôle, un envoi échoué serait
   // marqué "envoyé" à tort dans la file de validation.
-  const { error } = await resend.emails.send({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], subject, html: emailLayout({ showroomName, content }) });
+  const { error } = await resend.emails.send({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], ...(showroomEmail && showroomEmail.toLowerCase() !== buyer.email.toLowerCase() ? { bcc: [showroomEmail] } : {}), subject, html: emailLayout({ showroomName, content }) });
   if (error) throw new Error(`Resend: ${error.message || error.name || 'échec envoi'}`);
   await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
 }
@@ -7921,6 +7876,7 @@ init().then(() => {
       if (!resendKey) return;
       const showroomName = await getSetting('showroom_name');
       const agentPhone = await getSetting('agent_phone');
+      const showroomEmail = await getSetting('showroom_email');
 
       // RDV demain dont le rappel n'a pas encore été envoyé
       const tomorrow = new Date();
@@ -7945,6 +7901,7 @@ init().then(() => {
           body: JSON.stringify({
             from: `${showroomName} <noreply@editionsstandard.com>`,
             to: [rdv.client_email],
+            ...(showroomEmail && showroomEmail.toLowerCase() !== rdv.client_email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
             subject: `Rappel — Rendez-vous ${showroomName} demain`,
             html: emailLayout({ showroomName, content })
           })
