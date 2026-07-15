@@ -1043,6 +1043,13 @@
   <div id="settings" class="section">
     <h1 data-t="h1_settings">Paramètres</h1>
     <div class="card">
+      <h3 data-t="settings_lang">Langue de l'interface</h3>
+      <p style="font-size:11px;color:#666;margin:-4px 0 12px" data-t="settings_lang_note">S'applique à cet appareil/navigateur — chaque personne ayant accès à l'admin choisit la sienne indépendamment.</p>
+      <div style="display:flex;gap:8px;max-width:320px;margin-bottom:4px">
+        <button type="button" id="settings-lang-fr" class="btn btn-sm" onclick="setLang('fr')" style="flex:1;border-radius:0">🇫🇷 Français</button>
+        <button type="button" id="settings-lang-en" class="btn btn-sm" onclick="setLang('en')" style="flex:1;border-radius:0">🇬🇧 English</button>
+      </div>
+      <div class="sep"></div>
       <h3 data-t="settings_showroom">Showroom</h3>
       <div class="form-row">
         <div class="form-group"><label data-t="s_name_label">Nom du showroom</label><input id="s-name" type="text"></div>
@@ -2178,6 +2185,7 @@ const TRANSLATIONS = {
     role_owner: 'Fondateur — accès complet',
     role_agent_short: 'Agent showroom',
     // Settings
+    settings_lang: "Langue de l'interface", settings_lang_note: "S'applique à cet appareil/navigateur — chaque personne ayant accès à l'admin choisit la sienne indépendamment.",
     settings_showroom: 'Showroom', settings_smtp: 'Configuration SMTP (envoi emails)', settings_email: 'Envoi des emails',
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Conditions Générales de Vente',
     settings_currencies: 'Devises', settings_security: 'Mot de passe admin',
@@ -2317,6 +2325,7 @@ const TRANSLATIONS = {
     role_owner: 'Founder — full access',
     role_agent_short: 'Showroom agent',
     // Settings
+    settings_lang: 'Interface language', settings_lang_note: 'Applies to this device/browser — each person with admin access chooses their own independently.',
     settings_showroom: 'Showroom', settings_smtp: 'SMTP configuration (email sending)', settings_email: 'Email sending',
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Terms & Conditions',
     settings_currencies: 'Currencies', settings_security: 'Admin password',
@@ -2430,8 +2439,8 @@ function applyLang() {
   if (themeBtnMob) themeBtnMob.textContent = cur === 'light' ? '🌙' : '☀️';
 }
 
-function toggleLang() {
-  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+function setLang(lang) {
+  currentLang = lang === 'en' ? 'en' : 'fr';
   localStorage.setItem('portal_lang', currentLang);
   applyLang();
   // Re-render dynamic sections
@@ -2444,9 +2453,21 @@ function toggleLang() {
     else if (id === 'staff') loadStaff();
     else if (id === 'buyers') loadBuyers();
     else if (id === 'access-requests') loadAccessRequests();
+    else if (id === 'settings') updateSettingsLangButtons();
   }
   // Re-render products table if open
   if (document.getElementById('modal-products').classList.contains('open')) filterProducts();
+}
+function toggleLang() { setLang(currentLang === 'fr' ? 'en' : 'fr'); }
+
+function updateSettingsLangButtons() {
+  const fr = document.getElementById('settings-lang-fr');
+  const en = document.getElementById('settings-lang-en');
+  if (!fr || !en) return;
+  const selectedStyle = 'flex:1;border-radius:0;background:var(--accent);color:var(--dark);font-weight:700;border:none';
+  const unselectedStyle = 'flex:1;border-radius:0;background:transparent;color:#888;font-weight:400;border:1px solid #333';
+  fr.style.cssText = currentLang === 'fr' ? selectedStyle : unselectedStyle;
+  en.style.cssText = currentLang === 'en' ? selectedStyle : unselectedStyle;
 }
 
 document.addEventListener('DOMContentLoaded', applyLang);
@@ -6684,6 +6705,7 @@ async function disableMfa() {
 
 // Settings
 async function loadSettings() {
+  updateSettingsLangButtons();
   const s = await fetch('/api/settings').then(r => r.json());
   document.getElementById('s-name').value = s.showroom_name || '';
   document.getElementById('s-season').value = s.current_season || '';
