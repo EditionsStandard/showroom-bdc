@@ -12,27 +12,49 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --muted:#555; --soft:#999; --accent:#CCEB3C; --dot:'Plex Mono','Space Mono',monospace; }
-  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --muted:#888; --soft:#444; --accent:#6b8500; }
+  /* ── Même langage visuel que le portail acheteur (portal-login.html) :
+       carte flottante sans bordure, bouton fantôme, espacement généreux,
+       micro-typographie majuscule — voir ce fichier pour le système d'origine. ── */
+  :root { --black:#0a0a0a; --ink:#ffffff; --muted:rgba(255,255,255,.55);
+    --line:rgba(255,255,255,.38); --line-soft:rgba(255,255,255,.16); --accent:#CCEB3C; --dot:'Plex Mono','Space Mono',monospace; }
+  [data-theme="light"] { --black:#f5f4f0; --ink:#111111; --muted:rgba(17,17,17,.55);
+    --line:rgba(17,17,17,.45); --line-soft:rgba(17,17,17,.14); --accent:#6b8500; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); min-height: 100vh; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s; background-size: 22px 22px; }
-  [data-theme="light"] html, [data-theme="light"] body { }
-  .card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 48px 40px; width: 100%; max-width: 380px; position: relative; overflow: hidden; }
-  .card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
-  .logo-wrap { text-align: center; margin-bottom: 32px; }
-  .logo-wrap img { width: 64px; height: 64px; border-radius:0; }
-  .logo-wrap .kicker { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .28em; color: var(--muted); margin-top: 16px; text-transform: uppercase; }
-  .logo-wrap h1 { font-family: var(--dot), monospace; font-size: 18px; color: var(--white); font-weight: 400; margin-top: 6px; letter-spacing: .02em; }
-  .logo-wrap p { color: var(--muted); font-size: 11px; margin-top: 4px; font-family: 'Plex Mono','Space Mono',monospace; text-transform: uppercase; letter-spacing: .1em; }
-  label { display: block; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; font-family: 'Plex Mono','Space Mono',monospace; }
-  input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius:0; padding: 7px 1px 9px; color: var(--white); font-size: 14px; font-family: 'Plex Mono','Space Mono',monospace; outline: none; transition: border-color .2s; }
-  input:focus { border-bottom-color: var(--white); }
-  .field { margin-bottom: 16px; }
-  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius:0; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; letter-spacing: .1em; text-transform: uppercase; font-family: 'Plex Mono', 'Space Mono', monospace; transition: opacity .2s; }
-  .btn:hover { opacity: .85; }
-  .toggle { text-align: center; margin-top: 18px; }
-  .toggle a { color: var(--soft); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; }
-  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius:0; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; font-family: 'Plex Mono','Space Mono',monospace; }
+  html, body { height: 100%; }
+  body { font-family: 'Plex Mono', 'Space Mono', monospace; color: var(--ink);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px; background: var(--black); transition: background .2s, color .2s; }
+  .card { width: 100%; max-width: 340px; position: relative; }
+  .logo-wrap { text-align: center; margin-bottom: 38px; }
+  .logo-wrap img { width: 76px; height: 76px; }
+  .logo-wrap .kicker { font-size: 9px; letter-spacing: .3em; color: var(--muted); margin-top: 14px; text-transform: uppercase; }
+  .logo-wrap h1 { font-size: 12px; color: var(--ink); font-weight: 400; margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; }
+  .logo-wrap p { color: var(--muted); font-size: 8.5px; margin-top: 6px; text-transform: uppercase; letter-spacing: .22em; }
+  label { display: block; color: var(--muted); font-size: 8.5px; font-weight: 400; text-transform: uppercase; letter-spacing: .26em; margin-bottom: 9px; }
+  input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line);
+    border-radius: 0; padding: 6px 1px 10px; color: var(--ink); font-size: 14px;
+    font-family: inherit; letter-spacing: .04em; outline: none; transition: border-color .25s; }
+  input:focus { border-bottom-color: var(--ink); }
+  input::placeholder { color: transparent; } /* épuré : pas d'exemple dans les champs de connexion */
+  input:disabled { opacity: .3; }
+  .field { margin-bottom: 30px; }
+  .btn { width: 100%; background: transparent; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 0; padding: 15px 10px 14px; font-size: 11px; font-weight: 400; cursor: pointer;
+    margin-top: 6px; letter-spacing: .3em; text-transform: uppercase; font-family: inherit;
+    transition: background .25s, color .25s; }
+  .btn:hover { background: var(--ink); color: var(--black); }
+  .toggle { text-align: center; margin-top: 26px; }
+  .toggle a { display: block; color: var(--muted); font-size: 9px; text-decoration: none; cursor: pointer;
+    text-transform: uppercase; letter-spacing: .24em; padding: 7px 0; transition: color .2s; }
+  .toggle a:hover { color: var(--ink); }
+  .error { border: 1px solid var(--line-soft); border-left: 2px solid #e07a6a; color: #e07a6a;
+    padding: 12px 14px; font-size: 11px; margin-bottom: 26px; letter-spacing: .04em; line-height: 1.7; }
+  [data-theme="light"] .error { color: #b3402e; }
+  @media (max-width: 767px) {
+    body { padding: 32px 18px calc(24px + env(safe-area-inset-bottom)); }
+    input { font-size: 16px; }
+    .btn { min-height: 46px; }
+  }
   /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
   img[src*="logo.svg"]{filter:invert(1);}
   [data-theme="light"] img[src*="logo.svg"]{filter:none;}
