@@ -6963,8 +6963,8 @@ function getEmailLogoAttachments() {
   if (_emailLogoAttachments) return _emailLogoAttachments;
   try {
     _emailLogoAttachments = [
-      { filename: 'logo-white.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-email.png')).toString('base64'), content_type: 'image/png', content_id: 'email-logo-white' },
-      { filename: 'logo-black.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-pdf.png')).toString('base64'), content_type: 'image/png', content_id: 'email-logo-black' },
+      { filename: 'logo-white.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-email.png')).toString('base64'), contentType: 'image/png', contentId: 'email-logo-white' },
+      { filename: 'logo-black.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-pdf.png')).toString('base64'), contentType: 'image/png', contentId: 'email-logo-black' },
     ];
   } catch(e) { console.error('[email-logo]', e.message); _emailLogoAttachments = []; }
   return _emailLogoAttachments;
