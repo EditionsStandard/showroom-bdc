@@ -6966,10 +6966,18 @@ async function generateOrderPDF(orderId) {
       const cards = visualProductIds.map(pid => {
         const p = visualProducts[pid];
         const sizesText = p.sizes.map(s => `${s.size} : ${s.qty}`).join('   ·   ');
+        // La référence et la couleur sont ici aussi susceptibles de déborder sur
+        // plusieurs lignes dans une carte de 156pt de large (mêmes SKU longs que
+        // dans le tableau ci-dessus) — une hauteur fixe assumée à une seule ligne
+        // laissait la ligne suivante de la légende chevaucher visuellement la
+        // référence encore en cours d'affichage.
+        doc.font(F.bold).fontSize(8.5);
+        const refH = doc.heightOfString(p.reference || '', { width: cardW });
         doc.font(F.reg).fontSize(7.5);
+        const colorH = p.color ? doc.heightOfString(p.color, { width: cardW }) : 0;
         const sizesH = doc.heightOfString(sizesText, { width: cardW });
-        const captionH = 13 + (p.color ? 11 : 0) + sizesH + 3 + 12;
-        return { pid, ...p, sizesText, cardH: imgH + captionH };
+        const captionH = refH + 4 + (p.color ? colorH + 4 : 0) + sizesH + 3 + 12;
+        return { pid, ...p, sizesText, refH, colorH, cardH: imgH + captionH };
       });
 
       let cx = startX, cy = 100, colIdx = 0, rowMax = 0;
@@ -6982,8 +6990,8 @@ async function generateOrderPDF(orderId) {
         try { doc.image(lineImages[card.pid], cx, cy, { fit: [cardW, imgH], align: 'center', valign: 'center' }); } catch(e) { /* format non supporté → fond gris */ }
         let ty = cy + imgH + 5;
         doc.font(F.bold).fontSize(8.5).fillColor(INK).text(card.reference || '', cx, ty, { width: cardW });
-        ty += 13;
-        if (card.color) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(card.color, cx, ty, { width: cardW }); ty += 11; }
+        ty += card.refH + 4;
+        if (card.color) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(card.color, cx, ty, { width: cardW }); ty += card.colorH + 4; }
         doc.font(F.reg).fontSize(7.5).fillColor('#444').text(card.sizesText, cx, ty, { width: cardW });
         ty = doc.y + 3;
         doc.font(F.bold).fontSize(8).fillColor(INK).text('Qté totale : ' + card.totalQty, cx, ty, { width: cardW });
