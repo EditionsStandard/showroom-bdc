@@ -6673,6 +6673,19 @@ async function generateLinesheetPDF(brandId, seasonId) {
   });
 }
 
+// Ordre d'affichage d'une taille dans une grille (tailles numériques triées
+// numériquement, tailles lettres XS→XXXL dans leur ordre naturel, toute autre
+// valeur en dernier) — sans quoi la requête order_lines (sans ORDER BY) rend
+// les tailles dans un ordre arbitraire, illisible une fois regroupées sur une
+// seule ligne (ex. "42:1 40:3 38:5 36:2" au lieu de 36→42).
+const SIZE_SORT_LETTERS = ['XXS','XS','S','M','L','XL','XXL','XXXL','3XL','4XL','5XL'];
+function sizeSortKey(size) {
+  const s = String(size || '').trim().toUpperCase();
+  if (/^[\d]+([.,]\d+)?$/.test(s)) return parseFloat(s.replace(',', '.'));
+  const idx = SIZE_SORT_LETTERS.indexOf(s);
+  return idx >= 0 ? 1000 + idx : 2000;
+}
+
 async function generateOrderPDF(orderId) {
   const oRes = await pool.query(`
     SELECT o.*, b.name as brand_name, b.cgv_text as brand_cgv, b.logo as brand_logo, b.logo_url as brand_logo_url FROM orders o JOIN brands b ON o.brand_id=b.id WHERE o.id=$1
@@ -6765,10 +6778,13 @@ async function generateOrderPDF(orderId) {
     rowY = Math.max(infoTop + 44, cY) + 10;
 
     // ── Table ──
-    const col  = { ref:50, name:145, color:280, size:330, qty:368, pw:400, pr:445, total:495 };
-    const colW = { ref:90, name:130, color:45,  size:33,  qty:27,  pw:40,  pr:45,  total:50 };
-    const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLE','QTÉ','P.U. HT','RETAIL','TOTAL HT'];
-    const colKeys = ['ref','name','color','size','qty','pw','pr','total'];
+    // Colonnes TAILLE et QTÉ fusionnées en une seule colonne "grille" (voir
+    // regroupement par référence ci-dessous) — élargie d'autant pour accueillir
+    // plusieurs paires taille:qté sur la même ligne.
+    const col  = { ref:50, name:138, color:236, grid:279, pw:412, pr:455, total:500 };
+    const colW = { ref:85, name:95,  color:40,  grid:130, pw:40,  pr:42,  total:45 };
+    const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLES / QTÉ','P.U. HT','RETAIL','TOTAL HT'];
+    const colKeys = ['ref','name','color','grid','pw','pr','total'];
     const drawTableHead = () => {
       hr(rowY); rowY += 6;
       doc.font(F.reg).fontSize(6.5).fillColor(MUTE);
@@ -6777,33 +6793,54 @@ async function generateOrderPDF(orderId) {
     };
     drawTableHead();
 
-    lines.forEach((line, i) => {
-      const nameText = line.product_name || '';
-      const colorText = line.color || '—';
+    // Regroupe les lignes par produit (référence+couleur partagent le même
+    // product_id, une taille = une ligne order_lines) pour afficher toutes les
+    // tailles commandées et leur quantité sur une seule ligne PDF, au lieu
+    // d'une ligne par taille comme auparavant.
+    const grouped = [];
+    const byProduct = new Map();
+    lines.forEach(l => {
+      let g = byProduct.get(l.product_id);
+      if (!g) {
+        g = { reference: l.reference, product_name: l.product_name, color: l.color, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
+        byProduct.set(l.product_id, g);
+        grouped.push(g);
+      }
+      g.sizes.push({ size: l.size || '—', quantity: l.quantity });
+      g.lineTotal += l.quantity * parseFloat(l.unit_price);
+      if (l.note) g.notes.push(`${l.size || '—'} : ${l.note}`);
+    });
+    grouped.forEach(g => g.sizes.sort((a, b) => sizeSortKey(a.size) - sizeSortKey(b.size)));
+
+    grouped.forEach((g, i) => {
+      const nameText = g.product_name || '';
+      const colorText = g.color || '—';
+      const gridText = g.sizes.map(s => `${s.size} : ${s.quantity}`).join('   ');
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
       // Voir generateSelectionPDF : la couleur peut déborder de sa colonne
       // étroite sur plusieurs lignes, il faut en tenir compte dans rowH pour
       // éviter que la ligne suivante (et le total/CGV/signature en bas de
-      // document) ne chevauche visuellement le texte de couleur.
+      // document) ne chevauche visuellement le texte de couleur. La grille de
+      // tailles peut elle aussi déborder sur plusieurs lignes (référence à
+      // beaucoup de tailles commandées) — même précaution.
       const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
-      const rowH  = Math.max(nameH, colorH, 12) + 7;
-      const noteTxt = line.note ? `Note : ${line.note}` : '';
+      const gridH = doc.font(F.reg).fontSize(8).heightOfString(gridText, { width: colW.grid });
+      const rowH  = Math.max(nameH, colorH, gridH, 12) + 7;
+      const noteTxt = g.notes.length ? `Note : ${g.notes.join(' — ')}` : '';
       const noteH = noteTxt ? doc.font(F.reg).fontSize(7.5).heightOfString(noteTxt, { width: 480 }) + 3 : 0;
 
       // Saut de page si la ligne (+ sa note) ne tient pas → on rejoue l'en-tête.
       if (rowY + rowH + noteH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
 
       if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
-      doc.font(F.bold).fontSize(8.5).fillColor(INK).text(line.reference || '', col.ref, rowY, { width: colW.ref });
+      doc.font(F.bold).fontSize(8.5).fillColor(INK).text(g.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
-      doc.fillColor(SOFT)
-        .text(colorText, col.color, rowY, { width: colW.color })
-        .text(line.size  || '—', col.size,  rowY, { width: colW.size });
-      doc.font(F.bold).fillColor(INK).text(String(line.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
-      doc.font(F.reg).fillColor('#333')
-        .text(`${parseFloat(line.unit_price).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
-        .text(line.price_retail > 0 ? `${parseFloat(line.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
-      doc.font(F.bold).fillColor(INK).text(`${(line.quantity * parseFloat(line.unit_price)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
+      doc.fillColor(SOFT).text(colorText, col.color, rowY, { width: colW.color });
+      doc.font(F.bold).fontSize(8).fillColor(INK).text(gridText, col.grid, rowY, { width: colW.grid });
+      doc.font(F.reg).fontSize(8.5).fillColor('#333')
+        .text(`${parseFloat(g.unit_price).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
+        .text(g.price_retail > 0 ? `${parseFloat(g.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
+      doc.font(F.bold).fillColor(INK).text(`${g.lineTotal.toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
 
       rowY += rowH;
       if (noteTxt) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(noteTxt, col.ref + 4, rowY, { width: 480 }); rowY += noteH; }
