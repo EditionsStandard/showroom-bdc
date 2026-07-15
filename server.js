@@ -7932,11 +7932,13 @@ init().then(() => {
         [tomorrowStr]
       ).catch(() => ({ rows: [] }));
 
+      const tomorrowDisplay = tomorrow.toLocaleDateString('fr-FR');
       for (const rdv of rdvs.rows) {
         // client_name/video_link viennent du formulaire de prise de RDV (public,
         // non authentifié) — jamais interpolés bruts en HTML, sinon un rendez-vous
         // pris avec un nom contenant du markup s'exécuterait dans la boîte mail du
         // client au rappel J-1 (cf. escHtml partout ailleurs pour le même champ).
+        const content = `<p>Bonjour <strong>${escHtml(rdv.client_name)}</strong>,</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${escHtml(showroomName)}</strong> demain <strong>${escHtml(tomorrowDisplay)}</strong> à <strong>${escHtml(rdv.slot_time)}</strong>.</p>${rdv.video_link ? emailBtn(escHtml(rdv.video_link), 'Rejoindre la visioconférence →') : ''}${agentPhone ? `<p>Contact : ${escHtml(agentPhone)}</p>` : ''}<p>À demain !</p>`;
         const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -7944,7 +7946,7 @@ init().then(() => {
             from: `${showroomName} <noreply@editionsstandard.com>`,
             to: [rdv.client_email],
             subject: `Rappel — Rendez-vous ${showroomName} demain`,
-            html: `<p>Bonjour ${escHtml(rdv.client_name)},</p><p>Nous vous rappelons votre rendez-vous au showroom <strong>${showroomName}</strong> demain <strong>${tomorrowStr}</strong> à <strong>${rdv.slot_time}</strong>.</p>${rdv.video_link ? `<p style="margin:16px 0"><a href="${escHtml(rdv.video_link)}" style="display:inline-block;background:#CCEB3C;color:#111;font-weight:700;padding:12px 24px;border-radius:0;text-decoration:none;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px">Rejoindre la visioconférence</a></p>` : ''}${agentPhone ? `<p>Contact : ${escHtml(agentPhone)}</p>` : ''}<p>À demain !</p>`
+            html: emailLayout({ showroomName, content })
           })
         }).catch(e => { console.error('[rdv-email-error]', e.message); return null; });
         if (r && !r.ok) console.error('[rdv-email-error] Resend a répondu', r.status);
