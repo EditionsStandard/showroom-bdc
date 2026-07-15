@@ -1960,6 +1960,13 @@
     <h3 style="margin-bottom:4px">📨 Relance acheteur</h3>
     <p id="relance-subtitle" style="font-size:12px;color:#888;margin-bottom:16px"></p>
     <div class="form-group">
+      <label style="font-size:11px;font-weight:600;letter-spacing:.5px;color:#666;text-transform:uppercase">Langue de l'email</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" id="relance-lang-fr" class="btn btn-sm" onclick="setRelanceLang('fr')" style="flex:1;border-radius:0">🇫🇷 Français</button>
+        <button type="button" id="relance-lang-en" class="btn btn-sm" onclick="setRelanceLang('en')" style="flex:1;border-radius:0">🇬🇧 English</button>
+      </div>
+    </div>
+    <div class="form-group">
       <label style="font-size:11px;font-weight:600;letter-spacing:.5px;color:#666;text-transform:uppercase">Message personnalisé <span style="color:#555;font-weight:400">(optionnel)</span></label>
       <textarea id="relance-message" rows="4" placeholder="Laissez vide pour utiliser le message standard…" style="width:100%;box-sizing:border-box;background:var(--black);border:1px solid #222;border-radius: 0;padding:10px;color:#ccc;font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
     </div>
@@ -3400,11 +3407,20 @@ async function sendMagicLink(buyerId, name) {
 
 // ── Relance acheteur ─────────────────────────────────────────────────
 let _relanceBuyerId = null;
-function openRelance(id, name, email, orderCount) {
+let _relanceLang = 'fr';
+function setRelanceLang(lang) {
+  _relanceLang = lang;
+  const selectedStyle = 'flex:1;border-radius:0;background:var(--accent);color:var(--dark);font-weight:700;border:none';
+  const unselectedStyle = 'flex:1;border-radius:0;background:transparent;color:#888;font-weight:400;border:1px solid #333';
+  document.getElementById('relance-lang-fr').style.cssText = lang === 'fr' ? selectedStyle : unselectedStyle;
+  document.getElementById('relance-lang-en').style.cssText = lang === 'en' ? selectedStyle : unselectedStyle;
+}
+function openRelance(id, name, email, orderCount, lang) {
   _relanceBuyerId = id;
   document.getElementById('relance-subtitle').textContent =
     `${name || email} <${email}>${orderCount > 0 ? ` · ${orderCount} commande(s)` : ' · aucune commande'}`;
   document.getElementById('relance-message').value = '';
+  setRelanceLang(lang === 'en' ? 'en' : 'fr');
   openModal('modal-relance');
 }
 async function sendRelance() {
@@ -3412,7 +3428,7 @@ async function sendRelance() {
   const msg = document.getElementById('relance-message').value.trim();
   const r = await fetch('/api/admin/buyers/' + _relanceBuyerId + '/relance', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ message: msg })
+    body: JSON.stringify({ message: msg, lang: _relanceLang })
   });
   closeModal('modal-relance');
   if (r.ok) toast('Email de relance envoyé ✓');
@@ -5726,7 +5742,7 @@ function renderBuyersPage() {
         <button class="btn btn-sm btn-ghost-green" onclick="openBuyerProfile('${b.id}')" title="Fiche 360°">👁 Fiche</button>
         <button class="btn btn-sm" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
         <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
-        <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${escJs(b.id)}','${escJs(b.name)}','${escJs(b.email)}',${b.order_count||0})" title="Envoyer un email de relance">📨 Relance</button>
+        <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${escJs(b.id)}','${escJs(b.name)}','${escJs(b.email)}',${b.order_count||0},'${escJs(b.lang||'fr')}')" title="Envoyer un email de relance">📨 Relance</button>
         <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${escJs(b.id)}','${escJs(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${escJs(b.id)}','${escJs(b.name || b.email)}')">${t('btn_delete_text')}</button>
       </td>
