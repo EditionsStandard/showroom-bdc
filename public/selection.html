@@ -8,8 +8,8 @@
   <link rel="stylesheet" href="/fonts/brand.css">
 <title>Ma sélection — Showroom</title>
   <style>
-    :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; }
-    [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; }
+    :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; --line:rgba(255,255,255,.38); }
+    [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; --line:rgba(17,17,17,.45); }
     * { box-sizing: border-box; }
     html, body { margin:0; background:var(--black); color:var(--white); font-family:'Plex Mono','Space Mono',monospace; background-size: 24px 24px; }
     [data-theme="light"] html, [data-theme="light"] body { }
@@ -90,7 +90,8 @@
     .fiche .fdesc { font-size:13px; color:var(--soft); line-height:1.6; margin-bottom:6px; }
     .fiche .fmeta { font-size:12px; color:var(--muted); margin-bottom:2px; }
     .fiche .fprice { font-size:14px; color:var(--accent); margin:8px 0 14px; }
-    .fiche-done { width:100%; background:var(--accent); color:#111; border:none; padding:14px; font-weight:700; font-size:14px; cursor:pointer; border-radius:0; font-family:inherit; margin-top:14px; }
+    .fiche-done { width:100%; background:transparent; color:var(--white); border:1px solid var(--line); padding:15px 14px 14px; font-weight:400; font-size:12px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; border-radius:0; font-family:inherit; margin-top:14px; transition:background .25s, color .25s; }
+    .fiche-done:hover { background:var(--white); color:var(--black); }
     .fiche-gallery img { cursor:zoom-in; }
     /* Photo plein écran (comme la fiche marque) */
     .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.96); display:none; align-items:center; justify-content:center; z-index:300; cursor:zoom-out; }
@@ -545,7 +546,7 @@ async function confirmSelection() {
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
-  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:var(--accent);color:#111;border:none;padding:12px 24px;border-radius:0;font-weight:700;cursor:pointer">${t('success_cta')}</button></div>`;
+  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

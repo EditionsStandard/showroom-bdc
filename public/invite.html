@@ -12,8 +12,8 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap"></noscript>
 <style>
-  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; }
-  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; }
+  :root { --black:#0a0a0a; --dark:#111; --border:#252525; --white:#f5f4f0; --soft:#999; --muted:#555; --accent:#CCEB3C; --input-bg:#1a1a1a; --line:rgba(255,255,255,.38); }
+  [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; --line:rgba(17,17,17,.45); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--black); color: var(--white); font-family: 'Plex Mono','Space Mono',monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
   .card { background: var(--dark); border: 1px solid var(--border); border-radius:0; padding: 40px; width: 100%; max-width: 400px; }
@@ -27,8 +27,10 @@
   label { display: block; font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .1em; }
   input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius:0; padding: 7px 1px 9px; font-size: 14px; color: var(--white); font-family: 'Plex Mono','Space Mono',monospace; outline: none; transition: border-color .2s; margin-bottom: 16px; }
   input:focus { border-bottom-color: var(--white); }
-  .btn { width: 100%; background: var(--accent); color: var(--black); border: none; border-radius:0; padding: 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; transition: opacity .15s; }
-  .btn:hover { opacity: .85; }
+  /* Bouton fantôme aligné sur portal.html/portal-login.html (référence esthétique
+     du site) plutôt que le remplissage plein citron vert utilisé ici auparavant. */
+  .btn { width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); border-radius:0; padding: 15px 14px 14px; font-size: 11px; font-weight: 400; cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .3em; text-transform: uppercase; margin-top: 4px; transition: background .25s, color .25s, opacity .15s; }
+  .btn:hover:not(:disabled) { background: var(--white); color: var(--black); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
   .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius:0; padding: 10px 14px; font-size: 12px; margin-bottom: 16px; display: none; }
   .success { text-align: center; display: none; }
