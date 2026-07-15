@@ -84,7 +84,7 @@
   .dropdown-item.danger:hover { background: #e74c3c; color: #fff; }
   .dropdown-sep { height: 1px; background: var(--border); margin: 4px 0; }
   /* ── Profile form ── */
-  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-bottom: 24px; }
   .profile-grid .field-full { grid-column: 1 / -1; }
   @media (max-width: 640px) { .profile-grid { grid-template-columns: 1fr; } .user-name { display: none; } }
   .wrap { width: 100%; max-width: 1600px; margin: 0 auto; padding: 36px 40px 60px; }
@@ -194,8 +194,11 @@
   .cart-bar strong { font-family: var(--dot), monospace; font-size: 20px; color: var(--white); font-weight: 400; }
   .cart-bar button { background: transparent; color: var(--white); border: 1px solid var(--border); padding: 13px 24px; font-size: 12px; font-weight: 400; text-transform: uppercase; letter-spacing: .24em; cursor: pointer; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; transition: background .2s, color .2s; }
   .cart-bar button:hover { background: var(--white); color: var(--black); }
-  .field { margin-bottom: 16px; }
-  .field label { display: block; font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .26em; margin-bottom: 8px; font-family: inherit; }
+  /* Respiration alignée sur demande-acces.html (.row/.field : gap 26px, margin
+     28px) — même typographie de label que ce formulaire (8.5px/.26em) déjà en
+     place, seul l'espacement était resté plus resserré. */
+  .field { margin-bottom: 26px; }
+  .field label { display: block; font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .26em; margin-bottom: 9px; font-family: inherit; }
   .field input, .field select, .field textarea { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 12px 2px; color: var(--white); font-size: 15px; font-family: inherit; letter-spacing: .03em; outline: none; }
   .field input:focus, .field select:focus { border-bottom-color: var(--accent); }
   .cgv-box { background: var(--dark); border: 1px solid var(--border); border-radius: 0; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; cursor: pointer; user-select: none; transition: border-color .15s; }
