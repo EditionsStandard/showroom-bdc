@@ -1977,6 +1977,25 @@
   </div>
 </div>
 
+<!-- Modal lien d'accès direct acheteur -->
+<div class="modal-overlay" id="modal-access-link">
+  <div class="modal" style="max-width:480px">
+    <h3 style="margin-bottom:4px">🔗 Lien de connexion directe</h3>
+    <p id="access-link-subtitle" style="font-size:12px;color:#888;margin-bottom:16px"></p>
+    <div class="form-group">
+      <label style="font-size:11px;font-weight:600;letter-spacing:.5px;color:#666;text-transform:uppercase">Langue de l'email</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" id="access-link-lang-fr" class="btn btn-sm" onclick="setAccessLinkLang('fr')" style="flex:1;border-radius:0">🇫🇷 Français</button>
+        <button type="button" id="access-link-lang-en" class="btn btn-sm" onclick="setAccessLinkLang('en')" style="flex:1;border-radius:0">🇬🇧 English</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-access-link')">Annuler</button>
+      <button class="btn" onclick="sendAccessLink()" style="background:var(--accent);color:var(--dark);font-weight:700">🔗 Envoyer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal édition acheteur -->
 <div class="modal-overlay" id="modal-edit-buyer">
   <div class="modal">
@@ -3398,10 +3417,31 @@ document.addEventListener('click', e => {
 });
 
 // ── Magic link accès direct ──────────────────────────────────────────
-async function sendMagicLink(buyerId, name) {
-  if (!confirm(`Envoyer un lien de connexion direct à ${name} ?`)) return;
-  const r = await fetch('/api/admin/buyers/' + buyerId + '/send-access', { method: 'POST' });
-  if (r.ok) toast('🔗 Lien envoyé à ' + name);
+let _accessLinkBuyerId = null;
+let _accessLinkName = null;
+let _accessLinkLang = 'fr';
+function setAccessLinkLang(lang) {
+  _accessLinkLang = lang;
+  const selectedStyle = 'flex:1;border-radius:0;background:var(--accent);color:var(--dark);font-weight:700;border:none';
+  const unselectedStyle = 'flex:1;border-radius:0;background:transparent;color:#888;font-weight:400;border:1px solid #333';
+  document.getElementById('access-link-lang-fr').style.cssText = lang === 'fr' ? selectedStyle : unselectedStyle;
+  document.getElementById('access-link-lang-en').style.cssText = lang === 'en' ? selectedStyle : unselectedStyle;
+}
+function sendMagicLink(buyerId, name, lang) {
+  _accessLinkBuyerId = buyerId;
+  _accessLinkName = name;
+  document.getElementById('access-link-subtitle').textContent = `Envoyer un lien de connexion direct à ${name}`;
+  setAccessLinkLang(lang === 'en' ? 'en' : 'fr');
+  openModal('modal-access-link');
+}
+async function sendAccessLink() {
+  if (!_accessLinkBuyerId) return;
+  const r = await fetch('/api/admin/buyers/' + _accessLinkBuyerId + '/send-access', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ lang: _accessLinkLang })
+  });
+  closeModal('modal-access-link');
+  if (r.ok) toast('🔗 Lien envoyé à ' + _accessLinkName);
   else toast('Erreur envoi lien', true);
 }
 
@@ -5743,7 +5783,7 @@ function renderBuyersPage() {
         <button class="btn btn-sm" onclick="openEditBuyer(${esc(JSON.stringify(b))})">${t('btn_modify')}</button>
         <button class="btn btn-sm btn-ghost-violet" onclick="openBuyerTagsNotes(${esc(JSON.stringify(b))})" title="Tags & notes internes">🏷 Tags</button>
         <button class="btn btn-sm btn-ghost-lime" onclick="openRelance('${escJs(b.id)}','${escJs(b.name)}','${escJs(b.email)}',${b.order_count||0},'${escJs(b.lang||'fr')}')" title="Envoyer un email de relance">📨 Relance</button>
-        <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${escJs(b.id)}','${escJs(b.name||b.email)}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
+        <button class="btn btn-sm btn-ghost-blue" onclick="sendMagicLink('${escJs(b.id)}','${escJs(b.name||b.email)}','${escJs(b.lang||'fr')}')" title="Envoyer un lien de connexion direct">🔗 Accès direct</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBuyer('${escJs(b.id)}','${escJs(b.name || b.email)}')">${t('btn_delete_text')}</button>
       </td>
     </tr>`;
