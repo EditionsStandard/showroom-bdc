@@ -491,10 +491,22 @@
     .mobile-nav button:active { color: var(--accent); }
   }
 
-  @media (max-width: 640px) {
-    /* Header : masquer la nav texte, garder uniquement logo + user-menu */
-    .header { padding: 12px 16px; }
+  /* La nav texte (Accueil/Catalogue/Mes commandes/Mon profil/Déconnexion) déborde
+     horizontalement entre ~641 et ~880px (mesuré : scrollWidth 878px pour un
+     viewport de 768px) avant que la barre mobile ne prenne le relais à 640px —
+     "Mes commandes"/"Mon profil" se scindaient sur deux lignes et l'avatar/menu
+     utilisateur se retrouvait presque entièrement hors écran. Le menu utilisateur
+     (avatar, ▾) contient déjà les mêmes liens en repli (cf. commentaire ci-dessous),
+     donc on masque la nav texte dès 900px plutôt que d'ajouter un palier de
+     compression intermédiaire. */
+  @media (max-width: 900px) {
     .header .nav { display: none; }
+  }
+
+  @media (max-width: 640px) {
+    /* Header : masquer la nav texte (déjà fait dès 900px ci-dessus), garder
+       uniquement logo + user-menu */
+    .header { padding: 12px 16px; }
     .header-left img { width: 30px; height: 30px; }
     .header h1 { font-size: 12px; }
     /* Sélecteur devise compact visible sur mobile */
@@ -1347,7 +1359,7 @@ function applyLang() {
       <h3 id="gdpr-section-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
       <p id="gdpr-section-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <button id="gdpr-download-btn" class="btn-secondary" onclick="exportMyData()" style="font-size:13px;padding:8px 16px">⬇ Télécharger mes données</button>
+        <button id="gdpr-download-btn" onclick="exportMyData()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid var(--border);color:var(--soft);border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">⬇ Télécharger mes données</button>
         <button id="gdpr-delete-btn" onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
       </div>
       <div id="gdpr-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>

@@ -37,8 +37,12 @@
   nav a:hover, nav a.active { color: #fff; background: #1c1c1c; border-left-color: #CCEB3C; }
   nav a svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .6; transition: opacity .15s; }
   nav a span.icon { display: none; }
-  /* Emojis résiduels des boutons/liens : rendus en niveaux de gris */
-  .btn:not(.btn-danger), .dropdown-item { filter: grayscale(1); }
+  /* Emojis résiduels des boutons/liens : rendus en niveaux de gris. Le filtre
+     s'applique à tout l'élément (pas seulement au glyphe emoji), donc il faut
+     explicitement exclure les boutons "ghost" volontairement colorés
+     (.btn-green/.btn-ghost-*, définis plus bas) sous peine de les désaturer
+     aussi — ce qui arrivait avant cette correction. */
+  .btn:not(.btn-danger):not(.btn-green):not(.btn-ghost-green):not(.btn-ghost-violet):not(.btn-ghost-lime):not(.btn-ghost-blue), .dropdown-item { filter: grayscale(1); }
 
   nav a:hover svg, nav a.active svg { opacity: 1; }
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid #252525; }
@@ -61,7 +65,12 @@
   .card { background: #111111; border: 1px solid #252525; border-radius: 0; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 
   /* Stats */
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  /* auto-fit plutôt qu'un nombre de colonnes fixe : avec 5 cartes stat au total
+     scindées en 2 blocs HTML (3 + 2, pour raisons de mise à jour JS distinctes),
+     un compte de colonnes différent entre les deux aurait rendu les cartes de
+     la 2e rangée visiblement plus larges que celles de la 1re — même largeur
+     de colonne garantie ici quel que soit le nombre d'éléments par rangée. */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .stat { background: linear-gradient(135deg, #111 60%, rgba(204,235,60,.03) 100%); border: 1px solid #252525; border-radius: 0; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--stat-color, #CCEB3C); }
   .stat-icon { width: 36px; height: 36px; border-radius: 0; background: var(--stat-bg, #1e2a0a); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
@@ -218,16 +227,19 @@
   #orders-table th:nth-child(3) { width: 12%; }     /* date */
   #orders-table th:nth-child(4) { width: 21%; }     /* client */
   #orders-table th:nth-child(5) { width: 14%; }     /* marque */
-  #orders-table th:nth-child(6) { width: 10%; }     /* montant */
+  #orders-table th:nth-child(6) { width: 13%; }     /* montant */
   #orders-table th:nth-child(7) { width: 10%; }     /* statut */
-  #orders-table th:nth-child(8) { width: 23%; }     /* actions */
+  #orders-table th:nth-child(8) { width: 20%; }     /* actions */
   /* table-layout:fixed + colonnes en % : un contenu plus large que sa cellule
      (ex. date DD/MM/YYYY dans une cellule trop étroite sur mobile) déborde
      visuellement DANS la colonne suivante avec overflow:visible par défaut.
      Filet de sécurité : tronque proprement au lieu de chevaucher. Exclut la
      colonne actions (dernier enfant, boutons en flex-wrap qui doivent rester
-     visibles sur plusieurs lignes). */
-  #orders-table td:not(:last-child) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+     visibles sur plusieurs lignes) ET la colonne case à cocher (premier enfant,
+     32px — le padding table par défaut suffisait déjà à écraser la case en
+     une simple ellipse, overflow:hidden l'aurait rendue encore moins lisible). */
+  #orders-table td:not(:last-child):not(:first-child) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #orders-table td:first-child { padding: 12px 4px; text-align: center; }
 
   /* ── Responsive mobile supplémentaire ── */
   @media (max-width: 768px) {
@@ -609,7 +621,7 @@
     <!-- Priorités du jour — agrège tout ce qui attend une action -->
     <div class="card agency-only" id="priorities-card" style="margin-bottom:16px;border-color:#3a3300;background:linear-gradient(135deg,#111 60%,#221c00 100%)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <h3 style="margin:0;font-size:14px;color:var(--accent)">☀️ Priorités du jour</h3>
+        <h3 style="margin:0;font-size:14px;color:var(--accent)">Priorités du jour</h3>
         <span id="priorities-count" style="font-size:11px;color:#888"></span>
       </div>
       <div id="priorities-list"><p style="font-size:12px;color:#555">Chargement…</p></div>
@@ -629,7 +641,7 @@
         <div class="num" id="stat-total">—</div><div class="label" data-t="stat_revenue">CA total HT</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="stats" style="margin-bottom:20px">
       <div class="stat" style="--stat-color:#34d399;--stat-bg:#062016;margin-bottom:0">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
         <div class="num" id="stat-buyers">—</div><div class="label" data-t="stat_buyers">Acheteurs</div>
@@ -674,7 +686,7 @@
          agency-only : le endpoint est requireRole('owner','agent'), un
          designer (rattaché à une seule marque) recevrait un 403. -->
     <div class="card agency-only">
-      <h3 style="margin:0 0 14px;font-size:14px">🕘 Timeline commerciale</h3>
+      <h3 style="margin:0 0 14px;font-size:14px">Timeline commerciale</h3>
       <div id="dash-timeline" style="max-height:340px;overflow-y:auto">
         <p style="font-size:12px;color:#555">Chargement…</p>
       </div>
@@ -686,7 +698,6 @@
          indicateur consulté à chaque ouverture du tableau de bord. -->
     <div class="card agency-only" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <span style="font-size:18px">📤</span>
         <h3 style="margin:0;font-size:14px;color:var(--accent)">Partager le showroom</h3>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -728,7 +739,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px" id="buyer-analytics-grid">
       <!-- Top Acheteurs -->
       <div class="card" style="margin-bottom:0">
-        <h3 style="font-size:13px;margin-bottom:14px">🏆 Top Acheteurs</h3>
+        <h3 style="font-size:13px;margin-bottom:14px">Top Acheteurs</h3>
         <div class="table-wrap" id="top-buyers-wrap">
           <table style="min-width:300px">
             <thead><tr><th>Nom</th><th>Société</th><th>Cmds</th><th>CA</th></tr></thead>
@@ -738,14 +749,14 @@
       </div>
       <!-- Acheteurs inactifs -->
       <div class="card" style="margin-bottom:0">
-        <h3 style="font-size:13px;margin-bottom:14px">😴 Acheteurs inactifs</h3>
+        <h3 style="font-size:13px;margin-bottom:14px">Acheteurs inactifs</h3>
         <div id="inactive-buyers-list" style="max-height:280px;overflow-y:auto">
           <p style="font-size:12px;color:#555">Chargement…</p>
         </div>
       </div>
       <!-- Perf. Marques -->
       <div class="card" style="margin-bottom:0">
-        <h3 style="font-size:13px;margin-bottom:14px">📊 Perf. Marques</h3>
+        <h3 style="font-size:13px;margin-bottom:14px">Perf. Marques</h3>
         <div class="table-wrap" id="top-brands-wrap">
           <table style="min-width:280px">
             <thead><tr><th>Marque</th><th>Cmds</th><th>CA</th><th>Acheteurs</th></tr></thead>
@@ -757,7 +768,7 @@
 
     <!-- CARTE DU MONDE DES CLIENTS -->
     <div class="card" id="world-map-card" style="margin-bottom:24px">
-      <h3 style="font-size:13px;margin-bottom:14px">🌍 Clients dans le monde</h3>
+      <h3 style="font-size:13px;margin-bottom:14px">Clients dans le monde</h3>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start" id="world-map-grid">
         <div id="world-map-holder" style="min-height:200px">
           <p style="font-size:12px;color:#555">Chargement de la carte…</p>
@@ -1168,24 +1179,28 @@
   <!-- DEMANDES D'ACCÈS -->
   <div id="access-requests" class="section">
     <h1>Demandes d'accès</h1>
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn btn-sm" id="ar-tab-pending" onclick="switchArTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
-      <button class="btn btn-secondary btn-sm" id="ar-tab-approved" onclick="switchArTab('approved')">Approuvées</button>
-      <button class="btn btn-secondary btn-sm" id="ar-tab-rejected" onclick="switchArTab('rejected')">Refusées</button>
+    <div class="card">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-sm" id="ar-tab-pending" onclick="switchArTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
+        <button class="btn btn-secondary btn-sm" id="ar-tab-approved" onclick="switchArTab('approved')">Approuvées</button>
+        <button class="btn btn-secondary btn-sm" id="ar-tab-rejected" onclick="switchArTab('rejected')">Refusées</button>
+      </div>
+      <div id="ar-list"></div>
     </div>
-    <div id="ar-list"></div>
   </div>
 
   <!-- RELANCES À VALIDER -->
   <div id="pending-reminders" class="section">
     <h1>Relances à valider</h1>
     <p style="font-size:12.5px;color:#888;margin:-6px 0 16px;max-width:560px">Détectées automatiquement (acheteurs inactifs, sélections non confirmées) mais jamais envoyées sans validation — approuvez ou refusez chaque relance individuellement.</p>
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn btn-sm" id="pr-tab-pending" onclick="switchPrTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
-      <button class="btn btn-secondary btn-sm" id="pr-tab-sent" onclick="switchPrTab('sent')">Envoyées</button>
-      <button class="btn btn-secondary btn-sm" id="pr-tab-rejected" onclick="switchPrTab('rejected')">Refusées</button>
+    <div class="card">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-sm" id="pr-tab-pending" onclick="switchPrTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
+        <button class="btn btn-secondary btn-sm" id="pr-tab-sent" onclick="switchPrTab('sent')">Envoyées</button>
+        <button class="btn btn-secondary btn-sm" id="pr-tab-rejected" onclick="switchPrTab('rejected')">Refusées</button>
+      </div>
+      <div id="pr-list"></div>
     </div>
-    <div id="pr-list"></div>
   </div>
 
   <!-- AGENDA -->
@@ -1253,14 +1268,14 @@
   </div>
 
   <div id="sales-report" class="section">
-    <h1>📈 Rapport de ventes</h1>
-    <div class="card agency-only" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <span style="font-size:13px;color:#888">Marque :</span>
-      <select id="sr-brand" onchange="loadSalesReport()" style="padding:6px 12px;font-size:13px;min-width:200px">
-        <option value="">— Choisir une marque —</option>
-      </select>
-    </div>
-    <div class="card" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <h1>Rapport de ventes</h1>
+    <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div class="agency-only" style="display:flex;gap:12px;align-items:center">
+        <span style="font-size:13px;color:#888">Marque :</span>
+        <select id="sr-brand" onchange="loadSalesReport()" style="padding:6px 12px;font-size:13px;min-width:200px">
+          <option value="">— Choisir une marque —</option>
+        </select>
+      </div>
       <span style="font-size:13px;color:#888">Période :</span>
       <select id="sr-period" onchange="loadSalesReport()" style="padding:6px 12px;font-size:13px">
         <option value="all">Depuis le début</option>
@@ -6627,10 +6642,10 @@ async function loadSettings() {
 
 function renderCurrencies(currencies) {
   document.getElementById('currencies-list').innerHTML = currencies.map((c, i) => `
-    <div class="form-row" data-currency-row style="margin-bottom:8px;align-items:flex-end">
-      <div class="form-group" style="max-width:90px"><label>Code</label><input value="${c.code}" data-c-code></div>
-      <div class="form-group" style="max-width:70px"><label>Symbole</label><input value="${c.symbol}" data-c-symbol></div>
-      <div class="form-group" style="max-width:100px"><label>Taux / EUR</label><input type="number" step="0.0001" value="${c.rate}" data-c-rate ${c.code === 'EUR' ? 'disabled' : ''}></div>
+    <div data-currency-row style="display:flex;gap:14px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="max-width:90px;margin-bottom:0"><label>Code</label><input value="${c.code}" data-c-code></div>
+      <div class="form-group" style="max-width:70px;margin-bottom:0"><label>Symbole</label><input value="${c.symbol}" data-c-symbol></div>
+      <div class="form-group" style="max-width:100px;margin-bottom:0"><label>Taux / EUR</label><input type="number" step="0.0001" value="${c.rate}" data-c-rate ${c.code === 'EUR' ? 'disabled' : ''}></div>
       ${c.code !== 'EUR' ? `<button class="btn btn-danger btn-sm" onclick="this.closest('[data-currency-row]').remove()">✕</button>` : ''}
     </div>`).join('');
 }
@@ -6638,14 +6653,12 @@ function renderCurrencies(currencies) {
 function addCurrencyRow() {
   const list = document.getElementById('currencies-list');
   const div = document.createElement('div');
-  div.className = 'form-row';
   div.setAttribute('data-currency-row', '');
-  div.style.marginBottom = '8px';
-  div.style.alignItems = 'flex-end';
+  div.style.cssText = 'display:flex;gap:14px;margin-bottom:8px;align-items:flex-end;flex-wrap:wrap';
   div.innerHTML = `
-    <div class="form-group" style="max-width:90px"><label>Code</label><input placeholder="USD" data-c-code></div>
-    <div class="form-group" style="max-width:70px"><label>Symbole</label><input placeholder="$" data-c-symbol></div>
-    <div class="form-group" style="max-width:100px"><label>Taux / EUR</label><input type="number" step="0.0001" placeholder="1.08" data-c-rate></div>
+    <div class="form-group" style="max-width:90px;margin-bottom:0"><label>Code</label><input placeholder="USD" data-c-code></div>
+    <div class="form-group" style="max-width:70px;margin-bottom:0"><label>Symbole</label><input placeholder="$" data-c-symbol></div>
+    <div class="form-group" style="max-width:100px;margin-bottom:0"><label>Taux / EUR</label><input type="number" step="0.0001" placeholder="1.08" data-c-rate></div>
     <button class="btn btn-danger btn-sm" onclick="this.closest('[data-currency-row]').remove()">✕</button>`;
   list.appendChild(div);
 }
