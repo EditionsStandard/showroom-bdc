@@ -665,6 +665,7 @@ const TRANSLATIONS = {
     dash_deadlines: 'Dates limites de commande', dash_deadlines_none: 'Aucune échéance à venir.',
     dash_contact: 'Votre contact', dash_contact_generic: "L'équipe showroom", dash_contact_message: 'Envoyer un message',
     dash_view_all_orders: 'Voir toutes mes commandes →', dash_view_catalog: 'Parcourir le catalogue →',
+    dash_brands: 'Marques',
     nav_dashboard: 'Accueil',
     account_title: 'Mon profil', account_info: 'Informations personnelles', account_save: 'Enregistrer les modifications',
     account_pw: 'Changer le mot de passe', pw_current: 'Mot de passe actuel', pw_new: 'Nouveau mot de passe', pw_btn: 'Changer le mot de passe',
@@ -808,6 +809,7 @@ const TRANSLATIONS = {
     dash_deadlines: 'Order deadlines', dash_deadlines_none: 'No upcoming deadlines.',
     dash_contact: 'Your contact', dash_contact_generic: 'The showroom team', dash_contact_message: 'Send a message',
     dash_view_all_orders: 'View all my orders →', dash_view_catalog: 'Browse the catalog →',
+    dash_brands: 'Brands',
     nav_dashboard: 'Home',
     account_title: 'My profile', account_info: 'Personal information', account_save: 'Save changes',
     account_pw: 'Change password', pw_current: 'Current password', pw_new: 'New password', pw_btn: 'Change password',
@@ -1212,6 +1214,10 @@ function applyLang() {
         <div class="dash-block-title" data-t="dash_contact">Votre contact</div>
         <div id="dash-contact"></div>
       </div>
+    </div>
+    <div style="margin-top:32px">
+      <div class="dash-block-title" data-t="dash_brands">Marques</div>
+      <div id="dash-brands" class="brand-grid"></div>
     </div>
     <a href="javascript:void(0)" onclick="showView('catalog')" style="display:inline-block;margin-top:28px;font-family:'Inter',sans-serif;font-size:13px;color:var(--accent);text-decoration:underline" data-t="dash_view_catalog">Parcourir le catalogue →</a>
   </div>
@@ -2300,22 +2306,26 @@ function renderBrandPicker() {
     </div>
     <div id="global-search-results" class="global-search-results"></div>
     <div id="brand-grid-inner" class="brand-grid">` +
-    allBrands.map((b, i) => {
-      const coverSrc = b.thumbnail || b.cover_image || '';
-      const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" alt="${esc(b.name)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div class=\\'brand-cover-ph\\'>🏷️</div>'">` : `<div class="brand-cover-ph">🏷️</div>`;
-      const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
-      const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
-      const idx = String(i + 1).padStart(2, '0');
-      const desc = b.about_text ? `<div class="brand-desc" data-tr="${esc(b.about_text)}">${esc(b.about_text)}</div>` : '';
-      const meta = [];
-      if (b.moq_qty && Number(b.moq_qty) > 0) meta.push(`MOQ ${parseInt(b.moq_qty)}`);
-      if (b.lookbook_url) meta.push('Lookbook');
-      const metaHtml = meta.length ? `<div class="brand-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : '';
-      const cta = (currentLang === 'fr' ? 'Voir la collection' : 'View collection') + ' →';
-      const seasonPill = b.season ? `<span class="brand-season">${esc(b.season)}</span>` : '';
-      return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name-row"><div class="brand-name">${esc(b.name)}</div>${seasonPill}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
-    }).join('') + '</div>';
+    allBrands.map(brandCardHtml).join('') + '</div>';
   translateVisibleContent(el); // bios traduites si langue ≠ FR
+}
+
+// Carte marque (cover + nom + description + CTA) — réutilisée à la fois par le
+// catalogue (renderBrandPicker) et le tableau de bord (loadDashboard).
+function brandCardHtml(b, i) {
+  const coverSrc = b.thumbnail || b.cover_image || '';
+  const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" alt="${esc(b.name)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div class=\\'brand-cover-ph\\'>🏷️</div>'">` : `<div class="brand-cover-ph">🏷️</div>`;
+  const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
+  const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
+  const idx = String(i + 1).padStart(2, '0');
+  const desc = b.about_text ? `<div class="brand-desc" data-tr="${esc(b.about_text)}">${esc(b.about_text)}</div>` : '';
+  const meta = [];
+  if (b.moq_qty && Number(b.moq_qty) > 0) meta.push(`MOQ ${parseInt(b.moq_qty)}`);
+  if (b.lookbook_url) meta.push('Lookbook');
+  const metaHtml = meta.length ? `<div class="brand-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : '';
+  const cta = (currentLang === 'fr' ? 'Voir la collection' : 'View collection') + ' →';
+  const seasonPill = b.season ? `<span class="brand-season">${esc(b.season)}</span>` : '';
+  return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name-row"><div class="brand-name">${esc(b.name)}</div>${seasonPill}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
 }
 
 async function openBrand(brandId, _fromPop) {
@@ -2986,6 +2996,11 @@ async function loadDashboard() {
       <a href="javascript:void(0)" onclick="showView('messages')" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
     </div>`;
   }
+
+  // Cartes marques — mêmes cartes que le catalogue, accès direct depuis l'accueil
+  const dashBrandsEl = document.getElementById('dash-brands');
+  dashBrandsEl.innerHTML = (allBrands || []).map(brandCardHtml).join('');
+  translateVisibleContent(dashBrandsEl); // bios traduites si langue ≠ FR
 
   // Prochaine action attendue — règle déterministe simple, priorité décroissante
   const actionEl = document.getElementById('dash-next-action');
