@@ -6781,8 +6781,8 @@ async function generateOrderPDF(orderId) {
     // Colonnes TAILLE et QTÉ fusionnées en une seule colonne "grille" (voir
     // regroupement par référence ci-dessous) — élargie d'autant pour accueillir
     // plusieurs paires taille:qté sur la même ligne.
-    const col  = { ref:50, name:138, color:236, grid:279, pw:412, pr:455, total:500 };
-    const colW = { ref:85, name:95,  color:40,  grid:130, pw:40,  pr:42,  total:45 };
+    const col  = { ref:50, name:138, color:229, grid:270, pw:399, pr:446, total:497 };
+    const colW = { ref:85, name:88,  color:38,  grid:126, pw:44,  pr:48,  total:48 };
     const headers = ['RÉFÉRENCE','DÉSIGNATION','COULEUR','TAILLES / QTÉ','P.U. HT','RETAIL','TOTAL HT'];
     const colKeys = ['ref','name','color','grid','pw','pr','total'];
     const drawTableHead = () => {
@@ -6816,6 +6816,12 @@ async function generateOrderPDF(orderId) {
       const nameText = g.product_name || '';
       const colorText = g.color || '—';
       const gridText = g.sizes.map(s => `${s.size} : ${s.quantity}`).join('   ');
+      // La référence (code SKU) peut être longue et déborder sur 2-3 lignes dans
+      // sa colonne étroite tout comme désignation/couleur/grille ci-dessous —
+      // omise ici auparavant, elle laissait rowH trop court et le texte de la
+      // ligne suivante chevauchait visuellement la référence encore en cours
+      // d'affichage (voire cassait la pagination automatique de PDFKit).
+      const refH = doc.font(F.bold).fontSize(8.5).heightOfString(g.reference || '', { width: colW.ref });
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
       // Voir generateSelectionPDF : la couleur peut déborder de sa colonne
       // étroite sur plusieurs lignes, il faut en tenir compte dans rowH pour
@@ -6825,7 +6831,7 @@ async function generateOrderPDF(orderId) {
       // beaucoup de tailles commandées) — même précaution.
       const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
       const gridH = doc.font(F.reg).fontSize(8).heightOfString(gridText, { width: colW.grid });
-      const rowH  = Math.max(nameH, colorH, gridH, 12) + 7;
+      const rowH  = Math.max(refH, nameH, colorH, gridH, 12) + 7;
       const noteTxt = g.notes.length ? `Note : ${g.notes.join(' — ')}` : '';
       const noteH = noteTxt ? doc.font(F.reg).fontSize(7.5).heightOfString(noteTxt, { width: 480 }) + 3 : 0;
 
