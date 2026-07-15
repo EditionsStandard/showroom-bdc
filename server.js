@@ -6725,6 +6725,16 @@ async function generateOrderPDF(orderId) {
   ]);
   const cgvText      = order.brand_cgv || globalCgv;
 
+  // Condition de paiement négociée spécifiquement pour cet acheteur × cette
+  // marque (voir /api/admin/buyers/:id/terms/:brandId) — n'est rendue que si
+  // elle existe, pour que la marque la voie explicitement sur le document
+  // envoyé, plutôt que seulement sur l'écran de commande de l'acheteur.
+  let negotiatedPayment = null;
+  if (order.buyer_id) {
+    const termsRes = await pool.query('SELECT payment_terms FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [order.buyer_id, order.brand_id]);
+    negotiatedPayment = termsRes.rows[0]?.payment_terms || null;
+  }
+
   // Logo de la marque (si dispo) sinon monogramme showroom
   const logoBuf = (await loadBrandLogoBuffer(order.brand_logo || order.brand_logo_url)) || loadPdfLogo();
 
@@ -6868,6 +6878,17 @@ async function generateOrderPDF(orderId) {
       label('NOTES', LEFT, rowY); rowY += 12;
       doc.font(F.reg).fontSize(9).fillColor('#444').text(order.notes, LEFT, rowY, { width: WIDTH });
       rowY = doc.y + 10;
+    }
+
+    // ── Condition de paiement négociée (mise en avant, avant les CGV standard) ──
+    if (negotiatedPayment) {
+      const npH = doc.font(F.bold).fontSize(9).heightOfString(negotiatedPayment, { width: WIDTH - 32 });
+      ensure(34 + npH);
+      doc.rect(LEFT, rowY, WIDTH, npH + 26).fillColor(ZEBRA).fill();
+      doc.rect(LEFT, rowY, 3, npH + 26).fillColor(INK).fill();
+      doc.font(F.reg).fontSize(7).fillColor(MUTE).text('CONDITIONS DE PAIEMENT NÉGOCIÉES', LEFT + 16, rowY + 9, { characterSpacing: 1.4 });
+      doc.font(F.bold).fontSize(9).fillColor(INK).text(negotiatedPayment, LEFT + 16, rowY + 21, { width: WIDTH - 32 });
+      rowY += npH + 26 + 12;
     }
 
     // ── CGV (toujours incluses au bon de commande final, avec pagination auto) ──
