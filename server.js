@@ -568,7 +568,9 @@ async function getSetting(key) {
 // n'est acceptable qu'en développement local (jamais exposé à Internet).
 function getBaseUrl(req) {
   if (process.env.BASE_URL) return process.env.BASE_URL;
-  if (process.env.NODE_ENV === 'production') return 'https://showroom.editionsstandard.com';
+  // req est absent des tâches de fond (crons, emails déclenchés hors requête HTTP) —
+  // ces contextes retombent aussi sur le domaine de prod plutôt que de planter.
+  if (process.env.NODE_ENV === 'production' || !req) return 'https://showroom.editionsstandard.com';
   const proto = req.headers['x-forwarded-proto'] || req.protocol;
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return `${proto}://${host}`;
@@ -7035,37 +7037,20 @@ const LOGO_URL = 'https://showroom.editionsstandard.com/logo.svg';
 // media queries) + variante CLAIRE automatique via @media (prefers-color-scheme:
 // light) pour les clients qui la supportent (Apple Mail, iOS…), avec bascule du
 // logo blanc↔noir. Défauts inline = sombre ; overrides !important = clair.
-const EMAIL_LOGO_URL = 'cid:email-logo-white';   // blanc (sombre)
-const EMAIL_LOGO_BLACK = 'cid:email-logo-black'; // noir (clair)
+// Logos servis en <img src="https://…"> hébergé (et non en pièce jointe cid:) —
+// Gmail webmail (le client largement majoritaire chez nos acheteurs/marques) ne
+// résout jamais les URI cid:, il réécrit les src d'image via son propre proxy ;
+// un logo cid: y reste donc invisible en permanence, contrairement à une image
+// distante classique (constaté en pratique — cf. rapport "logo absent des emails").
+const EMAIL_LOGO_URL = () => `${getBaseUrl()}/logo-email.png`;   // blanc (sombre)
+const EMAIL_LOGO_BLACK = () => `${getBaseUrl()}/logo-pdf.png`;   // noir (clair)
 const EMAIL_MONO = "'Courier New', Courier, monospace";
 
-// Logos embarqués en pièce jointe cid: (et non plus en <img src="https://...">
-// distant) — un client mail qui bloque les images distantes ou dont le proxy de
-// confidentialité échoue à les récupérer (icône brisée constatée en pratique)
-// affiche quand même le logo, puisqu'il fait partie du message lui-même.
-let _emailLogoAttachments = null;
-function getEmailLogoAttachments() {
-  if (_emailLogoAttachments) return _emailLogoAttachments;
-  try {
-    _emailLogoAttachments = [
-      { filename: 'logo-white.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-email.png')).toString('base64'), contentType: 'image/png', contentId: 'email-logo-white' },
-      { filename: 'logo-black.png', content: fs.readFileSync(path.join(__dirname, 'public', 'logo-pdf.png')).toString('base64'), contentType: 'image/png', contentId: 'email-logo-black' },
-    ];
-  } catch(e) { console.error('[email-logo]', e.message); _emailLogoAttachments = []; }
-  return _emailLogoAttachments;
-}
-
-// Enrobe un client Resend pour que .emails.send() attache automatiquement les
-// deux logos cid: ci-dessus — évite de dupliquer cette logique dans chacun des
-// ~20 points d'envoi d'email du fichier (mêmes options sinon, juste le logo en plus).
+// Conservé pour compatibilité de signature aux ~20 points d'envoi d'email du
+// fichier (`const resend = newResendClient(resendKey)`) — plus de logo à
+// attacher désormais (voir EMAIL_LOGO_URL ci-dessus), donc simple passthrough.
 function newResendClient(apiKey) {
-  const client = new Resend(apiKey);
-  const origSend = client.emails.send.bind(client.emails);
-  client.emails.send = (options) => origSend({
-    ...options,
-    attachments: [...getEmailLogoAttachments(), ...(options.attachments || [])]
-  });
-  return client;
+  return new Resend(apiKey);
 }
 function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor = '#CCEB3C', content, footer = '' }) {
   const brandBlock = brandName ? `
@@ -7113,8 +7098,8 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
 
   <!-- HEADER : logo (noir en clair / blanc en sombre) + nom showroom + kicker -->
   <tr><td style="text-align:center;padding-bottom:26px">
-    <img class="lg-l" src="${EMAIL_LOGO_BLACK}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:inline-block">
-    <img class="lg-d" src="${EMAIL_LOGO_URL}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:none">
+    <img class="lg-l" src="${EMAIL_LOGO_BLACK()}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:inline-block">
+    <img class="lg-d" src="${EMAIL_LOGO_URL()}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:none">
     <div class="em-ink" style="font-family:${EMAIL_MONO};font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#111111;margin-top:14px">${escHtml(showroomName)}</div>
     <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;color:rgba(17,17,17,.45);margin-top:7px">B2B Showroom</div>
   </td></tr>
