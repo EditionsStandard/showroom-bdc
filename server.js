@@ -4720,24 +4720,52 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
   try {
     const { to, message, items } = req.body;
     if (!to || !items?.length) return res.status(400).json({ error: 'Données manquantes' });
-    // Destinataire volontairement libre (partage de sélection à un tiers) — mais
-    // sans limite ni plafond, un compte acheteur devient un relais de spam/phishing
-    // exploitant le domaine d'envoi vérifié du showroom. Rate-limit ci-dessus +
-    // plafond d'articles (même limite que /api/portal/selection-pdf, alignée pour
+    // Destinataire volontairement libre (partage de sélection à un tiers), mais
+    // doit rester une adresse email syntaxiquement valide — sinon ce champ libre
+    // + le domaine d'envoi vérifié du showroom en font un vecteur de phishing.
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(to).trim())) return res.status(400).json({ error: 'Email destinataire invalide' });
+    // Plafond d'articles (même limite que /api/portal/selection-pdf, alignée pour
     // éviter le même DoS PDFKit synchrone).
     if (!Array.isArray(items) || items.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
     const buyer = req.session.buyerPortal;
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(500).json({ error: 'Email non configuré' });
 
-    // Reuse selection-pdf generation logic inline
+    // Le PDF part par email vers un tiers depuis le domaine vérifié du showroom,
+    // sous le nom de l'acheteur authentifié — contrairement à /selection-pdf (un
+    // simple téléchargement local), on ne peut pas faire confiance au contenu
+    // (référence/description/prix/marque) fourni par le client : on ne garde de
+    // chaque ligne que product_id/qty/size/note, et on résout tout le reste
+    // (référence, désignation, couleur, prix, nom de marque) depuis la base.
+    const productIds = [...new Set(items.map(l => l?.product_id).filter(Boolean))];
+    if (!productIds.length) return res.status(400).json({ error: 'Sélection invalide' });
+    const prodRows = await pool.query(
+      `SELECT p.id, p.reference, p.description, p.color, p.price, p.brand_id, b.name AS brand_name
+       FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = ANY($1)`,
+      [productIds]
+    );
+    const prodMap = Object.fromEntries(prodRows.rows.map(p => [p.id, p]));
+    const trustedItems = items
+      .filter(l => l && prodMap[l.product_id])
+      .map(l => {
+        const p = prodMap[l.product_id];
+        return {
+          brand_id: p.brand_id, brand_name: p.brand_name, reference: p.reference,
+          description: p.description, color: p.color, price: p.price,
+          size: (l.size || '').toString().slice(0, 20),
+          qty: Math.max(1, parseInt(l.qty) || 0),
+          note: (l.note || '').toString().slice(0, 200),
+        };
+      });
+    if (!trustedItems.length) return res.status(400).json({ error: 'Sélection invalide' });
+
     const showroomName = await getSetting('showroom_name') || 'Showroom';
     const fromAddress = await getSetting('smtp_from') || 'showroom@editionsstandard.com';
     const showroomEmail = await getSetting('showroom_email');
     const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     const byBrand = {};
-    items.forEach(l => { (byBrand[l.brand_id] = byBrand[l.brand_id] || { name: l.brand_name, lines: [] }).lines.push(l); });
-    const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
+    trustedItems.forEach(l => { (byBrand[l.brand_id] = byBrand[l.brand_id] || { name: l.brand_name, lines: [] }).lines.push(l); });
+    const grandTotal = trustedItems.reduce((s, l) => s + l.qty * parseFloat(l.price || 0), 0);
 
     const pdf = await new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
