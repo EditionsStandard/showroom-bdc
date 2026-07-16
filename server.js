@@ -4983,12 +4983,53 @@ app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), a
 // ==================== MESSAGERIE ACHETEUR ↔ AGENCE =========================
 // Fil asynchrone, un par acheteur. L'acheteur écrit depuis son portail,
 // l'agence répond depuis l'admin (fiche client). Notification email des deux côtés.
+// Un message peut porter une pièce jointe (photo ou PDF) avec ou sans texte.
+
+const ALLOWED_MSG_ATTACH_MIMES = [...ALLOWED_IMAGE_MIMES, 'application/pdf'];
+const MSG_COLS = 'id, sender, body, attachment_url, attachment_name, attachment_type, created_at';
+
+function attachmentEmailNote(name) {
+  return name ? `<p style="font-size:12px;color:#888">📎 Pièce jointe : ${escHtml(name)}</p>` : '';
+}
+
+// Portail : upload d'une pièce jointe (image ou PDF) avant envoi du message
+app.post('/api/portal/messages/attachment', requireBuyerAuth, upload.single('file'), async (req, res) => {
+  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
+  try {
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: 'showroom/messages', resource_type: 'auto',
+      transformation: req.file.mimetype === 'application/pdf' ? undefined : [{ width: 1600, height: 1600, crop: 'limit', quality: 80, fetch_format: 'auto', flags: 'strip_profile' }]
+    });
+    res.json({ url: result.secure_url, name: req.file.originalname || 'fichier', type: req.file.mimetype });
+  } catch(e) {
+    console.error('[upload-message-attachment] Cloudinary:', e.message);
+    res.status(502).json({ error: "Échec de l'envoi du fichier" });
+  }
+});
+
+// Admin : même upload, côté agence
+app.post('/api/admin/buyers/:id/messages/attachment', requireRole('owner', 'agent'), upload.single('file'), async (req, res) => {
+  if (!(await checkBuyerBrandScope(req, res))) return;
+  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
+  try {
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: 'showroom/messages', resource_type: 'auto',
+      transformation: req.file.mimetype === 'application/pdf' ? undefined : [{ width: 1600, height: 1600, crop: 'limit', quality: 80, fetch_format: 'auto', flags: 'strip_profile' }]
+    });
+    res.json({ url: result.secure_url, name: req.file.originalname || 'fichier', type: req.file.mimetype });
+  } catch(e) {
+    console.error('[upload-message-attachment] Cloudinary:', e.message);
+    res.status(502).json({ error: "Échec de l'envoi du fichier" });
+  }
+});
 
 // Portail : fil de l'acheteur connecté (marque ses messages agence comme lus)
 app.get('/api/portal/messages', requireBuyerAuth, async (req, res) => {
   try {
     const bid = req.session.buyerPortal.id;
-    const r = await pool.query('SELECT id, sender, body, created_at FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC', [bid]);
+    const r = await pool.query(`SELECT ${MSG_COLS} FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC`, [bid]);
     await pool.query("UPDATE buyer_messages SET read_by_buyer=true WHERE buyer_id=$1 AND sender='staff' AND read_by_buyer=false", [bid]);
     res.json({ messages: r.rows });
   } catch(e) { console.error('portal messages:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -5002,18 +5043,23 @@ app.get('/api/portal/messages/unread', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.json({ unread: 0 }); }
 });
 
-// Portail : l'acheteur envoie un message → notifie l'agence
+// Portail : l'acheteur envoie un message (texte et/ou pièce jointe) → notifie l'agence
 app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
   try {
     const body = (req.body.body || '').toString().trim();
-    if (!body) return res.status(400).json({ error: 'Message vide' });
+    const attachmentUrl = (req.body.attachment_url || '').toString().trim();
+    const attachmentName = (req.body.attachment_name || '').toString().trim().slice(0, 200);
+    const attachmentType = (req.body.attachment_type || '').toString().trim().slice(0, 100);
+    if (!body && !attachmentUrl) return res.status(400).json({ error: 'Message vide' });
     if (body.length > 4000) return res.status(400).json({ error: 'Message trop long' });
+    if (attachmentUrl && !attachmentUrl.startsWith('https://res.cloudinary.com/')) return res.status(400).json({ error: 'Pièce jointe invalide' });
     const buyer = req.session.buyerPortal;
-    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, read_by_staff) VALUES ($1,$2,$3,$4,false)',
-      [uuidv4(), buyer.id, 'buyer', body]);
+    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, attachment_url, attachment_name, attachment_type, read_by_staff) VALUES ($1,$2,$3,$4,$5,$6,$7,false)',
+      [uuidv4(), buyer.id, 'buyer', body, attachmentUrl, attachmentName, attachmentType]);
     notifyOwner(`Nouveau message de ${buyer.name || buyer.email}`,
       `<p><strong>${escHtml(buyer.name || '')} (${escHtml(buyer.email)})</strong> vous a écrit :</p>
-       <blockquote style="border-left:3px solid rgba(17,17,17,.2);padding-left:12px;color:#444444">${escHtml(body)}</blockquote>
+       ${body ? `<blockquote style="border-left:3px solid rgba(17,17,17,.2);padding-left:12px;color:#444444">${escHtml(body)}</blockquote>` : ''}
+       ${attachmentEmailNote(attachmentName)}
        <p style="font-size:12px;color:#888">Répondez depuis votre admin → fiche client.</p>`).catch(() => {});
     res.json({ ok: true });
   } catch(e) { console.error('portal send message:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -5023,23 +5069,27 @@ app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
 app.get('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async (req, res) => {
   try {
     if (!(await checkBuyerBrandScope(req, res))) return;
-    const r = await pool.query('SELECT id, sender, body, created_at FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC', [req.params.id]);
+    const r = await pool.query(`SELECT ${MSG_COLS} FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at ASC`, [req.params.id]);
     await pool.query("UPDATE buyer_messages SET read_by_staff=true WHERE buyer_id=$1 AND sender='buyer' AND read_by_staff=false", [req.params.id]);
     res.json({ messages: r.rows });
   } catch(e) { console.error('admin messages:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-// Admin : l'agence répond → email à l'acheteur avec lien vers son portail
+// Admin : l'agence répond (texte et/ou pièce jointe) → email à l'acheteur avec lien vers son portail
 app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async (req, res) => {
   try {
     const body = (req.body.body || '').toString().trim();
-    if (!body) return res.status(400).json({ error: 'Message vide' });
+    const attachmentUrl = (req.body.attachment_url || '').toString().trim();
+    const attachmentName = (req.body.attachment_name || '').toString().trim().slice(0, 200);
+    const attachmentType = (req.body.attachment_type || '').toString().trim().slice(0, 100);
+    if (!body && !attachmentUrl) return res.status(400).json({ error: 'Message vide' });
     if (body.length > 4000) return res.status(400).json({ error: 'Message trop long' });
+    if (attachmentUrl && !attachmentUrl.startsWith('https://res.cloudinary.com/')) return res.status(400).json({ error: 'Pièce jointe invalide' });
     const b = (await pool.query('SELECT id, email, name FROM buyers WHERE id=$1', [req.params.id])).rows[0];
     if (!b) return res.status(404).json({ error: 'Acheteur introuvable' });
     if (!(await checkBuyerBrandScope(req, res))) return;
-    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, read_by_buyer) VALUES ($1,$2,$3,$4,false)',
-      [uuidv4(), b.id, 'staff', body]);
+    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, attachment_url, attachment_name, attachment_type, read_by_buyer) VALUES ($1,$2,$3,$4,$5,$6,$7,false)',
+      [uuidv4(), b.id, 'staff', body, attachmentUrl, attachmentName, attachmentType]);
     logAudit(req, 'reply_buyer_message', 'buyer', b.id, '');
     (async () => {
       const resendKey = process.env.RESEND_API_KEY;
@@ -5056,7 +5106,8 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
         html: emailLayout({ showroomName, content:
           `<p>Bonjour ${escHtml(b.name || '')},</p>
            <p>Vous avez un nouveau message de ${escHtml(showroomName || 'notre équipe')} :</p>
-           <blockquote style="border-left:3px solid rgba(17,17,17,.2);padding-left:12px;color:#444444">${escHtml(body)}</blockquote>
+           ${body ? `<blockquote style="border-left:3px solid rgba(17,17,17,.2);padding-left:12px;color:#444444">${escHtml(body)}</blockquote>` : ''}
+           ${attachmentEmailNote(attachmentName)}
            <p><a href="${portalUrl}" style="color:#6b8500">Répondre depuis votre espace →</a></p>` })
       });
       if (error) console.error('[resend] buyer-message-email:', error.message || error);

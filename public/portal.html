@@ -97,6 +97,22 @@
   .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); padding: 8px 12px; margin: 0 8px 8px 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; transition: border-color .15s; }
   .dash-brand-chip:hover { border-color: var(--accent); }
   .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
+  /* Messagerie acheteur ↔ agence — fil façon chat, pièces jointes incluses */
+  .msg-thread { max-height: 54vh; overflow-y: auto; margin-bottom: 10px; padding: 18px; background: var(--dark); border: 1px solid var(--border); border-radius: 0; }
+  .msg-day-sep { text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 12px; }
+  .msg-day-sep:first-child { margin-top: 0; }
+  .msg-row { display: flex; margin-bottom: 10px; }
+  .msg-bubble { max-width: 78%; border-radius: 0; padding: 9px 13px; font-family: 'Inter', sans-serif; font-size: 14px; }
+  .msg-attach-img { display: block; max-width: 220px; width: 100%; margin-bottom: 6px; cursor: zoom-in; border-radius: 0; }
+  .msg-attach-file { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; background: rgba(255,255,255,.08); font-size: 12px; text-decoration: none; color: inherit; }
+  .msg-bubble.mine .msg-attach-file { background: rgba(17,17,17,.12); }
+  .msg-attach-btn { flex-shrink: 0; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--border); color: var(--soft); font-size: 17px; cursor: pointer; transition: border-color .15s, color .15s; }
+  .msg-attach-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .msg-attach-preview { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; background: var(--dark); border: 1px solid var(--border); font-family: 'Inter', sans-serif; font-size: 12px; }
+  .msg-attach-preview img { width: 34px; height: 34px; object-fit: cover; flex-shrink: 0; }
+  .msg-attach-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .msg-attach-preview .remove { cursor: pointer; color: var(--muted); flex-shrink: 0; }
+  .msg-attach-preview .remove:hover { color: var(--white); }
   .save-status { font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
   .save-status:empty { display: none; }
   .save-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--muted); }
@@ -1294,8 +1310,11 @@ function applyLang() {
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <h2 class="section-title" id="msg-section-title">Messages</h2>
     <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin:-6px 0 16px" id="msg-intro">Une question sur une collection, un délai, une commande ? Écrivez-nous, nous vous répondons par email.</p>
-    <div id="pmsg-thread" style="max-height:52vh;overflow:auto;margin-bottom:14px"></div>
-    <div style="display:flex;gap:8px">
+    <div id="pmsg-thread" class="msg-thread"></div>
+    <div id="pmsg-attach-preview" class="msg-attach-preview" style="display:none"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button type="button" id="pmsg-attach-btn" class="msg-attach-btn" onclick="document.getElementById('pmsg-file').click()" title="Joindre une photo ou un PDF">📎</button>
+      <input type="file" id="pmsg-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" style="display:none" onchange="onPortalMsgFileChosen(this)">
       <input id="pmsg-input" type="text" placeholder="Votre message…" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--white);border-radius:0;padding:10px 2px;font-family:inherit;font-size:14px;outline:none" onkeydown="if(event.key==='Enter')sendPortalMessage()">
       <button class="btn-next" id="pmsg-send" onclick="sendPortalMessage()" style="padding:10px 20px" data-t="msg_send">Envoyer</button>
     </div>
@@ -2072,43 +2091,117 @@ function showView(view, _fromPop) {
   if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); }
   if (view === 'favs') renderFavs();
   if (view === 'shortlist') renderShortlist();
-  if (view === 'messages') loadPortalMessages();
+  if (view === 'messages') { loadPortalMessages(); startPmsgPolling(); } else { stopPmsgPolling(); }
   if (!_fromPop) pushNav({ v: view, brand: null });
 }
 
 // ── Messagerie acheteur ↔ agence ──────────────────────────────────────
+function msgDayLabel(dt) {
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const d0 = new Date(dt); d0.setHours(0,0,0,0);
+  if (d0.getTime() === today.getTime()) return currentLang === 'en' ? "Today" : "Aujourd'hui";
+  if (d0.getTime() === yesterday.getTime()) return currentLang === 'en' ? 'Yesterday' : 'Hier';
+  return d0.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: d0.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+}
+function msgAttachmentHtml(m, mine) {
+  if (!m.attachment_url) return '';
+  const isImg = (m.attachment_type || '').startsWith('image/');
+  if (isImg) return `<img class="msg-attach-img" src="${esc(m.attachment_url)}" alt="${esc(m.attachment_name||'')}" onclick="openCarousel(['${esc(m.attachment_url)}'],0)">`;
+  return `<a class="msg-attach-file" href="${esc(m.attachment_url)}" target="_blank" rel="noopener" style="${mine?'':''}">📄 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.attachment_name || 'Fichier')}</span></a>`;
+}
 async function loadPortalMessages() {
   const box = document.getElementById('pmsg-thread');
-  box.innerHTML = '<div style="color:var(--muted);font-size:13px">…</div>';
+  const wasEmpty = !box.dataset.loaded;
+  if (wasEmpty) box.innerHTML = '<div style="color:var(--muted);font-size:13px">…</div>';
   try {
     const d = await fetch('/api/portal/messages').then(r => r.json());
     const msgs = (d && d.messages) || [];
-    if (!msgs.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'Inter\',sans-serif">Aucun message pour le moment.</div>'; }
+    if (!msgs.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'Inter\',sans-serif">Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez une photo.</div>'; }
     else {
-      box.innerHTML = msgs.map(m => {
+      const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+      let lastDay = null, html = '';
+      msgs.forEach(m => {
         const mine = m.sender === 'buyer';
         const dt = new Date(m.created_at);
-        const when = dt.toLocaleDateString(currentLang==='en'?'en-GB':'fr-FR') + ' ' + dt.toLocaleTimeString(currentLang==='en'?'en-GB':'fr-FR', { hour:'2-digit', minute:'2-digit' });
-        return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:8px">
-          <div style="max-width:80%;background:${mine?'var(--accent)':'var(--mid)'};color:${mine?'#111':'var(--white)'};border-radius:0;padding:9px 13px;font-family:'Inter',sans-serif;font-size:14px">
-            <div style="white-space:pre-wrap">${esc(m.body)}</div>
+        const dayKey = dt.toDateString();
+        if (dayKey !== lastDay) { html += `<div class="msg-day-sep">${msgDayLabel(dt)}</div>`; lastDay = dayKey; }
+        const when = dt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+        html += `<div class="msg-row" style="justify-content:${mine?'flex-end':'flex-start'}">
+          <div class="msg-bubble${mine?' mine':''}" style="background:${mine?'var(--accent)':'var(--mid)'};color:${mine?'#111':'var(--white)'}">
+            ${msgAttachmentHtml(m, mine)}
+            ${m.body ? `<div style="white-space:pre-wrap">${esc(m.body)}</div>` : ''}
             <div style="font-size:10px;margin-top:3px;opacity:.7">${mine?'Vous':'Agence'} · ${when}</div>
           </div></div>`;
-      }).join('');
+      });
+      box.innerHTML = html;
       box.scrollTop = box.scrollHeight;
     }
+    box.dataset.loaded = '1';
     setMsgBadge(0); // ouverture = marqués lus côté serveur
   } catch(e) { box.innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur de chargement.</div>'; }
 }
+
+// Fil rafraîchi toutes les 5s pendant que la fenêtre est ouverte (effet "live"
+// sans WebSocket) — démarré/arrêté dans showView() selon la vue active.
+let _pmsgPollInterval = null;
+function startPmsgPolling() {
+  stopPmsgPolling();
+  _pmsgPollInterval = setInterval(loadPortalMessages, 5000);
+}
+function stopPmsgPolling() {
+  if (_pmsgPollInterval) { clearInterval(_pmsgPollInterval); _pmsgPollInterval = null; }
+}
+
+// Pièce jointe en attente d'envoi (photo ou PDF), uploadée immédiatement au
+// choix du fichier — l'URL Cloudinary part avec le message au clic "Envoyer".
+let _pmsgPendingAttachment = null;
+async function onPortalMsgFileChosen(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const allowed = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+  if (!allowed.includes(file.type)) { showPortalToast('Format non supporté (jpg, png, webp, gif, pdf)', true); return; }
+  if (file.size > 10 * 1024 * 1024) { showPortalToast('Fichier trop volumineux (10 Mo max)', true); return; }
+  const preview = document.getElementById('pmsg-attach-preview');
+  preview.style.display = 'flex';
+  preview.innerHTML = `<span>⏳ Envoi du fichier…</span>`;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/portal/messages/attachment', { method: 'POST', body: fd });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { showPortalToast(d.error || 'Erreur envoi', true); preview.style.display = 'none'; return; }
+    _pmsgPendingAttachment = d;
+    renderPmsgAttachPreview();
+  } catch(e) { showPortalToast('Erreur réseau', true); preview.style.display = 'none'; }
+}
+function renderPmsgAttachPreview() {
+  const preview = document.getElementById('pmsg-attach-preview');
+  if (!_pmsgPendingAttachment) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
+  const a = _pmsgPendingAttachment;
+  const isImg = (a.type || '').startsWith('image/');
+  preview.style.display = 'flex';
+  preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}">` : '<span style="font-size:18px">📄</span>'}<span class="name">${esc(a.name)}</span><span class="remove" onclick="clearPmsgAttachment()">✕</span>`;
+}
+function clearPmsgAttachment() { _pmsgPendingAttachment = null; renderPmsgAttachPreview(); }
+
 async function sendPortalMessage() {
   const input = document.getElementById('pmsg-input');
   const body = input.value.trim();
-  if (!body) return;
+  if (!body && !_pmsgPendingAttachment) return;
   const btn = document.getElementById('pmsg-send');
   btn.disabled = true;
   try {
-    const r = await fetch('/api/portal/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ body }) });
-    if (r.ok) { input.value = ''; loadPortalMessages(); }
+    const payload = { body };
+    if (_pmsgPendingAttachment) {
+      payload.attachment_url = _pmsgPendingAttachment.url;
+      payload.attachment_name = _pmsgPendingAttachment.name;
+      payload.attachment_type = _pmsgPendingAttachment.type;
+    }
+    const r = await fetch('/api/portal/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (r.ok) { input.value = ''; clearPmsgAttachment(); loadPortalMessages(); }
   } catch(e) {}
   finally { btn.disabled = false; }
 }
