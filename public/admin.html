@@ -1546,7 +1546,9 @@
         <input type="file" id="bulk-photos-input" accept="image/jpeg,image/png,image/webp,image/*" multiple style="display:none" onchange="importBulkPhotos(this)">
       </label>
       <button class="btn btn-secondary btn-sm" onclick="repairProductFields()" title="Extrait category/color/composition depuis la description si ces champs sont vides">🔧 Réparer les champs</button>
+      <button class="btn btn-secondary btn-sm" onclick="detectDuplicateProducts()" title="Repère les références qui partagent la même désignation + couleur, alors qu'il s'agit de produits différents (à renommer)">🔍 Détecter les doublons</button>
     </div>
+    <div id="duplicates-result" style="display:none;margin-bottom:16px"></div>
     <div style="margin-bottom:16px">
       <span style="font-size:11px;color:#666">CSV — Colonnes acceptées : <strong>reference</strong> (ref, sku) · <strong>description</strong> · <strong>color</strong> (couleur, coloris) · <strong>category</strong> (type) · <strong>composition</strong> · <strong>sizes</strong> (tailles) · <strong>price</strong> (prix, prix_ht, prix_ws, prix_achat) · <strong>price_retail</strong> (pvc, pvr, rrp, retail, prix_retail, prix_conseille) · <strong>image_url</strong> · <strong>collection_name</strong> (collection) — Les accents et majuscules sont ignorés.<br>Photos (JPG, PNG, WebP) — nommer <code>REFERENCE_COULEUR.png</code> ou <code>REFERENCE.jpg</code>. Les PNG (transparence) sont acceptés ; les images très grandes sont automatiquement redimensionnées.</span>
     </div>
@@ -4644,6 +4646,7 @@ async function loadProducts(brandId, brandName) {
   currentBrandName = brandName;
   document.getElementById('modal-products-title').textContent = brandName;
   document.getElementById('add-product-form').style.display = 'none';
+  document.getElementById('duplicates-result').style.display = 'none';
   openModal('modal-products');
   refreshProducts();
   loadCollectionLookbook();
@@ -5068,6 +5071,44 @@ function inlineEditPrice(productId, field, cell) {
     onblur="saveInlinePrice('${productId}','${field}',this,event.target.closest('td'))">`;
   cell.querySelector('input').focus();
   cell.querySelector('input').select();
+}
+
+// Repère les produits partageant EXACTEMENT la même désignation + couleur au
+// sein d'une marque : signe quasi certain que ce sont des articles distincts
+// (photos différentes) mais mal libellés dans le catalogue — ils apparaissent
+// alors comme des doublons illisibles sur les bons de commande (retour marque
+// "5 fois zip funnel white dot" alors qu'il s'agit de 6 imprimés différents).
+function detectDuplicateProducts() {
+  const resultDiv = document.getElementById('duplicates-result');
+  resultDiv.style.display = 'block';
+  const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const groups = {};
+  productsCache.forEach(p => {
+    const key = norm(p.description) + '|' + norm(p.color);
+    if (!norm(p.description) && !norm(p.color)) return; // les deux champs vides = pas exploitable
+    (groups[key] = groups[key] || []).push(p);
+  });
+  const dupGroups = Object.values(groups).filter(g => g.length > 1);
+  if (!dupGroups.length) {
+    resultDiv.innerHTML = `<span style="color:#2ecc71;font-size:13px">✅ Aucun doublon de désignation+couleur détecté sur cette collection.</span>`;
+    setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
+    return;
+  }
+  const totalRefs = dupGroups.reduce((s, g) => s + g.length, 0);
+  resultDiv.innerHTML = `
+    <div style="font-size:13px;color:#e0a030;margin-bottom:10px">⚠️ ${dupGroups.length} groupe(s) — ${totalRefs} référence(s) partagent la même désignation + couleur. Si ce sont réellement des produits différents, renommez-les pour les distinguer (clic sur une référence pour l'éditer).</div>
+    ${dupGroups.map(g => `
+      <div class="card" style="padding:10px 14px;margin-bottom:8px;background:var(--black)">
+        <div style="font-size:12px;color:#ccc;margin-bottom:6px"><strong>${esc(g[0].description || '(sans désignation)')}</strong> — ${esc(g[0].color || '(sans couleur)')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${g.map(p => `
+            <span onclick="editProductById('${p.id}')" style="cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--dark);border-radius: 0;padding:4px 10px;font-size:12px;color:var(--accent);border:1px solid #333">
+              ${p.image_url ? `<img src="${esc(p.image_url)}" style="width:20px;height:20px;object-fit:cover">` : ''}
+              ${esc(p.reference || p.id)}
+            </span>`).join('')}
+        </div>
+      </div>`).join('')}
+  `;
 }
 
 async function repairProductFields() {
