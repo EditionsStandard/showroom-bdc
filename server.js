@@ -1755,6 +1755,13 @@ function parsePrice(v) {
   if (v === null || v === undefined) return 0;
   let s = String(v).trim();
   if (!s) return 0;
+  // Retire tout ce qui n'est pas chiffre/virgule/point/signe moins (symbole
+  // monétaire "€ "/"$"/espace insécable...) avant de parser — un prix formaté
+  // "€ 32,00" (courant dans les exports linesheet de marque) fait échouer
+  // parseFloat silencieusement (il s'arrête au premier caractère non
+  // numérique), donnant 0 sans aucune erreur visible.
+  s = s.replace(/[^0-9,.\-]/g, '');
+  if (!s) return 0;
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : 0;
@@ -1838,6 +1845,96 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
       } catch(e) { errors.push(`${ref}: ${e.message}`); }
     }
     res.json({ created, updated, errors });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// ── Fusion intelligente (par désignation+couleur) ──────────────────────
+// Pour les fichiers marque dont la colonne "reference" est inutilisable
+// (ex. identique sur toutes les lignes) : au lieu d'upserter par référence
+// (risque d'écraser tout le catalogue sur une seule ligne), on retrouve le
+// produit existant par désignation+couleur normalisées et on ne touche QUE
+// les champs susceptibles d'avoir changé (prix, tailles, composition,
+// catégorie) — la référence existante n'est jamais modifiée. Rien n'est
+// jamais créé automatiquement : une ligne sans correspondance est juste
+// listée pour décision manuelle.
+const normMergeKey = s => (s || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
+app.post('/api/brands/:brandId/smart-merge/preview', requireBrandScope('owner', 'agent', 'designer'), async (req, res) => {
+  try {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
+    const prods = await pool.query(
+      'SELECT id, reference, description, color, price, price_retail, sizes, composition, category FROM products WHERE brand_id=$1',
+      [req.params.brandId]
+    );
+    const index = new Map();
+    for (const p of prods.rows) {
+      const key = normMergeKey(p.description) + '|' + normMergeKey(p.color);
+      if (!index.has(key)) index.set(key, []);
+      index.get(key).push(p);
+    }
+    const matched = [], unmatched = [], ambiguous = [];
+    const seenInFile = new Map();
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      const description = (row.description || row.Description || '').trim();
+      const color = (row.color || row.Color || row.couleur || '').trim();
+      const key = normMergeKey(description) + '|' + normMergeKey(color);
+      if (seenInFile.has(key)) {
+        const entry = seenInFile.get(key);
+        entry.duplicateInFile = (entry.duplicateInFile || 1) + 1;
+        continue;
+      }
+      const candidates = index.get(key);
+      if (!candidates) { unmatched.push({ description, color }); continue; }
+      if (candidates.length > 1) { ambiguous.push({ description, color, count: candidates.length }); continue; }
+      const p = candidates[0];
+      const newFields = {
+        price: parsePrice(row.price || row.prix || 0),
+        price_retail: parsePrice(row.price_retail || row.prix_retail || 0),
+        sizes: (row.sizes || row.tailles || '').trim(),
+        composition: (row.composition || '').trim(),
+        category: (row.category || row.categorie || '').trim(),
+      };
+      const changes = {};
+      for (const f of Object.keys(newFields)) {
+        const newVal = newFields[f];
+        if (newVal === '' || newVal === 0) continue; // ligne source vide : on ne remplace jamais par du vide
+        const oldVal = p[f];
+        const isNumeric = f === 'price' || f === 'price_retail';
+        const same = isNumeric ? Math.abs(parseFloat(oldVal) - newVal) < 0.005 : (oldVal || '').toString().trim() === newVal;
+        if (!same) changes[f] = { old: oldVal, new: newVal };
+      }
+      const entry = { productId: p.id, reference: p.reference, description: p.description, color: p.color, changes };
+      seenInFile.set(key, entry);
+      matched.push(entry);
+    }
+    res.json({ matched, unmatched, ambiguous, totalRows: rows.length });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.post('/api/brands/:brandId/smart-merge/apply', requireBrandScope('owner', 'agent', 'designer'), async (req, res) => {
+  try {
+    const { updates } = req.body;
+    if (!Array.isArray(updates) || !updates.length) return res.status(400).json({ error: 'Aucune mise à jour' });
+    let applied = 0;
+    for (const u of updates) {
+      if (!u || !u.productId || !u.changes || typeof u.changes !== 'object') continue;
+      // Ne met à jour QUE les champs listés dans changes, jamais reference/description/color/brand_id.
+      const allowed = ['price', 'price_retail', 'sizes', 'composition', 'category'];
+      const sets = [], vals = [];
+      for (const f of allowed) {
+        if (u.changes[f] !== undefined) { sets.push(`${f}=$${sets.length + 1}`); vals.push(u.changes[f].new !== undefined ? u.changes[f].new : u.changes[f]); }
+      }
+      if (!sets.length) continue;
+      vals.push(u.productId, req.params.brandId);
+      const r = await pool.query(
+        `UPDATE products SET ${sets.join(',')} WHERE id=$${vals.length - 1} AND brand_id=$${vals.length}`,
+        vals
+      );
+      if (r.rowCount) applied++;
+    }
+    logAudit(req, 'smart_merge_apply', 'brand', req.params.brandId, `${applied} produits mis à jour`);
+    res.json({ ok: true, applied });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
