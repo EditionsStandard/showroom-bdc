@@ -756,6 +756,20 @@ const cartLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Invitation prospect : seul endpoint d'email sortant sans limiteur — un compte
+// agent (rôle bas niveau de confiance, scopé à une marque) pouvait déclencher un
+// nombre illimité d'envois Resend en boucle depuis le formulaire multi-emails
+// du tableau de bord. Plafond généreux (compatible avec un vrai envoi en masse
+// après un salon) mais borné, et par COMPTE (authedUserRateLimitKey) — pas par
+// IP — pour ne pas bloquer toute l'agence derrière la même IP de bureau.
+const prospectInviteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 200,
+  keyGenerator: authedUserRateLimitKey,
+  message: { error: 'Trop d\'invitations envoyées. Réessayez dans 1 heure.' },
+  standardHeaders: true, legacyHeaders: false,
+});
 // ==================== ADMIN ROUTES ====================
 
 // Un admin déjà connecté qui revient sur /admin/login (ex. bouton Précédent
@@ -1151,7 +1165,7 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
 // Invitation d'un prospect : envoie depuis l'app un email d'invitation (harmonisé)
 // avec un message personnalisable et le lien de demande d'accès. Contrairement au
 // mailto (prospect → agence), c'est l'agence qui écrit au prospect.
-app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res) => {
+app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLimiter, async (req, res) => {
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email prospect invalide' });
@@ -1249,6 +1263,7 @@ app.put('/api/admin/email-templates/:key/:lang', requireRole('owner'), async (re
 app.delete('/api/admin/email-templates/:key/:lang', requireRole('owner'), async (req, res) => {
   try {
     const { key, lang } = req.params;
+    if (!EMAIL_TEMPLATE_DEFAULTS[key] || !EMAIL_TEMPLATE_DEFAULTS[key][lang]) return res.status(404).json({ error: 'Modèle inconnu' });
     await pool.query('DELETE FROM email_templates WHERE template_key=$1 AND lang=$2', [key, lang]);
     logAudit(req, 'email_template_reset', 'email_template', key + '_' + lang, '');
     res.json({ ok: true });
