@@ -5729,19 +5729,20 @@ async function importCSV(input) {
     let text = await file.text();
     // Remove BOM (Excel UTF-8)
     text = text.replace(/^﻿/, '');
-    const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 2) {
+    const firstLineEnd = text.search(/\r?\n/);
+    const firstLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
+    // Auto-detect separator (tab, ; or ,)
+    const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+    const rows = parseCSVFull(text.trim(), sep);
+    if (rows.length < 2) {
       resultDiv.innerHTML = '<div style="color:#e74c3c;font-size:13px">Fichier vide ou invalide.</div>';
       return;
     }
 
-    // Auto-detect separator (tab, ; or ,)
-    const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
-
     const normalizeHeader = h => h.trim().toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
       .replace(/\s+/g, '_');
-    const header = parseCSVLine(lines[0], sep).map(normalizeHeader);
+    const header = rows[0].map(normalizeHeader);
     const idx = {
       collection_name: header.findIndex(h => h === 'collection_name' || h === 'collection') !== -1
         ? header.findIndex(h => h === 'collection_name' || h === 'collection')
@@ -5766,9 +5767,8 @@ async function importCSV(input) {
     }
 
     let success = 0, errors = 0;
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      const cols = parseCSVLine(lines[i], sep);
+    for (let i = 1; i < rows.length; i++) {
+      const cols = rows[i];
       const body = {
         collection_name: idx.collection_name >= 0 ? cols[idx.collection_name]?.trim() || '' : '',
         reference: cols[idx.reference]?.trim() || '',
@@ -5801,22 +5801,36 @@ async function importCSV(input) {
   }
 }
 
-function parseCSVLine(line, sep = ',') {
-  const result = [];
-  let current = '', inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (ch === sep && !inQuotes) {
-      result.push(current); current = '';
+// Parseur CSV pleine-page (pas ligne par ligne) : un champ entre guillemets
+// — la composition matière, souvent — peut légitimement contenir un retour
+// à la ligne (courant dans les exports linesheet de marque, Excel/Numbers).
+// Un simple split sur \n AVANT le parsing coupait alors une ligne de produit
+// en 2-3 fausses lignes indépendantes, chacune parsée sans savoir qu'elle
+// n'est qu'un fragment — colonnes décalées, références tronquées. Ce
+// parseur suit l'état "dans des guillemets" sur tout le texte, en continu.
+function parseCSVFull(text, sep) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else field += ch;
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === sep) {
+      row.push(field); field = '';
+    } else if (ch === '\r') {
+      // ignoré : \n gère la fin de ligne (compatible CRLF et LF)
+    } else if (ch === '\n') {
+      row.push(field); rows.push(row); row = []; field = '';
     } else {
-      current += ch;
+      field += ch;
     }
   }
-  result.push(current);
-  return result;
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ''));
 }
 
 async function deleteProduct(id) {
@@ -7168,12 +7182,15 @@ function downloadCSVTemplateNew() {
 }
 
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(/[,;]/).map(h => h.trim().replace(/^"|"$/g, ''));
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = line.split(/[,;]/).map(v => v.trim().replace(/^"|"$/g, ''));
+  const firstLineEnd = text.search(/\r?\n/);
+  const firstLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
+  const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+  const rows = parseCSVFull(text.replace(/^﻿/, '').trim(), sep);
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(vals => {
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
     return obj;
   });
 }
@@ -7194,10 +7211,13 @@ function onCsvFileChange(input) {
   const reader = new FileReader();
   reader.onload = function(e) {
     const text = e.target.result;
-    const lines = text.trim().split('\n').filter(l => l.trim());
-    const preview3 = lines.slice(0, 4).join('\n'); // header + 3 rows
+    const firstLineEnd = text.search(/\r?\n/);
+    const firstLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
+    const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+    const rows = parseCSVFull(text.replace(/^﻿/, '').trim(), sep);
+    const preview3 = rows.slice(0, 4).map(r => r.join(sep)).join('\n'); // header + 3 rows
     previewContent.textContent = preview3;
-    const dataCount = Math.max(0, lines.length - 1);
+    const dataCount = Math.max(0, rows.length - 1);
     previewCount.textContent = `${dataCount} ligne${dataCount !== 1 ? 's' : ''} de données détectée${dataCount !== 1 ? 's' : ''}`;
     preview.style.display = 'block';
     submitBtn.disabled = false;
