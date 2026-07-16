@@ -6699,7 +6699,10 @@ app.get('/api/invite/:token', async (req, res) => {
   res.json({ brand_name: r.rows[0].brand_name, brand_logo: r.rows[0].brand_logo });
 });
 
-app.post('/api/invite/:token', async (req, res) => {
+// emailLimiter (IP, 5/h) plutôt que buyerAuthLimiter : ce dernier est keyé par
+// email quand fourni, donc inefficace ici — la création de compte spammée
+// utilise justement un email différent à chaque appel.
+app.post('/api/invite/:token', emailLimiter, async (req, res) => {
   const r = await pool.query(`
     SELECT bil.brand_id, b.name as brand_name
     FROM brand_invite_links bil
