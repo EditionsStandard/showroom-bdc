@@ -1833,8 +1833,17 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
           category: row.category || row.categorie || row.Category || '',
         };
         if (existing.rows[0]) {
-          await pool.query(`UPDATE products SET description=$1,color=$2,sizes=$3,price=$4,price_retail=$5,collection_name=$6,composition=$7,category=$8 WHERE id=$9`,
-            [fields.description, fields.color, fields.sizes, fields.price, fields.price_retail, fields.collection_name, fields.composition, fields.category, existing.rows[0].id]);
+          // Une ligne partielle (ex. fichier "reference,price" seul, ou cellules
+          // vides pour certaines colonnes) ne doit JAMAIS effacer un champ déjà
+          // renseigné — seuls les champs réellement présents dans la ligne sont
+          // écrasés, comme le fait déjà l'upsert produit unique ci-dessus.
+          const sets = [], vals = [];
+          const set = (col, val) => { if (val !== '' && val !== undefined && val !== null) { sets.push(`${col}=$${vals.push(val)}`); } };
+          set('description', fields.description); set('color', fields.color); set('sizes', fields.sizes);
+          if (fields.price > 0) set('price', fields.price);
+          if (fields.price_retail > 0) set('price_retail', fields.price_retail);
+          set('collection_name', fields.collection_name); set('composition', fields.composition); set('category', fields.category);
+          if (sets.length) { vals.push(existing.rows[0].id); await pool.query(`UPDATE products SET ${sets.join(',')} WHERE id=$${vals.length}`, vals); }
           updated++;
         } else {
           const id = uuidv4();
@@ -2339,7 +2348,10 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
   // Patterns: "Category: Top." / "Color: Black." / "Material: Cotton 100%." / "Matière: ..."
   const extract = (text, ...keys) => {
     for (const k of keys) {
-      const m = text.match(new RegExp(k + '\\s*:\\s*([^.]+)\\.?', 'i'));
+      // \b : sans limite de mot, la clé "Type" matchait au milieu de
+      // "Prototype:" (suffixe "type" collé au mot précédent), extrayant et
+      // effaçant à tort un fragment de description qui n'était pas un label.
+      const m = text.match(new RegExp('\\b' + k + '\\s*:\\s*([^.]+)\\.?', 'i'));
       if (m) return m[1].trim();
     }
     return null;
@@ -3597,11 +3609,18 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   // brand_id=$2 est obligatoire ici : sans ce filtre, un product_id d'une autre
   // marque glissé dans les lignes serait résolu quand même (prix/catalogue
   // d'une marque tiers injectés dans la commande de la marque courante).
+  // active != 0 : sans ce filtre, un panier resté ouvert pendant qu'un agent
+  // désactive une référence (rupture de stock, retrait catalogue) pouvait
+  // encore aboutir à une commande confirmée sur ce produit — même garde déjà
+  // appliquée à toutes les listes produits côté portail acheteur.
   const productIds = validLines.map(l => l.product_id);
-  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id = $2', [productIds, brand_id]);
+  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id = $2 AND active != 0', [productIds, brand_id]);
   const productMap = Object.fromEntries(productRows.rows.map(r => [r.id, r]));
   const resolvedLines = validLines.map(line => ({ ...line, product: productMap[line.product_id] })).filter(l => l.product);
   if (!resolvedLines.length) return { error: 'Aucun produit valide pour cette marque' };
+  if (resolvedLines.length < validLines.length) {
+    return { error: 'Un ou plusieurs articles de votre panier ne sont plus disponibles — veuillez actualiser la page et réessayer.' };
+  }
 
   const totalQty = resolvedLines.reduce((s, l) => s + l.quantity, 0);
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * parseFloat(l.product.price || 0), 0);
