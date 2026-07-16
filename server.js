@@ -111,11 +111,17 @@ cloudinary.config({
 });
 const { pool, init } = require('./database');
 
-if (webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+// .trim() : une variable Railway copiée-collée avec un saut de ligne ou une
+// espace en fin de valeur casse silencieusement l'encodage base64url attendu
+// par les navigateurs ("applicationServerKey is not encoded as base64url
+// without padding") — on nettoie une fois ici pour toute la fonctionnalité.
+const VAPID_PUBLIC_KEY = (process.env.VAPID_PUBLIC_KEY || '').trim() || null;
+const VAPID_PRIVATE_KEY = (process.env.VAPID_PRIVATE_KEY || '').trim() || null;
+if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
     'mailto:' + (process.env.ADMIN_EMAIL || 'nguyen.boun@gmail.com'),
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
   );
 }
 
@@ -125,7 +131,7 @@ if (webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 // autres marques). Sans ce filtre, un agent abonné recevait le contenu
 // (nom client + marque) de TOUTES les commandes, toutes marques confondues.
 async function sendPushToAdmins(title, body, brandId) {
-  if (!webpush || !process.env.VAPID_PUBLIC_KEY) return;
+  if (!webpush || !VAPID_PUBLIC_KEY) return;
   try {
     const subs = await pool.query(`
       SELECT ps.subscription_json FROM push_subscriptions ps
@@ -2990,7 +2996,7 @@ app.post('/api/admin/push-subscribe', requireRole('owner','agent'), async (req, 
 });
 
 app.get('/api/admin/vapid-public-key', requireRole('owner','agent'), (req, res) => {
-  res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+  res.json({ key: VAPID_PUBLIC_KEY });
 });
 
 app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (req, res) => {
