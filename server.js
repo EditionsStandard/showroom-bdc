@@ -6744,31 +6744,35 @@ app.post('/api/buyer/request-link', buyerAuthLimiter, async (req, res) => {
   const hasOrders = await pool.query('SELECT 1 FROM orders WHERE brand_id=$1 AND client_email=$2 LIMIT 1', [brand_id, email]);
   // Always respond success regardless, to avoid leaking which emails have ordered
   if (hasOrders.rows[0]) {
-    const token = uuidv4();
-    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
-    await pool.query('INSERT INTO buyer_magic_links (token, brand_id, email, expires_at) VALUES ($1,$2,$3,$4)', [token, brand_id, email, expires]);
-
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
+      // Un compte du portail acheteur protégé par MFA existe pour cet email :
+      // /api/buyer/verify refuse désormais ce lien magique (il contournerait
+      // le MFA). Envoyer quand même un lien qui échouera serait trompeur — on
+      // renvoie plutôt vers la connexion complète du portail dans ce cas.
+      const acct = await pool.query('SELECT mfa_enabled FROM buyers WHERE email=$1', [email]);
+      const mfaProtected = !!acct.rows[0]?.mfa_enabled;
+      let url, content;
+      if (mfaProtected) {
+        url = `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
+        content = `<p>Bonjour,</p><p>Un compte sécurisé existe pour cet email. Connectez-vous via le portail acheteur pour accéder à l'historique de vos commandes pour <strong>${b.rows[0].name}</strong>.</p>${emailBtn(url, 'Me connecter →')}`;
+      } else {
+        const token = uuidv4();
+        const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+        await pool.query('INSERT INTO buyer_magic_links (token, brand_id, email, expires_at) VALUES ($1,$2,$3,$4)', [token, brand_id, email, expires]);
+        url = `${getBaseUrl(req)}/buyer/${brand_id}?token=${token}`;
+        content = `<p>Bonjour,</p><p>Cliquez sur le lien ci-dessous pour accéder à l'historique de vos commandes pour <strong>${b.rows[0].name}</strong>.</p>${emailBtn(url, 'Accéder à mon espace →')}<p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>30 minutes</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>`;
+      }
+
       const resend = newResendClient(resendKey);
       const fromAddress = await getSetting('smtp_from');
       const showroomName = await getSetting('showroom_name');
       const fromField = fromAddress || 'showroom@editionsstandard.com';
-      const url = `${getBaseUrl(req)}/buyer/${brand_id}?token=${token}`;
       const { error: sendErr } = await resend.emails.send({
         from: `${showroomName} <${fromField}>`,
         to: [email],
         subject: `Votre espace commandes — ${b.rows[0].name}`,
-        html: emailLayout({
-          showroomName,
-          brandName: b.rows[0].name,
-          content: `
-            <p>Bonjour,</p>
-            <p>Cliquez sur le lien ci-dessous pour accéder à l'historique de vos commandes pour <strong>${b.rows[0].name}</strong>.</p>
-            ${emailBtn(url, 'Accéder à mon espace →')}
-            <p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>30 minutes</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
-          `
-        })
+        html: emailLayout({ showroomName, brandName: b.rows[0].name, content })
       });
       if (sendErr) console.error('[resend] buyer-magic-link:', sendErr.message || sendErr);
     }
@@ -6785,6 +6789,15 @@ app.get('/api/buyer/verify', async (req, res) => {
     return res.status(401).json({ error: 'Lien invalide ou expiré' });
   }
   await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1', [token]);
+  // Ce lien magique n'exige qu'un accès à la boîte mail — s'il correspond à un
+  // compte du portail acheteur protégé par MFA, l'accepter reviendrait à
+  // contourner ce MFA (accès en lecture à l'historique de commandes + PDF de
+  // facture). On bloque plutôt cette voie légère et on renvoie vers le
+  // portail complet, qui applique le MFA normalement.
+  const acct = await pool.query('SELECT mfa_enabled FROM buyers WHERE email=$1', [link.email]);
+  if (acct.rows[0]?.mfa_enabled) {
+    return res.status(403).json({ error: 'Un compte sécurisé existe pour cet email. Veuillez vous connecter via <a href="/editions-showroom-b2b-portail">le portail acheteur</a>.' });
+  }
   // Régénération de session — anti fixation, même principe que les autres points
   // de connexion (cette route héritée était la seule à en manquer).
   req.session.regenerate(err => {
