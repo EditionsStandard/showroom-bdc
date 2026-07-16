@@ -430,6 +430,10 @@ async function init() {
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_url TEXT DEFAULT ''",
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_name TEXT DEFAULT ''",
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_type TEXT DEFAULT ''",
+    // Détail structuré (JSON) des événements de commande — utilisé pour l'instant
+    // par 'lines_edited' : liste des lignes modifiées avec quantité avant/après,
+    // pour afficher un vrai historique des quantités plutôt qu'une note générique.
+    "ALTER TABLE order_events ADD COLUMN IF NOT EXISTS detail TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

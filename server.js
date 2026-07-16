@@ -505,10 +505,13 @@ function currentTotpStep() {
 }
 
 // ── Order events (timeline) ───────────────────────────────────────────
-async function addOrderEvent(orderId, eventType, note, createdBy) {
+// detail : payload JSON optionnel (ex. liste des lignes modifiées avec
+// quantité avant/après pour 'lines_edited') — affiché en plus de `note`
+// dans le fil d'historique de la commande.
+async function addOrderEvent(orderId, eventType, note, createdBy, detail) {
   await pool.query(
-    'INSERT INTO order_events (order_id, event_type, note, created_by) VALUES ($1,$2,$3,$4)',
-    [orderId, eventType, note || '', createdBy || 'system']
+    'INSERT INTO order_events (order_id, event_type, note, created_by, detail) VALUES ($1,$2,$3,$4,$5)',
+    [orderId, eventType, note || '', createdBy || 'system', detail ? JSON.stringify(detail) : '']
   ).catch(() => {});
 }
 
@@ -5536,19 +5539,21 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
     await dbClient.query('BEGIN');
     // Lignes actuelles + état stock du produit (verrou ligne produit via FOR UPDATE indirect)
     const cur = await dbClient.query(
-      `SELECT ol.id, ol.product_id, ol.quantity, p.stock_enabled, p.stock_qty, p.reference
+      `SELECT ol.id, ol.product_id, ol.quantity, ol.size, p.stock_enabled, p.stock_qty, p.reference
        FROM order_lines ol JOIN products p ON p.id = ol.product_id WHERE ol.order_id=$1`,
       [req.params.id]
     );
     if (!cur.rows.length) { await dbClient.query('ROLLBACK'); return res.status(404).json({ error: 'Commande sans ligne' }); }
 
     let remaining = 0;
+    const changes = []; // { reference, size, old_qty, new_qty } — pour l'historique
     for (const line of cur.rows) {
       const newQty = (line.id in wanted) ? wanted[line.id] : line.quantity; // non fourni = inchangé
       const tracked = line.stock_enabled && line.stock_qty !== null;
       if (newQty === 0) {
         if (tracked) await dbClient.query('UPDATE products SET stock_qty = stock_qty + $1 WHERE id=$2', [line.quantity, line.product_id]);
         await dbClient.query('DELETE FROM order_lines WHERE id=$1', [line.id]);
+        changes.push({ reference: line.reference, size: line.size, old_qty: line.quantity, new_qty: 0 });
         continue;
       }
       const delta = newQty - line.quantity;
@@ -5561,11 +5566,21 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
       } else if (tracked && delta < 0) {
         await dbClient.query('UPDATE products SET stock_qty = stock_qty + $1 WHERE id=$2', [-delta, line.product_id]);
       }
-      if (delta !== 0) await dbClient.query('UPDATE order_lines SET quantity=$1 WHERE id=$2', [newQty, line.id]);
+      if (delta !== 0) {
+        await dbClient.query('UPDATE order_lines SET quantity=$1 WHERE id=$2', [newQty, line.id]);
+        changes.push({ reference: line.reference, size: line.size, old_qty: line.quantity, new_qty: newQty });
+      }
       remaining++;
     }
     if (remaining === 0) { await dbClient.query('ROLLBACK'); return res.status(400).json({ error: 'Une commande doit garder au moins une ligne. Annulez-la plutôt.' }); }
     await dbClient.query('COMMIT');
+
+    logAudit(req, 'edit_order_lines', 'order', req.params.id, '');
+    const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
+    const note = changes.length === 1
+      ? `${changes[0].reference} (${changes[0].size || '—'}) : ${changes[0].old_qty} → ${changes[0].new_qty === 0 ? 'supprimée' : changes[0].new_qty}`
+      : `${changes.length} ligne(s) modifiée(s)`;
+    await addOrderEvent(req.params.id, 'lines_edited', note, changedBy, changes);
   } catch(e) {
     await dbClient.query('ROLLBACK').catch(() => {});
     console.error('[order-lines-edit]', e.message);
@@ -5573,10 +5588,6 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   } finally {
     dbClient.release();
   }
-
-  logAudit(req, 'edit_order_lines', 'order', req.params.id, '');
-  const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
-  await addOrderEvent(req.params.id, 'lines_edited', 'Quantités modifiées', changedBy);
   const totRes = await pool.query('SELECT SUM(quantity * unit_price) AS total FROM order_lines WHERE order_id=$1', [req.params.id]);
   notifyOwnerOrder(req.params.id, 'Commande modifiée (quantités)').catch(() => {}); // copie email au propriétaire
   res.json({ ok: true, total: parseFloat(totRes.rows[0]?.total || 0) });
