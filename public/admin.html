@@ -2071,7 +2071,7 @@
 <div class="modal-overlay" id="modal-buyer-profile">
   <div class="modal" style="max-width:760px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">
-      <h3 style="margin:0">👤 <span id="bp-name"></span></h3>
+      <h3 style="margin:0;display:flex;align-items:center;gap:10px"><span id="bp-avatar"></span><span id="bp-name"></span></h3>
       <span id="bp-status" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius: 0"></span>
     </div>
     <div id="bp-contact" style="font-size:13px;color:#aaa;margin-bottom:16px"></div>
@@ -5834,6 +5834,40 @@ function renderOrdersPage() {
   updateBulkBar();
 }
 
+// ── Avatar acheteur : logo du site web de l'entreprise (favicon, via le
+// domaine de son email) quand c'est un domaine pro, sinon initiales colorées
+// (fournisseurs mail grand public exclus — sinon tout le monde afficherait
+// le même logo Gmail/Outlook). Le favicon est chargé directement par le
+// navigateur (pas de dépendance serveur) ; les initiales sont toujours
+// dessinées en dessous comme repli si le favicon ne charge pas.
+const GENERIC_EMAIL_DOMAINS = new Set([
+  'gmail.com','googlemail.com','yahoo.com','yahoo.fr','yahoo.co.uk','hotmail.com','hotmail.fr',
+  'outlook.com','outlook.fr','live.com','live.fr','icloud.com','me.com','aol.com',
+  'protonmail.com','proton.me','gmx.com','gmx.fr','orange.fr','wanadoo.fr','laposte.net',
+  'free.fr','sfr.fr','bbox.fr','numericable.fr','yandex.com','mail.com'
+]);
+function buyerInitials(b) {
+  const src = (b.company || b.name || b.email || '?').trim();
+  const parts = src.split(/\s+/).filter(Boolean);
+  const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : src.slice(0, 2);
+  return initials.toUpperCase();
+}
+function avatarColor(seed) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360},55%,38%)`;
+}
+function buyerAvatarHtml(b, size) {
+  size = size || 28;
+  const initials = buyerInitials(b);
+  const color = avatarColor(b.email || b.id || initials);
+  const domain = (b.email || '').split('@')[1]?.trim().toLowerCase();
+  const logo = (domain && !GENERIC_EMAIL_DOMAINS.has(domain))
+    ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff" onerror="this.remove()">`
+    : '';
+  return `<span style="width:${size}px;height:${size}px;border-radius:50%;position:relative;overflow:hidden;flex-shrink:0;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.4)}px;font-weight:700">${esc(initials)}${logo}</span>`;
+}
+
 function renderBuyersPage() {
   const totalPages = Math.max(1, Math.ceil(_filteredBuyers.length / BUYERS_PER_PAGE));
   const start = (_buyersPage - 1) * BUYERS_PER_PAGE;
@@ -5850,7 +5884,7 @@ function renderBuyersPage() {
     const total = parseFloat(b.total_amount || 0);
     return `<tr>
       <td style="text-align:center">${dot}</td>
-      <td>${esc(b.name) || '—'}</td>
+      <td style="display:flex;align-items:center;gap:8px">${buyerAvatarHtml(b, 26)}<span>${esc(b.name) || '—'}</span></td>
       <td>${esc(b.company) || '—'}</td>
       <td style="font-size:12px">${esc(b.email)}</td>
       <td style="max-width:140px">${(b.tags||'').split(',').map(t=>t.trim()).filter(Boolean).map(tag=>`<span class="tag" style="background:#1a1a3a;color:#a78bfa;font-size:10px">${esc(tag)}</span>`).join('')||'—'}</td>
@@ -7086,14 +7120,17 @@ async function submitCsvImport() {
 
 // ── Fiche acheteur 360° ──────────────────────────────────────────────
 let _bpBuyerId = null;
+let _bpBuyerData = null;
 async function openBuyerProfile(id) {
   _bpBuyerId = id;
+  _bpBuyerData = null;
   openModal('modal-buyer-profile');
   document.getElementById('bp-messages').innerHTML = '';
   document.getElementById('bp-msg-input').value = '';
   clearBpMsgAttachment();
   startBpMsgPolling(id);
   document.getElementById('bp-name').textContent = '…';
+  document.getElementById('bp-avatar').innerHTML = '';
   document.getElementById('bp-contact').textContent = '';
   document.getElementById('bp-kpis').innerHTML = '';
   document.getElementById('bp-orders').innerHTML = '';
@@ -7111,7 +7148,9 @@ async function openBuyerProfile(id) {
   const eur = n => (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
   const totalCA = orders.filter(o => o.status !== 'cancelled').reduce((s,o)=>s+(Number(o.total)||0),0);
 
+  _bpBuyerData = b;
   document.getElementById('bp-name').textContent = b.name || b.email;
+  document.getElementById('bp-avatar').innerHTML = buyerAvatarHtml(b, 32);
   const st = document.getElementById('bp-status');
   const isClient = orders.some(o => o.status !== 'cancelled');
   st.textContent = isClient ? 'CLIENT' : 'PROSPECT';
@@ -7215,7 +7254,9 @@ function renderBuyerMessages(messages) {
     const dayKey = dt.toDateString();
     if (dayKey !== lastDay) { html += `<div style="text-align:center;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:14px 0 8px">${bpMsgDayLabel(dt)}</div>`; lastDay = dayKey; }
     const when = dt.toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit' });
-    html += `<div style="display:flex;justify-content:${staff?'flex-end':'flex-start'};margin-bottom:6px">
+    const avatar = (!staff && _bpBuyerData) ? buyerAvatarHtml(_bpBuyerData, 22) : '';
+    html += `<div style="display:flex;justify-content:${staff?'flex-end':'flex-start'};align-items:flex-end;gap:6px;margin-bottom:6px">
+      ${avatar}
       <div style="max-width:78%;background:${staff?'var(--accent)':'#1c1c1c'};color:${staff?'#111':'#e0e0e0'};border-radius:0;padding:8px 12px;font-size:13px">
         ${bpMsgAttachmentHtml(m)}
         ${m.body ? `<div style="white-space:pre-wrap">${esc(m.body)}</div>` : ''}
