@@ -1180,22 +1180,30 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
     if (!resendKey) return res.json({ ok: true, emailed: false, brand: brandName || null });
     const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
     const resend = newResendClient(resendKey);
-    const introDefault = brandName
-      ? `<p>Bonjour,</p><p>Vous êtes invité(e) à découvrir la collection <strong>${escHtml(brandName)}</strong> sur notre showroom B2B ${escHtml(showroomName || '')}.</p>`
-      : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez toutes les marques et demandez votre accès en quelques clics.</p>`;
+    // Langue explicitement choisie par l'agent dans le sélecteur du formulaire
+    // d'invitation — pas de langue enregistrée à défaut ici (contrairement au
+    // lien direct/relance), le prospect n'a pas encore de compte.
+    const isEn = req.body.lang === 'en';
+    const introDefault = isEn
+      ? (brandName
+          ? `<p>Hello,</p><p>You're invited to discover the <strong>${escHtml(brandName)}</strong> collection on our B2B showroom ${escHtml(showroomName || '')}.</p>`
+          : `<p>Hello,</p><p>We'd be delighted to welcome you to our B2B showroom ${escHtml(showroomName || '')}. Discover all our brands and request your access in a few clicks.</p>`)
+      : (brandName
+          ? `<p>Bonjour,</p><p>Vous êtes invité(e) à découvrir la collection <strong>${escHtml(brandName)}</strong> sur notre showroom B2B ${escHtml(showroomName || '')}.</p>`
+          : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez toutes les marques et demandez votre accès en quelques clics.</p>`);
     const { error } = await resend.emails.send({
       from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       replyTo: ownerEmail || undefined,
       ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
-      subject: brandName
-        ? `${showroomName || 'Showroom'} — invitation à découvrir ${brandName}`
-        : `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`,
+      subject: isEn
+        ? (brandName ? `${showroomName || 'Showroom'} — invitation to discover ${brandName}` : `${showroomName || 'Showroom'} — invitation to our B2B showroom`)
+        : (brandName ? `${showroomName || 'Showroom'} — invitation à découvrir ${brandName}` : `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`),
       html: emailLayout({ showroomName, content:
-        `<h2 style="font-size:18px;margin:0 0 16px">Découvrez ${brandName ? escHtml(brandName) : 'notre showroom'}</h2>
+        `<h2 style="font-size:18px;margin:0 0 16px">${isEn ? 'Discover' : 'Découvrez'} ${brandName ? escHtml(brandName) : (isEn ? 'our showroom' : 'notre showroom')}</h2>
          ${customMsg ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>` : introDefault}
-         ${emailBtn(link, brandName ? 'REJOINDRE' : 'DEMANDER UN ACCÈS')}
-         <p style="color:#888;font-size:12px">À très bientôt,<br>${escHtml(showroomName || "L'équipe")}</p>` })
+         ${emailBtn(link, isEn ? (brandName ? 'JOIN' : 'REQUEST ACCESS') : (brandName ? 'REJOINDRE' : 'DEMANDER UN ACCÈS'))}
+         <p style="color:#888;font-size:12px">${isEn ? 'See you soon,' : 'À très bientôt,'}<br>${escHtml(showroomName || (isEn ? 'The team' : "L'équipe"))}</p>` })
     });
     // Le SDK Resend résout avec {data:null,error} sur un échec API au lieu de
     // rejeter — sans cette vérification, la réponse affirmait emailed:true
