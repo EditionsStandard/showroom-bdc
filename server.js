@@ -5857,6 +5857,27 @@ app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+app.get('/api/dashboard/top-products', requireRole('owner', 'agent'), async (req, res) => {
+  try {
+    const scoped = isBrandScoped(req);
+    const r = await pool.query(`
+      SELECT p.id, p.reference, p.description, p.color, b.name as brand_name,
+             SUM(ol.quantity) as qty, COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue
+      FROM order_lines ol
+      JOIN orders o ON o.id = ol.order_id
+      JOIN products p ON p.id = ol.product_id
+      JOIN brands b ON b.id = p.brand_id
+      WHERE o.created_at >= NOW() - INTERVAL '6 months'
+        AND o.status NOT IN ('draft', 'cancelled')
+        ${scoped ? 'AND o.brand_id = $1' : ''}
+      GROUP BY p.id, p.reference, p.description, p.color, b.name
+      ORDER BY qty DESC
+      LIMIT 8
+    `, scoped ? [req.userBrandId] : []);
+    res.json(r.rows.map(row => ({ ...row, qty: parseInt(row.qty, 10) || 0, revenue: parseFloat(row.revenue) || 0 })));
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.get('/api/portal/brands/:brandId/slots', requireBuyerAuth, async (req, res) => {
   const days = [];
   const now = new Date();
