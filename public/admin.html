@@ -728,7 +728,11 @@
           <input id="prospect-invite-email" type="email" placeholder="email@prospect.com" style="flex:1;min-width:180px;padding:8px 12px;font-size:13px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0">
           <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()">📨 Envoyer l'invitation</button>
         </div>
-        <textarea id="prospect-invite-msg" rows="2" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit"></textarea>
+        <textarea id="prospect-invite-msg" rows="2" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit;margin-bottom:8px"></textarea>
+        <div style="display:flex;gap:8px;max-width:280px">
+          <button type="button" id="prospect-invite-lang-fr" class="btn btn-sm" onclick="setProspectInviteLang('fr')" style="flex:1;border-radius:0">🇫🇷 Français</button>
+          <button type="button" id="prospect-invite-lang-en" class="btn btn-sm" onclick="setProspectInviteLang('en')" style="flex:1;border-radius:0">🇬🇧 English</button>
+        </div>
       </div>
       <div id="share-preview" style="margin-top:10px;font-size:11px;color:#666;font-family:monospace;min-height:16px"></div>
     </div>
@@ -4467,6 +4471,16 @@ async function genCommandeLink() {
   } catch(e) { toast('Erreur réseau', true); }
 }
 
+let _prospectInviteLang = 'fr';
+function setProspectInviteLang(lang) {
+  _prospectInviteLang = lang;
+  const selectedStyle = 'flex:1;border-radius:0;background:var(--accent);color:var(--dark);font-weight:700;border:none';
+  const unselectedStyle = 'flex:1;border-radius:0;background:transparent;color:#888;font-weight:400;border:1px solid #333';
+  document.getElementById('prospect-invite-lang-fr').style.cssText = lang === 'fr' ? selectedStyle : unselectedStyle;
+  document.getElementById('prospect-invite-lang-en').style.cssText = lang === 'en' ? selectedStyle : unselectedStyle;
+}
+setProspectInviteLang('fr');
+
 async function sendProspectInvite() {
   const emailEl = document.getElementById('prospect-invite-email');
   const email = emailEl.value.trim();
@@ -4475,7 +4489,7 @@ async function sendProspectInvite() {
   const sel = document.getElementById('share-brand-select');
   const brand_id = sel ? sel.value : 'all'; // 'all' = toutes les marques
   try {
-    const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message, brand_id }) });
+    const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message, brand_id, lang: _prospectInviteLang }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) return toast(d.error || 'Erreur', true);
     if (d.emailed) { toast('Invitation envoyée à ' + email + (d.brand ? ' (' + d.brand + ')' : '') + ' ✓'); emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
