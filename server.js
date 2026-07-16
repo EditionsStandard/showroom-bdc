@@ -541,6 +541,64 @@ async function addOrderEvent(orderId, eventType, note, createdBy, detail) {
   ).catch(() => {});
 }
 
+// Décrémente le stock suivi des lignes d'une commande qui sort de l'état
+// "draft" — nécessaire car /reorder est le seul chemin qui insère une
+// commande directement en 'draft' sans passer par createOrder() (qui
+// décrémente déjà le stock à la création) ; sans ce décrément, confirmer un
+// brouillon issu d'un "renouveler" ne reflétait jamais la quantité engagée
+// dans stock_qty, risquant un sur-engagement. Transactionnel et tout-ou-rien :
+// si une ligne n'a plus assez de stock, annule tous les décréments déjà
+// faits pour cette commande plutôt que de la laisser à moitié décrémentée.
+async function decrementOrderStockOnActivation(orderId) {
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query('BEGIN');
+    const lines = await dbClient.query(
+      `SELECT ol.product_id, ol.quantity, p.stock_enabled, p.stock_qty, p.reference
+       FROM order_lines ol JOIN products p ON p.id = ol.product_id WHERE ol.order_id=$1`,
+      [orderId]
+    );
+    for (const line of lines.rows) {
+      if (line.stock_enabled && line.stock_qty !== null) {
+        const upd = await dbClient.query(
+          'UPDATE products SET stock_qty = stock_qty - $1 WHERE id=$2 AND stock_enabled=true AND stock_qty IS NOT NULL AND stock_qty >= $1',
+          [line.quantity, line.product_id]
+        );
+        if (upd.rowCount === 0) {
+          await dbClient.query('ROLLBACK');
+          return { error: `Stock insuffisant pour ${line.reference || line.product_id}` };
+        }
+      }
+    }
+    await dbClient.query('COMMIT');
+    return { ok: true };
+  } catch(e) {
+    await dbClient.query('ROLLBACK');
+    return { error: e.message };
+  } finally {
+    dbClient.release();
+  }
+}
+
+// Recrédite le stock suivi (stock_enabled) des lignes d'une commande annulée
+// ou supprimée — createOrder() et l'édition de lignes décrémentent stock_qty,
+// mais annuler/supprimer une commande ne le recréditait jamais, perdant ce
+// stock définitivement pour les marques qui suivent leurs quantités.
+async function restoreOrderStock(orderId) {
+  try {
+    const lines = await pool.query(
+      `SELECT ol.product_id, ol.quantity, p.stock_enabled, p.stock_qty
+       FROM order_lines ol JOIN products p ON p.id = ol.product_id WHERE ol.order_id=$1`,
+      [orderId]
+    );
+    for (const line of lines.rows) {
+      if (line.stock_enabled && line.stock_qty !== null) {
+        await pool.query('UPDATE products SET stock_qty = stock_qty + $1 WHERE id=$2', [line.quantity, line.product_id]);
+      }
+    }
+  } catch(e) { console.error('restoreOrderStock:', e.message); }
+}
+
 // Helpers
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -2739,6 +2797,14 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
       // statut via cet endpoint (évite de ressusciter silencieusement une
       // commande classée, avec ré-envoi d'email client à l'appui).
       if (oldStatus === 'archived') { await dbClient.query('ROLLBACK'); return res.status(409).json({ error: 'Commande archivée : statut définitif.' }); }
+      // Sortie de "draft" : seul /reorder crée une commande directement en
+      // draft (sans passer par createOrder(), qui décrémente déjà le stock à
+      // la création) — décrémenter ici évite qu'un brouillon confirmé plus
+      // tard n'engage jamais la quantité correspondante dans stock_qty.
+      if (oldStatus === 'draft' && status !== 'draft') {
+        const stockResult = await decrementOrderStockOnActivation(orderId);
+        if (stockResult.error) { await dbClient.query('ROLLBACK'); return res.status(409).json({ error: stockResult.error }); }
+      }
       await dbClient.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
       await dbClient.query('COMMIT');
     } catch(e) {
@@ -2755,6 +2821,12 @@ app.put('/api/orders/:id/status', requireRole('owner','agent'), async (req, res)
       [uuidv4(), orderId, oldStatus, status, changedBy]
     ).catch(e => console.error('history insert error:', e.message));
     await addOrderEvent(orderId, status, `Statut → ${status}`, changedBy);
+    // Recrédite le stock suivi uniquement sur une VRAIE transition vers annulé
+    // (pas si la commande était déjà cancelled) — sinon ré-appliquer le même
+    // statut recréditerait le stock plusieurs fois pour la même commande.
+    if (status === 'cancelled' && oldStatus !== 'cancelled') {
+      restoreOrderStock(orderId).catch(e => console.error('restoreOrderStock:', e.message));
+    }
     // Notify buyer on meaningful transitions
     if (['validated','in_production','shipped'].includes(status)) {
       sendOrderStatusEmail(orderId, status).catch(e => console.error('status email error:', e.message));
@@ -2780,6 +2852,13 @@ app.post('/api/orders/:id/sign', requireRole('owner','agent'), async (req, res) 
     const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
     if (!prev.rows[0]) return res.status(404).json({ error: 'Commande introuvable' });
     const oldStatus = prev.rows[0].status;
+    // Contrairement à PUT /status, cet endpoint ne vérifiait aucun état de
+    // départ — signer une commande annulée ou archivée la ressuscitait
+    // silencieusement en "validated" (avec régénération du PDF + email de
+    // confirmation renvoyé à l'acheteur).
+    if (oldStatus === 'cancelled' || oldStatus === 'archived') {
+      return res.status(409).json({ error: `Commande ${oldStatus === 'cancelled' ? 'annulée' : 'archivée'} : impossible de la signer.` });
+    }
     const signedBy = req.session?.staffUser?.name || req.session?.staffUser?.email || (req.session?.admin ? 'Owner' : 'Agent');
 
     await pool.query(
@@ -3116,6 +3195,16 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
       if (scoped && prev.rows[0].brand_id !== req.userBrandId) continue; // n'agit que sur sa marque
       const oldStatus = prev.rows[0].status || '';
       if (oldStatus === 'archived') continue; // statut terminal, cf. PUT /api/orders/:id/status
+      // Même logique de cohérence stock que PUT /api/orders/:id/status : une
+      // annulation groupée doit recréditer le stock suivi, et confirmer un
+      // brouillon (issu de /reorder) doit le décrémenter.
+      if (status === 'cancelled' && oldStatus !== 'cancelled') {
+        restoreOrderStock(orderId).catch(e => console.error('restoreOrderStock (bulk):', e.message));
+      }
+      if (oldStatus === 'draft' && status !== 'draft') {
+        const stockResult = await decrementOrderStockOnActivation(orderId);
+        if (stockResult.error) continue; // stock insuffisant : cette commande est ignorée, pas les autres
+      }
       await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
       await pool.query(
         'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
@@ -3142,6 +3231,7 @@ app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => 
     if (!await checkOrderBrandScope(req, res)) return;
     // Copie email au propriétaire AVANT suppression (la commande n'existera plus après)
     await notifyOwnerOrder(req.params.id, 'Commande supprimée');
+    await restoreOrderStock(req.params.id);
     await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
     await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -3613,8 +3703,12 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   // désactive une référence (rupture de stock, retrait catalogue) pouvait
   // encore aboutir à une commande confirmée sur ce produit — même garde déjà
   // appliquée à toutes les listes produits côté portail acheteur.
+  // OR is_sample : les échantillons hors-catalogue sont créés avec active=0
+  // PAR CONCEPTION (masqués du catalogue public, cf. /sample-product) mais
+  // doivent rester commandables via leur product_id — les exclure ici
+  // rejetait purement et simplement toute commande contenant un échantillon.
   const productIds = validLines.map(l => l.product_id);
-  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id = $2 AND active != 0', [productIds, brand_id]);
+  const productRows = await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id = $2 AND (active != 0 OR is_sample = true)', [productIds, brand_id]);
   const productMap = Object.fromEntries(productRows.rows.map(r => [r.id, r]));
   const resolvedLines = validLines.map(line => ({ ...line, product: productMap[line.product_id] })).filter(l => l.product);
   if (!resolvedLines.length) return { error: 'Aucun produit valide pour cette marque' };
@@ -3953,14 +4047,28 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     });
     if (!finalLines.length) return res.status(400).json({ error: 'Veuillez indiquer au moins une quantité.' });
 
+    // Réclame la sélection de façon atomique juste avant de créer la commande —
+    // le "if (sel.used)" plus haut est lu depuis un SELECT fait avant toute la
+    // validation mot de passe/tailles ci-dessus ; deux soumissions quasi
+    // simultanées (double-clic, deux onglets) le passaient toutes les deux et
+    // créaient chacune une commande complète (double décompte de stock, double
+    // email, sélection consommée deux fois). Seule cette UPDATE conditionnelle
+    // fait foi : une seule requête concurrente peut gagner la ligne WHERE used=false.
+    const claim = await pool.query('UPDATE agent_selections SET used=true WHERE token=$1 AND used=false RETURNING token', [req.params.token]);
+    if (!claim.rows.length) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
+
     const result = await createOrder({
       brand_id: sel.brand_id, client_name: buyer.name || sel.client_name, client_email: email,
       client_company: buyer.company || sel.client_company, client_phone: buyer.phone, client_country: buyer.country,
       notes: sel.notes, lines: finalLines, buyer_signature: signature, cgv_accepted: cgv_accepted ? 1 : 0, buyer_id: buyer.id
     });
-    if (result.error) return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
-
-    await pool.query('UPDATE agent_selections SET used=true WHERE token=$1', [req.params.token]);
+    if (result.error) {
+      // La commande a échoué (MOQ non atteint, marque désactivée...) : on
+      // libère la sélection réclamée ci-dessus pour ne pas la rendre
+      // définitivement inutilisable alors qu'aucune commande n'a été créée.
+      await pool.query('UPDATE agent_selections SET used=false WHERE token=$1', [req.params.token]);
+      return res.status(result.error === 'subscription_inactive' ? 403 : 400).json(result);
+    }
     // P0-08 — journalise la signature/validation (preuve en cas de litige) :
     // acteur = acheteur, horodatage (NOW), commande, IP + acceptation CGV.
     pool.query('INSERT INTO admin_audit_log (id,user_email,action,target_type,target_id,details,created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
