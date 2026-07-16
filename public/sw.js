@@ -52,13 +52,19 @@ self.addEventListener('fetch', e => {
   // nom/rôle de l'agent connecté — sur un appareil de vente partagé, une coupure
   // réseau juste après le changement d'agent pourrait sinon réafficher l'identité
   // de l'agent précédent depuis le cache générique ci-dessous.
-  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff') || url.pathname === '/api/me') {
+  // /api/public/brands/:brandId, /commande, /api/selection, /selection : même
+  // risque — catalogue et prix wholesale protégés par un token de lien de
+  // commande ou de sélection, revérifié en base à chaque requête (voir
+  // hasCommandeAccess ci-dessus côté serveur). Une révocation de lien ne doit
+  // pas pouvoir être contournée par une coupure réseau qui re-sert la version
+  // mise en cache avant révocation.
+  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff') || url.pathname === '/api/me' || url.pathname.startsWith('/api/public/brands') || url.pathname.startsWith('/commande') || url.pathname.startsWith('/api/selection') || url.pathname.startsWith('/selection')) {
     e.respondWith(fetch(e.request));
     return;
   }
 
-  // API brand/products: Network-first, cache fallback
-  if (url.pathname.startsWith('/api/public/brands') || url.pathname === '/api/public/cgv') {
+  // API CGV : Network-first, cache fallback (contenu public, pas sensible)
+  if (url.pathname === '/api/public/cgv') {
     e.respondWith(
       fetch(e.request)
         .then(r => {
