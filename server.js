@@ -4637,6 +4637,7 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   }
 
   const results = [];
+  let anyError = false;
   for (const [brand_id, brandLines] of Object.entries(byBrand)) {
     const r = await createOrder({
       brand_id, client_name,
@@ -4646,10 +4647,11 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
       client_country: client_country || buyer.country,
       notes, lines: brandLines, buyer_signature, cgv_accepted, buyer_id: buyer.id
     });
-    results.push({ brand_id, ...r });
+    if (r.error) anyError = true;
+    results.push({ brand_id, brand_name: brandNameOf(brand_id), ...r });
   }
 
-  res.json({ ok: true, orders: results });
+  res.json({ ok: !anyError, orders: results });
 });
 
 app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
