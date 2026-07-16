@@ -728,8 +728,8 @@
         </div>
         <!-- Invitation directe : l'agence envoie un email au prospect (selon la cible ci-dessus) -->
         <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inviter un prospect par email <span id="invite-scope" style="color:#778;text-transform:none;letter-spacing:0">· toutes les marques</span></div>
+        <textarea id="prospect-invite-email" rows="2" placeholder="email@prospect.com — un ou plusieurs emails, un par ligne ou séparés par virgule" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:13px;font-family:inherit;margin-bottom:8px"></textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-          <input id="prospect-invite-email" type="email" placeholder="email@prospect.com" style="flex:1;min-width:180px;padding:8px 12px;font-size:13px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0">
           <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()">📨 Envoyer l'invitation</button>
         </div>
         <textarea id="prospect-invite-msg" rows="2" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit;margin-bottom:8px"></textarea>
@@ -4512,18 +4512,36 @@ setProspectInviteLang('fr');
 
 async function sendProspectInvite() {
   const emailEl = document.getElementById('prospect-invite-email');
-  const email = emailEl.value.trim();
-  if (!email || !email.includes('@')) return toast('Email prospect valide requis', true);
+  const raw = emailEl.value.trim();
+  if (!raw) return toast('Email(s) prospect requis', true);
+  // Accepte un collage multi-lignes (Excel/Numbers) ou séparé par virgule/point-virgule.
+  const tokens = [...new Set(raw.split(/[\n,;]+/).map(e => e.trim()).filter(Boolean))];
+  const validEmails = tokens.filter(e => e.includes('@'));
+  const invalidCount = tokens.length - validEmails.length;
+  if (!validEmails.length) return toast('Aucun email valide détecté', true);
   const message = document.getElementById('prospect-invite-msg').value.trim();
   const sel = document.getElementById('share-brand-select');
   const brand_id = sel ? sel.value : 'all'; // 'all' = toutes les marques
-  try {
-    const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message, brand_id, lang: _prospectInviteLang }) });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) return toast(d.error || 'Erreur', true);
-    if (d.emailed) { toast('Invitation envoyée à ' + email + (d.brand ? ' (' + d.brand + ')' : '') + ' ✓'); emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
-    else toast('Email non configuré (RESEND_API_KEY) — invitation non envoyée', true);
-  } catch(e) { toast('Erreur réseau', true); }
+  const btn = document.querySelector('button[onclick="sendProspectInvite()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Envoi…'; }
+  let sent = 0, failed = 0;
+  // Envoi séquentiel (pas en parallèle) : évite de bombarder l'API Resend
+  // d'un coup si on colle une longue liste de prospects.
+  for (const email of validEmails) {
+    try {
+      const r = await fetch('/api/prospect-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, message, brand_id, lang: _prospectInviteLang }) });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.emailed) sent++; else failed++;
+    } catch(e) { failed++; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = "📨 Envoyer l'invitation"; }
+  let summary = validEmails.length > 1
+    ? `${sent}/${validEmails.length} invitation${sent>1?'s':''} envoyée${sent>1?'s':''}`
+    : (sent ? 'Invitation envoyée' : "Échec de l'envoi");
+  if (failed && validEmails.length > 1) summary += ` (${failed} échec${failed>1?'s':''})`;
+  if (invalidCount) summary += ` · ${invalidCount} entrée${invalidCount>1?'s':''} ignorée${invalidCount>1?'s':''} (pas d'email valide)`;
+  toast(summary + (sent ? ' ✓' : ''), !sent);
+  if (sent) { emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
 }
 
 async function copyShareLink(type) {
