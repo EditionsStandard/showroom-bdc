@@ -434,6 +434,16 @@ async function init() {
     // par 'lines_edited' : liste des lignes modifiées avec quantité avant/après,
     // pour afficher un vrai historique des quantités plutôt qu'une note générique.
     "ALTER TABLE order_events ADD COLUMN IF NOT EXISTS detail TEXT DEFAULT ''",
+    // Surcharges de texte des emails sortants (invitation, relance, accès direct) —
+    // une ligne par (template, langue) ; absence de ligne = texte par défaut du code.
+    `CREATE TABLE IF NOT EXISTS email_templates (
+      template_key TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      subject TEXT DEFAULT '',
+      body TEXT DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template_key, lang)
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

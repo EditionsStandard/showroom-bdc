@@ -582,6 +582,7 @@
     <a data-section="brands"><span class="icon">🏷️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
     <a data-section="orders"><span class="icon">📋</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="email-templates" id="nav-email-templates" style="display:none"><span class="icon">✉️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6z"/><path d="M22 6l-10 7L2 6"/></svg> <span>Modèles email</span></a>
     <a data-section="security" id="nav-security" style="display:none"><span class="icon">🔒</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> <span>Sécurité &amp; audit</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
     <a data-section="buyers" id="nav-buyers"><span class="icon">🛍️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> <span data-t="nav_buyers">Acheteurs</span></a>
@@ -1008,6 +1009,13 @@
         <button class="btn btn-primary" style="margin-top:14px" onclick="document.getElementById('mfa-backup-codes-flow').style.display='none';loadMfaSection()">J'ai noté mes codes</button>
       </div>
     </div>
+  </div>
+
+  <!-- MODÈLES EMAIL -->
+  <div id="email-templates" class="section">
+    <h1>Modèles email</h1>
+    <p style="font-size:12px;color:#888;margin:-6px 0 18px;max-width:640px">Personnalisez le texte des emails envoyés aux prospects et acheteurs. La mise en page (logo, couleurs, mode sombre) reste gérée automatiquement — vous éditez uniquement le texte, avec des variables qui se remplissent toutes seules à l'envoi.</p>
+    <div id="email-templates-list"></div>
   </div>
 
   <!-- SECURITY -->
@@ -2547,6 +2555,7 @@ function activateSection(name, fromPop) {
   if (name === 'pending-reminders') loadPendingReminders();
   if (name === 'security') loadSecurity();
   if (name === 'mfa') loadMfaSection();
+  if (name === 'email-templates') loadEmailTemplates();
   if (!fromPop) history.pushState({ adminSection: name }, '', '/admin');
 }
 document.querySelectorAll('nav a').forEach(a => {
@@ -2584,6 +2593,7 @@ async function initUserRole() {
   if (me.role === 'owner') {
     document.getElementById('nav-staff').style.display = '';
     document.getElementById('nav-security').style.display = '';
+    document.getElementById('nav-email-templates').style.display = '';
     const ownerOpts = document.querySelectorAll('#role-owner-option, #edit-role-owner-option');
     ownerOpts.forEach(el => el.style.display = '');
   } else {
@@ -6870,6 +6880,92 @@ async function disableMfa() {
 }
 
 // Settings
+// ── Modèles d'email (owner) ────────────────────────────────────────────
+const EMAIL_TEMPLATE_LABELS = {
+  prospect_invite: 'Invitation prospect',
+  relance: 'Relance acheteur inactif',
+  access_link: 'Accès direct (lien magique)'
+};
+let _emailTemplatesData = null;
+let _emailTemplatesActiveLang = {};
+
+async function loadEmailTemplates() {
+  const box = document.getElementById('email-templates-list');
+  box.innerHTML = '<p style="color:#666;font-size:13px">Chargement…</p>';
+  try {
+    _emailTemplatesData = await fetch('/api/admin/email-templates').then(r => r.json());
+    renderEmailTemplates();
+  } catch(e) { box.innerHTML = '<p style="color:#e07a7a;font-size:13px">Erreur de chargement</p>'; }
+}
+
+function renderEmailTemplates() {
+  const box = document.getElementById('email-templates-list');
+  if (!_emailTemplatesData) return;
+  const { defaults, overrides, vars } = _emailTemplatesData;
+  box.innerHTML = Object.keys(defaults).map(key => {
+    const activeLang = _emailTemplatesActiveLang[key] || 'fr';
+    const isOverridden = !!(overrides[key] && overrides[key][activeLang]);
+    const current = (overrides[key] && overrides[key][activeLang]) || defaults[key][activeLang];
+    const varsList = (vars[key] || []).map(([v, desc]) =>
+      `<div style="font-size:11px;color:#888;margin-bottom:3px"><code style="color:var(--accent)">${esc(v)}</code> — ${esc(desc)}</div>`
+    ).join('');
+    return `<div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0;font-size:14px">${esc(EMAIL_TEMPLATE_LABELS[key] || key)}</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${isOverridden
+            ? '<span style="font-size:10px;background:#1e3a1e;color:#2ecc71;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em">Personnalisé</span>'
+            : '<span style="font-size:10px;background:#2a2a2a;color:#888;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em">Par défaut</span>'}
+          <div style="display:flex">
+            <button type="button" class="btn btn-sm" onclick="setEmailTemplateLang('${key}','fr')" style="border-radius:0;${activeLang==='fr'?'background:var(--accent);color:var(--dark);font-weight:700;border:none':'background:transparent;color:#888;border:1px solid #333'}">FR</button>
+            <button type="button" class="btn btn-sm" onclick="setEmailTemplateLang('${key}','en')" style="border-radius:0;${activeLang==='en'?'background:var(--accent);color:var(--dark);font-weight:700;border:none':'background:transparent;color:#888;border:1px solid #333'}">EN</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:11px;color:#888">Sujet</label>
+        <input id="et-subject-${key}" type="text" value="${esc(current.subject)}" style="width:100%;box-sizing:border-box">
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:11px;color:#888">Corps du message — HTML simple accepté (&lt;p&gt;, &lt;strong&gt;, &lt;br&gt;)</label>
+        <textarea id="et-body-${key}" rows="7" style="width:100%;box-sizing:border-box;font-family:'Courier New',monospace;font-size:12px">${esc(current.body)}</textarea>
+      </div>
+      <div style="margin-bottom:12px">${varsList}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="saveEmailTemplate('${key}')">💾 Enregistrer</button>
+        ${isOverridden ? `<button class="btn btn-secondary btn-sm" onclick="resetEmailTemplate('${key}')">↺ Réinitialiser au texte par défaut</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setEmailTemplateLang(key, lang) {
+  _emailTemplatesActiveLang[key] = lang;
+  renderEmailTemplates();
+}
+
+async function saveEmailTemplate(key) {
+  const lang = _emailTemplatesActiveLang[key] || 'fr';
+  const subject = document.getElementById(`et-subject-${key}`).value;
+  const body = document.getElementById(`et-body-${key}`).value;
+  try {
+    const r = await fetch(`/api/admin/email-templates/${key}/${lang}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ subject, body }) });
+    if (!r.ok) return toast("Erreur d'enregistrement", true);
+    toast('Modèle enregistré ✓');
+    await loadEmailTemplates();
+  } catch(e) { toast('Erreur réseau', true); }
+}
+
+async function resetEmailTemplate(key) {
+  const lang = _emailTemplatesActiveLang[key] || 'fr';
+  try {
+    const r = await fetch(`/api/admin/email-templates/${key}/${lang}`, { method: 'DELETE' });
+    if (!r.ok) return toast('Erreur', true);
+    toast('Réinitialisé au texte par défaut ✓');
+    await loadEmailTemplates();
+  } catch(e) { toast('Erreur réseau', true); }
+}
+
 async function loadSettings() {
   updateSettingsLangButtons();
   const s = await fetch('/api/settings').then(r => r.json());

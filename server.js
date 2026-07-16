@@ -1184,26 +1184,29 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
     // d'invitation — pas de langue enregistrée à défaut ici (contrairement au
     // lien direct/relance), le prospect n'a pas encore de compte.
     const isEn = req.body.lang === 'en';
-    const introDefault = isEn
-      ? (brandName
-          ? `<p>Hello,</p><p>You're invited to discover the <strong>${escHtml(brandName)}</strong> collection on our B2B showroom ${escHtml(showroomName || '')}.</p>`
-          : `<p>Hello,</p><p>We'd be delighted to welcome you to our B2B showroom ${escHtml(showroomName || '')}. Discover all our brands and request your access in a few clicks.</p>`)
-      : (brandName
-          ? `<p>Bonjour,</p><p>Vous êtes invité(e) à découvrir la collection <strong>${escHtml(brandName)}</strong> sur notre showroom B2B ${escHtml(showroomName || '')}.</p>`
-          : `<p>Bonjour,</p><p>Nous serions ravis de vous accueillir sur notre showroom B2B ${escHtml(showroomName || '')}. Découvrez toutes les marques et demandez votre accès en quelques clics.</p>`);
+    const lang = isEn ? 'en' : 'fr';
+    const marqueHtml = brandName
+      ? (isEn ? `the <strong>${escHtml(brandName)}</strong> collection` : `la collection <strong>${escHtml(brandName)}</strong>`)
+      : (isEn ? 'our curated brands' : 'notre sélection de marques');
+    const marqueTxt = brandName || (isEn ? 'our brands' : 'nos marques');
+    const buttonHtml = emailBtn(link, isEn ? 'DISCOVER →' : 'DÉCOUVRIR →');
+    const tpl = await getEmailTemplate('prospect_invite', lang);
+    const subject = applyTemplateVars(tpl.subject, { marque_txt: escHtml(marqueTxt), showroom: escHtml(showroomName || '') });
+    // Un message personnalisé (saisi pour cet envoi précis) remplace le corps
+    // du modèle éditable — le bouton reste toujours présent pour garantir un
+    // lien cliquable, même si l'agent oublie de le mentionner dans son texte.
+    const bodyHtml = customMsg
+      ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>${buttonHtml}`
+      : applyTemplateVars(tpl.body, { marque: marqueHtml, showroom: escHtml(showroomName || ''), bouton: buttonHtml });
     const { error } = await resend.emails.send({
       from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [email],
       replyTo: ownerEmail || undefined,
       ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
-      subject: isEn
-        ? (brandName ? `${showroomName || 'Showroom'} — invitation to discover ${brandName}` : `${showroomName || 'Showroom'} — invitation to our B2B showroom`)
-        : (brandName ? `${showroomName || 'Showroom'} — invitation à découvrir ${brandName}` : `${showroomName || 'Showroom'} — invitation à découvrir notre showroom B2B`),
+      subject,
       html: emailLayout({ showroomName, content:
         `<h2 style="font-size:18px;margin:0 0 16px">${isEn ? 'Discover' : 'Découvrez'} ${brandName ? escHtml(brandName) : (isEn ? 'our showroom' : 'notre showroom')}</h2>
-         ${customMsg ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>` : introDefault}
-         ${emailBtn(link, isEn ? (brandName ? 'JOIN' : 'REQUEST ACCESS') : (brandName ? 'REJOINDRE' : 'DEMANDER UN ACCÈS'))}
-         <p style="color:#888;font-size:12px">${isEn ? 'See you soon,' : 'À très bientôt,'}<br>${escHtml(showroomName || (isEn ? 'The team' : "L'équipe"))}</p>` })
+         ${bodyHtml}` })
     });
     // Le SDK Resend résout avec {data:null,error} sur un échec API au lieu de
     // rejeter — sans cette vérification, la réponse affirmait emailed:true
@@ -1214,6 +1217,43 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), async (req, res)
 });
 
 // ==================== API ADMIN ====================
+
+// ── Modèles d'email (owner) — texte des emails sortants, éditable sans toucher au code.
+app.get('/api/admin/email-templates', requireRole('owner'), async (req, res) => {
+  try {
+    const rows = (await pool.query('SELECT template_key, lang, subject, body FROM email_templates')).rows;
+    const overrides = {};
+    rows.forEach(r => {
+      overrides[r.template_key] = overrides[r.template_key] || {};
+      overrides[r.template_key][r.lang] = { subject: r.subject, body: r.body };
+    });
+    res.json({ defaults: EMAIL_TEMPLATE_DEFAULTS, overrides, vars: EMAIL_TEMPLATE_VARS });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.put('/api/admin/email-templates/:key/:lang', requireRole('owner'), async (req, res) => {
+  try {
+    const { key, lang } = req.params;
+    if (!EMAIL_TEMPLATE_DEFAULTS[key] || !EMAIL_TEMPLATE_DEFAULTS[key][lang]) return res.status(404).json({ error: 'Modèle inconnu' });
+    const subject = (req.body.subject || '').toString().slice(0, 300);
+    const body = (req.body.body || '').toString().slice(0, 10000);
+    await pool.query(`
+      INSERT INTO email_templates (template_key, lang, subject, body, updated_at) VALUES ($1,$2,$3,$4,NOW())
+      ON CONFLICT (template_key, lang) DO UPDATE SET subject=$3, body=$4, updated_at=NOW()
+    `, [key, lang, subject, body]);
+    logAudit(req, 'email_template_update', 'email_template', key + '_' + lang, '');
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.delete('/api/admin/email-templates/:key/:lang', requireRole('owner'), async (req, res) => {
+  try {
+    const { key, lang } = req.params;
+    await pool.query('DELETE FROM email_templates WHERE template_key=$1 AND lang=$2', [key, lang]);
+    logAudit(req, 'email_template_reset', 'email_template', key + '_' + lang, '');
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
 
 app.get('/api/settings', requireRole('owner'), async (req, res) => {
   // Les secrets ne doivent jamais faire l'aller-retour vers le navigateur, même
@@ -3115,16 +3155,15 @@ app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), asyn
     // repli sur la langue enregistrée de l'acheteur si non précisée.
     const { lang } = req.body;
     const isEn = (lang === 'en' || lang === 'fr') ? lang === 'en' : buyer.lang === 'en';
+    const tpl = await getEmailTemplate('access_link', isEn ? 'en' : 'fr');
+    const buttonHtml = emailBtn(link, isEn ? 'ACCESS SHOWROOM →' : 'ACCÉDER AU SHOWROOM →');
+    const subject = applyTemplateVars(tpl.subject, { showroom: escHtml(showroomName || '') });
+    const bodyHtml = applyTemplateVars(tpl.body, { acheteur: escHtml(buyer.name), showroom: escHtml(showroomName || ''), bouton: buttonHtml });
     const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
-      subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
-      html: emailLayout({ showroomName, content: `
-        <p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p>
-        <p>${isEn ? 'Click below to access the showroom — no password needed.' : 'Cliquez ci-dessous pour accéder au showroom, sans mot de passe.'}</p>
-        ${emailBtn(link, isEn ? 'ACCESS SHOWROOM →' : 'ACCÉDER AU SHOWROOM →')}
-        <p style="font-size:12px;color:#888;margin-top:20px">${isEn ? 'This link expires in 24 hours.' : 'Ce lien est valable 24 heures.'}</p>
-      ` })
+      subject,
+      html: emailLayout({ showroomName, content: bodyHtml })
     });
     if (error) { console.error('[resend] send-access:', error.message || error); return res.status(502).json({ error: 'Échec envoi email' }); }
     res.json({ ok: true });
@@ -5643,20 +5682,21 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (r
     // Langue explicitement choisie par l'agent dans la modale de relance,
     // repli sur la langue enregistrée de l'acheteur si non précisée.
     const isEn = (lang === 'en' || lang === 'fr') ? lang === 'en' : buyer.lang === 'en';
+    const tpl = await getEmailTemplate('relance', isEn ? 'en' : 'fr');
+    const buttonHtml = emailBtn(`${getBaseUrl(req)}/portal`, isEn ? 'Access showroom →' : 'Accéder au showroom →');
+    const subject = applyTemplateVars(tpl.subject, { showroom: escHtml(showroomName || '') });
+    // Un message personnalisé (saisi pour cet envoi précis) remplace le corps
+    // du modèle éditable — le bouton reste toujours présent.
+    const bodyHtml = message
+      ? `<p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p><p>${escHtml(message).replace(/\n/g,'<br>')}</p>${buttonHtml}`
+      : applyTemplateVars(tpl.body, { acheteur: escHtml(buyer.name), agent: escHtml(agentName || showroomName || ''), showroom: escHtml(showroomName || ''), bouton: buttonHtml });
     const { error } = await resend.emails.send({
       from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
       to: [buyer.email],
       ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
       ...(showroomEmail && showroomEmail.toLowerCase() !== buyer.email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
-      subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès showroom — ${showroomName}`,
-      html: emailLayout({ showroomName, content: `
-        <p>${isEn ? `Hello <strong>${escHtml(buyer.name)}</strong>,` : `Bonjour <strong>${escHtml(buyer.name)}</strong>,`}</p>
-        ${message ? `<p>${escHtml(message).replace(/\n/g,'<br>')}</p>` : `<p>${isEn
-          ? 'Your showroom selections are waiting for you. Don\'t hesitate to browse the collections and place your order.'
-          : 'Vos sélections showroom vous attendent. N\'hésitez pas à parcourir les collections et passer commande.'}</p>`}
-        ${emailBtn(`${getBaseUrl(req)}/portal`, isEn ? 'Access showroom →' : 'Accéder au showroom →')}
-        <p style="margin-top:28px">Cordialement,<br><strong>${escHtml(agentName || showroomName)}</strong></p>
-      ` })
+      subject,
+      html: emailLayout({ showroomName, content: bodyHtml })
     });
     if (error) { console.error('[resend] relance:', error.message || error); return res.status(502).json({ error: 'Échec envoi email' }); }
     res.json({ ok: true });
@@ -7283,6 +7323,95 @@ function emailBtn(url, label) {
       <a href="${url}" class="em-ink" style="color:#111111;font-family:${EMAIL_MONO};font-size:11px;font-weight:400;text-decoration:none;letter-spacing:.28em;text-transform:uppercase">${label}</a>
     </td></tr>
   </table>`;
+}
+
+// ── Modèles d'email éditables (owner, onglet "Modèles email") ──────────
+// Texte par défaut du corps + sujet de chaque email sortant. Une ligne en
+// base (table email_templates) surcharge le texte pour une (modèle, langue)
+// donnée sans jamais toucher au code — absence de ligne = texte par défaut
+// ci-dessous. La mise en page (logo, mode sombre, typographie) reste gérée
+// par emailLayout()/emailBtn() : l'admin édite uniquement le texte, jamais
+// du HTML brut, pour ne jamais casser le rendu sur un client mail.
+const EMAIL_TEMPLATE_DEFAULTS = {
+  prospect_invite: {
+    fr: {
+      subject: '{{showroom}} — Découvrez {{marque_txt}}',
+      body: `<p>Vous êtes invité(e) à découvrir {{marque}} sur {{showroom}}, notre showroom B2B digital.</p>
+<p style="color:#666;font-size:13px">Collections sélectionnées · conditions négociées · commande en ligne, à votre rythme.</p>
+{{bouton}}
+<p style="color:#888;font-size:12px">À très bientôt,<br>{{showroom}}</p>`
+    },
+    en: {
+      subject: '{{showroom}} — Discover {{marque_txt}}',
+      body: `<p>You're invited to discover {{marque}} on {{showroom}}, our digital B2B showroom.</p>
+<p style="color:#666;font-size:13px">Curated collections · negotiated terms · order online, at your own pace.</p>
+{{bouton}}
+<p style="color:#888;font-size:12px">See you soon,<br>{{showroom}}</p>`
+    }
+  },
+  relance: {
+    fr: {
+      subject: 'Votre accès showroom — {{showroom}}',
+      body: `<p>Bonjour <strong>{{acheteur}}</strong>,</p>
+<p>Vos sélections showroom vous attendent. N'hésitez pas à parcourir les collections et passer commande.</p>
+{{bouton}}
+<p style="margin-top:28px">Cordialement,<br><strong>{{agent}}</strong></p>`
+    },
+    en: {
+      subject: 'Your showroom access — {{showroom}}',
+      body: `<p>Hello <strong>{{acheteur}}</strong>,</p>
+<p>Your showroom selections are waiting for you. Don't hesitate to browse the collections and place your order.</p>
+{{bouton}}
+<p style="margin-top:28px">Best regards,<br><strong>{{agent}}</strong></p>`
+    }
+  },
+  access_link: {
+    fr: {
+      subject: 'Votre accès showroom — {{showroom}}',
+      body: `<p>Bonjour <strong>{{acheteur}}</strong>,</p>
+<p>Cliquez ci-dessous pour accéder au showroom, sans mot de passe.</p>
+{{bouton}}
+<p style="font-size:12px;color:#888;margin-top:20px">Ce lien est valable 24 heures.</p>`
+    },
+    en: {
+      subject: 'Your showroom access — {{showroom}}',
+      body: `<p>Hello <strong>{{acheteur}}</strong>,</p>
+<p>Click below to access the showroom — no password needed.</p>
+{{bouton}}
+<p style="font-size:12px;color:#888;margin-top:20px">This link expires in 24 hours.</p>`
+    }
+  }
+};
+// Variables disponibles par modèle, documentées côté UI.
+const EMAIL_TEMPLATE_VARS = {
+  prospect_invite: [
+    ['{{marque}}', 'Marque ciblée ("la collection Nom") ou formule générique si aucune marque précise'],
+    ['{{marque_txt}}', 'Comme {{marque}} mais en texte brut (sujet uniquement)'],
+    ['{{showroom}}', 'Nom du showroom (Paramètres)'],
+    ['{{bouton}}', "Bouton d'action — à conserver, sinon le prospect n'a aucun lien cliquable"],
+  ],
+  relance: [
+    ['{{acheteur}}', "Nom de l'acheteur"],
+    ['{{agent}}', "Nom de l'agent (Paramètres) ou du showroom à défaut"],
+    ['{{showroom}}', 'Nom du showroom'],
+    ['{{bouton}}', "Bouton d'action vers le portail"],
+  ],
+  access_link: [
+    ['{{acheteur}}', "Nom de l'acheteur"],
+    ['{{showroom}}', 'Nom du showroom'],
+    ['{{bouton}}', "Bouton d'accès direct — lien valable 24h"],
+  ]
+};
+function applyTemplateVars(str, vars) {
+  return (str || '').replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? vars[k] : ''));
+}
+async function getEmailTemplate(key, lang) {
+  const def = EMAIL_TEMPLATE_DEFAULTS[key][lang];
+  const row = (await pool.query('SELECT subject, body FROM email_templates WHERE template_key=$1 AND lang=$2', [key, lang])).rows[0];
+  return {
+    subject: (row && row.subject) ? row.subject : def.subject,
+    body: (row && row.body) ? row.body : def.body,
+  };
 }
 
 // Encadré d'infos : hairline, labels majuscules muets, valeurs foncées (défaut clair).
