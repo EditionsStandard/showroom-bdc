@@ -425,6 +425,11 @@ async function init() {
     // sendPushToAdmins() ne pouvait pas distinguer owner/agent ni la marque de
     // l'agent, et envoyait le contenu de TOUTES les commandes à tout abonné.
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS staff_id TEXT",
+    // Pièces jointes messagerie acheteur ↔ agence (photo, PDF) — un message peut
+    // désormais porter un fichier, avec ou sans texte d'accompagnement.
+    "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_url TEXT DEFAULT ''",
+    "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_name TEXT DEFAULT ''",
+    "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_type TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

@@ -2085,7 +2085,10 @@
     <div id="bp-activity" style="margin-bottom:18px;max-height:260px;overflow:auto"></div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:6px">💬 Messagerie acheteur</div>
     <div id="bp-messages" style="max-height:240px;overflow:auto;margin-bottom:8px"></div>
+    <div id="bp-msg-attach-preview" style="display:none;align-items:center;gap:10px;padding:6px 10px;margin-bottom:8px;background:var(--black);font-size:12px"></div>
     <div style="display:flex;gap:8px;margin-bottom:18px">
+      <button type="button" id="bp-msg-attach-btn" class="btn btn-secondary btn-sm" onclick="document.getElementById('bp-msg-file').click()" title="Joindre une photo ou un PDF" style="flex-shrink:0">📎</button>
+      <input type="file" id="bp-msg-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" style="display:none" onchange="onBpMsgFileChosen(this)">
       <input id="bp-msg-input" type="text" placeholder="Écrire à l'acheteur… (il reçoit un email)" style="flex:1" onkeydown="if(event.key==='Enter')sendBuyerMessage()">
       <button class="btn btn-primary btn-sm" id="bp-msg-send" onclick="sendBuyerMessage()">Envoyer</button>
     </div>
@@ -3591,7 +3594,7 @@ function updateOrderNavBadge(count) {
   }
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); if (id === 'modal-buyer-profile') stopBpMsgPolling(); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 // Fermeture standard des modales : Échap, ou clic sur le fond assombri
 document.addEventListener('keydown', e => {
@@ -7020,6 +7023,8 @@ async function openBuyerProfile(id) {
   openModal('modal-buyer-profile');
   document.getElementById('bp-messages').innerHTML = '';
   document.getElementById('bp-msg-input').value = '';
+  clearBpMsgAttachment();
+  startBpMsgPolling(id);
   document.getElementById('bp-name').textContent = '…';
   document.getElementById('bp-contact').textContent = '';
   document.getElementById('bp-kpis').innerHTML = '';
@@ -7116,21 +7121,41 @@ async function openBuyerProfile(id) {
 }
 
 // ── Messagerie acheteur (fiche client) ────────────────────────────────
+function bpMsgDayLabel(dt) {
+  const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const d0 = new Date(dt); d0.setHours(0,0,0,0);
+  if (d0.getTime() === today.getTime()) return currentLang === 'en' ? 'Today' : "Aujourd'hui";
+  if (d0.getTime() === yesterday.getTime()) return currentLang === 'en' ? 'Yesterday' : 'Hier';
+  return d0.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: d0.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+}
+function bpMsgAttachmentHtml(m) {
+  if (!m.attachment_url) return '';
+  const isImg = (m.attachment_type || '').startsWith('image/');
+  if (isImg) return `<img src="${esc(m.attachment_url)}" alt="${esc(m.attachment_name||'')}" style="display:block;max-width:200px;width:100%;margin-bottom:6px;cursor:zoom-in" onclick="window.open('${esc(m.attachment_url)}','_blank')">`;
+  return `<a href="${esc(m.attachment_url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;padding:6px 10px;margin-bottom:6px;background:rgba(255,255,255,.08);color:inherit;text-decoration:none">📄 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.attachment_name || 'Fichier')}</span></a>`;
+}
 function renderBuyerMessages(messages) {
   const box = document.getElementById('bp-messages');
   if (!messages.length) { box.innerHTML = '<div style="color:#666;font-size:13px">Aucun message. Écrivez le premier ci-dessous.</div>'; return; }
   const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
-  box.innerHTML = messages.map(m => {
+  let lastDay = null, html = '';
+  messages.forEach(m => {
     const staff = m.sender === 'staff';
     const dt = new Date(m.created_at);
-    const when = dt.toLocaleDateString(locale) + ' ' + dt.toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit' });
-    return `<div style="display:flex;justify-content:${staff?'flex-end':'flex-start'};margin-bottom:6px">
+    const dayKey = dt.toDateString();
+    if (dayKey !== lastDay) { html += `<div style="text-align:center;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:14px 0 8px">${bpMsgDayLabel(dt)}</div>`; lastDay = dayKey; }
+    const when = dt.toLocaleTimeString(locale, { hour:'2-digit', minute:'2-digit' });
+    html += `<div style="display:flex;justify-content:${staff?'flex-end':'flex-start'};margin-bottom:6px">
       <div style="max-width:78%;background:${staff?'var(--accent)':'#1c1c1c'};color:${staff?'#111':'#e0e0e0'};border-radius:0;padding:8px 12px;font-size:13px">
-        <div style="white-space:pre-wrap">${esc(m.body)}</div>
+        ${bpMsgAttachmentHtml(m)}
+        ${m.body ? `<div style="white-space:pre-wrap">${esc(m.body)}</div>` : ''}
         <div style="font-size:10px;margin-top:3px;opacity:.7">${staff?'Agence':'Acheteur'} · ${when}</div>
       </div>
     </div>`;
-  }).join('');
+  });
+  box.innerHTML = html;
   box.scrollTop = box.scrollHeight;
 }
 async function loadBuyerMessages(id) {
@@ -7139,19 +7164,70 @@ async function loadBuyerMessages(id) {
     renderBuyerMessages((d && d.messages) || []);
   } catch(e) { document.getElementById('bp-messages').innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur de chargement des messages.</div>'; }
 }
+
+// Fil rafraîchi toutes les 5s pendant que la fiche acheteur est ouverte (effet
+// "live" sans WebSocket) — démarré dans openBuyerProfile(), arrêté à la fermeture.
+let _bpMsgPollInterval = null;
+function startBpMsgPolling(id) {
+  stopBpMsgPolling();
+  _bpMsgPollInterval = setInterval(() => loadBuyerMessages(id), 5000);
+}
+function stopBpMsgPolling() {
+  if (_bpMsgPollInterval) { clearInterval(_bpMsgPollInterval); _bpMsgPollInterval = null; }
+}
+
+// Pièce jointe en attente d'envoi — uploadée immédiatement au choix du fichier.
+let _bpMsgPendingAttachment = null;
+async function onBpMsgFileChosen(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file || !_bpBuyerId) return;
+  const allowed = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+  if (!allowed.includes(file.type)) { toast('Format non supporté (jpg, png, webp, gif, pdf)', true); return; }
+  if (file.size > 10 * 1024 * 1024) { toast('Fichier trop volumineux (10 Mo max)', true); return; }
+  const preview = document.getElementById('bp-msg-attach-preview');
+  preview.style.display = 'flex';
+  preview.innerHTML = `<span>⏳ Envoi du fichier…</span>`;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/admin/buyers/' + _bpBuyerId + '/messages/attachment', { method: 'POST', body: fd });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || 'Erreur envoi', true); preview.style.display = 'none'; return; }
+    _bpMsgPendingAttachment = d;
+    renderBpMsgAttachPreview();
+  } catch(e) { toast('Erreur réseau', true); preview.style.display = 'none'; }
+}
+function renderBpMsgAttachPreview() {
+  const preview = document.getElementById('bp-msg-attach-preview');
+  if (!_bpMsgPendingAttachment) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
+  const a = _bpMsgPendingAttachment;
+  const isImg = (a.type || '').startsWith('image/');
+  preview.style.display = 'flex';
+  preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}" style="width:32px;height:32px;object-fit:cover;flex-shrink:0">` : '<span style="font-size:16px">📄</span>'}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(a.name)}</span><span style="cursor:pointer;color:#888" onclick="clearBpMsgAttachment()">✕</span>`;
+}
+function clearBpMsgAttachment() { _bpMsgPendingAttachment = null; renderBpMsgAttachPreview(); }
+
 async function sendBuyerMessage() {
   const input = document.getElementById('bp-msg-input');
   const body = input.value.trim();
-  if (!body || !_bpBuyerId) return;
+  if ((!body && !_bpMsgPendingAttachment) || !_bpBuyerId) return;
   const btn = document.getElementById('bp-msg-send');
   btn.disabled = true;
   try {
+    const payload = { body };
+    if (_bpMsgPendingAttachment) {
+      payload.attachment_url = _bpMsgPendingAttachment.url;
+      payload.attachment_name = _bpMsgPendingAttachment.name;
+      payload.attachment_type = _bpMsgPendingAttachment.type;
+    }
     const r = await fetch('/api/admin/buyers/' + _bpBuyerId + '/messages', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { toast(d.error || 'Erreur envoi', true); return; }
     input.value = '';
+    clearBpMsgAttachment();
     loadBuyerMessages(_bpBuyerId);
   } catch(e) { toast('Erreur réseau', true); }
   finally { btn.disabled = false; }
