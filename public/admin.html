@@ -2513,35 +2513,48 @@ function escJs(s) {
 let currentBrandId = null;
 let currentBrandName = '';
 
-// Navigation
+// Navigation — chaque section visitée est enregistrée dans l'historique du
+// navigateur pour que "retour" repasse par les sections précédentes au lieu
+// de quitter directement l'admin.
+function activateSection(name, fromPop) {
+  const link = document.querySelector(`nav a[data-section="${name}"]`);
+  const target = document.getElementById(name);
+  if (!link || !target) return;
+  document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+  link.classList.add('active');
+  target.classList.add('active');
+  if (name !== 'buyers' && _buyersPresenceTimer) { clearInterval(_buyersPresenceTimer); _buyersPresenceTimer = null; }
+  if (name !== 'staff' && _staffPresenceTimer) { clearInterval(_staffPresenceTimer); _staffPresenceTimer = null; }
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'brands') loadBrands();
+  if (name === 'orders') loadOrders();
+  if (name === 'settings') loadSettings();
+  if (name === 'staff') loadStaff();
+  if (name === 'buyers') loadBuyers();
+  if (name === 'stats') loadProductStats();
+  if (name === 'agenda') loadAgenda();
+  if (name === 'sales-report') initSalesReport();
+  if (name === 'access-requests') loadAccessRequests();
+  if (name === 'pending-reminders') loadPendingReminders();
+  if (name === 'security') loadSecurity();
+  if (name === 'mfa') loadMfaSection();
+  if (!fromPop) history.pushState({ adminSection: name }, '', '/admin');
+}
 document.querySelectorAll('nav a').forEach(a => {
-  a.addEventListener('click', () => {
-    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
-    a.classList.add('active');
-    document.getElementById(a.dataset.section).classList.add('active');
-    if (a.dataset.section !== 'buyers' && _buyersPresenceTimer) { clearInterval(_buyersPresenceTimer); _buyersPresenceTimer = null; }
-    if (a.dataset.section !== 'staff' && _staffPresenceTimer) { clearInterval(_staffPresenceTimer); _staffPresenceTimer = null; }
-    if (a.dataset.section === 'dashboard') loadDashboard();
-    if (a.dataset.section === 'brands') loadBrands();
-    if (a.dataset.section === 'orders') loadOrders();
-    if (a.dataset.section === 'settings') loadSettings();
-    if (a.dataset.section === 'staff') loadStaff();
-    if (a.dataset.section === 'buyers') loadBuyers();
-    if (a.dataset.section === 'stats') loadProductStats();
-    if (a.dataset.section === 'agenda') loadAgenda();
-    if (a.dataset.section === 'sales-report') initSalesReport();
-    if (a.dataset.section === 'access-requests') loadAccessRequests();
-    if (a.dataset.section === 'pending-reminders') loadPendingReminders();
-    if (a.dataset.section === 'security') loadSecurity();
-    if (a.dataset.section === 'mfa') loadMfaSection();
-  });
+  a.addEventListener('click', () => activateSection(a.dataset.section, false));
 });
+window.addEventListener('popstate', (e) => {
+  const name = e.state && e.state.adminSection;
+  if (name) activateSection(name, true);
+});
+// État de base de l'historique : première section affichée au chargement,
+// remplacée (pas empilée) pour ne pas ajouter d'étape "avant" artificielle.
+history.replaceState({ adminSection: 'dashboard' }, '', '/admin');
 
 // Bascule programmatique vers une section (réutilise la logique de navigation ci-dessus).
 function showSection(name) {
-  const link = document.querySelector(`nav a[data-section="${name}"]`);
-  if (link) link.click();
+  activateSection(name, false);
 }
 
 // Réinitialise les filtres de la section Commandes puis ré-applique.
