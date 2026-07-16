@@ -3569,7 +3569,7 @@ async function initPushNotifications() {
   let key;
   try { ({ key } = await fetch('/api/admin/vapid-public-key').then(r => r.json())); } catch(e) {}
   if (!key) {
-    return toast("Notifications non configurées sur le serveur (VAPID_PUBLIC_KEY manquante dans Railway).", true);
+    return toast("Notifications non configurées sur le serveur (VAPID_PUBLIC_KEY manquante ou invalide dans Railway — voir les logs serveur).", true);
   }
   try {
     // Le service worker doit être enregistré AVANT serviceWorker.ready (sinon blocage)
