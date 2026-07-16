@@ -111,12 +111,32 @@ cloudinary.config({
 });
 const { pool, init } = require('./database');
 
-// .trim() : une variable Railway copiée-collée avec un saut de ligne ou une
-// espace en fin de valeur casse silencieusement l'encodage base64url attendu
-// par les navigateurs ("applicationServerKey is not encoded as base64url
-// without padding") — on nettoie une fois ici pour toute la fonctionnalité.
-const VAPID_PUBLIC_KEY = (process.env.VAPID_PUBLIC_KEY || '').trim() || null;
-const VAPID_PRIVATE_KEY = (process.env.VAPID_PRIVATE_KEY || '').trim() || null;
+// Une variable Railway copiée-collée embarque facilement un caractère parasite
+// (saut de ligne, espace, guillemets/backticks restés collés au copier-coller
+// depuis un bloc de code) : silencieusement, ça casse l'encodage base64url
+// strict attendu par le navigateur ("applicationServerKey is not encoded as
+// base64url without padding"), un rejet qui a lieu côté client donc invisible
+// dans nos logs. On nettoie ET on valide ici une fois pour toutes, pour que
+// toute clé mal collée soit détectée au démarrage plutôt que de planter le
+// navigateur d'un utilisateur avec une erreur cryptique.
+function sanitizeVapidKey(raw) {
+  if (!raw) return null;
+  return raw.trim().replace(/^['"` ]+|['"` ]+$/g, '') || null;
+}
+function isValidVapidPublicKey(key) {
+  if (!key || !/^[A-Za-z0-9_-]+$/.test(key)) return false;
+  try { return Buffer.from(key, 'base64url').length === 65; } catch(e) { return false; }
+}
+const VAPID_PUBLIC_KEY_RAW = sanitizeVapidKey(process.env.VAPID_PUBLIC_KEY);
+const VAPID_PRIVATE_KEY_RAW = sanitizeVapidKey(process.env.VAPID_PRIVATE_KEY);
+if (VAPID_PUBLIC_KEY_RAW && !isValidVapidPublicKey(VAPID_PUBLIC_KEY_RAW)) {
+  console.error(`[vapid] VAPID_PUBLIC_KEY invalide après nettoyage (attendu : base64url sans padding, 65 octets décodés — reçu ${VAPID_PUBLIC_KEY_RAW.length} caractères). Notifications push désactivées jusqu'à correction de la variable Railway.`);
+}
+if (VAPID_PRIVATE_KEY_RAW && !/^[A-Za-z0-9_-]+$/.test(VAPID_PRIVATE_KEY_RAW)) {
+  console.error(`[vapid] VAPID_PRIVATE_KEY invalide après nettoyage (caractères hors base64url détectés). Notifications push désactivées jusqu'à correction de la variable Railway.`);
+}
+const VAPID_PUBLIC_KEY = isValidVapidPublicKey(VAPID_PUBLIC_KEY_RAW) ? VAPID_PUBLIC_KEY_RAW : null;
+const VAPID_PRIVATE_KEY = (VAPID_PRIVATE_KEY_RAW && /^[A-Za-z0-9_-]+$/.test(VAPID_PRIVATE_KEY_RAW)) ? VAPID_PRIVATE_KEY_RAW : null;
 if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
     'mailto:' + (process.env.ADMIN_EMAIL || 'nguyen.boun@gmail.com'),
