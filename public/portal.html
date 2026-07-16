@@ -2992,11 +2992,43 @@ async function submitCheckout() {
     if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; btnConfirm.disabled = false; btnConfirm.textContent = origBtnText; return; }
 
     btnConfirm.textContent = origBtnText;
-    Object.keys(cart).forEach(k => delete cart[k]);
+    // Un produit devenu indisponible entre l'ajout au panier et la validation
+    // (rupture de stock, désactivation, marque désactivée) peut faire échouer
+    // la commande d'UNE marque tout en réussissant pour les autres — on ne vide
+    // du panier que les marques réellement commandées, et on garde l'utilisateur
+    // sur le panier (avec un message clair) si au moins une marque a échoué,
+    // au lieu d'afficher un écran de succès pour tout et de tout vider à tort.
+    const orders = r.orders || [];
+    const succeeded = orders.filter(o => !o.error);
+    const failed = orders.filter(o => o.error);
+    succeeded.forEach(o => {
+      Object.keys(cart).forEach(k => { if (cart[k].brand_id === o.brand_id) delete cart[k]; });
+    });
     saveCart();
+
+    if (failed.length) {
+      // #checkout-msg vit dans #view-cart : si on bascule sur #view-success,
+      // ce message (et les articles en échec restés dans le panier) devient
+      // invisible. On reste donc sur le panier dans tous les cas dès qu'une
+      // marque a échoué, même si d'autres marques ont réussi.
+      btnConfirm.disabled = false;
+      const failedNames = failed.map(o => `${o.brand_name || allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id} : ${o.error}`).join(' · ');
+      const prefix = currentLang === 'en' ? 'Some orders could not be placed' : "Certaines commandes n'ont pas pu être passées";
+      let text = `${prefix} — ${failedNames}`;
+      if (succeeded.length) {
+        const succeededNames = succeeded.map(o => o.brand_name || allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
+        const okPrefix = currentLang === 'en' ? 'Orders placed successfully for' : 'Commandes bien enregistrées pour';
+        text = `${okPrefix} ${succeededNames}. ${text}`;
+      }
+      msg.className = 'msg error';
+      msg.textContent = text;
+      renderCart();
+      return;
+    }
+
     document.getElementById('view-cart').style.display = 'none';
     document.getElementById('view-success').style.display = 'block';
-    const brandNames = r.orders.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
+    const brandNames = succeeded.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
     document.getElementById('success-detail').innerHTML = t('success_msg', esc(brandNames));
   } catch(e) {
     msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
