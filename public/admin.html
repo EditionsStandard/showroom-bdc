@@ -5041,8 +5041,16 @@ function downloadLinesheet() {
 let productsCache = [];
 
 async function refreshProducts() {
-  productsCache = await fetch(`/api/brands/${currentBrandId}/products`).then(r => r.json());
-  if (!Array.isArray(productsCache)) productsCache = [];
+  // Fermer puis rouvrir la modale sur une autre marque avant que cette requête
+  // n'ait répondu faisait gagner la réponse la plus lente : le titre affichait
+  // la marque B pendant que le tableau (et donc editProductById/deleteProduct,
+  // qui opèrent sur productsCache par id) montrait encore les produits de la
+  // marque A. On capture la marque demandée et on jette la réponse si
+  // currentBrandId a changé entre-temps.
+  const requestedBrandId = currentBrandId;
+  const data = await fetch(`/api/brands/${requestedBrandId}/products`).then(r => r.json());
+  if (requestedBrandId !== currentBrandId) return;
+  productsCache = Array.isArray(data) ? data : [];
   populateCollectionFilter();
 }
 
@@ -5305,7 +5313,12 @@ function resetProductForm() {
   currentImages = [];
   currentVariants = [];
   document.getElementById('p-id').value = '';
-  document.getElementById('p-collection').value = '';
+  // Préremplit avec la collection actuellement filtrée (si une saison précise
+  // est sélectionnée, pas "Toutes les collections") — sinon un ajout depuis
+  // une vue filtrée créait une référence en collection_name='' qui disparaissait
+  // aussitôt de la liste filtrée, donnant l'impression que l'enregistrement
+  // avait échoué silencieusement.
+  document.getElementById('p-collection').value = document.getElementById('collection-filter')?.value || '';
   document.getElementById('p-ref').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-color').value = '';
@@ -5796,8 +5809,8 @@ async function importCSV(input) {
         color: idx.color >= 0 ? cols[idx.color]?.trim() || '' : '',
         category: idx.category >= 0 ? cols[idx.category]?.trim() || '' : '',
         sizes: idx.sizes >= 0 ? (cols[idx.sizes]?.trim() || '').replace(/\s*-\s*/g, ',').replace(/,+/g, ',').replace(/^,|,$/g, '') : '',
-        price: idx.price >= 0 ? parseFloat((cols[idx.price]||'0').replace(',','.')) || 0 : 0,
-        price_retail: idx.price_retail >= 0 ? parseFloat((cols[idx.price_retail]||'0').replace(',','.')) || 0 : 0,
+        price: idx.price >= 0 ? parsePriceClient(cols[idx.price]) : 0,
+        price_retail: idx.price_retail >= 0 ? parsePriceClient(cols[idx.price_retail]) : 0,
         image_url: idx.image_url >= 0 ? cols[idx.image_url]?.trim() || '' : ''
       };
       if (!body.reference) continue;
@@ -5827,6 +5840,21 @@ async function importCSV(input) {
 // en 2-3 fausses lignes indépendantes, chacune parsée sans savoir qu'elle
 // n'est qu'un fragment — colonnes décalées, références tronquées. Ce
 // parseur suit l'état "dans des guillemets" sur tout le texte, en continu.
+// Reflet client de parsePrice() côté serveur : un prix "€ 32,00" (symbole
+// monétaire en tête) faisait échouer parseFloat silencieusement (retour 0
+// sans erreur visible), et un format milliers "1.234,56" devenait "1.234.56"
+// après un simple remplacement virgule→point (tronqué à 1.234 par parseFloat).
+function parsePriceClient(v) {
+  if (v === null || v === undefined) return 0;
+  let s = String(v).trim();
+  if (!s) return 0;
+  s = s.replace(/[^0-9,.\-]/g, '');
+  if (!s) return 0;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function parseCSVFull(text, sep) {
   const rows = [];
   let row = [], field = '', inQuotes = false;
