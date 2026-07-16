@@ -6518,18 +6518,30 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
       const p = l.product || {};
       const nameText = p.description || '';
       const colorText = l.color || p.color || '—';
+      const compoText = (p.composition || '').trim();
+      // La référence peut être longue et déborder sur 2-3 lignes dans sa colonne
+      // étroite tout comme désignation/couleur ci-dessous — omise ici auparavant,
+      // elle laissait rowH trop court et le texte de la ligne suivante chevauchait
+      // visuellement la référence encore en cours d'affichage (même bug déjà vu
+      // et corrigé sur generateOrderPDF — voir refH là-bas).
+      const refH = doc.font(F.bold).fontSize(8.5).heightOfString(p.reference || '', { width: colW.ref });
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
+      // Composition affichée en petit sous la désignation — même raison que sur
+      // generateOrderPDF : plusieurs références peuvent partager désignation et
+      // couleur identiques, seule la matière les distingue.
+      const compoH = compoText ? doc.font(F.reg).fontSize(6.5).heightOfString(compoText, { width: colW.name }) + 2 : 0;
       // La couleur peut être plus longue que sa colonne étroite (45pt) et donc
       // se retrouver sur plusieurs lignes — la hauteur de ligne doit en tenir
       // compte, sinon la ligne suivante (et in fine le total/CGV/signature)
       // chevauche visuellement le texte de couleur encore en cours de rendu.
       const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
-      const rowH = Math.max(nameH, colorH, 12) + 7;
+      const rowH = Math.max(refH, nameH + compoH, colorH, 12) + 7;
       if (rowY + rowH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
       if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(p.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
-      doc.fillColor(SOFT)
+      if (compoText) doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(compoText, col.name, rowY + nameH + 2, { width: colW.name, characterSpacing: 0.2 });
+      doc.fillColor(SOFT).fontSize(8.5)
         .text(colorText, col.color, rowY, { width: colW.color })
         .text(l.size || '—', col.size, rowY, { width: colW.size });
       doc.font(F.bold).fillColor(INK).text(String(l.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
@@ -7031,7 +7043,7 @@ async function generateOrderPDF(orderId) {
     lines.forEach(l => {
       if (!lineImages[l.product_id]) return;
       if (!visualProducts[l.product_id]) {
-        visualProducts[l.product_id] = { reference: l.reference, color: l.color, sizes: [], totalQty: 0 };
+        visualProducts[l.product_id] = { reference: l.reference, color: l.color, composition: l.composition, sizes: [], totalQty: 0 };
         visualProductIds.push(l.product_id);
       }
       visualProducts[l.product_id].sizes.push({ size: l.size || '—', qty: l.quantity });
@@ -7052,6 +7064,7 @@ async function generateOrderPDF(orderId) {
       const cards = visualProductIds.map(pid => {
         const p = visualProducts[pid];
         const sizesText = p.sizes.map(s => `${s.size} : ${s.qty}`).join('   ·   ');
+        const compoText = (p.composition || '').trim();
         // La référence et la couleur sont ici aussi susceptibles de déborder sur
         // plusieurs lignes dans une carte de 156pt de large (mêmes SKU longs que
         // dans le tableau ci-dessus) — une hauteur fixe assumée à une seule ligne
@@ -7061,9 +7074,15 @@ async function generateOrderPDF(orderId) {
         const refH = doc.heightOfString(p.reference || '', { width: cardW });
         doc.font(F.reg).fontSize(7.5);
         const colorH = p.color ? doc.heightOfString(p.color, { width: cardW }) : 0;
+        // Composition en petit sous couleur/référence — même raison que sur le
+        // tableau principal : désignation+couleur identiques entre produits
+        // pourtant distincts, seule la matière les différencie.
+        doc.fontSize(6.5);
+        const compoH = compoText ? doc.heightOfString(compoText, { width: cardW }) : 0;
+        doc.fontSize(7.5);
         const sizesH = doc.heightOfString(sizesText, { width: cardW });
-        const captionH = refH + 4 + (p.color ? colorH + 4 : 0) + sizesH + 3 + 12;
-        return { pid, ...p, sizesText, refH, colorH, cardH: imgH + captionH };
+        const captionH = refH + 4 + (p.color ? colorH + 4 : 0) + (compoText ? compoH + 4 : 0) + sizesH + 3 + 12;
+        return { pid, ...p, sizesText, compoText, refH, colorH, compoH, cardH: imgH + captionH };
       });
 
       let cx = startX, cy = 100, colIdx = 0, rowMax = 0;
@@ -7078,6 +7097,7 @@ async function generateOrderPDF(orderId) {
         doc.font(F.bold).fontSize(8.5).fillColor(INK).text(card.reference || '', cx, ty, { width: cardW });
         ty += card.refH + 4;
         if (card.color) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(card.color, cx, ty, { width: cardW }); ty += card.colorH + 4; }
+        if (card.compoText) { doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(card.compoText, cx, ty, { width: cardW, characterSpacing: 0.2 }); ty += card.compoH + 4; }
         doc.font(F.reg).fontSize(7.5).fillColor('#444').text(card.sizesText, cx, ty, { width: cardW });
         ty = doc.y + 3;
         doc.font(F.bold).fontSize(8).fillColor(INK).text('Qté totale : ' + card.totalQty, cx, ty, { width: cardW });
