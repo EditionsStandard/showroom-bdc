@@ -6392,17 +6392,30 @@ async function loadOrderTimeline(orderId) {
   if (!container) return;
   container.innerHTML = '<span style="color:#555;font-size:12px">Chargement…</span>';
   const events = await fetch(`/api/orders/${orderId}/events`).then(r => r.json()).catch(() => []);
-  const icons = { created:'📋', confirmed:'✅', validated:'🟢', in_production:'⚙️', shipped:'📦', cancelled:'❌', archived:'📦', note:'💬', paid:'💳' };
+  const icons = { created:'📋', confirmed:'✅', validated:'🟢', in_production:'⚙️', shipped:'📦', cancelled:'❌', archived:'📦', note:'💬', paid:'💳', lines_edited:'🔢' };
   container.innerHTML = events.length
     ? events.map(e => `
       <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #1a1a1a">
         <span style="font-size:15px;flex-shrink:0">${icons[e.event_type] || '•'}</span>
         <div>
           <div style="font-size:12px;color:#ccc">${esc(e.note || e.event_type)}</div>
+          ${renderOrderEventDetail(e)}
           <div style="font-size:10px;color:#555;margin-top:2px">${new Date(e.created_at).toLocaleString('fr-FR')}${e.created_by ? ' · ' + esc(e.created_by) : ''}</div>
         </div>
       </div>`).join('')
     : '<div style="color:#555;font-size:12px">Aucun événement</div>';
+}
+
+// Détail structuré d'un événement 'lines_edited' — quantité avant/après par
+// référence+taille, plutôt que la seule note résumée ("N ligne(s) modifiée(s)").
+function renderOrderEventDetail(e) {
+  if (e.event_type !== 'lines_edited' || !e.detail) return '';
+  let changes;
+  try { changes = JSON.parse(e.detail); } catch(err) { return ''; }
+  if (!Array.isArray(changes) || changes.length < 2) return ''; // 1 ligne déjà résumée dans la note
+  return `<ul style="margin:4px 0 0;padding-left:16px;font-size:11px;color:#999">
+    ${changes.map(c => `<li>${esc(c.reference || '')} (${esc(c.size || '—')}) : ${c.old_qty} → ${c.new_qty === 0 ? 'supprimée' : c.new_qty}</li>`).join('')}
+  </ul>`;
 }
 
 async function addOrderNote() {
