@@ -770,6 +770,20 @@ const prospectInviteLimiter = rateLimit({
   message: { error: 'Trop d\'invitations envoyées. Réessayez dans 1 heure.' },
   standardHeaders: true, legacyHeaders: false,
 });
+
+// Uploads (photos produit, import en lot, pièces jointes messagerie) : aucun
+// des 4 endpoints d'upload ne limitait le débit — un compte compromis pouvait
+// marteler Cloudinary sans borne. Limite par COMPTE (staff ou acheteur, via
+// authedUserRateLimitKey) et non par requête individuelle : un import en lot
+// de 200 photos reste UN seul appel HTTP, donc n'est jamais bloqué par cette
+// limite pensée pour la fréquence des appels, pas leur contenu.
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 60,
+  keyGenerator: authedUserRateLimitKey,
+  message: { error: 'Trop d\'imports. Réessayez dans 1 heure.' },
+  standardHeaders: true, legacyHeaders: false,
+});
 // ==================== ADMIN ROUTES ====================
 
 // Un admin déjà connecté qui revient sur /admin/login (ex. bouton Précédent
@@ -1888,7 +1902,7 @@ app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, r
 // embarquer du <script>/<foreignObject> exécuté si le fichier est ouvert
 // directement dans un onglet (le champ mimetype matcherait `startsWith('image/')`).
 const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-app.post('/api/upload-image', requireRole('owner','agent','designer'), upload.single('image'), async (req, res) => {
+app.post('/api/upload-image', requireRole('owner','agent','designer'), uploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -2255,7 +2269,7 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
   res.json({ ok: true, total: prods.rows.length, updated });
 });
 
-app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), upload.array('photos', 200), async (req, res) => {
+app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, upload.array('photos', 200), async (req, res) => {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
@@ -5084,7 +5098,7 @@ function attachmentEmailNote(name) {
 }
 
 // Portail : upload d'une pièce jointe (image ou PDF) avant envoi du message
-app.post('/api/portal/messages/attachment', requireBuyerAuth, upload.single('file'), async (req, res) => {
+app.post('/api/portal/messages/attachment', requireBuyerAuth, uploadLimiter, upload.single('file'), async (req, res) => {
   if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -5100,7 +5114,7 @@ app.post('/api/portal/messages/attachment', requireBuyerAuth, upload.single('fil
 });
 
 // Admin : même upload, côté agence
-app.post('/api/admin/buyers/:id/messages/attachment', requireRole('owner', 'agent'), upload.single('file'), async (req, res) => {
+app.post('/api/admin/buyers/:id/messages/attachment', requireRole('owner', 'agent'), uploadLimiter, upload.single('file'), async (req, res) => {
   if (!(await checkBuyerBrandScope(req, res))) return;
   if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
   try {
