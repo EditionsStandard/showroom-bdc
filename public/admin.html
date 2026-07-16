@@ -1536,6 +1536,7 @@
     <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="openCsvImportModal()">↑ Importer CSV</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadCSVTemplateNew()">↓ Modèle CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="window.location='/api/brands/'+currentBrandId+'/products/export-csv'">↓ Exporter CSV (catalogue actuel)</button>
       <label class="btn btn-secondary btn-sm" style="cursor:pointer">
         📥 Importer CSV (ancien)
         <input type="file" id="csv-import-input" accept=".csv,.txt" style="display:none" onchange="importCSV(this)">
