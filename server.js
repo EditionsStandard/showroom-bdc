@@ -6759,7 +6759,7 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.description as product_name, p.color, p.image_url, p.images, ol.note
+    SELECT ol.*, p.reference, p.description as product_name, p.color, p.composition, p.image_url, p.images, ol.note
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
@@ -6880,7 +6880,7 @@ async function generateOrderPDF(orderId) {
     lines.forEach(l => {
       let g = byProduct.get(l.product_id);
       if (!g) {
-        g = { reference: l.reference, product_name: l.product_name, color: l.color, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
+        g = { reference: l.reference, product_name: l.product_name, color: l.color, composition: l.composition, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
         byProduct.set(l.product_id, g);
         grouped.push(g);
       }
@@ -6893,6 +6893,7 @@ async function generateOrderPDF(orderId) {
     grouped.forEach((g, i) => {
       const nameText = g.product_name || '';
       const colorText = g.color || '—';
+      const compoText = (g.composition || '').trim();
       const gridText = g.sizes.map(s => `${s.size} : ${s.quantity}`).join('   ');
       // La référence (code SKU) peut être longue et déborder sur 2-3 lignes dans
       // sa colonne étroite tout comme désignation/couleur/grille ci-dessous —
@@ -6901,6 +6902,11 @@ async function generateOrderPDF(orderId) {
       // d'affichage (voire cassait la pagination automatique de PDFKit).
       const refH = doc.font(F.bold).fontSize(8.5).heightOfString(g.reference || '', { width: colW.ref });
       const nameH = doc.font(F.reg).fontSize(8.5).heightOfString(nameText, { width: colW.name });
+      // Composition affichée en petit sous la désignation — plusieurs références
+      // partagent parfois exactement le même nom + couleur (ex. plusieurs coloris
+      // "White Dot" d'un même style ne différant que par la matière) : sans elle,
+      // impossible de distinguer ces lignes sur le document envoyé à la marque.
+      const compoH = compoText ? doc.font(F.reg).fontSize(6.5).heightOfString(compoText, { width: colW.name }) + 2 : 0;
       // Voir generateSelectionPDF : la couleur peut déborder de sa colonne
       // étroite sur plusieurs lignes, il faut en tenir compte dans rowH pour
       // éviter que la ligne suivante (et le total/CGV/signature en bas de
@@ -6909,7 +6915,7 @@ async function generateOrderPDF(orderId) {
       // beaucoup de tailles commandées) — même précaution.
       const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
       const gridH = doc.font(F.reg).fontSize(8).heightOfString(gridText, { width: colW.grid });
-      const rowH  = Math.max(refH, nameH, colorH, gridH, 12) + 7;
+      const rowH  = Math.max(refH, nameH + compoH, colorH, gridH, 12) + 7;
       const noteTxt = g.notes.length ? `Note : ${g.notes.join(' — ')}` : '';
       const noteH = noteTxt ? doc.font(F.reg).fontSize(7.5).heightOfString(noteTxt, { width: 480 }) + 3 : 0;
 
@@ -6919,7 +6925,8 @@ async function generateOrderPDF(orderId) {
       if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(g.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
-      doc.fillColor(SOFT).text(colorText, col.color, rowY, { width: colW.color });
+      if (compoText) doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(compoText, col.name, rowY + nameH + 2, { width: colW.name, characterSpacing: 0.2 });
+      doc.fillColor(SOFT).fontSize(8.5).text(colorText, col.color, rowY, { width: colW.color });
       doc.font(F.bold).fontSize(8).fillColor(INK).text(gridText, col.grid, rowY, { width: colW.grid });
       doc.font(F.reg).fontSize(8.5).fillColor('#333')
         .text(`${parseFloat(g.unit_price).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
