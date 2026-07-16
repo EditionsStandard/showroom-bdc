@@ -6529,7 +6529,7 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
       // Composition affichée en petit sous la désignation — même raison que sur
       // generateOrderPDF : plusieurs références peuvent partager désignation et
       // couleur identiques, seule la matière les distingue.
-      const compoH = compoText ? doc.font(F.reg).fontSize(6.5).heightOfString(compoText, { width: colW.name }) + 2 : 0;
+      const compoH = compoText ? doc.font(F.reg).fontSize(7).heightOfString(compoText, { width: colW.name }) + 2 : 0;
       // La couleur peut être plus longue que sa colonne étroite (45pt) et donc
       // se retrouver sur plusieurs lignes — la hauteur de ligne doit en tenir
       // compte, sinon la ligne suivante (et in fine le total/CGV/signature)
@@ -6540,7 +6540,10 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
       if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(p.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
-      if (compoText) doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(compoText, col.name, rowY + nameH + 2, { width: colW.name, characterSpacing: 0.2 });
+      // Couleur SOFT (plus foncée que MUTE) : à 6.5pt/MUTE, une composition longue
+      // qui s'étale sur plusieurs lignes devenait quasi illisible (trop clair, trop
+      // petit) — repéré en pratique après déploiement du premier correctif.
+      if (compoText) doc.font(F.reg).fontSize(7).fillColor(SOFT).text(compoText, col.name, rowY + nameH + 2, { width: colW.name, characterSpacing: 0.2 });
       doc.fillColor(SOFT).fontSize(8.5)
         .text(colorText, col.color, rowY, { width: colW.color })
         .text(l.size || '—', col.size, rowY, { width: colW.size });
@@ -6918,7 +6921,7 @@ async function generateOrderPDF(orderId) {
       // partagent parfois exactement le même nom + couleur (ex. plusieurs coloris
       // "White Dot" d'un même style ne différant que par la matière) : sans elle,
       // impossible de distinguer ces lignes sur le document envoyé à la marque.
-      const compoH = compoText ? doc.font(F.reg).fontSize(6.5).heightOfString(compoText, { width: colW.name }) + 2 : 0;
+      const compoH = compoText ? doc.font(F.reg).fontSize(7).heightOfString(compoText, { width: colW.name }) + 2 : 0;
       // Voir generateSelectionPDF : la couleur peut déborder de sa colonne
       // étroite sur plusieurs lignes, il faut en tenir compte dans rowH pour
       // éviter que la ligne suivante (et le total/CGV/signature en bas de
@@ -6937,7 +6940,10 @@ async function generateOrderPDF(orderId) {
       if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(g.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
-      if (compoText) doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(compoText, col.name, rowY + nameH + 2, { width: colW.name, characterSpacing: 0.2 });
+      // Couleur SOFT (plus foncée que MUTE) : à 6.5pt/MUTE, une composition longue
+      // qui s'étale sur plusieurs lignes devenait quasi illisible (trop clair, trop
+      // petit) — repéré en pratique après déploiement du premier correctif.
+      if (compoText) doc.font(F.reg).fontSize(7).fillColor(SOFT).text(compoText, col.name, rowY + nameH + 2, { width: colW.name, characterSpacing: 0.2 });
       doc.fillColor(SOFT).fontSize(8.5).text(colorText, col.color, rowY, { width: colW.color });
       doc.font(F.bold).fontSize(8).fillColor(INK).text(gridText, col.grid, rowY, { width: colW.grid });
       doc.font(F.reg).fontSize(8.5).fillColor('#333')
@@ -7076,8 +7082,10 @@ async function generateOrderPDF(orderId) {
         const colorH = p.color ? doc.heightOfString(p.color, { width: cardW }) : 0;
         // Composition en petit sous couleur/référence — même raison que sur le
         // tableau principal : désignation+couleur identiques entre produits
-        // pourtant distincts, seule la matière les différencie.
-        doc.fontSize(6.5);
+        // pourtant distincts, seule la matière les différencie. Couleur SOFT
+        // (pas MUTE) : à 6.5pt/MUTE, une composition longue sur plusieurs lignes
+        // devenait quasi illisible — repéré en pratique après le premier déploiement.
+        doc.fontSize(7);
         const compoH = compoText ? doc.heightOfString(compoText, { width: cardW }) : 0;
         doc.fontSize(7.5);
         const sizesH = doc.heightOfString(sizesText, { width: cardW });
@@ -7097,7 +7105,7 @@ async function generateOrderPDF(orderId) {
         doc.font(F.bold).fontSize(8.5).fillColor(INK).text(card.reference || '', cx, ty, { width: cardW });
         ty += card.refH + 4;
         if (card.color) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(card.color, cx, ty, { width: cardW }); ty += card.colorH + 4; }
-        if (card.compoText) { doc.font(F.reg).fontSize(6.5).fillColor(MUTE).text(card.compoText, cx, ty, { width: cardW, characterSpacing: 0.2 }); ty += card.compoH + 4; }
+        if (card.compoText) { doc.font(F.reg).fontSize(7).fillColor(SOFT).text(card.compoText, cx, ty, { width: cardW, characterSpacing: 0.2 }); ty += card.compoH + 4; }
         doc.font(F.reg).fontSize(7.5).fillColor('#444').text(card.sizesText, cx, ty, { width: cardW });
         ty = doc.y + 3;
         doc.font(F.bold).fontSize(8).fillColor(INK).text('Qté totale : ' + card.totalQty, cx, ty, { width: cardW });
