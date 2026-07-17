@@ -71,6 +71,10 @@
       text-transform: uppercase; letter-spacing: .24em; }
     .login-link a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); padding-bottom: 2px; }
     .required { color: var(--muted); }
+    .toggle-link { display: block; background: none; border: none; color: var(--muted); font-size: 9px;
+      font-family: inherit; letter-spacing: .16em; text-transform: uppercase; text-decoration: underline;
+      text-underline-offset: 3px; cursor: pointer; padding: 0; margin: -8px 0 28px; transition: color .2s; }
+    .toggle-link:hover { color: var(--ink); }
     @media (max-width: 767px) {
       body { overflow-x: hidden; padding: 36px 18px calc(24px + env(safe-area-inset-bottom)); justify-content: flex-start; }
       .row { grid-template-columns: 1fr; gap: 0; }
@@ -130,46 +134,50 @@
       <input id="f-email" type="email" autocomplete="email">
     </div>
 
-    <div class="row">
-      <div class="field">
-        <label id="t-label-phone">Téléphone</label>
-        <input id="f-phone" type="tel" autocomplete="tel">
-      </div>
-      <div class="field">
-        <label id="t-label-country">Pays</label>
-        <select id="f-country">
-          <option value="" id="t-country-choose">— Choisir —</option>
-          <option value="France" data-c="France">France</option>
-          <option value="Belgique" data-c="Belgium">Belgique</option>
-          <option value="Suisse" data-c="Switzerland">Suisse</option>
-          <option value="Luxembourg" data-c="Luxembourg">Luxembourg</option>
-          <option value="Allemagne" data-c="Germany">Allemagne</option>
-          <option value="Italie" data-c="Italy">Italie</option>
-          <option value="Espagne" data-c="Spain">Espagne</option>
-          <option value="Royaume-Uni" data-c="UnitedKingdom">Royaume-Uni</option>
-          <option value="États-Unis" data-c="UnitedStates">États-Unis</option>
-          <option value="Canada" data-c="Canada">Canada</option>
-          <option value="Japon" data-c="Japan">Japon</option>
-          <option value="Corée du Sud" data-c="SouthKorea">Corée du Sud</option>
-          <option value="Autre" data-c="Other" id="t-country-other">Autre</option>
-        </select>
-      </div>
-    </div>
+    <button type="button" class="toggle-link" id="t-extra-toggle" onclick="toggleExtraFields()">+ Informations complémentaires (optionnel)</button>
 
-    <div class="row">
-      <div class="field">
-        <label id="t-label-instagram">Instagram</label>
-        <input id="f-instagram" type="text" autocomplete="off">
+    <div id="extra-fields" style="display:none">
+      <div class="row">
+        <div class="field">
+          <label id="t-label-phone">Téléphone</label>
+          <input id="f-phone" type="tel" autocomplete="tel">
+        </div>
+        <div class="field">
+          <label id="t-label-country">Pays</label>
+          <select id="f-country">
+            <option value="" id="t-country-choose">— Choisir —</option>
+            <option value="France" data-c="France">France</option>
+            <option value="Belgique" data-c="Belgium">Belgique</option>
+            <option value="Suisse" data-c="Switzerland">Suisse</option>
+            <option value="Luxembourg" data-c="Luxembourg">Luxembourg</option>
+            <option value="Allemagne" data-c="Germany">Allemagne</option>
+            <option value="Italie" data-c="Italy">Italie</option>
+            <option value="Espagne" data-c="Spain">Espagne</option>
+            <option value="Royaume-Uni" data-c="UnitedKingdom">Royaume-Uni</option>
+            <option value="États-Unis" data-c="UnitedStates">États-Unis</option>
+            <option value="Canada" data-c="Canada">Canada</option>
+            <option value="Japon" data-c="Japan">Japon</option>
+            <option value="Corée du Sud" data-c="SouthKorea">Corée du Sud</option>
+            <option value="Autre" data-c="Other" id="t-country-other">Autre</option>
+          </select>
+        </div>
       </div>
-      <div class="field">
-        <label id="t-label-website">Website</label>
-        <input id="f-website" type="url" autocomplete="url">
-      </div>
-    </div>
 
-    <div class="field">
-      <label id="t-label-message">Message (optionnel)</label>
-      <textarea id="f-message"></textarea>
+      <div class="row">
+        <div class="field">
+          <label id="t-label-instagram">Instagram</label>
+          <input id="f-instagram" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+          <label id="t-label-website">Website</label>
+          <input id="f-website" type="url" autocomplete="url">
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="t-label-message">Message (optionnel)</label>
+        <textarea id="f-message"></textarea>
+      </div>
     </div>
 
     <div class="field" style="margin-top:4px">
@@ -224,6 +232,7 @@ const TR = {
     label_website: 'Website',
     placeholder_website: 'https://maboutique.com',
     label_message: 'Message (optionnel)',
+    extra_toggle: '+ Informations complémentaires (optionnel)',
     country_choose: '— Choisir —',
     country_other: 'Autre',
     placeholder_email: 'jean@boutique.com',
@@ -260,6 +269,7 @@ const TR = {
     label_website: 'Website',
     placeholder_website: 'https://mystore.com',
     label_message: 'Message (optional)',
+    extra_toggle: '+ Additional information (optional)',
     country_choose: '— Select —',
     country_other: 'Other',
     placeholder_email: 'jane@boutique.com',
@@ -288,6 +298,7 @@ const TR = {
     label_name: 'Cognome', label_firstname: 'Nome', label_company: 'Negozio / Azienda', label_email: 'Email professionale',
     label_phone: 'Telefono', label_country: 'Paese', label_instagram: 'Instagram', placeholder_instagram: '@ilmionegozio',
     label_website: 'Sito web', placeholder_website: 'https://ilmionegozio.com', label_message: 'Messaggio (facoltativo)',
+    extra_toggle: '+ Informazioni aggiuntive (facoltativo)',
     country_choose: '— Seleziona —', country_other: 'Altro', placeholder_email: 'nome@negozio.com', placeholder_phone: '+39 000 000 0000',
     placeholder_message: 'Raccontaci del tuo negozio e dei tuoi criteri di selezione…',
     submit: 'INVIA LA RICHIESTA', submitting: 'Invio in corso…', login_link: 'Hai già un account?', login_link_cta: 'Accedi',
@@ -301,6 +312,7 @@ const TR = {
     label_name: 'Apellido', label_firstname: 'Nombre', label_company: 'Tienda / Empresa', label_email: 'Correo profesional',
     label_phone: 'Teléfono', label_country: 'País', label_instagram: 'Instagram', placeholder_instagram: '@mitienda',
     label_website: 'Sitio web', placeholder_website: 'https://mitienda.com', label_message: 'Mensaje (opcional)',
+    extra_toggle: '+ Información adicional (opcional)',
     country_choose: '— Seleccionar —', country_other: 'Otro', placeholder_email: 'nombre@tienda.com', placeholder_phone: '+34 000 000 000',
     placeholder_message: 'Cuéntanos sobre tu tienda y tus criterios de selección…',
     submit: 'ENVIAR MI SOLICITUD', submitting: 'Enviando…', login_link: '¿Ya tienes una cuenta?', login_link_cta: 'Iniciar sesión',
@@ -314,6 +326,7 @@ const TR = {
     label_name: 'Nachname', label_firstname: 'Vorname', label_company: 'Geschäft / Firma', label_email: 'Geschäftliche E-Mail',
     label_phone: 'Telefon', label_country: 'Land', label_instagram: 'Instagram', placeholder_instagram: '@meinladen',
     label_website: 'Website', placeholder_website: 'https://meinladen.com', label_message: 'Nachricht (optional)',
+    extra_toggle: '+ Zusätzliche Informationen (optional)',
     country_choose: '— Auswählen —', country_other: 'Andere', placeholder_email: 'name@laden.com', placeholder_phone: '+49 000 0000000',
     placeholder_message: 'Erzählen Sie uns von Ihrem Geschäft und Ihren Auswahlkriterien…',
     submit: 'ANFRAGE SENDEN', submitting: 'Wird gesendet…', login_link: 'Bereits ein Konto?', login_link_cta: 'Anmelden',
@@ -327,6 +340,7 @@ const TR = {
     label_name: '姓', label_firstname: '名', label_company: '店铺 / 公司', label_email: '企业邮箱',
     label_phone: '电话', label_country: '国家', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
     label_website: '网站', placeholder_website: 'https://mystore.com', label_message: '留言（可选）',
+    extra_toggle: '+ 补充信息（可选）',
     country_choose: '— 请选择 —', country_other: '其他', placeholder_email: 'name@store.com', placeholder_phone: '+86 000 0000 0000',
     placeholder_message: '介绍一下您的店铺和选品方向…',
     submit: '提交申请', submitting: '提交中…', login_link: '已有账户？', login_link_cta: '登录',
@@ -340,6 +354,7 @@ const TR = {
     label_name: '姓', label_firstname: '名', label_company: '店舗 / 会社', label_email: '仕事用メール',
     label_phone: '電話番号', label_country: '国', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
     label_website: 'ウェブサイト', placeholder_website: 'https://mystore.com', label_message: 'メッセージ（任意）',
+    extra_toggle: '+ 追加情報（任意）',
     country_choose: '— 選択 —', country_other: 'その他', placeholder_email: 'name@store.com', placeholder_phone: '+81 00 0000 0000',
     placeholder_message: 'あなたの店舗やセレクトの方針を教えてください…',
     submit: '申請を送信', submitting: '送信中…', login_link: 'すでにアカウントをお持ちですか？', login_link_cta: 'ログイン',
@@ -353,6 +368,7 @@ const TR = {
     label_name: '성', label_firstname: '이름', label_company: '매장 / 회사', label_email: '업무용 이메일',
     label_phone: '전화번호', label_country: '국가', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
     label_website: '웹사이트', placeholder_website: 'https://mystore.com', label_message: '메시지 (선택)',
+    extra_toggle: '+ 추가 정보 (선택)',
     country_choose: '— 선택 —', country_other: '기타', placeholder_email: 'name@store.com', placeholder_phone: '+82 00 0000 0000',
     placeholder_message: '매장과 셀렉션 방향을 알려주세요…',
     submit: '요청 보내기', submitting: '전송 중…', login_link: '이미 계정이 있으신가요?', login_link_cta: '로그인',
@@ -366,6 +382,7 @@ const TR = {
     label_name: 'นามสกุล', label_firstname: 'ชื่อ', label_company: 'ร้านค้า / บริษัท', label_email: 'อีเมลธุรกิจ',
     label_phone: 'โทรศัพท์', label_country: 'ประเทศ', label_instagram: 'Instagram', placeholder_instagram: '@mystore',
     label_website: 'เว็บไซต์', placeholder_website: 'https://mystore.com', label_message: 'ข้อความ (ไม่บังคับ)',
+    extra_toggle: '+ ข้อมูลเพิ่มเติม (ไม่บังคับ)',
     country_choose: '— เลือก —', country_other: 'อื่น ๆ', placeholder_email: 'name@store.com', placeholder_phone: '+66 00 000 0000',
     placeholder_message: 'บอกเราเกี่ยวกับร้านของคุณและแนวทางการคัดเลือก…',
     submit: 'ส่งคำขอ', submitting: 'กำลังส่ง…', login_link: 'มีบัญชีอยู่แล้ว?', login_link_cta: 'เข้าสู่ระบบ',
@@ -445,6 +462,7 @@ function applyLang() {
   document.getElementById('t-label-website').textContent = t('label_website');
   document.getElementById('f-website').placeholder = t('placeholder_website');
   document.getElementById('t-label-message').textContent = t('label_message');
+  document.getElementById('t-extra-toggle').textContent = t('extra_toggle');
 
   document.getElementById('t-country-choose').textContent = t('country_choose');
   document.getElementById('t-country-other').textContent = t('country_other');
@@ -468,6 +486,11 @@ function applyLang() {
   document.getElementById('t-success-title').textContent = t('success_title');
   document.getElementById('t-success-msg').innerHTML = t('success_msg').replace('\n', '<br>');
   document.getElementById('t-back-link').textContent = t('back_link');
+}
+
+function toggleExtraFields() {
+  document.getElementById('extra-fields').style.display = 'block';
+  document.getElementById('t-extra-toggle').style.display = 'none';
 }
 
 function setLang(l) {
