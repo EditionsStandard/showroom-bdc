@@ -1265,10 +1265,21 @@ function applyLang() {
         <div class="field"><label data-field="phone">Téléphone</label><input id="ck-phone"></div>
         <div class="field"><label data-field="country">Pays</label><input id="ck-country"></div>
         <div id="cgv-blocks"></div>
-        <canvas id="sig-canvas"></canvas>
-        <div style="display:flex;justify-content:space-between;margin-top:6px">
-          <span id="sig-label" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
-          <a id="sig-clear" onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
+        <div id="sig-draw-wrap">
+          <canvas id="sig-canvas"></canvas>
+          <div style="display:flex;justify-content:space-between;margin-top:6px">
+            <span id="sig-label" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
+            <a id="sig-clear" onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
+          </div>
+          <a id="sig-alt-toggle" onclick="toggleSigMode()" style="display:block;margin-top:10px;font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Ou tapez votre nom comme signature</a>
+        </div>
+        <div id="sig-alt-wrap" style="display:none">
+          <div class="field" style="margin-bottom:10px">
+            <label>Signature (nom tapé)</label>
+            <input id="sig-typed" type="text" placeholder="Prénom Nom" oninput="onSigTyped()">
+          </div>
+          <div id="sig-typed-preview" style="display:none;font-family:'Brush Script MT','Zapf Chancery','Comic Sans MS',cursive;font-size:28px;color:#0a0a0a;background:#fff;border:1px solid var(--border);padding:14px 18px;min-height:64px;align-items:center;margin-bottom:10px"></div>
+          <a onclick="toggleSigMode()" style="display:block;font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Revenir à la signature manuscrite</a>
         </div>
         <p id="moq-hint" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;font-family:'Inter',sans-serif">Minimum de commande non atteint — complétez votre sélection pour valider.</p>
         <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
@@ -2888,10 +2899,29 @@ let moqBlocked = false;
 }
 
 // ── Signature ──
-let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true;
+let sigCanvas, sigCtx, sigDrawing = false, sigEmpty = true, sigMode = 'draw'; // 'draw' ou 'type'
+
+function toggleSigMode() {
+  sigMode = sigMode === 'draw' ? 'type' : 'draw';
+  document.getElementById('sig-draw-wrap').style.display = sigMode === 'draw' ? '' : 'none';
+  document.getElementById('sig-alt-wrap').style.display = sigMode === 'type' ? 'block' : 'none';
+}
+
+function onSigTyped() {
+  const val = document.getElementById('sig-typed').value.trim();
+  const preview = document.getElementById('sig-typed-preview');
+  if (val) { preview.textContent = val; preview.style.display = 'flex'; }
+  else { preview.style.display = 'none'; }
+}
+
 function initSigCanvas() {
   sigCanvas = document.getElementById('sig-canvas');
   if (!sigCanvas) return;
+  sigMode = 'draw';
+  document.getElementById('sig-draw-wrap').style.display = '';
+  document.getElementById('sig-alt-wrap').style.display = 'none';
+  document.getElementById('sig-typed').value = '';
+  document.getElementById('sig-typed-preview').style.display = 'none';
   sigCtx = sigCanvas.getContext('2d');
   const rect = sigCanvas.getBoundingClientRect();
   sigCanvas.width = rect.width || 600;
@@ -2955,7 +2985,8 @@ async function submitCheckout() {
   if (!client_name) { msg.innerHTML = `<div class="msg error">${t('err_name')}</div>`; return; }
   const cgvBoxes = [...document.querySelectorAll('.cgv-brand-checkbox')];
   if (!cgvBoxes.length || !cgvBoxes.every(cb => cb.checked)) { msg.innerHTML = `<div class="msg error">${t('err_cgv')}</div>`; return; }
-  if (sigEmpty) { msg.innerHTML = `<div class="msg error">${t('err_sig')}</div>`; return; }
+  const sigTypedVal = document.getElementById('sig-typed').value.trim();
+  if (sigMode === 'draw' ? sigEmpty : sigTypedVal.length < 2) { msg.innerHTML = `<div class="msg error">${t('err_sig')}</div>`; return; }
   if (!Object.keys(cart).length) { msg.innerHTML = `<div class="msg error">${t('err_empty')}</div>`; return; }
 
   const btnConfirm = document.getElementById('btn-confirm-order');
@@ -2963,19 +2994,33 @@ async function submitCheckout() {
   const origBtnText = btnConfirm.textContent;
   btnConfirm.textContent = t('sending');
   const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
-  // Le canvas de signature n'a jamais de fond opaque (transparent tant qu'aucun
-  // trait n'est dessiné) — l'exporter directement en JPEG (pas de canal alpha)
-  // remplissait tout le fond transparent en noir, rendant la signature illisible
-  // (trait presque noir sur fond noir) sur le bon de commande PDF. On compose
-  // d'abord sur un canvas temporaire à fond blanc, comme pour la signature tapée.
-  const sigTemp = document.createElement('canvas');
-  sigTemp.width = sigCanvas.width;
-  sigTemp.height = sigCanvas.height;
-  const sigTempCtx = sigTemp.getContext('2d');
-  sigTempCtx.fillStyle = '#fff';
-  sigTempCtx.fillRect(0, 0, sigTemp.width, sigTemp.height);
-  sigTempCtx.drawImage(sigCanvas, 0, 0);
-  const buyer_signature = sigTemp.toDataURL('image/png');
+  let buyer_signature;
+  if (sigMode === 'type') {
+    // Signature tapée : rendue en police manuscrite sur un canvas temporaire,
+    // même principe que le dessin ci-dessous (fond blanc opaque pour le PDF).
+    const tc = document.createElement('canvas');
+    tc.width = 400; tc.height = 100;
+    const tx = tc.getContext('2d');
+    tx.fillStyle = '#fff'; tx.fillRect(0, 0, 400, 100);
+    tx.font = '48px "Brush Script MT", cursive';
+    tx.fillStyle = '#0a0a0a';
+    tx.fillText(sigTypedVal, 20, 68);
+    buyer_signature = tc.toDataURL('image/png');
+  } else {
+    // Le canvas de signature n'a jamais de fond opaque (transparent tant qu'aucun
+    // trait n'est dessiné) — l'exporter directement en JPEG (pas de canal alpha)
+    // remplissait tout le fond transparent en noir, rendant la signature illisible
+    // (trait presque noir sur fond noir) sur le bon de commande PDF. On compose
+    // d'abord sur un canvas temporaire à fond blanc, comme pour la signature tapée.
+    const sigTemp = document.createElement('canvas');
+    sigTemp.width = sigCanvas.width;
+    sigTemp.height = sigCanvas.height;
+    const sigTempCtx = sigTemp.getContext('2d');
+    sigTempCtx.fillStyle = '#fff';
+    sigTempCtx.fillRect(0, 0, sigTemp.width, sigTemp.height);
+    sigTempCtx.drawImage(sigCanvas, 0, 0);
+    buyer_signature = sigTemp.toDataURL('image/png');
+  }
 
   try {
     const r = await fetch('/api/portal/checkout', {
