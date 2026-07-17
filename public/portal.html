@@ -91,11 +91,11 @@
   h2.section-title { font-family: var(--dot), monospace; font-size: 14px; margin-bottom: 26px; font-weight: 400; letter-spacing: .28em; text-transform: uppercase; }
   /* Marqueur accent brut (carré plat) — signature commune à tous les écrans */
   h2.section-title::before { content: ''; display: inline-block; width: 9px; height: 9px; background: var(--accent); border-radius: 0; margin-right: 14px; vertical-align: 2px; }
-  .dash-block-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 10px; }
-  .dash-card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 12px 14px; margin-bottom: 8px; font-family: 'Inter', sans-serif; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
-  .dash-card-empty { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--muted); }
-  .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); padding: 8px 12px; margin: 0 8px 8px 0; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px; transition: border-color .15s; }
-  .dash-brand-chip:hover { border-color: var(--accent); }
+  .dash-block-title { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: .26em; color: var(--muted); margin-bottom: 12px; }
+  .dash-card { background: none; border: none; border-radius: 0; padding: 0; margin-bottom: 10px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; box-shadow: none; letter-spacing: .02em; }
+  .dash-card-empty { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+  .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: none; padding: 6px 0; margin: 0 20px 8px 0; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; letter-spacing: .04em; transition: color .15s; }
+  .dash-brand-chip:hover { color: var(--accent); }
   .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
   /* Messagerie acheteur ↔ agence — fil façon chat, pièces jointes incluses */
   .msg-thread { max-height: 54vh; overflow-y: auto; margin-bottom: 10px; padding: 18px; background: var(--dark); border: 1px solid var(--border); border-radius: 0; }
@@ -1207,7 +1207,7 @@ function applyLang() {
 <div class="wrap">
   <div id="view-dashboard" class="view-section" style="opacity:1">
     <h2 class="section-title" id="dash-hello">Bonjour</h2>
-    <div id="dash-next-action" style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);padding:16px 18px;margin-bottom:26px;font-family:'Inter',sans-serif;font-size:14px"></div>
+    <div id="dash-next-action" style="background:rgba(204,235,60,.06);padding:16px 0;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
     <div id="dash-pending-wrap" style="margin-bottom:26px;display:none">
       <div class="dash-block-title" data-t="dash_pending">Sélections en attente</div>
       <div id="dash-pending"></div>
