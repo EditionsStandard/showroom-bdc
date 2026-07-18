@@ -721,6 +721,8 @@ const TRANSLATIONS = {
     moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € HT (actuellement ${cur} €)`,
     moq_bar_qty: 'Minimum pièces', moq_bar_amt: 'Minimum montant',
+    moq_remaining_qty: (n) => `encore ${n} pièce${n>1?'s':''}`, moq_remaining_amt: (s) => `encore ${s}`,
+    orders_prev_page: '← Précédent', orders_next_page: 'Suivant →',
     cart_subtotal: 'Sous-total :', cart_empty: 'Votre sélection est vide.',
     cart_note_ph: 'Note (optionnel)…',
     err_name: 'Nom requis.', err_cgv: 'Veuillez consulter et accepter les CGV de chaque marque.', err_sig: 'Signature requise.', err_empty: 'Sélection vide.', err_retry: 'Erreur, réessayez.',
@@ -740,6 +742,12 @@ const TRANSLATIONS = {
     export_generating: '⏳ Génération…', export_btn: '📄 Exporter', export_err: 'Erreur lors de la génération du PDF.',
     sending: '⏳ Envoi en cours…',
     orders_loading_msg: 'Chargement…', orders_load_err: 'Erreur de chargement.',
+    msg_empty_state: 'Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez une photo.',
+    msg_load_err: 'Erreur de chargement.',
+    msg_file_type_err: 'Format non supporté (jpg, png, webp, gif, pdf)',
+    msg_file_size_err: 'Fichier trop volumineux (10 Mo max)',
+    msg_send_err: 'Erreur envoi', msg_network_err: 'Erreur réseau',
+    added_to_cart_toast: (ref) => `✓ ${ref} ajouté`,
     orders_retry: 'Réessayer', orders_browse: 'Parcourir le catalogue',
     favs_title: 'Mes favoris', favs_empty: 'Aucun favori pour l\'instant. Cliquez sur ♡ sur un produit.',
     favs_intro: 'Retrouvez ici les produits mis en favoris depuis n\'importe quelle marque.',
@@ -754,6 +762,15 @@ const TRANSLATIONS = {
     reorder_added: (n) => `↺ ${n} produit(s) ajouté(s) au panier`,
     price_on_request: 'Prix sur demande',
     retail_label: 'PVC conseillé :',
+    stock_out: '● Rupture de stock', stock_low: (n) => `● Plus que ${n}`, stock_in: (n) => `● En stock (${n})`,
+    fav_add_title: 'Ajouter aux favoris', shortlist_add_title: 'Ajouter à la shortlist',
+    compare_add_title: 'Comparer ce produit', compare_btn: '⊕ Comparer', compare_compared_btn: '✓ Comparé',
+    view_product_title: 'Voir la fiche produit',
+    qty_decrease_label: 'Diminuer la quantité', qty_increase_label: 'Augmenter la quantité',
+    reset_filters_btn: 'Réinitialiser les filtres',
+    compare_clear_btn: '✕ Effacer', compare_go_btn: 'Comparer →', compare_modal_title: 'Comparaison produits',
+    compare_remove_title: 'Retirer', compare_no_image: 'Image indisponible', compare_no_image_short: "Pas d'image",
+    compare_sizes_label: (s) => `Tailles : ${s}`,
     gdpr_title: 'Mes données personnelles',
     gdpr_desc: 'Conformément au RGPD, vous disposez d\'un droit d\'accès et d\'un droit à l\'effacement de vos données.',
     gdpr_download: '⬇ Télécharger mes données', gdpr_delete: '🗑 Supprimer mon compte',
@@ -865,6 +882,8 @@ const TRANSLATIONS = {
     moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
     moq_warn_amt: (min, cur) => `minimum ${min} € excl. tax (currently ${cur} €)`,
     moq_bar_qty: 'Minimum pieces', moq_bar_amt: 'Minimum amount',
+    moq_remaining_qty: (n) => `${n} item${n>1?'s':''} to go`, moq_remaining_amt: (s) => `${s} to go`,
+    orders_prev_page: '← Previous', orders_next_page: 'Next →',
     cart_subtotal: 'Subtotal:', cart_empty: 'Your selection is empty.',
     cart_note_ph: 'Note (optional)…',
     err_name: 'Name required.', err_cgv: 'Please open and accept the terms and conditions of each brand.', err_sig: 'Signature required.', err_empty: 'Selection is empty.', err_retry: 'Error, please try again.',
@@ -898,6 +917,15 @@ const TRANSLATIONS = {
     reorder_added: (n) => `↺ ${n} product(s) added to cart`,
     price_on_request: 'Price on request',
     retail_label: 'RRP:',
+    stock_out: '● Out of stock', stock_low: (n) => `● Only ${n} left`, stock_in: (n) => `● In stock (${n})`,
+    fav_add_title: 'Add to favorites', shortlist_add_title: 'Add to shortlist',
+    compare_add_title: 'Compare this product', compare_btn: '⊕ Compare', compare_compared_btn: '✓ Compared',
+    view_product_title: 'View product page',
+    qty_decrease_label: 'Decrease quantity', qty_increase_label: 'Increase quantity',
+    reset_filters_btn: 'Reset filters',
+    compare_clear_btn: '✕ Clear', compare_go_btn: 'Compare →', compare_modal_title: 'Product comparison',
+    compare_remove_title: 'Remove', compare_no_image: 'Image unavailable', compare_no_image_short: 'No image',
+    compare_sizes_label: (s) => `Sizes: ${s}`,
     gdpr_title: 'My personal data',
     gdpr_desc: 'Under GDPR, you have the right to access and the right to erasure of your personal data.',
     gdpr_download: '⬇ Download my data', gdpr_delete: '🗑 Delete my account',
@@ -917,6 +945,12 @@ const TRANSLATIONS = {
     btn_reload: 'Reload',
     btn_retry: 'Retry',
     load_err_brand: 'Loading error. Check your connection.',
+    msg_empty_state: 'No messages yet. Write to us below, or attach a photo.',
+    msg_load_err: 'Loading error.',
+    msg_file_type_err: 'Unsupported format (jpg, png, webp, gif, pdf)',
+    msg_file_size_err: 'File too large (10 MB max)',
+    msg_send_err: 'Send error', msg_network_err: 'Network error',
+    added_to_cart_toast: (ref) => `✓ ${ref} added`,
     fav_toast_added: '♥ Added to favourites',
     share_generating: 'Generating…',
     share_empty: 'Cart is empty — nothing to share.',
@@ -1589,8 +1623,8 @@ function applyLang() {
 <div class="compare-bar" id="compare-bar">
   <div class="compare-bar-items" id="compare-bar-items"></div>
   <div class="compare-bar-actions">
-    <button class="btn-compare-clear" onclick="clearCompare()">✕ Effacer</button>
-    <button class="btn-compare-go" onclick="openCompareModal()">Comparer →</button>
+    <button class="btn-compare-clear" onclick="clearCompare()" data-t="compare_clear_btn">✕ Effacer</button>
+    <button class="btn-compare-go" onclick="openCompareModal()" data-t="compare_go_btn">Comparer →</button>
   </div>
 </div>
 
@@ -1598,7 +1632,7 @@ function applyLang() {
 <div id="modal-compare">
   <div class="compare-modal-inner">
     <div class="compare-modal-header">
-      <h3 style="margin:0;font-family:'Plex Mono','Space Mono',monospace;font-size:16px">Comparaison produits</h3>
+      <h3 style="margin:0;font-family:'Plex Mono','Space Mono',monospace;font-size:16px" data-t="compare_modal_title">Comparaison produits</h3>
       <button onclick="closeCompareModal()" aria-label="Fermer la comparaison" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">✕</button>
     </div>
     <div class="compare-cols" id="compare-cols"></div>
@@ -1886,7 +1920,7 @@ function priceBlockHtml(ws, retail, compact = false) {
   const noPriceLabel = t('price_on_request');
   if (compact) {
     if (noPrice) return `<div class="price-block"><span class="price-ws" style="font-size:11px;color:var(--muted)">${noPriceLabel}</span></div>`;
-    const retailLine = retail > 0 ? `<span class="price-retail-val">PVC ${fmtPrice(retail)}</span>` : '';
+    const retailLine = retail > 0 ? `<span class="price-retail-val">${t('retail_label')} ${fmtPrice(retail)}</span>` : '';
     return `<div class="price-block">
       <span class="price-ws">${fmtPrice(ws)}</span>
       ${retailLine}
@@ -1966,9 +2000,9 @@ function stockBadgeHtml(p) {
   if (!p.stock_enabled) return '';
   const qty = p.stock_qty;
   if (qty === null || qty === undefined) return '';
-  if (qty === 0) return '<span class="stock-badge out">● Rupture de stock</span>';
-  if (qty <= 3) return `<span class="stock-badge low">● Plus que ${qty}</span>`;
-  return `<span class="stock-badge in">● En stock (${qty})</span>`;
+  if (qty === 0) return `<span class="stock-badge out">${t('stock_out')}</span>`;
+  if (qty <= 3) return `<span class="stock-badge low">${t('stock_low', qty)}</span>`;
+  return `<span class="stock-badge in">${t('stock_in', qty)}</span>`;
 }
 
 function sentenceCase(s) {
@@ -2706,7 +2740,7 @@ function renderProductsList(products) {
 function renderProductsPage() {
   const list = filteredProductsAll.slice(0, visibleProductCount);
   const el = document.getElementById('products-list');
-  if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Plex Mono','Space Mono',monospace;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius: 0;font-size:12px;cursor:pointer;font-family:inherit">Réinitialiser les filtres</button></div>`; return; }
+  if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Plex Mono','Space Mono',monospace;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius: 0;font-size:12px;cursor:pointer;font-family:inherit">${t('reset_filters_btn')}</button></div>`; return; }
   el.classList.toggle('list-view', productViewMode === 'list');
   const nowMs = Date.now();
   el.innerHTML = list.map(p => {
@@ -2719,9 +2753,9 @@ function renderProductsPage() {
     const isNew = p.created_at && (nowMs - new Date(p.created_at).getTime()) < 30 * 24 * 3600 * 1000;
     const isFav = favorites.has(p.id);
     const badgeNew = isNew ? `<span class="badge-new">NEW</span>` : '';
-    const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="Ajouter aux favoris">${isFav?'♥':'♡'}</button>`;
+    const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="${t('fav_add_title')}">${isFav?'♥':'♡'}</button>`;
     const isShort = shortlist.has(p.id);
-    const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="Ajouter à la shortlist">🔖</button>`;
+    const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="${t('shortlist_add_title')}">🔖</button>`;
     const img = imgs[0]
       ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
           <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
@@ -2733,27 +2767,27 @@ function renderProductsPage() {
     const key0 = currentBrand.id + '|' + p.id + '|';
     const _isOutOfStock = p.stock_enabled && p.stock_qty === 0;
     const qtyHtml = _isOutOfStock
-      ? `<div style="margin-top:10px"><span class="stock-badge out" style="display:inline-block">● Rupture de stock</span></div>`
+      ? `<div style="margin-top:10px"><span class="stock-badge out" style="display:inline-block">${t('stock_out')}</span></div>`
       : sizes.length ? sizes.map(sz => {
         const k = currentBrand.id + '|' + p.id + '|' + sz;
         const q = cart[k] ? cart[k].qty : 0;
         return `<div class="qty-row"><span style="font-size:11px;font-family:'Plex Mono','Space Mono',monospace;min-width:30px">${esc(sz)}</span>
-          <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
+          <button class="qty-btn" aria-label="${t('qty_decrease_label')}" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
           <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-          <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
+          <button class="qty-btn" aria-label="${t('qty_increase_label')}" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
       }).join('') : (() => {
         const q = cart[key0] ? cart[key0].qty : 0;
-        return `<div class="qty-row"><button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1)">−</button>
+        return `<div class="qty-row"><button class="qty-btn" aria-label="${t('qty_decrease_label')}" onclick="changeQty('${p.id}','',-1)">−</button>
           <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
-          <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1)">+</button></div>`;
+          <button class="qty-btn" aria-label="${t('qty_increase_label')}" onclick="changeQty('${p.id}','',1)">+</button></div>`;
       })();
     const _cartQty = getProductCartQty(p.id);
     const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:48px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;z-index:2">${_cartQty}</div>` : '';
     return `<div class="product-card" data-pid="${p.id}" data-product-id="${p.id}" style="position:relative">
-      <button class="compare-btn" id="cmp-${p.id}" onclick="toggleCompare('${p.id}')" title="Comparer ce produit">⊕ Comparer</button>
+      <button class="compare-btn" id="cmp-${p.id}" onclick="toggleCompare('${p.id}')" title="${t('compare_add_title')}">${t('compare_btn')}</button>
       ${img}${_cartBadge}
       <div class="product-info">
-        <div class="product-ref" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" title="Voir la fiche produit">${esc(p.reference)}</div>
+        <div class="product-ref" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" title="${t('view_product_title')}">${esc(p.reference)}</div>
         <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" data-tr="${esc(sentenceCase(p.description))}">${esc(sentenceCase(p.description))}</div>
         ${p.color ? `<div class="product-meta">${esc(p.color)}</div>` : ''}
         ${priceBlockHtml(p.price, p.price_retail, true)}
@@ -2834,7 +2868,7 @@ let moqBlocked = false;
         const remaining = moqQty - brandQty;
         if (!ok && moqStrict) moqBlocked = true;
         const barColor = ok ? 'var(--accent)' : pct >= 70 ? '#f0a500' : 'var(--border)';
-        const label = ok ? '✓' : `encore ${remaining} pièce${remaining>1?'s':''}`;
+        const label = ok ? '✓' : t('moq_remaining_qty', remaining);
         bars.push(`<div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_qty')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
@@ -2850,7 +2884,7 @@ let moqBlocked = false;
         const remaining = moqAmount - brandTotal;
         if (!ok && moqStrict) moqBlocked = true;
         const barColor = ok ? 'var(--accent)' : pct >= 70 ? '#f0a500' : 'var(--border)';
-        const label = ok ? '✓' : `encore ${fmtPrice(remaining)}`;
+        const label = ok ? '✓' : t('moq_remaining_amt', fmtPrice(remaining));
         bars.push(`<div style="margin-top:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_amt')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
@@ -3739,9 +3773,9 @@ function renderOrdersList(data) {
     const end = Math.min(start + ORDERS_PER_PAGE, data.length);
     const btnStyle = "background:none;border:none;color:var(--soft);border-radius:0;padding:8px 8px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer";
     list.innerHTML += `<div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:16px;grid-column:1/-1">
-      ${ordersPage > 0 ? `<button onclick="ordersPage--;renderOrdersList(ordersData_sorted)" style="${btnStyle}">← Précédent</button>` : ''}
+      ${ordersPage > 0 ? `<button onclick="ordersPage--;renderOrdersList(ordersData_sorted)" style="${btnStyle}">${t('orders_prev_page')}</button>` : ''}
       <span style="color:var(--muted);font-size:12px;font-family:'Plex Mono','Space Mono',monospace">${start+1}–${end} / ${data.length}</span>
-      ${end < data.length ? `<button onclick="ordersPage++;renderOrdersList(ordersData_sorted)" style="${btnStyle}">Suivant →</button>` : ''}
+      ${end < data.length ? `<button onclick="ordersPage++;renderOrdersList(ordersData_sorted)" style="${btnStyle}">${t('orders_next_page')}</button>` : ''}
     </div>`;
   }
 }
@@ -4375,7 +4409,7 @@ function refreshCompareUI() {
   document.querySelectorAll('.compare-btn').forEach(btn => {
     const pid = btn.id.replace('cmp-', '');
     btn.classList.toggle('active', compareList.includes(pid));
-    btn.textContent = compareList.includes(pid) ? '✓ Comparé' : '⊕ Comparer';
+    btn.textContent = compareList.includes(pid) ? t('compare_compared_btn') : t('compare_btn');
   });
   // Update bar
   const bar = document.getElementById('compare-bar');
@@ -4388,7 +4422,7 @@ function refreshCompareUI() {
   items.innerHTML = compareList.map(pid => {
     const p = (currentProducts || []).find(x => x.id === pid);
     if (!p) return '';
-    return `<div class="compare-bar-chip"><span>${esc(p.reference)}</span><button onclick="toggleCompare('${pid}')" title="Retirer">✕</button></div>`;
+    return `<div class="compare-bar-chip"><span>${esc(p.reference)}</span><button onclick="toggleCompare('${pid}')" title="${t('compare_remove_title')}">✕</button></div>`;
   }).join('');
 }
 
@@ -4407,10 +4441,10 @@ function openCompareModal() {
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!imgs.length && p.image_url) imgs = [p.image_url];
     const imgHtml = imgs[0]
-      ? `<img src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div style=\\'width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px\\'>Image indisponible</div>'">`
-      : `<div style="width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px">Pas d'image</div>`;
+      ? `<img src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div style=\\'width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px\\'>${esc(t('compare_no_image'))}</div>'">`
+      : `<div style="width:100%;aspect-ratio:3/4;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px">${t('compare_no_image_short')}</div>`;
     const priceHtml = p.price > 0 ? fmtPrice(p.price) : '—';
-    const pvcHtml = p.price_retail > 0 ? `<div style="font-size:11px;color:#888;margin-top:2px">PVC ${fmtPrice(p.price_retail)}</div>` : '';
+    const pvcHtml = p.price_retail > 0 ? `<div style="font-size:11px;color:#888;margin-top:2px">${t('retail_label')} ${fmtPrice(p.price_retail)}</div>` : '';
     return `<div class="compare-col">
       ${imgHtml}
       <div class="compare-col-info">
@@ -4419,7 +4453,7 @@ function openCompareModal() {
         ${p.description ? `<div class="compare-col-desc">${esc(p.description)}</div>` : ''}
         <div class="compare-col-price">${priceHtml}</div>
         ${pvcHtml}
-        ${p.sizes ? `<div class="compare-col-sizes">Tailles : ${esc(p.sizes)}</div>` : ''}
+        ${p.sizes ? `<div class="compare-col-sizes">${t('compare_sizes_label', esc(p.sizes))}</div>` : ''}
       </div>
     </div>`;
   }).join('');
