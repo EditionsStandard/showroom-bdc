@@ -4702,7 +4702,7 @@ function printProductQR() {
 
 async function printAllProductQR() {
   const w = window.open('', '_blank');
-  w.document.write('<html><body style="font-family:'Plex Mono','Space Mono',monospace;padding:40px;text-align:center"><p>Génération des QR codes…</p></body></html>');
+  w.document.write('<html><body style="font-family:\'Plex Mono\',\'Space Mono\',monospace;padding:40px;text-align:center"><p>Génération des QR codes…</p></body></html>');
   w.document.close();
   const data = await fetch(`/api/brands/${currentBrandId}/qrcodes-all`).then(r => r.json());
   const fmt = n => n > 0 ? Number(n).toFixed(2) + ' €' : '';
