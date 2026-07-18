@@ -143,14 +143,14 @@
   @keyframes saveStatusPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
   /* Cartes marque pleine largeur (une par ligne), style brut */
   .brand-grid { display: flex; flex-direction: column; gap: 14px; }
-  .brand-card { display: flex; align-items: stretch; background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 172px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .brand-card { display: flex; align-items: stretch; background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: pointer; transition: border-color .18s; min-height: 260px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   .brand-card:hover { border-color: var(--accent); }
   .brand-card:hover .brand-name, .brand-card:hover .brand-cta { color: var(--accent); }
-  .brand-cover { width: 300px; flex-shrink: 0; align-self: stretch; object-fit: cover; object-position: center; display: block; background: var(--dark); }
-  .brand-cover-ph { width: 300px; flex-shrink: 0; align-self: stretch; min-height: 172px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
-  .brand-info { flex: 1; min-width: 0; padding: 26px 32px; display: flex; flex-direction: column; justify-content: center; gap: 7px; position: relative; }
+  .brand-cover { width: 44%; flex-shrink: 0; align-self: stretch; object-fit: cover; object-position: center; display: block; background: var(--dark); }
+  .brand-cover-ph { width: 44%; flex-shrink: 0; align-self: stretch; min-height: 260px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: .3; }
+  .brand-info { flex: 1; min-width: 0; padding: 30px 36px; display: flex; flex-direction: column; justify-content: center; gap: 8px; position: relative; }
   .brand-name-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .brand-name { font-family: var(--dot), monospace; font-size: 17px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; transition: color .18s; }
+  .brand-name { font-family: var(--dot), monospace; font-size: 21px; font-weight: 400; letter-spacing: .16em; text-transform: uppercase; transition: color .18s; }
   .brand-season { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); padding: 2px 0; line-height: 1.5; flex-shrink: 0; }
   .brand-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
@@ -158,7 +158,7 @@
   .brand-idx { position: absolute; top: 16px; right: 20px; font-family: var(--dot), monospace; font-size: 12px; color: var(--muted); opacity: .55; letter-spacing: .1em; }
   @media (max-width: 720px) {
     .brand-card { flex-direction: column; min-height: 0; }
-    .brand-cover, .brand-cover-ph { width: 100%; height: 190px; min-height: 0; }
+    .brand-cover, .brand-cover-ph { width: 100%; height: 240px; min-height: 0; }
     .brand-info { padding: 18px 18px 22px; }
     .brand-idx { top: 12px; right: 14px; }
   }
@@ -195,7 +195,7 @@
   .product-card { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; cursor: default; transition: border-color .15s; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   .product-card:hover { border-color: var(--soft); }
   .product-img-wrap { position: relative; overflow: hidden; cursor: pointer; }
-  .product-img { width: 100%; height: 280px; object-fit: contain; background: #fff; display: block; transition: opacity .3s; }
+  .product-img { width: 100%; height: 420px; object-fit: contain; background: #fff; display: block; transition: opacity .3s; }
   .product-img-2 { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; opacity: 0; transition: opacity .3s; }
   .product-img-wrap:hover .product-img-1 { opacity: 0; }
   .product-img-wrap:hover .product-img-2 { opacity: 1; }
@@ -470,7 +470,7 @@
   .drawer-close:hover { color: var(--white); }
   .drawer-body { overflow-y: auto; flex: 1; padding: 0 0 24px; }
   .drawer-gallery { position: relative; background: #fff; overflow: hidden; }
-  .drawer-gallery-main { width: 100%; height: 320px; object-fit: contain; display: block; }
+  .drawer-gallery-main { width: 100%; height: 440px; object-fit: contain; display: block; }
   .drawer-gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,.35); border: none; color: #fff; font-size: 28px; width: 44px; height: 60px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
   .drawer-gallery-prev { left: 0; }
   .drawer-gallery-next { right: 0; }
@@ -493,7 +493,7 @@
     .product-drawer { top: auto; left: 0; right: 0; width: 100%; height: 90vh; border-left: none; border-top: 1px solid var(--border); border-radius: 0; }
     .product-drawer.open { transform: translateY(0); }
     .product-drawer { transform: translateY(100%); }
-    .drawer-gallery-main { height: 50vw; min-height: 200px; max-height: 280px; }
+    .drawer-gallery-main { height: 60vw; min-height: 220px; max-height: 340px; }
     .product-drawer { height: 95vh; }
     .drawer-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
   }
@@ -551,12 +551,12 @@
     .wrap { padding: 16px 14px 100px; }
     h2.section-title { font-size: 14px; margin-bottom: 14px; }
     .brand-grid { gap: 12px; }
-    .brand-cover, .brand-cover-ph { height: 170px; width: 100%; }
+    .brand-cover, .brand-cover-ph { height: 210px; width: 100%; }
     .brand-info { padding: 16px 16px 20px; }
     .brand-name { font-size: 15px; }
     .products-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .product-img { height: 200px; }
-    .product-img-2 { height: 200px; }
+    .product-img { height: 260px; }
+    .product-img-2 { height: 260px; }
     .product-info { padding: 10px 12px; }
     .product-ref { font-size: 11px; }
     .product-desc { font-size: 11px; line-height: 1.5; }
@@ -597,7 +597,7 @@
   @media (max-width: 380px) {
     .products-grid { grid-template-columns: 1fr; }
     .brand-grid { grid-template-columns: 1fr; }
-    .product-img { height: 260px; }
+    .product-img { height: 320px; }
   }
 
   /* ── Comparateur produits ── */
