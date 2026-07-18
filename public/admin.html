@@ -842,7 +842,7 @@
     <div class="card" id="world-map-card" style="margin-bottom:24px">
       <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_world_map_title">Clients dans le monde</h3>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start" id="world-map-grid">
-        <div id="world-map-holder" style="aspect-ratio:1010/666;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+        <div id="world-map-holder" style="width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
           <p style="font-size:12px;color:#555" data-t="loading_map_label">Chargement de la carte…</p>
         </div>
         <div class="table-wrap">
@@ -4095,6 +4095,24 @@ async function loadWorldMap() {
   }
   // Carte (chargée une seule fois, ~150 Ko gzip)
   const holder = document.getElementById('world-map-holder');
+  // Hauteur calculée en JS plutôt qu'en CSS aspect-ratio : évite les écarts de
+  // support entre moteurs de rendu (aspect-ratio combiné à un item flex/grid a
+  // un comportement historiquement inégal sur WebKit/iOS) — la carte garde son
+  // ratio réel (1010:666) et remplit toute la largeur disponible, partout.
+  const MAP_RATIO = 666 / 1010;
+  function sizeWorldMapHolder() {
+    const w = holder.getBoundingClientRect().width;
+    if (w > 0) holder.style.height = Math.round(w * MAP_RATIO) + 'px';
+  }
+  sizeWorldMapHolder();
+  if (!window._worldMapResizeBound) {
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(sizeWorldMapHolder, 150);
+    });
+    window._worldMapResizeBound = true;
+  }
   if (!_worldSvgLoaded) {
     const svg = await fetch('/world-map.svg').then(x => x.ok ? x.text() : null).catch(() => null);
     if (!svg) { holder.innerHTML = `<p style="font-size:12px;color:#555">${t('js_map_unavailable')}</p>`; return; }
