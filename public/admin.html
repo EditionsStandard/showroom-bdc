@@ -302,6 +302,29 @@
 
     /* Carte du monde : liste sous la carte sur mobile */
     #world-map-grid { grid-template-columns: 1fr !important; }
+    /* Petits tableaux du dashboard (Pays/Clients/CA) : la carte fait toute la
+       largeur une fois la grille empilée, pas besoin du min-width:600px
+       générique conçu pour les grandes tables (commandes, produits). */
+    #world-map-grid table { min-width: 0; width: 100%; }
+    #world-map-grid .table-wrap::after { display: none; }
+
+    /* CA mensuel / CA par marque : empilés au lieu de côte à côte */
+    #dash-charts-grid { grid-template-columns: 1fr !important; }
+
+    /* Top Acheteurs / Acheteurs inactifs / Perf. Marques : empilés, sinon
+       chaque carte n'a qu'un tiers de la largeur de l'écran. */
+    #buyer-analytics-grid { grid-template-columns: 1fr !important; }
+    #top-buyers-wrap table, #top-brands-wrap table { min-width: 0; width: 100%; }
+    #top-buyers-wrap::after, #top-brands-wrap::after { display: none; }
+
+    /* Lignes CA par marque / Top produits (label + barre + valeur) : passent
+       en deux lignes plutôt que de forcer un défilement horizontal invisible
+       (la page bloque tout débordement horizontal, cf. règle html,body plus
+       bas — un contenu trop large y était simplement coupé sans recours). */
+    .dash-chart-row { flex-wrap: wrap; row-gap: 4px; }
+    .dash-row-label { min-width: 100% !important; white-space: normal !important; }
+    .dash-row-bar { flex: 1 1 auto !important; }
+    .dash-row-value { min-width: 0 !important; }
   }
 
   @media (max-width: 480px) {
@@ -661,7 +684,7 @@
       <div style="font-size:34px;font-weight:700;color:var(--accent);line-height:1" id="stat-conversion">—</div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div id="dash-charts-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="card" style="margin-bottom:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
           <h3 style="margin:0;font-size:14px">CA mensuel</h3>
@@ -3759,12 +3782,12 @@ async function loadDashboard() {
   const brandChart = document.getElementById('brand-revenue-chart');
   if (brandChart && sorted.length) {
     brandChart.innerHTML = sorted.map(([name,val],i) => `
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Plex Mono','Space Mono',monospace">
-        <div style="font-size:11px;color:#cfcfcf;min-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-        <div style="flex:1;background:#1c1c1c;height:1px;position:relative">
+      <div class="dash-chart-row" style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Plex Mono','Space Mono',monospace">
+        <div class="dash-row-label" style="font-size:11px;color:#cfcfcf;min-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+        <div class="dash-row-bar" style="flex:1;background:#1c1c1c;height:1px;position:relative">
           <div style="position:absolute;left:0;top:-2px;width:${Math.round(val/maxBrand*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>
         </div>
-        <div style="font-size:11px;color:#7a7a7a;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
+        <div class="dash-row-value" style="font-size:11px;color:#7a7a7a;min-width:64px;text-align:right">${val.toFixed(0)} €</div>
       </div>`).join('');
   }
 
@@ -3788,14 +3811,14 @@ async function loadTopProducts() {
     }
     const maxQty = Math.max(...rows.map(r => r.qty), 1);
     box.innerHTML = rows.map((r, i) => `
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Plex Mono','Space Mono',monospace">
-        <div style="font-size:11px;color:#cfcfcf;min-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+      <div class="dash-chart-row" style="display:flex;align-items:center;gap:12px;margin-bottom:13px;font-family:'Plex Mono','Space Mono',monospace">
+        <div class="dash-row-label" style="font-size:11px;color:#cfcfcf;min-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
           <strong>${esc(r.reference)}</strong>${r.color ? ' · ' + esc(r.color) : ''} <span style="color:#777">— ${esc(r.brand_name)}</span>
         </div>
-        <div style="flex:1;background:#1c1c1c;height:1px;position:relative">
+        <div class="dash-row-bar" style="flex:1;background:#1c1c1c;height:1px;position:relative">
           <div style="position:absolute;left:0;top:-2px;width:${Math.round(r.qty/maxQty*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>
         </div>
-        <div style="font-size:11px;color:#7a7a7a;min-width:120px;text-align:right">${r.qty} pièce${r.qty>1?'s':''} · ${r.revenue.toFixed(0)} €</div>
+        <div class="dash-row-value" style="font-size:11px;color:#7a7a7a;min-width:120px;text-align:right">${r.qty} pièce${r.qty>1?'s':''} · ${r.revenue.toFixed(0)} €</div>
       </div>`).join('');
   } catch(e) { box.innerHTML = '<p style="font-size:12px;color:#e07a7a">Erreur de chargement</p>'; }
 }
