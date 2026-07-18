@@ -5849,6 +5849,20 @@ app.get('/api/buyers/presence', requireRole('owner','agent'), async (req, res) =
   res.json(r.rows.map(b => b.id));
 });
 
+// Variante détaillée pour le dashboard (widget "Acheteurs en ligne") — nom/société
+// affichés, contrairement à /api/buyers/presence qui ne renvoie que des IDs (utilisé
+// ailleurs pour de simples correspondances de statut en/hors ligne).
+app.get('/api/buyers/presence-detail', requireRole('owner','agent'), async (req, res) => {
+  const scoped = isBrandScoped(req);
+  const r = await pool.query(
+    `SELECT id, name, company FROM buyers WHERE last_seen_at > NOW() - INTERVAL '90 seconds'
+     ${scoped ? 'AND id IN (SELECT buyer_id FROM orders WHERE brand_id = $1 AND buyer_id IS NOT NULL)' : ''}
+     ORDER BY name`,
+    scoped ? [req.userBrandId] : []
+  );
+  res.json(r.rows);
+});
+
 app.post('/api/portal/ping', requireBuyerAuth, async (req, res) => {
   const { lang } = req.body;
   await pool.query('UPDATE buyers SET last_seen_at = NOW()' + (lang ? ', lang=$2' : '') + ' WHERE id = $1',
