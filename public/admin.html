@@ -557,35 +557,51 @@
 </style>
 <script>
 (function() {
-  function getTheme() {
-    const saved = localStorage.getItem('es-theme');
-    if (saved) return saved;
+  // Mode = préférence stockée ('light' | 'dark' | 'auto'). 'auto' (ou absence
+  // de clé, pour les utilisateurs déjà en base) suit l'heure : clair 7h-20h,
+  // sombre sinon. Un choix manuel (light/dark) reste prioritaire jusqu'à ce
+  // que l'utilisateur revienne explicitement sur 'auto' via le cycle du bouton.
+  function getMode() {
+    return localStorage.getItem('es-theme') || 'auto';
+  }
+  function resolveTheme(mode) {
+    if (mode !== 'auto') return mode;
     const h = new Date().getHours();
     return (h >= 7 && h < 20) ? 'light' : 'dark';
   }
-  function applyTheme(t) {
-    document.documentElement.setAttribute('data-theme', t);
+  window.getThemeMode = getMode;
+  function applyTheme(mode) {
+    document.documentElement.setAttribute('data-theme', resolveTheme(mode));
     // currentLang est déclaré dans le script principal, chargé après ce
     // script placé en <head> pour appliquer le thème avant le premier
     // rendu (évite un flash) — au tout premier appel, avant DOMContentLoaded,
     // il n'existe pas encore : repli sur 'fr' plutôt qu'une ReferenceError.
     const lang = typeof currentLang !== 'undefined' ? currentLang : 'fr';
     const btn = document.getElementById('theme-toggle');
-    if (btn) btn.textContent = (t === 'light'
-      ? (lang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
-      : (lang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode'));
+    if (btn) btn.textContent = mode === 'auto'
+      ? (lang === 'fr' ? '🌗 Auto' : '🌗 Auto')
+      : mode === 'light'
+        ? (lang === 'fr' ? '☀️ Clair' : '☀️ Light')
+        : (lang === 'fr' ? '🌙 Sombre' : '🌙 Dark');
     const btnMob = document.getElementById('theme-toggle-mob');
-    if (btnMob) btnMob.textContent = t === 'light' ? '🌙' : '☀️';
+    if (btnMob) btnMob.textContent = mode === 'auto' ? '🌗' : mode === 'light' ? '☀️' : '🌙';
   }
   window.toggleTheme = function() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-    const next = cur === 'light' ? 'dark' : 'light';
-    localStorage.setItem('es-theme', next);
+    const cur = getMode();
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    // 'auto' n'est jamais écrit en storage (uniquement supprimé) : les autres
+    // pages du site qui lisent 'es-theme' de façon passive (sans notion de
+    // mode 'auto') retombent alors sur leur propre calcul horaire au lieu de
+    // recevoir une valeur 'auto' qu'elles ne sauraient pas résoudre.
+    if (next === 'auto') localStorage.removeItem('es-theme'); else localStorage.setItem('es-theme', next);
     applyTheme(next);
   };
-  const _t = getTheme();
-  applyTheme(_t);
-  document.addEventListener('DOMContentLoaded', () => applyTheme(_t));
+  const _m = getMode();
+  applyTheme(_m);
+  document.addEventListener('DOMContentLoaded', () => applyTheme(_m));
+  // Mode auto : ré-évalue l'heure périodiquement pour basculer sans recharger
+  // la page si l'onglet reste ouvert au moment du changement clair/sombre.
+  setInterval(() => { if (getMode() === 'auto') applyTheme('auto'); }, 5 * 60 * 1000);
 })();
 </script>
 </head>
@@ -2576,15 +2592,15 @@ function applyLang() {
   const btnMob = document.getElementById('lang-toggle-mob');
   if (btnMob) btnMob.textContent = currentLang === 'fr' ? 'EN' : 'FR';
   // Update theme toggle text to match lang
-  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const themeMode = typeof getThemeMode === 'function' ? getThemeMode() : 'auto';
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
-    themeBtn.textContent = cur === 'light'
-      ? (currentLang === 'fr' ? '🌙 Mode sombre' : '🌙 Dark mode')
-      : (currentLang === 'fr' ? '☀️ Mode clair' : '☀️ Light mode');
+    themeBtn.textContent = themeMode === 'auto' ? '🌗 Auto'
+      : themeMode === 'light' ? (currentLang === 'fr' ? '☀️ Clair' : '☀️ Light')
+      : (currentLang === 'fr' ? '🌙 Sombre' : '🌙 Dark');
   }
   const themeBtnMob = document.getElementById('theme-toggle-mob');
-  if (themeBtnMob) themeBtnMob.textContent = cur === 'light' ? '🌙' : '☀️';
+  if (themeBtnMob) themeBtnMob.textContent = themeMode === 'auto' ? '🌗' : themeMode === 'light' ? '☀️' : '🌙';
 }
 
 function setLang(lang) {

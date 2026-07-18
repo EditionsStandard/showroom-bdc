@@ -475,27 +475,36 @@
 <script>
 // Theme: run before render to avoid flash
 (function() {
-  function getTheme() {
-    const saved = localStorage.getItem('es-theme');
-    if (saved) return saved;
+  // Mode = 'light' | 'dark' | 'auto' (ou absence de clé, traitée comme 'auto').
+  // 'auto' suit l'heure : clair 7h-20h, sombre sinon.
+  function getMode() {
+    return localStorage.getItem('es-theme') || 'auto';
+  }
+  function resolveTheme(mode) {
+    if (mode !== 'auto') return mode;
     const h = new Date().getHours();
     return (h >= 7 && h < 20) ? 'light' : 'dark';
   }
-  function applyTheme(t) {
-    document.documentElement.setAttribute('data-theme', t);
+  function applyTheme(mode) {
+    document.documentElement.setAttribute('data-theme', resolveTheme(mode));
     const btn = document.getElementById('theme-toggle');
-    if (btn) btn.textContent = t === 'light' ? '🌙' : '☀️';
+    if (btn) btn.textContent = mode === 'auto' ? '🌗' : mode === 'light' ? '☀️' : '🌙';
   }
   window.toggleTheme = function() {
-    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-    const next = cur === 'light' ? 'dark' : 'light';
-    localStorage.setItem('es-theme', next);
+    const cur = getMode();
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    // 'auto' n'est jamais écrit en storage (uniquement supprimé) : les autres
+    // pages du site qui lisent 'es-theme' passivement retombent alors sur leur
+    // propre calcul horaire au lieu de recevoir une valeur qu'elles ne
+    // sauraient pas résoudre.
+    if (next === 'auto') localStorage.removeItem('es-theme'); else localStorage.setItem('es-theme', next);
     applyTheme(next);
   };
   window._applyTheme = applyTheme;
-  const _initialTheme = getTheme();
-  applyTheme(_initialTheme);
-  document.addEventListener('DOMContentLoaded', () => applyTheme(_initialTheme));
+  const _initialMode = getMode();
+  applyTheme(_initialMode);
+  document.addEventListener('DOMContentLoaded', () => applyTheme(_initialMode));
+  setInterval(() => { if (getMode() === 'auto') applyTheme('auto'); }, 5 * 60 * 1000);
 })();
 </script>
 </head>
