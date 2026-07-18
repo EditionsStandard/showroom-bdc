@@ -161,6 +161,24 @@
 
   .sep { height: 1px; background: #252525; margin: 24px 0; }
 
+  /* Dernières commandes : liste de cartes, alternative au tableau sur mobile
+     (voir #recent-orders-cards ci-dessous) — masquée par défaut, activée dans
+     la media query mobile qui masque symétriquement le tableau. */
+  #recent-orders-cards { display: none; }
+  .ro-card { padding: 12px 0; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px dashed var(--border); }
+  .ro-card:last-child { border-bottom: none; padding-bottom: 0; }
+  .ro-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ro-date { font-size: 10px; color: var(--muted); letter-spacing: .04em; }
+  .ro-brand { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 0; background: var(--mid); color: var(--soft); border: 1px solid var(--border); white-space: nowrap; }
+  .ro-client { font-size: 13px; font-weight: 700; color: var(--white); }
+  .ro-email { font-size: 10.5px; color: var(--muted); margin-top: 2px; word-break: break-all; }
+  .ro-bottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 2px; }
+  .ro-total { font-size: 15px; font-weight: 700; color: var(--accent); }
+  .ro-actions { display: flex; gap: 6px; }
+  .ro-btn { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; padding: 7px 11px; border-radius: 0; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: transparent; }
+  .ro-btn.pdf { color: var(--muted); border: 1px solid var(--border); }
+  .ro-btn.resend { color: var(--success); border: 1px solid rgba(46,204,113,.27); }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     /* Sidebar → bottom tab bar */
@@ -207,6 +225,11 @@
     }
     table { min-width: 600px; }
     #products-table { min-width: 800px; }
+
+    /* Dernières commandes : cartes au lieu du tableau à défilement horizontal
+       (voir maquette) — tout reste visible sans geste latéral. */
+    #recent-orders-table-wrap { display: none; }
+    #recent-orders-cards { display: block; }
 
     /* Modal: full screen on mobile */
     .modal-overlay { align-items: flex-end; padding: 0; }
@@ -720,10 +743,11 @@
     </div>
     <div class="card">
       <h3 data-t="recent_orders">Dernières commandes</h3>
-      <div class="table-wrap"><table id="recent-orders-table">
+      <div class="table-wrap" id="recent-orders-table-wrap"><table id="recent-orders-table">
         <thead><tr><th data-t="th_date">Date</th><th data-t="th_client">Client</th><th data-t="th_brand">Marque</th><th data-t="th_total">Total</th><th data-t="th_actions">Actions</th></tr></thead>
         <tbody id="recent-orders-body"></tbody>
       </table></div>
+      <div id="recent-orders-cards"></div>
     </div>
 
     <!-- Timeline commerciale — fil chronologique tous acheteurs confondus.
@@ -3877,6 +3901,30 @@ async function loadDashboard() {
       </td>
     </tr>
   `).join('');
+
+  // Version cartes (mobile) — mêmes données, layout vertical sans scroll horizontal
+  const cardsBox = document.getElementById('recent-orders-cards');
+  if (cardsBox) {
+    cardsBox.innerHTML = recent.map(o => `
+      <div class="ro-card">
+        <div class="ro-card-top">
+          <span class="ro-date">${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</span>
+          <span class="ro-brand">${esc(o.brand_name)}</span>
+        </div>
+        <div>
+          <div class="ro-client">${esc(o.client_name)}</div>
+          <div class="ro-email">${esc(o.client_email)}</div>
+        </div>
+        <div class="ro-bottom">
+          <span class="ro-total">${(parseFloat(o.total)||0).toFixed(2)} €</span>
+          <span class="ro-actions">
+            <a href="/api/orders/${o.id}/pdf" target="_blank" class="ro-btn pdf">PDF</a>
+            <button class="ro-btn resend" onclick="resend('${o.id}')">${t('js_resend')}</button>
+          </span>
+        </div>
+      </div>
+    `).join('');
+  }
 
   // CA par marque (depuis commandes récentes — chart bar)
   const byBrand = {};
