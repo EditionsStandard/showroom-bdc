@@ -115,21 +115,21 @@
   .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
   /* Messagerie acheteur ↔ agence — fil façon chat, pièces jointes incluses */
   .msg-thread { max-height: 54vh; overflow-y: auto; margin-bottom: 10px; padding: 18px; background: var(--dark); border: 1px solid var(--border); border-radius: 0; }
-  .msg-day-sep { text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 12px; }
+  .msg-day-sep { text-align: center; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 12px; }
   .msg-day-sep:first-child { margin-top: 0; }
   .msg-row { display: flex; margin-bottom: 10px; }
-  .msg-bubble { max-width: 78%; border-radius: 0; padding: 9px 13px; font-family: 'Inter', sans-serif; font-size: 14px; }
+  .msg-bubble { max-width: 78%; border-radius: 0; padding: 9px 13px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; letter-spacing: .01em; }
   .msg-attach-img { display: block; max-width: 220px; width: 100%; margin-bottom: 6px; cursor: zoom-in; border-radius: 0; }
   .msg-attach-file { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; background: rgba(255,255,255,.08); font-size: 12px; text-decoration: none; color: inherit; }
   .msg-bubble.mine .msg-attach-file { background: rgba(17,17,17,.12); }
   .msg-attach-btn { flex-shrink: 0; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--border); color: var(--soft); font-size: 17px; cursor: pointer; transition: border-color .15s, color .15s; }
   .msg-attach-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .msg-attach-preview { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; background: var(--dark); border: 1px solid var(--border); font-family: 'Inter', sans-serif; font-size: 12px; }
+  .msg-attach-preview { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; background: var(--dark); border: 1px solid var(--border); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; }
   .msg-attach-preview img { width: 34px; height: 34px; object-fit: cover; flex-shrink: 0; }
   .msg-attach-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .msg-attach-preview .remove { cursor: pointer; color: var(--muted); flex-shrink: 0; }
   .msg-attach-preview .remove:hover { color: var(--white); }
-  .save-status { font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
+  .save-status { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
   .save-status:empty { display: none; }
   .save-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--muted); }
   .save-status.saving::before { background: #d4a017; animation: saveStatusPulse 1s ease-in-out infinite; }
