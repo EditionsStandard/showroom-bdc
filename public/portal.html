@@ -53,16 +53,21 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 120px; transition: background .2s, color .2s;
     }
-  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
-  .header-left { display: flex; align-items: center; gap: 14px; }
-  .header-left img { width: 36px; height: 36px; border-radius: 0; display: block; }
-  .header h1 { font-family: var(--dot), monospace; font-size: 12px; font-weight: 400; letter-spacing: .3em; text-transform: uppercase; }
-  .header .nav { display: flex; gap: 26px; align-items: center; font-family: inherit; font-size: 9px; text-transform: uppercase; letter-spacing: .22em; }
-  .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .22em; }
-  .header .nav a.active { color: var(--white); border-bottom: 1px solid var(--accent); padding-bottom: 3px; }
-  .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
-  .header .nav a.nav-logout { color: #e05e5e; }
-  .header .nav a.nav-logout:hover { opacity: .7; }
+  /* ── Shell : sidebar (desktop) + colonne principale ── */
+  .shell { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
+  .sidebar { border-right: 1px solid var(--border); padding: 26px 20px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-logo-link { display: block; width: fit-content; margin-bottom: 40px; cursor: pointer; }
+  .sidebar-logo-link img { width: 42px; height: 42px; border-radius: 0; display: block; }
+  .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .sidebar-nav a { color: var(--soft); text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; border-left: 2px solid transparent; transition: color .15s, border-color .15s; }
+  .sidebar-nav a.active { color: var(--white); border-left: 2px solid var(--accent); }
+  .sidebar-nav a:hover { color: var(--white); }
+  .sidebar .nav-logout { display: block; color: #e05e5e; text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; }
+  .sidebar .nav-logout:hover { opacity: .7; }
+  .main-col { min-width: 0; }
+  .topbar { background: var(--black); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: flex-end; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
+  .topbar-logo-link { display: none; margin-right: auto; cursor: pointer; }
+  .topbar-logo-link img { width: 28px; height: 28px; border-radius: 0; display: block; }
   /* ── User dropdown ── */
   .user-menu { position: relative; flex-shrink: 0; }
   .user-btn { display: flex; align-items: center; gap: 9px; background: transparent; border: none; border-radius: 0; padding: 6px 14px 6px 6px; cursor: pointer; font-family: inherit; font-size: 11px; color: var(--white); letter-spacing: .06em; transition: border-color .15s; user-select: none; }
@@ -94,6 +99,17 @@
   .dash-block-title { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: .26em; color: var(--muted); margin-bottom: 12px; }
   .dash-card { background: none; border: none; border-radius: 0; padding: 0; margin-bottom: 10px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; box-shadow: none; letter-spacing: .02em; }
   .dash-card-empty { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+  /* Panel hairline avec repères d'angle "+" — habillage Schematic UI */
+  .panel { position: relative; border: 1px solid var(--border); }
+  .panel .c2 { position: absolute; inset: 0; pointer-events: none; }
+  .panel::before, .panel::after, .panel .c2::before, .panel .c2::after { content: '+'; position: absolute; color: var(--accent); font-size: 13px; line-height: 1; pointer-events: none; }
+  .panel::before { top: -7px; left: -7px; } .panel::after { top: -7px; right: -7px; }
+  .panel .c2::before { bottom: -7px; left: -7px; } .panel .c2::after { bottom: -7px; right: -7px; }
+  .dash-info-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .dash-info-col { padding: 20px 22px; border-right: 1px solid var(--border); }
+  .dash-info-col:last-child { border-right: none; }
+  @media (max-width: 900px) { .dash-info-grid { grid-template-columns: repeat(2, 1fr); } .dash-info-col:nth-child(2n) { border-right: none; } }
+  @media (max-width: 480px) { .dash-info-grid { grid-template-columns: 1fr; } .dash-info-col { border-right: none !important; } }
   .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: none; padding: 6px 0; margin: 0 20px 8px 0; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; letter-spacing: .04em; transition: color .15s; }
   .dash-brand-chip:hover { color: var(--accent); }
   .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
@@ -279,9 +295,10 @@
   .img-counter { color: #555; font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
 
   /* ── Mode présentation ── */
-  body.presentation-mode .header { display: none !important; }
+  body.presentation-mode .sidebar { display: none !important; }
+  body.presentation-mode .shell { grid-template-columns: 1fr; }
+  body.presentation-mode .topbar { display: none !important; }
   body.presentation-mode .mobile-nav { display: none !important; }
-  body.presentation-mode .header .nav { display: none; }
   body.presentation-mode #user-menu { display: none; }
   body.presentation-mode .back-btn { margin-top: 52px; }
   body.presentation-mode .product-img { height: 300px; }
@@ -484,7 +501,7 @@
   /* ── Responsive: tablet ── */
   @media (max-width: 1024px) {
     .wrap { padding: 28px 24px 80px; }
-    .header { padding: 16px 24px; }
+    .topbar { padding: 16px 24px; }
     .products-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
   }
 
@@ -519,15 +536,16 @@
      donc on masque la nav texte dès 900px plutôt que d'ajouter un palier de
      compression intermédiaire. */
   @media (max-width: 900px) {
-    .header .nav { display: none; }
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .topbar-logo-link { display: block; }
   }
 
   @media (max-width: 640px) {
-    /* Header : masquer la nav texte (déjà fait dès 900px ci-dessus), garder
+    /* Topbar : masquer la nav texte (déjà fait dès 900px ci-dessus), garder
        uniquement logo + user-menu */
-    .header { padding: 12px 16px; }
-    .header-left img { width: 30px; height: 30px; }
-    .header h1 { font-size: 12px; }
+    .topbar { padding: 12px 16px; }
+    .topbar-logo-link img { width: 26px; height: 26px; }
     /* Sélecteur devise compact visible sur mobile */
     #currency-select { display: block !important; font-size: 11px; padding: 4px 6px; }
     .wrap { padding: 16px 14px 100px; }
@@ -1139,94 +1157,98 @@ function applyLang() {
 </script>
 </head>
 <body>
-<div class="header">
-  <div class="header-left">
-    <a onclick="showView('dashboard')" style="cursor:pointer" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
-    <h1>Showroom</h1>
-  </div>
-  <div class="nav">
-    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;appearance:none;-webkit-appearance:none;background:none;border:none;outline:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
-    <a id="nav-dashboard" class="active" onclick="showView('dashboard')" data-t="nav_dashboard">Accueil</a>
-    <a id="nav-catalog" onclick="showView('catalog')">Catalogue</a>
-    <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
-    <a id="nav-profile" onclick="showView('account')">Mon profil</a>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="sidebar-logo-link" onclick="showView('dashboard')" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
+    <nav class="sidebar-nav">
+      <a id="nav-dashboard" class="active" onclick="showView('dashboard')" data-t="nav_dashboard">Accueil</a>
+      <a id="nav-catalog" onclick="showView('catalog')">Catalogue</a>
+      <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
+      <a id="nav-profile" onclick="showView('account')">Mon profil</a>
+    </nav>
     <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
-  </div>
-  <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue"
-    style="background:none;border:none;border-radius:0;padding:6px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0;margin-right:8px">
-    <option value="fr">🌐 FR</option>
-    <option value="en">🌐 EN</option>
-    <option value="it">🌐 IT</option>
-    <option value="es">🌐 ES</option>
-    <option value="de">🌐 DE</option>
-    <option value="zh">🌐 中文</option>
-    <option value="ja">🌐 日本語</option>
-    <option value="ko">🌐 한국어</option>
-    <option value="th">🌐 ไทย</option>
-  </select>
-  <div class="user-menu" id="user-menu">
-    <div class="user-btn" onclick="toggleUserMenu()">
-      <div class="user-avatar" id="user-avatar">?</div>
-      <span class="user-name" id="user-name">Mon espace</span>
-      <span class="user-chevron">▼</span>
-    </div>
-    <div class="user-dropdown">
-      <div class="user-dropdown-header">
-        <div class="uname" id="dd-name">—</div>
-        <div class="uemail" id="dd-email">—</div>
-        <div class="ucompany" id="dd-company"></div>
-      </div>
-      <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
-      <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
-      <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
-      <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
-      <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
-      <div class="dropdown-sep"></div>
-      <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
-      <button id="dd-shortlist" class="dropdown-item" onclick="closeUserMenu();showView('shortlist')">🔖 <span data-t="shortlist_title">Ma shortlist</span></button>
-      <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
-        <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
-          <option value="fr">Français</option>
-          <option value="en">English</option>
-          <option value="it">Italiano</option>
-          <option value="es">Español</option>
-          <option value="de">Deutsch</option>
-          <option value="zh">中文</option>
-          <option value="ja">日本語</option>
-          <option value="ko">한국어</option>
-          <option value="th">ไทย</option>
-        </select>
-      </div>
-      <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
-      <div class="dropdown-sep"></div>
-      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
-    </div>
-  </div>
-</div>
+  </aside>
 
-<div class="wrap">
+  <div class="main-col">
+    <div class="topbar">
+      <a class="topbar-logo-link" onclick="showView('dashboard')" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
+      <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;appearance:none;-webkit-appearance:none;background:none;border:none;outline:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
+      <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue"
+        style="background:none;border:none;border-radius:0;padding:6px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0;margin-right:8px">
+        <option value="fr">🌐 FR</option>
+        <option value="en">🌐 EN</option>
+        <option value="it">🌐 IT</option>
+        <option value="es">🌐 ES</option>
+        <option value="de">🌐 DE</option>
+        <option value="zh">🌐 中文</option>
+        <option value="ja">🌐 日本語</option>
+        <option value="ko">🌐 한국어</option>
+        <option value="th">🌐 ไทย</option>
+      </select>
+      <div class="user-menu" id="user-menu">
+        <div class="user-btn" onclick="toggleUserMenu()">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <span class="user-name" id="user-name">Mon espace</span>
+          <span class="user-chevron">▼</span>
+        </div>
+        <div class="user-dropdown">
+          <div class="user-dropdown-header">
+            <div class="uname" id="dd-name">—</div>
+            <div class="uemail" id="dd-email">—</div>
+            <div class="ucompany" id="dd-company"></div>
+          </div>
+          <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
+          <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
+          <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
+          <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
+          <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
+          <div class="dropdown-sep"></div>
+          <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
+          <button id="dd-shortlist" class="dropdown-item" onclick="closeUserMenu();showView('shortlist')">🔖 <span data-t="shortlist_title">Ma shortlist</span></button>
+          <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
+            <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="it">Italiano</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="th">ไทย</option>
+            </select>
+          </div>
+          <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
+          <div class="dropdown-sep"></div>
+          <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
   <div id="view-dashboard" class="view-section" style="opacity:1">
     <h2 class="section-title" id="dash-hello">Bonjour</h2>
-    <div id="dash-next-action" style="background:rgba(204,235,60,.06);padding:16px 0;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
+    <div id="dash-next-action" class="panel" style="background:rgba(204,235,60,.06);padding:16px 20px;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
     <div id="dash-pending-wrap" style="margin-bottom:26px;display:none">
       <div class="dash-block-title" data-t="dash_pending">Sélections en attente</div>
       <div id="dash-pending"></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px">
-      <div>
+    <div class="panel dash-info-grid" style="margin-bottom:26px">
+      <div class="c2"></div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_orders_recent">Commandes récentes</div>
         <div id="dash-orders"></div>
         <a href="javascript:void(0)" onclick="showView('orders')" style="display:inline-block;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline" data-t="dash_view_all_orders">Voir toutes mes commandes →</a>
       </div>
-      <div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_recently_viewed">Marques récemment consultées</div>
         <div id="dash-recent-brands"></div>
       </div>
-      <div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_deadlines">Dates limites de commande</div>
         <div id="dash-deadlines"></div>
       </div>
-      <div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_contact">Votre contact</div>
         <div id="dash-contact"></div>
       </div>
@@ -1427,6 +1449,8 @@ function applyLang() {
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
       <button class="btn-confirm" onclick="showView('orders')" style="background:transparent;border:1px solid var(--accent);color:var(--accent)">📋 <span data-t="nav_orders">Mes commandes</span></button>
       <button class="btn-confirm" onclick="location.reload()">← <span data-t="success_back">Retour au catalogue</span></button>
+    </div>
+  </div>
     </div>
   </div>
 </div>
