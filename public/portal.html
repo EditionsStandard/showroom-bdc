@@ -2255,14 +2255,20 @@ function pushNav(state) {
   if (window._navRestoring) return;
   history.pushState(state, '', '/portal');
 }
-window.addEventListener('popstate', (e) => {
+window.addEventListener('popstate', async (e) => {
   window._navRestoring = true;
   const s = e.state || { v: 'catalog', brand: null };
+  closeProductDrawer(true);
   if (s.v && s.v !== 'catalog') {
     showView(s.v, true);
   } else {
     showView('catalog', true);
-    if (s.brand) openBrand(s.brand, true); else closeBrand(true);
+    if (s.brand) {
+      await openBrand(s.brand, true);
+      if (s.product) openProductDrawer(s.product, true);
+    } else {
+      closeBrand(true);
+    }
   }
   window._navRestoring = false;
 });
@@ -3949,9 +3955,10 @@ let drawerProduct = null;
 let drawerImgs = [];
 let drawerImgIdx = 0;
 
-function openProductDrawer(productId) {
+function openProductDrawer(productId, _fromPop) {
   const p = currentProducts.find(x => x.id === productId);
   if (!p) return;
+  if (!_fromPop) pushNav({ v: 'catalog', brand: currentBrand?.id || null, product: productId });
   fetch(`/api/portal/stats/view/${productId}`, { method: 'POST' }).catch(() => {});
   trackRecentlyViewed(p);
   drawerProduct = p;
@@ -4043,7 +4050,14 @@ function openProductDrawer(productId) {
   initDrawerSwipe();
 }
 
-function closeProductDrawer() {
+function closeProductDrawer(_fromPop) {
+  // Le bouton fermer / backdrop / Échap reflète le bouton retour du navigateur
+  // (même logique que closeBrand) — sauf si le drawer n'est pas ouvert ou si
+  // on est déjà en train de dérouler un popstate.
+  if (!_fromPop && !window._navRestoring && document.getElementById('product-drawer')?.classList.contains('open')) {
+    history.back();
+    return;
+  }
   document.getElementById('drawer-overlay').classList.remove('open');
   document.getElementById('product-drawer').classList.remove('open');
   document.body.style.overflow = '';
