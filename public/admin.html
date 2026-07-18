@@ -690,6 +690,15 @@
       <div id="priorities-list"><p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p></div>
     </div>
 
+    <!-- Acheteurs en ligne — qui est connecté au portail en ce moment -->
+    <div class="card" id="online-buyers-card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="margin:0;font-size:14px" data-t="dash_online_buyers_title">Acheteurs en ligne</h3>
+        <span id="online-buyers-count" style="font-size:11px;color:#888"></span>
+      </div>
+      <div id="online-buyers-list"><p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p></div>
+    </div>
+
     <div class="stats">
       <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
@@ -2375,6 +2384,7 @@ const TRANSLATIONS = {
     status_active_label: '✅ Actif', status_trial_label: '⏳ Essai', status_inactive_label: '❌ Impayé',
     // Dashboard (dynamique)
     dash_priorities_title: 'Priorités du jour', dash_ca_monthly_title: 'CA mensuel', dash_ca_brand_title: 'CA par marque',
+    dash_online_buyers_title: 'Acheteurs en ligne', js_no_buyer_online: 'Personne en ligne actuellement.',
     global_search_placeholder: '🔍 Rechercher commandes, acheteurs…',
     dash_view_portal_title: 'Voir le portail acheteur', dash_portal_link: 'Portail', dash_notifications_btn: '🔔 Notifications',
     dash_top_products: 'Top produits', dash_top_products_sub: '· 6 derniers mois, par quantité commandée',
@@ -2559,6 +2569,7 @@ const TRANSLATIONS = {
     status_active_label: '✅ Active', status_trial_label: '⏳ Trial', status_inactive_label: '❌ Unpaid',
     // Dashboard (dynamic)
     dash_priorities_title: "Today's priorities", dash_ca_monthly_title: 'Monthly revenue', dash_ca_brand_title: 'Revenue by brand',
+    dash_online_buyers_title: 'Buyers online', js_no_buyer_online: 'No one online right now.',
     global_search_placeholder: '🔍 Search orders, buyers…',
     dash_view_portal_title: 'View the buyer portal', dash_portal_link: 'Portal', dash_notifications_btn: '🔔 Notifications',
     dash_top_products: 'Top products', dash_top_products_sub: '· last 6 months, by quantity ordered',
@@ -3952,7 +3963,29 @@ async function loadDashboard() {
   loadDashboardTimeline();
   loadPriorities();
   loadTopProducts();
+  loadOnlineBuyers();
 }
+
+// ── Acheteurs en ligne (widget dashboard) ──────────────────────────────
+async function loadOnlineBuyers() {
+  const box = document.getElementById('online-buyers-list');
+  const countEl = document.getElementById('online-buyers-count');
+  if (!box) return;
+  try {
+    const buyers = await fetch('/api/buyers/presence-detail').then(r => r.json());
+    countEl.textContent = buyers.length ? String(buyers.length) : '';
+    box.innerHTML = buyers.length ? buyers.map(b => `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span title="En ligne" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2ecc71;box-shadow:0 0 4px #2ecc71;flex-shrink:0"></span>
+        <div style="font-size:12px;font-weight:600">${esc(b.name) || '—'}${b.company ? ` <span style="font-weight:400;color:#888">— ${esc(b.company)}</span>` : ''}</div>
+      </div>
+    `).join('') : `<p style="font-size:12px;color:#555">${t('js_no_buyer_online')}</p>`;
+  } catch(e) { box.innerHTML = `<p style="font-size:12px;color:#e07a7a">${t('js_load_error')}</p>`; }
+
+  if (_onlineBuyersTimer) clearInterval(_onlineBuyersTimer);
+  _onlineBuyersTimer = setInterval(loadOnlineBuyers, 30000);
+}
+let _onlineBuyersTimer;
 
 // ── Top produits (quantité commandée, 6 derniers mois) ────────────────
 async function loadTopProducts() {
