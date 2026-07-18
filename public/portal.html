@@ -53,16 +53,21 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { font-family: 'Plex Mono', 'Space Mono', monospace; background: var(--black); color: var(--white); min-height: 100vh; padding-bottom: 120px; transition: background .2s, color .2s;
     }
-  .header { background: var(--black); border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
-  .header-left { display: flex; align-items: center; gap: 14px; }
-  .header-left img { width: 36px; height: 36px; border-radius: 0; display: block; }
-  .header h1 { font-family: var(--dot), monospace; font-size: 12px; font-weight: 400; letter-spacing: .3em; text-transform: uppercase; }
-  .header .nav { display: flex; gap: 26px; align-items: center; font-family: inherit; font-size: 9px; text-transform: uppercase; letter-spacing: .22em; }
-  .header .nav a { color: var(--soft); text-decoration: none; cursor: pointer; letter-spacing: .22em; }
-  .header .nav a.active { color: var(--white); border-bottom: 1px solid var(--accent); padding-bottom: 3px; }
-  .header .nav a.nav-home { padding-left: 22px; border-left: 1px solid var(--border); }
-  .header .nav a.nav-logout { color: #e05e5e; }
-  .header .nav a.nav-logout:hover { opacity: .7; }
+  /* ── Shell : sidebar (desktop) + colonne principale ── */
+  .shell { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
+  .sidebar { border-right: 1px solid var(--border); padding: 26px 20px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-logo-link { display: block; width: fit-content; margin-bottom: 40px; cursor: pointer; }
+  .sidebar-logo-link img { width: 42px; height: 42px; border-radius: 0; display: block; }
+  .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .sidebar-nav a { color: var(--soft); text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; border-left: 2px solid transparent; transition: color .15s, border-color .15s; }
+  .sidebar-nav a.active { color: var(--white); border-left: 2px solid var(--accent); }
+  .sidebar-nav a:hover { color: var(--white); }
+  .sidebar .nav-logout { display: block; color: #e05e5e; text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; }
+  .sidebar .nav-logout:hover { opacity: .7; }
+  .main-col { min-width: 0; }
+  .topbar { background: var(--black); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: flex-end; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
+  .topbar-logo-link { display: none; margin-right: auto; cursor: pointer; }
+  .topbar-logo-link img { width: 28px; height: 28px; border-radius: 0; display: block; }
   /* ── User dropdown ── */
   .user-menu { position: relative; flex-shrink: 0; }
   .user-btn { display: flex; align-items: center; gap: 9px; background: transparent; border: none; border-radius: 0; padding: 6px 14px 6px 6px; cursor: pointer; font-family: inherit; font-size: 11px; color: var(--white); letter-spacing: .06em; transition: border-color .15s; user-select: none; }
@@ -78,7 +83,7 @@
   .user-dropdown-header .uname { font-size: 13px; font-weight: 600; color: var(--white); }
   .user-dropdown-header .uemail { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .user-dropdown-header .ucompany { font-size: 12px; color: var(--soft); }
-  .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); cursor: pointer; text-decoration: none; transition: background .1s, color .1s; border: none; background: none; width: 100%; text-align: left; }
+  .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); cursor: pointer; text-decoration: none; transition: background .1s, color .1s; border: none; background: none; width: 100%; text-align: left; }
   .dropdown-item:hover { background: var(--border); color: var(--white); }
   .dropdown-item.danger { color: #e74c3c; }
   .dropdown-item.danger:hover { background: #e74c3c; color: #fff; }
@@ -94,26 +99,37 @@
   .dash-block-title { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 9px; font-weight: 400; text-transform: uppercase; letter-spacing: .26em; color: var(--muted); margin-bottom: 12px; }
   .dash-card { background: none; border: none; border-radius: 0; padding: 0; margin-bottom: 10px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; box-shadow: none; letter-spacing: .02em; }
   .dash-card-empty { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+  /* Panel hairline avec repères d'angle "+" — habillage Schematic UI */
+  .panel { position: relative; border: 1px solid var(--border); }
+  .panel .c2 { position: absolute; inset: 0; pointer-events: none; }
+  .panel::before, .panel::after, .panel .c2::before, .panel .c2::after { content: '+'; position: absolute; color: var(--accent); font-size: 13px; line-height: 1; pointer-events: none; }
+  .panel::before { top: -7px; left: -7px; } .panel::after { top: -7px; right: -7px; }
+  .panel .c2::before { bottom: -7px; left: -7px; } .panel .c2::after { bottom: -7px; right: -7px; }
+  .dash-info-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .dash-info-col { padding: 20px 22px; border-right: 1px solid var(--border); }
+  .dash-info-col:last-child { border-right: none; }
+  @media (max-width: 900px) { .dash-info-grid { grid-template-columns: repeat(2, 1fr); } .dash-info-col:nth-child(2n) { border-right: none; } }
+  @media (max-width: 480px) { .dash-info-grid { grid-template-columns: 1fr; } .dash-info-col { border-right: none !important; } }
   .dash-brand-chip { display: inline-flex; align-items: center; gap: 8px; border: none; padding: 6px 0; margin: 0 20px 8px 0; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; letter-spacing: .04em; transition: color .15s; }
   .dash-brand-chip:hover { color: var(--accent); }
   .dash-brand-chip img { width: 20px; height: 20px; object-fit: contain; }
   /* Messagerie acheteur ↔ agence — fil façon chat, pièces jointes incluses */
   .msg-thread { max-height: 54vh; overflow-y: auto; margin-bottom: 10px; padding: 18px; background: var(--dark); border: 1px solid var(--border); border-radius: 0; }
-  .msg-day-sep { text-align: center; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 12px; }
+  .msg-day-sep { text-align: center; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 12px; }
   .msg-day-sep:first-child { margin-top: 0; }
   .msg-row { display: flex; margin-bottom: 10px; }
-  .msg-bubble { max-width: 78%; border-radius: 0; padding: 9px 13px; font-family: 'Inter', sans-serif; font-size: 14px; }
+  .msg-bubble { max-width: 78%; border-radius: 0; padding: 9px 13px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; letter-spacing: .01em; }
   .msg-attach-img { display: block; max-width: 220px; width: 100%; margin-bottom: 6px; cursor: zoom-in; border-radius: 0; }
   .msg-attach-file { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; background: rgba(255,255,255,.08); font-size: 12px; text-decoration: none; color: inherit; }
   .msg-bubble.mine .msg-attach-file { background: rgba(17,17,17,.12); }
   .msg-attach-btn { flex-shrink: 0; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--border); color: var(--soft); font-size: 17px; cursor: pointer; transition: border-color .15s, color .15s; }
   .msg-attach-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .msg-attach-preview { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; background: var(--dark); border: 1px solid var(--border); font-family: 'Inter', sans-serif; font-size: 12px; }
+  .msg-attach-preview { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; background: var(--dark); border: 1px solid var(--border); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; }
   .msg-attach-preview img { width: 34px; height: 34px; object-fit: cover; flex-shrink: 0; }
   .msg-attach-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .msg-attach-preview .remove { cursor: pointer; color: var(--muted); flex-shrink: 0; }
   .msg-attach-preview .remove:hover { color: var(--white); }
-  .save-status { font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
+  .save-status { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
   .save-status:empty { display: none; }
   .save-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--muted); }
   .save-status.saving::before { background: #d4a017; animation: saveStatusPulse 1s ease-in-out infinite; }
@@ -136,7 +152,7 @@
   .brand-name-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .brand-name { font-family: var(--dot), monospace; font-size: 17px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; transition: color .18s; }
   .brand-season { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); padding: 2px 0; line-height: 1.5; flex-shrink: 0; }
-  .brand-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .brand-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); line-height: 1.6; max-width: 600px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .brand-meta { display: flex; flex-wrap: wrap; gap: 18px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
   .brand-cta { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 8px; transition: color .18s; }
   .brand-idx { position: absolute; top: 16px; right: 20px; font-family: var(--dot), monospace; font-size: 12px; color: var(--muted); opacity: .55; letter-spacing: .1em; }
@@ -146,20 +162,20 @@
     .brand-info { padding: 18px 18px 22px; }
     .brand-idx { top: 12px; right: 14px; }
   }
-  .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Inter', sans-serif; letter-spacing: .06em; min-height: 44px; padding: 10px 0; display: inline-flex; align-items: center; }
+  .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Plex Mono', 'Space Mono', monospace; letter-spacing: .06em; min-height: 44px; padding: 10px 0; display: inline-flex; align-items: center; }
   .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 24px; }
   .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; margin-bottom: 32px; }
   .brand-banner-cover { width: 100%; height: 260px; object-fit: cover; object-position: center top; display: block; }
   .brand-banner-info { padding: 24px 28px; }
   .brand-about { margin-bottom: 18px; }
-  .brand-about-location { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-  .brand-about-tagline { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--soft); letter-spacing: .02em; margin-bottom: 16px; }
-  .brand-about-body { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.75; }
+  .brand-about-location { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .brand-about-tagline { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; font-weight: 600; color: var(--soft); letter-spacing: .02em; margin-bottom: 16px; }
+  .brand-about-body { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); line-height: 1.75; }
   .brand-about-body p { margin-bottom: 12px; }
   .brand-about-body p:last-child { margin-bottom: 0; }
-  .brand-about-positioning { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 16px; padding-top: 14px; border-top: 1px dotted var(--border); }
+  .brand-about-positioning { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 16px; padding-top: 14px; border-top: 1px dotted var(--border); }
   .brand-about-positioning strong { color: var(--soft); font-weight: 600; }
-  .brand-banner-moq { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 0; margin-bottom: 14px; }
+  .brand-banner-moq { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 0; margin-bottom: 14px; }
   .brand-banner-cgv-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
   .brand-banner-cgv-title { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 16px; }
   .cgv-brand-page { max-height: 320px; overflow-y: auto; background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 20px 24px; }
@@ -185,19 +201,19 @@
   .product-img-wrap:hover .product-img-2 { opacity: 1; }
   .product-info { padding: 18px 20px; }
   .product-ref { font-family: var(--dot), monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; }
-  .product-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.8; }
-  .product-meta { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .product-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.8; }
+  .product-meta { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 6px; }
   .product-price { font-size: 16px; color: var(--accent); margin-top: 10px; font-weight: 700; font-family: var(--dot), monospace; }
   .price-block { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
   .price-ws { font-size: 15px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
-  .price-retail-tag { font-size: 11px; font-family: 'Inter', sans-serif; color: var(--muted); }
-  .price-retail-val { font-size: 12px; font-family: 'Inter', sans-serif; color: var(--soft); }
-  .price-margin { font-size: 11px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 0; padding: 1px 5px; font-weight: 700; }
+  .price-retail-tag { font-size: 11px; font-family: 'Plex Mono', 'Space Mono', monospace; color: var(--muted); }
+  .price-retail-val { font-size: 12px; font-family: 'Plex Mono', 'Space Mono', monospace; color: var(--soft); }
+  .price-margin { font-size: 11px; font-family: 'Plex Mono', 'Space Mono', monospace; background: rgba(204,235,60,.12); color: var(--accent); border-radius: 0; padding: 1px 5px; font-weight: 700; }
   .drawer-price-block { margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
   .drawer-price-ws { font-size: 20px; font-weight: 700; font-family: var(--dot), monospace; color: var(--accent); }
-  .drawer-price-retail { font-size: 13px; font-family: 'Inter', sans-serif; color: var(--muted); }
-  .drawer-price-margin { font-size: 12px; font-family: 'Inter', sans-serif; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 0; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
-  .stock-badge { font-size:11px; padding:2px 8px; border-radius: 0; font-weight:500; font-family:'Inter',sans-serif; }
+  .drawer-price-retail { font-size: 13px; font-family: 'Plex Mono', 'Space Mono', monospace; color: var(--muted); }
+  .drawer-price-margin { font-size: 12px; font-family: 'Plex Mono', 'Space Mono', monospace; background: rgba(204,235,60,.15); color: var(--accent); border-radius: 0; padding: 2px 8px; font-weight: 700; letter-spacing: .02em; }
+  .stock-badge { font-size:11px; padding:2px 8px; border-radius: 0; font-weight:500; font-family:'Plex Mono','Space Mono',monospace; }
   .stock-badge.in { background:#1a3a1a; color:#2ecc71; }
   .stock-badge.low { background:#3a2a0a; color:#ffa726; }
   .stock-badge.out { background:#3a1a1a; color:#f44336; }
@@ -231,7 +247,7 @@
   .cgv-modal-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; }
   .cgv-modal-close:hover { color: var(--white); }
   .cgv-modal-body { overflow-y: auto; padding: 20px 24px; flex: 1; }
-  .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); margin: 18px 0; }
+  .checkbox-row { display: flex; align-items: flex-start; gap: 10px; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); margin: 18px 0; }
   #sig-canvas { background: #fff; border-radius: 0; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
   /* Système de boutons partagé avec l'admin (mêmes classes, même rendu) —
      à utiliser pour tout nouveau bouton plutôt que du style en ligne. */
@@ -257,18 +273,18 @@
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
   .loader { text-align: center; padding: 60px; color: var(--muted); font-size: 14px; }
   .success-check { width:72px; height:72px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; color:var(--accent); }
-  .msg { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 0; margin-top: 14px; }
+  .msg { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 0; margin-top: 14px; }
   .msg.error { color: var(--accent); }
   .product-img { cursor: zoom-in; }
-  .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Inter', sans-serif; font-size: 10px; padding: 3px 7px; border-radius: 0; pointer-events: none; letter-spacing: .04em; }
+  .img-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.65); color: #fff; font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 10px; padding: 3px 7px; border-radius: 0; pointer-events: none; letter-spacing: .04em; }
   .img-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: var(--z-modal); flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
   .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; overflow: hidden; }
   .img-modal-main img { max-width: 100vw; max-height: 84vh; object-fit: contain; user-select: none; background: #fff; -webkit-user-drag: none; touch-action: none; cursor: zoom-in; transition: transform .1s ease-out; will-change: transform; }
   .img-modal-main img.zoomed { cursor: grab; transition: none; }
   .img-modal-main img.zoomed:active { cursor: grabbing; }
-  .img-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-family: 'Inter', sans-serif; font-size: 11px; color: #aaa; letter-spacing: .03em; pointer-events: none; white-space: nowrap; }
-  .img-close { position: absolute; top: 16px; right: 16px; color: #111; font-size: 28px; background: rgba(255,255,255,.7); border-radius: 50%; border: none; cursor: pointer; line-height: 1; padding: 8px 12px; z-index: var(--z-card); font-family: 'Inter', sans-serif; font-weight: 300; }
+  .img-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: #aaa; letter-spacing: .03em; pointer-events: none; white-space: nowrap; }
+  .img-close { position: absolute; top: 16px; right: 16px; color: #111; font-size: 28px; background: rgba(255,255,255,.7); border-radius: 50%; border: none; cursor: pointer; line-height: 1; padding: 8px 12px; z-index: var(--z-card); font-family: 'Plex Mono', 'Space Mono', monospace; font-weight: 300; }
   .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.65); border-radius: 50%; border: none; color: #111; font-size: 34px; width: 48px; height: 48px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
   .img-nav:active { background: #eee; }
   .img-nav-prev { left: 10px; }
@@ -276,12 +292,13 @@
   .img-dots { display: flex; gap: 8px; padding: 16px 0 8px; }
   .img-dot { width: 6px; height: 6px; border-radius: 50%; background: #ccc; border: none; cursor: pointer; padding: 0; transition: background .2s; }
   .img-dot.active { background: #111; }
-  .img-counter { color: #555; font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Inter', sans-serif; }
+  .img-counter { color: #555; font-size: 10px; padding-bottom: 10px; letter-spacing: .12em; font-family: 'Plex Mono', 'Space Mono', monospace; }
 
   /* ── Mode présentation ── */
-  body.presentation-mode .header { display: none !important; }
+  body.presentation-mode .sidebar { display: none !important; }
+  body.presentation-mode .shell { grid-template-columns: 1fr; }
+  body.presentation-mode .topbar { display: none !important; }
   body.presentation-mode .mobile-nav { display: none !important; }
-  body.presentation-mode .header .nav { display: none; }
   body.presentation-mode #user-menu { display: none; }
   body.presentation-mode .back-btn { margin-top: 52px; }
   body.presentation-mode .product-img { height: 300px; }
@@ -360,7 +377,7 @@
   .gmodal-overlay.open { display: flex; }
   .gmodal { background: var(--dark); border: 1px solid var(--border); border-radius: 0; width: 100%; max-width: 480px; padding: 28px 28px 24px; position: relative; }
   .gmodal-title { font-family: var(--dot), monospace; font-size: 13px; letter-spacing: .22em; text-transform: uppercase; margin-bottom: 20px; }
-  .gmodal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; font-family: 'Inter', sans-serif; }
+  .gmodal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px 8px; font-family: 'Plex Mono', 'Space Mono', monospace; }
   .gmodal-close:hover { color: var(--white); }
   .gmodal-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
   .gmodal-btn { flex: 1; background: var(--white); color: var(--black); border: none; padding: 13px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .22em; text-transform: uppercase; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; min-width: 120px; }
@@ -369,7 +386,7 @@
   .gmodal-btn.ghost:hover { border-color: var(--soft); color: var(--white); }
 
   /* ── Notes panier ── */
-  .cart-line-note { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; font-family: 'Inter', sans-serif; padding: 4px 0; outline: none; margin-top: 6px; resize: none; line-height: 1.4; }
+  .cart-line-note { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; font-family: 'Plex Mono', 'Space Mono', monospace; padding: 4px 0; outline: none; margin-top: 6px; resize: none; line-height: 1.4; }
   .cart-line-note:focus { border-bottom-color: var(--accent); color: var(--white); }
   .cart-line-note::placeholder { color: var(--border); }
 
@@ -380,7 +397,7 @@
   .sort-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
   .sort-bar select { background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--soft); font-size: 12px; padding: 7px 2px; font-family: 'Plex Mono', 'Space Mono', monospace; cursor: pointer; outline: none; transition: border-color .15s; }
   .sort-bar select:focus { border-color: var(--accent); }
-  .price-range { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; }
+  .price-range { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-family: 'Plex Mono', 'Space Mono', monospace; }
   .price-range input { width: 74px; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--white); font-size: 12px; padding: 7px 2px; font-family: inherit; outline: none; }
   .price-range input:focus { border-bottom-color: var(--accent); }
   .view-toggle { display: flex; gap: 4px; margin-left: auto; }
@@ -398,7 +415,7 @@
   @media (max-width: 640px) { .view-toggle { display: none; } .price-range { display: none; } }
 
   /* ── Toast ── */
-  .toast { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--dark); border: 1px solid var(--accent); color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; padding: 10px 20px; border-radius: 0; z-index: 1000; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+  .toast { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--dark); border: 1px solid var(--accent); color: var(--white); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; padding: 10px 20px; border-radius: 0; z-index: 1000; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* ── Global search ── */
@@ -414,8 +431,8 @@
   .global-result-img { width: 48px; height: 56px; object-fit: contain; background: #fff; border-radius: 0; flex-shrink: 0; }
   .global-result-info { flex: 1; min-width: 0; }
   .global-result-ref { font-family: var(--dot), monospace; font-size: 14px; }
-  .global-result-desc { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .global-result-brand { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .global-result-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .global-result-brand { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
   .global-result-price { font-family: var(--dot), monospace; font-size: 14px; color: var(--accent); flex-shrink: 0; }
 
   /* ── Favoris ── */
@@ -449,7 +466,7 @@
   .product-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw; background: var(--dark); border-left: 1px solid var(--border); z-index: var(--z-overlay); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); overflow: hidden; }
   .product-drawer.open { transform: translateX(0); }
   .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .drawer-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 10px; min-height: 44px; min-width: 44px; font-family: 'Inter', sans-serif; font-weight: 300; display: flex; align-items: center; justify-content: center; }
+  .drawer-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 10px; min-height: 44px; min-width: 44px; font-family: 'Plex Mono', 'Space Mono', monospace; font-weight: 300; display: flex; align-items: center; justify-content: center; }
   .drawer-close:hover { color: var(--white); }
   .drawer-body { overflow-y: auto; flex: 1; padding: 0 0 24px; }
   .drawer-gallery { position: relative; background: #fff; overflow: hidden; }
@@ -466,12 +483,12 @@
   .drawer-info { padding: 20px 20px 0; }
   .drawer-ref { font-family: var(--dot), monospace; font-size: 20px; margin-bottom: 6px; }
   .drawer-price { font-size: 18px; color: var(--accent); font-family: var(--dot), monospace; font-weight: 700; margin-bottom: 14px; }
-  .drawer-meta { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .drawer-desc { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--soft); line-height: 1.7; margin: 12px 0; }
+  .drawer-meta { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .drawer-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); line-height: 1.7; margin: 12px 0; }
   .drawer-sep { height: 1px; background: var(--border); margin: 16px 0; }
-  .drawer-sizes-title { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
+  .drawer-sizes-title { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
   .drawer-qty-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .drawer-size-label { font-family: 'Inter', sans-serif; font-size: 13px; min-width: 56px; color: var(--soft); }
+  .drawer-size-label { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; min-width: 56px; color: var(--soft); }
   @media (max-width: 640px) {
     .product-drawer { top: auto; left: 0; right: 0; width: 100%; height: 90vh; border-left: none; border-top: 1px solid var(--border); border-radius: 0; }
     .product-drawer.open { transform: translateY(0); }
@@ -484,7 +501,7 @@
   /* ── Responsive: tablet ── */
   @media (max-width: 1024px) {
     .wrap { padding: 28px 24px 80px; }
-    .header { padding: 16px 24px; }
+    .topbar { padding: 16px 24px; }
     .products-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
   }
 
@@ -502,7 +519,7 @@
       justify-content: center; gap: 3px; padding: 8px 4px;
       min-height: 52px;
       background: none; border: none; color: var(--soft); cursor: pointer;
-      font-size: 9px; font-family: 'Inter', sans-serif; letter-spacing: .04em;
+      font-size: 9px; font-family: 'Plex Mono', 'Space Mono', monospace; letter-spacing: .04em;
       text-transform: uppercase; transition: color .15s;
     }
     .mobile-nav button .mn-icon { font-size: 20px; line-height: 1; }
@@ -519,15 +536,16 @@
      donc on masque la nav texte dès 900px plutôt que d'ajouter un palier de
      compression intermédiaire. */
   @media (max-width: 900px) {
-    .header .nav { display: none; }
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .topbar-logo-link { display: block; }
   }
 
   @media (max-width: 640px) {
-    /* Header : masquer la nav texte (déjà fait dès 900px ci-dessus), garder
+    /* Topbar : masquer la nav texte (déjà fait dès 900px ci-dessus), garder
        uniquement logo + user-menu */
-    .header { padding: 12px 16px; }
-    .header-left img { width: 30px; height: 30px; }
-    .header h1 { font-size: 12px; }
+    .topbar { padding: 12px 16px; }
+    .topbar-logo-link img { width: 26px; height: 26px; }
     /* Sélecteur devise compact visible sur mobile */
     #currency-select { display: block !important; font-size: 11px; padding: 4px 6px; }
     .wrap { padding: 16px 14px 100px; }
@@ -1139,94 +1157,98 @@ function applyLang() {
 </script>
 </head>
 <body>
-<div class="header">
-  <div class="header-left">
-    <a onclick="showView('dashboard')" style="cursor:pointer" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
-    <h1>Showroom</h1>
-  </div>
-  <div class="nav">
-    <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;appearance:none;-webkit-appearance:none;background:none;border:none;outline:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
-    <a id="nav-dashboard" class="active" onclick="showView('dashboard')" data-t="nav_dashboard">Accueil</a>
-    <a id="nav-catalog" onclick="showView('catalog')">Catalogue</a>
-    <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
-    <a id="nav-profile" onclick="showView('account')">Mon profil</a>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="sidebar-logo-link" onclick="showView('dashboard')" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
+    <nav class="sidebar-nav">
+      <a id="nav-dashboard" class="active" onclick="showView('dashboard')" data-t="nav_dashboard">Accueil</a>
+      <a id="nav-catalog" onclick="showView('catalog')">Catalogue</a>
+      <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
+      <a id="nav-profile" onclick="showView('account')">Mon profil</a>
+    </nav>
     <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
-  </div>
-  <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue"
-    style="background:none;border:none;border-radius:0;padding:6px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0;margin-right:8px">
-    <option value="fr">🌐 FR</option>
-    <option value="en">🌐 EN</option>
-    <option value="it">🌐 IT</option>
-    <option value="es">🌐 ES</option>
-    <option value="de">🌐 DE</option>
-    <option value="zh">🌐 中文</option>
-    <option value="ja">🌐 日本語</option>
-    <option value="ko">🌐 한국어</option>
-    <option value="th">🌐 ไทย</option>
-  </select>
-  <div class="user-menu" id="user-menu">
-    <div class="user-btn" onclick="toggleUserMenu()">
-      <div class="user-avatar" id="user-avatar">?</div>
-      <span class="user-name" id="user-name">Mon espace</span>
-      <span class="user-chevron">▼</span>
-    </div>
-    <div class="user-dropdown">
-      <div class="user-dropdown-header">
-        <div class="uname" id="dd-name">—</div>
-        <div class="uemail" id="dd-email">—</div>
-        <div class="ucompany" id="dd-company"></div>
-      </div>
-      <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
-      <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
-      <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
-      <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
-      <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
-      <div class="dropdown-sep"></div>
-      <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
-      <button id="dd-shortlist" class="dropdown-item" onclick="closeUserMenu();showView('shortlist')">🔖 <span data-t="shortlist_title">Ma shortlist</span></button>
-      <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
-        <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
-          <option value="fr">Français</option>
-          <option value="en">English</option>
-          <option value="it">Italiano</option>
-          <option value="es">Español</option>
-          <option value="de">Deutsch</option>
-          <option value="zh">中文</option>
-          <option value="ja">日本語</option>
-          <option value="ko">한국어</option>
-          <option value="th">ไทย</option>
-        </select>
-      </div>
-      <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
-      <div class="dropdown-sep"></div>
-      <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
-    </div>
-  </div>
-</div>
+  </aside>
 
-<div class="wrap">
+  <div class="main-col">
+    <div class="topbar">
+      <a class="topbar-logo-link" onclick="showView('dashboard')" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
+      <select id="currency-select" onchange="_currencyManual=true;changeCurrency(this.value)" style="display:none;appearance:none;-webkit-appearance:none;background:none;border:none;outline:none;border-radius:0;padding:5px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase"></select>
+      <select id="lang-select" onchange="setLang(this.value)" title="Langue / Language" aria-label="Langue"
+        style="background:none;border:none;border-radius:0;padding:6px 4px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0;margin-right:8px">
+        <option value="fr">🌐 FR</option>
+        <option value="en">🌐 EN</option>
+        <option value="it">🌐 IT</option>
+        <option value="es">🌐 ES</option>
+        <option value="de">🌐 DE</option>
+        <option value="zh">🌐 中文</option>
+        <option value="ja">🌐 日本語</option>
+        <option value="ko">🌐 한국어</option>
+        <option value="th">🌐 ไทย</option>
+      </select>
+      <div class="user-menu" id="user-menu">
+        <div class="user-btn" onclick="toggleUserMenu()">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <span class="user-name" id="user-name">Mon espace</span>
+          <span class="user-chevron">▼</span>
+        </div>
+        <div class="user-dropdown">
+          <div class="user-dropdown-header">
+            <div class="uname" id="dd-name">—</div>
+            <div class="uemail" id="dd-email">—</div>
+            <div class="ucompany" id="dd-company"></div>
+          </div>
+          <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
+          <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
+          <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
+          <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
+          <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
+          <div class="dropdown-sep"></div>
+          <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
+          <button id="dd-shortlist" class="dropdown-item" onclick="closeUserMenu();showView('shortlist')">🔖 <span data-t="shortlist_title">Ma shortlist</span></button>
+          <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
+            <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="it">Italiano</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+              <option value="th">ไทย</option>
+            </select>
+          </div>
+          <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
+          <div class="dropdown-sep"></div>
+          <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
   <div id="view-dashboard" class="view-section" style="opacity:1">
     <h2 class="section-title" id="dash-hello">Bonjour</h2>
-    <div id="dash-next-action" style="background:rgba(204,235,60,.06);padding:16px 0;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
+    <div id="dash-next-action" class="panel" style="background:rgba(204,235,60,.06);padding:16px 20px;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
     <div id="dash-pending-wrap" style="margin-bottom:26px;display:none">
       <div class="dash-block-title" data-t="dash_pending">Sélections en attente</div>
       <div id="dash-pending"></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px">
-      <div>
+    <div class="panel dash-info-grid" style="margin-bottom:26px">
+      <div class="c2"></div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_orders_recent">Commandes récentes</div>
         <div id="dash-orders"></div>
-        <a href="javascript:void(0)" onclick="showView('orders')" style="display:inline-block;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline" data-t="dash_view_all_orders">Voir toutes mes commandes →</a>
+        <a href="javascript:void(0)" onclick="showView('orders')" style="display:inline-block;margin-top:10px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);text-decoration:underline" data-t="dash_view_all_orders">Voir toutes mes commandes →</a>
       </div>
-      <div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_recently_viewed">Marques récemment consultées</div>
         <div id="dash-recent-brands"></div>
       </div>
-      <div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_deadlines">Dates limites de commande</div>
         <div id="dash-deadlines"></div>
       </div>
-      <div>
+      <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_contact">Votre contact</div>
         <div id="dash-contact"></div>
       </div>
@@ -1235,7 +1257,7 @@ function applyLang() {
       <div class="dash-block-title" data-t="dash_brands">Marques</div>
       <div id="dash-brands" class="brand-grid"></div>
     </div>
-    <a href="javascript:void(0)" onclick="showView('catalog')" style="display:inline-block;margin-top:28px;font-family:'Inter',sans-serif;font-size:13px;color:var(--accent);text-decoration:underline" data-t="dash_view_catalog">Parcourir le catalogue →</a>
+    <a href="javascript:void(0)" onclick="showView('catalog')" style="display:inline-block;margin-top:28px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--accent);text-decoration:underline" data-t="dash_view_catalog">Parcourir le catalogue →</a>
   </div>
 
   <div id="view-catalog" class="view-section" style="display:none;opacity:1">
@@ -1268,10 +1290,10 @@ function applyLang() {
         <div id="sig-draw-wrap">
           <canvas id="sig-canvas"></canvas>
           <div style="display:flex;justify-content:space-between;margin-top:6px">
-            <span id="sig-label" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
-            <a id="sig-clear" onclick="clearSig()" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
+            <span id="sig-label" style="font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Signature</span>
+            <a id="sig-clear" onclick="clearSig()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--soft);cursor:pointer;text-decoration:underline">Effacer</a>
           </div>
-          <a id="sig-alt-toggle" onclick="toggleSigMode()" style="display:block;margin-top:10px;font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Ou tapez votre nom comme signature</a>
+          <a id="sig-alt-toggle" onclick="toggleSigMode()" style="display:block;margin-top:10px;font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Ou tapez votre nom comme signature</a>
         </div>
         <div id="sig-alt-wrap" style="display:none">
           <div class="field" style="margin-bottom:10px">
@@ -1279,9 +1301,9 @@ function applyLang() {
             <input id="sig-typed" type="text" placeholder="Prénom Nom" oninput="onSigTyped()">
           </div>
           <div id="sig-typed-preview" style="display:none;font-family:'Brush Script MT','Zapf Chancery','Comic Sans MS',cursive;font-size:28px;color:#0a0a0a;background:#fff;border:1px solid var(--border);padding:14px 18px;min-height:64px;align-items:center;margin-bottom:10px"></div>
-          <a onclick="toggleSigMode()" style="display:block;font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Revenir à la signature manuscrite</a>
+          <a onclick="toggleSigMode()" style="display:block;font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Revenir à la signature manuscrite</a>
         </div>
-        <p id="moq-hint" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;font-family:'Inter',sans-serif">Minimum de commande non atteint — complétez votre sélection pour valider.</p>
+        <p id="moq-hint" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;font-family:'Plex Mono','Space Mono',monospace">Minimum de commande non atteint — complétez votre sélection pour valider.</p>
         <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
         <div id="checkout-msg"></div>
       </div>
@@ -1313,14 +1335,14 @@ function applyLang() {
   <div id="view-shortlist" class="view-section" style="display:none;opacity:1">
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <h2 class="section-title" id="shortlist-section-title" data-t="shortlist_title">Ma shortlist</h2>
-    <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin:-16px 0 20px" data-t="shortlist_intro">Articles mis de côté pour en discuter en équipe avant de commander.</p>
+    <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin:-16px 0 20px" data-t="shortlist_intro">Articles mis de côté pour en discuter en équipe avant de commander.</p>
     <div id="shortlist-list"></div>
   </div>
 
   <div id="view-messages" class="view-section" style="display:none;opacity:1;max-width:680px">
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <h2 class="section-title" id="msg-section-title">Messages</h2>
-    <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin:-6px 0 16px" id="msg-intro">Une question sur une collection, un délai, une commande ? Écrivez-nous, nous vous répondons par email.</p>
+    <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin:-6px 0 16px" id="msg-intro">Une question sur une collection, un délai, une commande ? Écrivez-nous, nous vous répondons par email.</p>
     <div id="pmsg-thread" class="msg-thread"></div>
     <div id="pmsg-attach-preview" class="msg-attach-preview" style="display:none"></div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -1335,7 +1357,7 @@ function applyLang() {
     <h2 class="section-title">Mon profil</h2>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-bottom:24px">
-      <h3 id="account-info-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
+      <h3 id="account-info-title" style="font-family:'Plex Mono','Space Mono',monospace;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
       <div class="profile-grid">
         <div class="field"><label data-field="prof-name">Prénom / Nom *</label><input id="prof-name" type="text" placeholder="Jean Dupont"></div>
         <div class="field"><label data-field="prof-company">Entreprise / Boutique</label><input id="prof-company" type="text" placeholder="Ma Boutique SARL"></div>
@@ -1344,30 +1366,30 @@ function applyLang() {
         <div class="field field-full"><label data-field="prof-country">Pays</label><input id="prof-country" type="text" placeholder="France"></div>
       </div>
       <button id="account-save-btn" class="btn-confirm" onclick="saveProfile()">Enregistrer les modifications</button>
-      <div id="prof-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+      <div id="prof-msg" style="margin-top:12px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px"></div>
     </div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px">
-      <h3 id="account-pw-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Changer le mot de passe</h3>
+      <h3 id="account-pw-title" style="font-family:'Plex Mono','Space Mono',monospace;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Changer le mot de passe</h3>
       <div class="profile-grid">
         <div class="field"><label data-field="pw-current">Mot de passe actuel</label><input id="pw-current" type="password" placeholder="••••••••"></div>
         <div class="field"><label data-field="pw-new">Nouveau mot de passe</label><input id="pw-new" type="password" placeholder="••••••••"></div>
       </div>
       <button id="account-pw-btn" class="btn-confirm" onclick="changePassword()">Changer le mot de passe</button>
-      <div id="pw-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+      <div id="pw-msg" style="margin-top:12px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px"></div>
     </div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-top:24px">
-      <h3 style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Double authentification (MFA)</h3>
-      <p style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:16px">Optionnelle. Ajoute un code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe.</p>
+      <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Double authentification (MFA)</h3>
+      <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin-bottom:16px">Optionnelle. Ajoute un code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe.</p>
 
       <div id="mfa-status-off">
-        <p style="font-family:'Inter',sans-serif;font-size:13px;margin-bottom:14px"><span style="color:#e74c3c">●</span> Non activée</p>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;margin-bottom:14px"><span style="color:#e74c3c">●</span> Non activée</p>
         <button class="btn-secondary" style="font-size:13px;padding:8px 16px" onclick="startBuyerMfaSetup()">Activer la MFA</button>
       </div>
       <div id="mfa-status-on" style="display:none">
-        <p style="font-family:'Inter',sans-serif;font-size:13px;margin-bottom:14px"><span style="color:#2ecc71">●</span> Activée</p>
-        <button onclick="showBuyerMfaDisableForm()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">Désactiver la MFA</button>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;margin-bottom:14px"><span style="color:#2ecc71">●</span> Activée</p>
+        <button onclick="showBuyerMfaDisableForm()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace">Désactiver la MFA</button>
         <div id="mfa-disable-form" style="display:none;margin-top:14px;max-width:320px">
           <div class="field"><label>Confirmez avec votre mot de passe</label><input type="password" id="mfa-disable-password"></div>
           <button class="btn-confirm" style="margin-top:8px" onclick="disableBuyerMfa()">Confirmer la désactivation</button>
@@ -1375,10 +1397,10 @@ function applyLang() {
       </div>
 
       <div id="mfa-setup-flow" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
-        <p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin-bottom:12px">1. Scannez ce QR code avec votre application d'authentification :</p>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);margin-bottom:12px">1. Scannez ce QR code avec votre application d'authentification :</p>
         <img id="mfa-qr" style="width:180px;height:180px;background:#fff;padding:8px" alt="QR code MFA">
-        <p style="font-family:'Inter',sans-serif;font-size:11px;color:var(--soft);margin:10px 0">Ou entrez la clé manuellement : <code id="mfa-secret-text" style="user-select:all"></code></p>
-        <p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin:14px 0 8px">2. Entrez le code affiché par l'application pour confirmer :</p>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--soft);margin:10px 0">Ou entrez la clé manuellement : <code id="mfa-secret-text" style="user-select:all"></code></p>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);margin:14px 0 8px">2. Entrez le code affiché par l'application pour confirmer :</p>
         <div style="display:flex;gap:10px;align-items:center;max-width:320px">
           <input type="text" id="mfa-confirm-code" inputmode="numeric" maxlength="6" placeholder="000000" style="flex:1">
           <button class="btn-confirm" onclick="confirmBuyerMfaSetup()">Confirmer</button>
@@ -1386,36 +1408,36 @@ function applyLang() {
       </div>
 
       <div id="mfa-backup-codes-flow" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
-        <p style="font-family:'Inter',sans-serif;font-size:13px;color:#e74c3c;font-weight:700;margin-bottom:10px">⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.</p>
-        <p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin-bottom:12px">Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.</p>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:#e74c3c;font-weight:700;margin-bottom:10px">⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.</p>
+        <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);margin-bottom:12px">Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.</p>
         <div id="mfa-backup-codes-list" style="font-family:monospace;font-size:14px;line-height:2;background:var(--black);padding:14px;border:1px solid var(--border)"></div>
         <button class="btn-confirm" style="margin-top:14px" onclick="document.getElementById('mfa-backup-codes-flow').style.display='none';loadBuyerMfaStatus()">J'ai noté mes codes</button>
       </div>
-      <div id="mfa-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+      <div id="mfa-msg" style="margin-top:12px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px"></div>
     </div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-top:24px">
-      <h3 id="gdpr-section-title" style="font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
-      <p id="gdpr-section-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
+      <h3 id="gdpr-section-title" style="font-family:'Plex Mono','Space Mono',monospace;font-size:14px;font-weight:600;color:var(--white);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">Mes données personnelles</h3>
+      <p id="gdpr-section-desc" style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin-bottom:20px">Conformément au RGPD, vous disposez d'un droit d'accès et d'un droit à l'effacement de vos données.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <button id="gdpr-download-btn" onclick="exportMyData()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid var(--border);color:var(--soft);border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">⬇ Télécharger mes données</button>
-        <button id="gdpr-delete-btn" onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif">🗑 Supprimer mon compte</button>
+        <button id="gdpr-download-btn" onclick="exportMyData()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid var(--border);color:var(--soft);border-radius: 0;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace">⬇ Télécharger mes données</button>
+        <button id="gdpr-delete-btn" onclick="openDeleteAccount()" style="font-size:13px;padding:8px 16px;background:transparent;border:1px solid #c0392b;color:#c0392b;border-radius: 0;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace">🗑 Supprimer mon compte</button>
       </div>
-      <div id="gdpr-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+      <div id="gdpr-msg" style="margin-top:12px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px"></div>
     </div>
   </div>
 
   <!-- Modal suppression compte -->
   <div id="modal-delete-account" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center">
     <div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:32px;max-width:400px;width:90%;margin:auto">
-      <h3 id="delete-modal-title" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:#c0392b;margin-bottom:12px">⚠ Supprimer mon compte</h3>
-      <p id="delete-modal-desc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--soft);margin-bottom:20px">Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.</p>
+      <h3 id="delete-modal-title" style="font-family:'Plex Mono','Space Mono',monospace;font-size:16px;font-weight:700;color:#c0392b;margin-bottom:12px">⚠ Supprimer mon compte</h3>
+      <p id="delete-modal-desc" style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin-bottom:20px">Cette action est irréversible. Vos données personnelles seront effacées. Vos commandes seront conservées de manière anonymisée pour les obligations légales.</p>
       <div class="field" style="margin-bottom:16px"><label id="delete-modal-pw-label">Confirmez avec votre mot de passe</label><input id="delete-account-pw" type="password" placeholder="••••••••"></div>
       <div style="display:flex;gap:12px">
-        <button id="delete-modal-confirm-btn" onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius: 0;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600">Supprimer définitivement</button>
+        <button id="delete-modal-confirm-btn" onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;color:#fff;border:none;border-radius: 0;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace;font-weight:600">Supprimer définitivement</button>
         <button id="delete-modal-cancel-btn" onclick="closeDeleteAccount()" class="btn-secondary" style="flex:1;padding:10px">Annuler</button>
       </div>
-      <div id="delete-account-msg" style="margin-top:12px;font-family:'Inter',sans-serif;font-size:13px"></div>
+      <div id="delete-account-msg" style="margin-top:12px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px"></div>
     </div>
   </div>
 
@@ -1427,6 +1449,8 @@ function applyLang() {
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
       <button class="btn-confirm" onclick="showView('orders')" style="background:transparent;border:1px solid var(--accent);color:var(--accent)">📋 <span data-t="nav_orders">Mes commandes</span></button>
       <button class="btn-confirm" onclick="location.reload()">← <span data-t="success_back">Retour au catalogue</span></button>
+    </div>
+  </div>
     </div>
   </div>
 </div>
@@ -1442,8 +1466,8 @@ function applyLang() {
     <button class="gmodal-close" onclick="closeModal('modal-email-sel')" aria-label="Fermer">✕</button>
     <div class="gmodal-title" id="modal-email-sel-title">Envoyer la sélection par email</div>
     <div class="field"><label id="modal-email-to-label">Email destinataire</label><input id="email-sel-to" type="email" placeholder="acheteur@exemple.com"></div>
-    <div class="field"><label id="modal-email-msg-label">Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:none;border-bottom:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;resize:vertical"></textarea></div>
-    <div id="email-sel-status" style="font-size:12px;font-family:'Inter',sans-serif;min-height:18px;margin-top:4px"></div>
+    <div class="field"><label id="modal-email-msg-label">Message (optionnel)</label><textarea id="email-sel-msg" rows="3" style="width:100%;background:var(--dark);border:none;border-bottom:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--white);font-size:13px;font-family:'Plex Mono','Space Mono',monospace;outline:none;resize:vertical"></textarea></div>
+    <div id="email-sel-status" style="font-size:12px;font-family:'Plex Mono','Space Mono',monospace;min-height:18px;margin-top:4px"></div>
     <div class="gmodal-actions">
       <button class="gmodal-btn ghost" id="modal-email-cancel-btn" onclick="closeModal('modal-email-sel')">Annuler</button>
       <button class="gmodal-btn" id="email-sel-btn" onclick="sendSelectionEmail()">📧 Envoyer</button>
@@ -1456,9 +1480,9 @@ function applyLang() {
   <div class="gmodal">
     <button class="gmodal-close" onclick="closeModal('modal-share')" aria-label="Fermer">✕</button>
     <div class="gmodal-title" id="modal-share-title">Partager la sélection</div>
-    <p id="modal-share-desc" style="font-size:13px;font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
+    <p id="modal-share-desc" style="font-size:13px;font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.</p>
     <div style="display:flex;gap:8px">
-      <input id="share-link-input" type="text" readonly style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Inter',sans-serif;outline:none" value="">
+      <input id="share-link-input" type="text" readonly style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius: 0;padding:10px 12px;color:var(--soft);font-size:12px;font-family:'Plex Mono','Space Mono',monospace;outline:none" value="">
       <button id="modal-share-copy-btn" onclick="copyShareLink()" style="background:var(--accent);border:none;border-radius: 0;padding:10px 16px;color:var(--black);font-size:12px;font-weight:700;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace;flex-shrink:0">Copier</button>
     </div>
     <div style="margin-top:16px;text-align:center">
@@ -1528,7 +1552,7 @@ function applyLang() {
 <div class="drawer-overlay" id="drawer-overlay" onclick="closeProductDrawer()"></div>
 <div class="product-drawer" id="product-drawer">
   <div class="drawer-header">
-    <span id="drawer-brand-name" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em"></span>
+    <span id="drawer-brand-name" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em"></span>
     <button class="drawer-close" onclick="closeProductDrawer()" aria-label="Fermer la fiche produit">✕</button>
   </div>
   <div class="drawer-body">
@@ -1543,7 +1567,7 @@ function applyLang() {
     <div class="drawer-info">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <div class="drawer-ref" id="drawer-ref" style="margin-bottom:0"></div>
-        <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border-radius: 0;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
+        <button onclick="copyRef(document.getElementById('drawer-ref').textContent)" title="Copier la référence" style="background:none;border-radius: 0;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Plex Mono','Space Mono',monospace;flex-shrink:0;transition:border-color .15s,color .15s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">⎘ Copier</button>
       </div>
       <div id="drawer-price"></div>
       <div id="drawer-collection" class="drawer-meta" style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)"></div>
@@ -1584,7 +1608,7 @@ function applyLang() {
 <div class="cart-bar" id="cart-bar" style="display:none">
   <div>
     <strong id="cart-total">0,00 €</strong>
-    <div style="font-size:11px;font-family:'Inter',sans-serif">— <span id="cart-count">0</span> article(s)</div>
+    <div style="font-size:11px;font-family:'Plex Mono','Space Mono',monospace">— <span id="cart-count">0</span> article(s)</div>
     <span class="save-status" id="save-status-bar"></span>
   </div>
   <button id="cart-bar-btn" onclick="showView('cart')">Voir ma sélection →</button>
@@ -1738,12 +1762,12 @@ function formatCgv(text) {
       html += '<p style="font-family:\'Space Mono\',monospace;font-size:13px;font-weight:700;color:var(--white);letter-spacing:.03em;margin:0 0 16px;line-height:1.4">' + esc(line) + '</p>';
     } else if (isSectionHeader) {
       if (inPara) { html += '</p>'; inPara = false; }
-      html += '<p style="font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;color:var(--white);text-transform:uppercase;letter-spacing:.06em;margin:20px 0 8px;padding-top:6px;border-top:1px solid var(--border)">' + esc(line) + '</p>';
+      html += '<p style="font-family:\'Plex Mono\',\'Space Mono\',monospace;font-size:12px;font-weight:700;color:var(--white);text-transform:uppercase;letter-spacing:.06em;margin:20px 0 8px;padding-top:6px;border-top:1px solid var(--border)">' + esc(line) + '</p>';
     } else if (isSubHeader) {
       if (inPara) { html += '</p>'; inPara = false; }
-      html += '<p style="font-family:\'Inter\',sans-serif;font-size:11px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 4px">' + esc(line) + '</p>';
+      html += '<p style="font-family:\'Plex Mono\',\'Space Mono\',monospace;font-size:11px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 4px">' + esc(line) + '</p>';
     } else {
-      if (!inPara) { html += '<p style="margin:0 0 10px;font-family:\'Inter\',sans-serif;font-size:13px;color:var(--soft);line-height:1.9">'; inPara = true; }
+      if (!inPara) { html += '<p style="margin:0 0 10px;font-family:\'Plex Mono\',\'Space Mono\',monospace;font-size:13px;color:var(--soft);line-height:1.9">'; inPara = true; }
       else { html += '<br>'; }
       html += esc(line);
     }
@@ -2037,11 +2061,11 @@ async function init() {
     allBrands = Array.isArray(brandsData) ? brandsData : [];
     if (!Array.isArray(brandsData)) {
       const _errMsg = esc(brandsData.error || t('load_err_brands'));
-      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
+      document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
       return;
     }
   } catch(e) {
-    document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${t('load_err_network')}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
+    document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${t('load_err_network')}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
     return;
   }
   try { applyLang(); } catch(e) { console.error('applyLang:', e); }
@@ -2129,7 +2153,7 @@ async function loadPortalMessages() {
   try {
     const d = await fetch('/api/portal/messages').then(r => r.json());
     const msgs = (d && d.messages) || [];
-    if (!msgs.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'Inter\',sans-serif">Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez une photo.</div>'; }
+    if (!msgs.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'Plex Mono\',\'Space Mono\',monospace">Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez une photo.</div>'; }
     else {
       const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
       let lastDay = null, html = '';
@@ -2397,9 +2421,9 @@ function renderBrandPicker() {
     <div style="margin-bottom:28px;padding:20px 24px;background:var(--dark);border:1px solid var(--border);border-radius: 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-family:var(--dot),monospace;font-size:18px;margin-bottom:4px">${greeting}</div>
-        <div style="font-family:'Inter',sans-serif;font-size:13px;color:var(--muted)">${t('welcome_sub')}</div>
+        <div style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--muted)">${t('welcome_sub')}</div>
       </div>
-      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-align:right">
+      <div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);text-align:right">
         ${t('welcome_brands', allBrands.length)}
       </div>
     </div>
@@ -2456,7 +2480,7 @@ async function openBrand(brandId, _fromPop) {
     const r = await fetch(`/api/portal/brands/${brandId}/products`);
     data = await r.json();
   } catch(e) {
-    container.innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:16px">${t('load_err_brand')}</p><button onclick="openBrand('${brandId}')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_retry')}</button></div>`;
+    container.innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${t('load_err_brand')}</p><button onclick="openBrand('${brandId}')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_retry')}</button></div>`;
     return;
   }
   if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
@@ -2495,7 +2519,7 @@ async function openBrand(brandId, _fromPop) {
   // N'affiche le lien que si l'URL est http(s) (neutralise un éventuel javascript: hérité)
   const lookbookUrlSafe = /^https?:\/\//i.test(String(currentBrand.lookbook_url || '').trim()) ? currentBrand.lookbook_url.trim() : '';
   const lookbookHtml = lookbookUrlSafe
-    ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius: 0;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
+    ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius: 0;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
     : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">` : '';
@@ -2676,7 +2700,7 @@ function renderProductsList(products) {
 function renderProductsPage() {
   const list = filteredProductsAll.slice(0, visibleProductCount);
   const el = document.getElementById('products-list');
-  if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Inter',sans-serif;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius: 0;font-size:12px;cursor:pointer;font-family:inherit">Réinitialiser les filtres</button></div>`; return; }
+  if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Plex Mono','Space Mono',monospace;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius: 0;font-size:12px;cursor:pointer;font-family:inherit">Réinitialiser les filtres</button></div>`; return; }
   el.classList.toggle('list-view', productViewMode === 'list');
   const nowMs = Date.now();
   el.innerHTML = list.map(p => {
@@ -2707,7 +2731,7 @@ function renderProductsPage() {
       : sizes.length ? sizes.map(sz => {
         const k = currentBrand.id + '|' + p.id + '|' + sz;
         const q = cart[k] ? cart[k].qty : 0;
-        return `<div class="qty-row"><span style="font-size:11px;font-family:'Inter',sans-serif;min-width:30px">${esc(sz)}</span>
+        return `<div class="qty-row"><span style="font-size:11px;font-family:'Plex Mono','Space Mono',monospace;min-width:30px">${esc(sz)}</span>
           <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
           <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
           <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
@@ -2718,7 +2742,7 @@ function renderProductsPage() {
           <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1)">+</button></div>`;
       })();
     const _cartQty = getProductCartQty(p.id);
-    const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:48px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;z-index:2">${_cartQty}</div>` : '';
+    const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:48px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;z-index:2">${_cartQty}</div>` : '';
     return `<div class="product-card" data-pid="${p.id}" data-product-id="${p.id}" style="position:relative">
       <button class="compare-btn" id="cmp-${p.id}" onclick="toggleCompare('${p.id}')" title="Comparer ce produit">⊕ Comparer</button>
       ${img}${_cartBadge}
@@ -2806,7 +2830,7 @@ let moqBlocked = false;
         const barColor = ok ? 'var(--accent)' : pct >= 70 ? '#f0a500' : 'var(--border)';
         const label = ok ? '✓' : `encore ${remaining} pièce${remaining>1?'s':''}`;
         bars.push(`<div style="margin-top:10px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_qty')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
           </div>
           <div style="height:5px;background:var(--border);border-radius: 0;overflow:hidden">
@@ -2822,7 +2846,7 @@ let moqBlocked = false;
         const barColor = ok ? 'var(--accent)' : pct >= 70 ? '#f0a500' : 'var(--border)';
         const label = ok ? '✓' : `encore ${fmtPrice(remaining)}`;
         bars.push(`<div style="margin-top:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Inter',sans-serif;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
             <span>${t('moq_bar_amt')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
           </div>
           <div style="height:5px;background:var(--border);border-radius: 0;overflow:hidden">
@@ -2843,20 +2867,20 @@ let moqBlocked = false;
           ${l.image_url ? `<img src="${esc(cldTransform(l.image_url, 'w_150,c_limit,q_auto,f_auto'))}" alt="${esc(l.reference)}" loading="lazy" onerror="this.style.visibility='hidden'" style="width:52px;height:68px;object-fit:contain;background:#fff;border-radius: 0;flex-shrink:0;border:1px solid var(--border)">` : `<div style="width:52px;height:68px;background:var(--mid);border-radius: 0;flex-shrink:0"></div>`}
           <div style="flex:1;min-width:0">
             <div style="font-family:var(--dot),monospace;font-size:13px;margin-bottom:2px">${esc(l.reference)}</div>
-            ${l.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif">${esc(l.color)}</div>` : ''}
-            ${l.size ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:2px">${esc(l.size)}</div>` : ''}
+            ${l.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Plex Mono','Space Mono',monospace">${esc(l.color)}</div>` : ''}
+            ${l.size ? `<div style="font-size:11px;color:var(--soft);font-family:'Plex Mono','Space Mono',monospace;margin-top:2px">${esc(l.size)}</div>` : ''}
             <textarea class="cart-line-note" rows="1" placeholder="${t('cart_note_ph')}" oninput="setCartNote('${noteKey}',this.value)">${esc(l.note||'')}</textarea>
           </div>
           <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             <button onclick="removeCartItem('${noteKey}')" title="${t('remove_item')||'Retirer'}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1;align-self:flex-end">✕</button>
-            <div style="font-size:11px;font-family:'Inter',sans-serif;color:var(--muted)">× ${l.qty} · ${fmtPrice(parseFloat(l.price||0))}</div>
+            <div style="font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:var(--muted)">× ${l.qty} · ${fmtPrice(parseFloat(l.price||0))}</div>
             <div style="font-size:13px;font-weight:700;font-family:var(--dot),monospace;color:var(--accent)">${fmtPrice(l.qty * parseFloat(l.price||0))}</div>
-            ${l.price_retail > 0 ? `<div style="font-size:10px;font-family:'Inter',sans-serif;color:var(--muted)">PVC ${fmtPrice(l.price_retail)}</div>` : ''}
+            ${l.price_retail > 0 ? `<div style="font-size:10px;font-family:'Plex Mono','Space Mono',monospace;color:var(--muted)">PVC ${fmtPrice(l.price_retail)}</div>` : ''}
           </div>
         </div>
         </div>`;
       }).join('')}
-      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:8px;font-family:'Inter',sans-serif">${t('cart_subtotal')} ${fmtPrice(brandTotal)}</div>
+      <div style="text-align:right;font-size:12px;font-weight:700;margin-top:8px;font-family:'Plex Mono','Space Mono',monospace">${t('cart_subtotal')} ${fmtPrice(brandTotal)}</div>
       ${moqWarnHtml}
     </div>`;
   }).join('');
@@ -3194,11 +3218,11 @@ async function loadPendingSelections() {
   try { data = await fetch('/api/portal/pending-selections').then(r => r.json()); } catch(e) { return; }
   if (!Array.isArray(data) || !data.length) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `<div style="margin-bottom:20px">
-    <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px">${t('pending_sel_title')}</div>
+    <div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px">${t('pending_sel_title')}</div>
     ${data.map(s => `<div style="background:rgba(204,235,60,.06);border:1px solid rgba(204,235,60,.3);border-radius: 0;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div>
-        <div style="font-family:'Inter',sans-serif;font-weight:600;font-size:14px">${esc(s.brand_name)}</div>
-        <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft)">${t('pending_sel_pieces', s.piece_count)}</div>
+        <div style="font-family:'Plex Mono','Space Mono',monospace;font-weight:600;font-size:14px">${esc(s.brand_name)}</div>
+        <div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft)">${t('pending_sel_pieces', s.piece_count)}</div>
       </div>
       <a href="/selection/${s.token}" class="btn-confirm" style="margin:0;width:auto;padding:10px 18px;font-size:12px">${t('pending_sel_cta')} →</a>
     </div>`).join('')}
@@ -3212,7 +3236,7 @@ async function loadOrders() {
   let data;
   try { data = await fetch('/api/portal/orders').then(r => r.json()); }
   catch(e) { list.innerHTML = `<p class="msg" style="color:var(--soft)">${t('orders_load_err')} <button onclick="loadOrders()" class="btn-secondary" style="font-size:12px;padding:6px 14px">${t('orders_retry')}</button></p>`; return; }
-  if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Inter',sans-serif;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('orders_browse')}</button></div>`; return; }
+  if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('orders_browse')}</button></div>`; return; }
   ordersData = data;
   applySortOrders();
 }
@@ -3226,13 +3250,13 @@ async function toggleOrderLines(orderId) {
     return;
   }
   if (el.dataset.loaded) { el.style.display = 'block'; btn.textContent = t('orders_hide'); return; }
-  el.innerHTML = `<span style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted)">${t('orders_loading')}</span>`;
+  el.innerHTML = `<span style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--muted)">${t('orders_loading')}</span>`;
   el.style.display = 'block';
   const lines = await fetch('/api/portal/orders/' + orderId + '/lines').then(r => r.json());
   el.dataset.loaded = '1';
-  if (!lines.length) { el.innerHTML = `<span style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted)">${t('orders_no_items')}</span>`; btn.textContent = t('orders_hide'); return; }
+  if (!lines.length) { el.innerHTML = `<span style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--muted)">${t('orders_no_items')}</span>`; btn.textContent = t('orders_hide'); return; }
   el.innerHTML = lines.map(l => `
-    <div style="display:flex;justify-content:space-between;font-family:'Inter',sans-serif;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
       <span style="color:var(--soft)">${esc(l.reference)}${l.size ? ' — ' + esc(l.size) : ''} × ${l.quantity}</span>
       <span style="color:var(--white)">${Number(l.quantity * l.unit_price).toFixed(2)} €</span>
     </div>`).join('');
@@ -3520,7 +3544,7 @@ function renderRecentlyViewed() {
   const items = recentlyViewed.filter(x => x.brand_id === currentBrand?.id);
   if (!items.length) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${t('recently_viewed')}</div>
+  el.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">${t('recently_viewed')}</div>
   <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
     ${items.map(p => `<div onclick="openProductDrawer('${p.id}')" style="flex-shrink:0;cursor:pointer;width:80px">
       <div style="width:80px;height:100px;background:#fff;border-radius: 0;overflow:hidden;border:1px solid var(--border)">
@@ -3593,10 +3617,10 @@ async function renderFavs() {
             ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_400,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
-              ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
-              ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;margin-top:2px">${esc(p.color)}</div>` : ''}
+              ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Plex Mono','Space Mono',monospace;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
+              ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Plex Mono','Space Mono',monospace;margin-top:2px">${esc(p.color)}</div>` : ''}
               <div style="margin-top:6px">${priceBlockHtml(p.price, p.price_retail, true)}</div>
-              <button onclick="event.stopPropagation();toggleFav('${p.id}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">♥ Retirer</button>
+              <button onclick="event.stopPropagation();toggleFav('${p.id}')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Plex Mono\',\'Space Mono\',monospace">♥ Retirer</button>
             </div>
           </div>`;
         }).join('')}
@@ -3642,10 +3666,10 @@ async function renderShortlist() {
             ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_400,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
-              ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Inter',sans-serif;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
-              ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;margin-top:2px">${esc(p.color)}</div>` : ''}
+              ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Plex Mono','Space Mono',monospace;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
+              ${p.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Plex Mono','Space Mono',monospace;margin-top:2px">${esc(p.color)}</div>` : ''}
               <div style="margin-top:6px">${priceBlockHtml(p.price, p.price_retail, true)}</div>
-              <button onclick="event.stopPropagation();toggleShortlist('${p.id}')" style="background:none;border:none;color:#a78bfa;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Inter\',sans-serif">🔖 Retirer</button>
+              <button onclick="event.stopPropagation();toggleShortlist('${p.id}')" style="background:none;border:none;color:#a78bfa;cursor:pointer;font-size:13px;margin-top:8px;padding:0;font-family:\'Plex Mono\',\'Space Mono\',monospace">🔖 Retirer</button>
             </div>
           </div>`;
         }).join('')}
@@ -3694,15 +3718,15 @@ function renderOrdersList(data) {
   list.innerHTML = page.map(o => `
     <div class="order-card" data-oid="${o.id}" data-brand="${o.brand_id}" data-brand-name="${esc(o.brand_name)}">
       <div style="font-family:var(--dot),monospace;font-size:15px">${esc(o.brand_name)} — ${o.order_number || '#'+o.id.slice(0,8).toUpperCase()}</div>
-      <div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
       <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
-      ${o.delivery_window ? `<div style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);margin-top:8px">🚚 ${currentLang==='en'?'Delivery':'Livraison'} : <strong style="color:var(--white)">${esc(o.delivery_window)}</strong></div>` : ''}
+      ${o.delivery_window ? `<div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);margin-top:8px">🚚 ${currentLang==='en'?'Delivery':'Livraison'} : <strong style="color:var(--white)">${esc(o.delivery_window)}</strong></div>` : ''}
       <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">
-        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
-        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Inter',sans-serif;font-size:12px;color:var(--soft);text-decoration:underline">${t('orders_pdf')}</a>
-        <button onclick="reorderOrder('${o.id}')" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline">↺ ${t('renouveler')}</button>
+        <button onclick="toggleOrderLines('${o.id}')" style="background:none;border:none;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);cursor:pointer;padding:0;text-decoration:underline">${t('orders_see_detail')}</button>
+        <a href="/api/portal/orders/${o.id}/pdf" target="_blank" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);text-decoration:underline">${t('orders_pdf')}</a>
+        <button onclick="reorderOrder('${o.id}')" style="background:none;border:none;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline">↺ ${t('renouveler')}</button>
       </div>
     </div>`).join('');
   if (data.length > ORDERS_PER_PAGE) {
@@ -3710,7 +3734,7 @@ function renderOrdersList(data) {
     const btnStyle = "background:none;border:none;color:var(--soft);border-radius:0;padding:8px 8px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer";
     list.innerHTML += `<div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:16px;grid-column:1/-1">
       ${ordersPage > 0 ? `<button onclick="ordersPage--;renderOrdersList(ordersData_sorted)" style="${btnStyle}">← Précédent</button>` : ''}
-      <span style="color:var(--muted);font-size:12px;font-family:'Inter',sans-serif">${start+1}–${end} / ${data.length}</span>
+      <span style="color:var(--muted);font-size:12px;font-family:'Plex Mono','Space Mono',monospace">${start+1}–${end} / ${data.length}</span>
       ${end < data.length ? `<button onclick="ordersPage++;renderOrdersList(ordersData_sorted)" style="${btnStyle}">Suivant →</button>` : ''}
     </div>`;
   }
@@ -3728,12 +3752,12 @@ function onGlobalSearch(val) {
 async function runGlobalSearch(q) {
   const resultsEl = document.getElementById('global-search-results');
   if (!resultsEl) return;
-  resultsEl.innerHTML = `<p style="font-family:'Inter',sans-serif;font-size:12px;color:var(--muted);padding:8px 0">${t('search_searching')}</p>`;
+  resultsEl.innerHTML = `<p style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--muted);padding:8px 0">${t('search_searching')}</p>`;
   try {
     const r = await fetch(`/api/portal/search?q=${encodeURIComponent(q)}`);
     const data = await r.json();
     if (!data.length) { resultsEl.innerHTML = `<p class="msg" style="color:var(--muted)">${t('search_no_result')}</p>`; return; }
-    resultsEl.innerHTML = `<div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">${t('search_results', data.length)}</div>` +
+    resultsEl.innerHTML = `<div style="font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">${t('search_results', data.length)}</div>` +
       data.map(p => {
         let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
         if (!imgs.length && p.image_url) imgs = [p.image_url];
@@ -4140,7 +4164,7 @@ function refreshCartBadges() {
       if (!badge) {
         badge = document.createElement('div');
         badge.className = 'cart-badge';
-        badge.style.cssText = 'position:absolute;top:8px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:Inter,sans-serif;z-index:2';
+        badge.style.cssText = 'position:absolute;top:8px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:Plex Mono,Space Mono,monospace;z-index:2';
         card.style.position = 'relative';
         card.appendChild(badge);
       }
