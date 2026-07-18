@@ -666,10 +666,21 @@
 (function() {
   // Clé de thème partagée avec le bon de commande et l'admin (es-theme) pour
   // qu'un choix manuel suive partout. Fallback vers l'ancienne clé du portail.
-  const saved = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
-  if (saved) { document.documentElement.setAttribute('data-theme', saved); return; }
-  const h = new Date().getHours();
-  document.documentElement.setAttribute('data-theme', (h >= 7 && h < 20) ? 'light' : 'dark');
+  // Mode = 'light' | 'dark' | 'auto' (ou absence de clé, traitée comme 'auto').
+  // 'auto' suit l'heure : clair 7h-20h, sombre sinon. Un choix manuel reste
+  // prioritaire jusqu'à ce que l'utilisateur revienne explicitement sur 'auto'.
+  function getMode() {
+    return localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override') || 'auto';
+  }
+  function resolveTheme(mode) {
+    if (mode !== 'auto') return mode;
+    const h = new Date().getHours();
+    return (h >= 7 && h < 20) ? 'light' : 'dark';
+  }
+  window.getThemeMode = getMode;
+  window.resolveThemeMode = resolveTheme;
+  document.documentElement.setAttribute('data-theme', resolveTheme(getMode()));
+  setInterval(() => { if (getMode() === 'auto') document.documentElement.setAttribute('data-theme', resolveTheme('auto')); }, 5 * 60 * 1000);
 })();
 
 // ── Translations ──────────────────────────────────────
@@ -834,6 +845,7 @@ const TRANSLATIONS = {
     qr_added: (ref) => `${ref} ajouté à la sélection ✓`,
     theme_light: '☀ Thème clair',
     theme_dark: '🌙 Thème sombre',
+    theme_auto: '🌗 Thème auto',
   },
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
@@ -995,6 +1007,7 @@ const TRANSLATIONS = {
     qr_added: (ref) => `${ref} added to selection ✓`,
     theme_light: '☀ Light theme',
     theme_dark: '🌙 Dark theme',
+    theme_auto: '🌗 Auto theme',
   }
 };
 let currentLang = localStorage.getItem('portal_lang') || 'fr';
@@ -1081,9 +1094,9 @@ function applyLang() {
   _sid('dd-logout', T.dd_logout);
   const _ls = document.getElementById('dd-lang-select'); if (_ls) _ls.value = currentLang;
   const _ls2 = document.getElementById('lang-select'); if (_ls2) _ls2.value = currentLang;
-  // Bouton thème : libellé = action vers l'autre thème (cohérent avec toggleTheme)
-  const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  _sid('dd-theme', _isDark ? T.theme_light : T.theme_dark);
+  // Bouton thème : libellé = mode courant (auto/clair/sombre), cycle via toggleTheme
+  const _themeMode = typeof getThemeMode === 'function' ? getThemeMode() : 'auto';
+  _sid('dd-theme', _themeMode === 'auto' ? T.theme_auto : _themeMode === 'light' ? T.theme_light : T.theme_dark);
   _sid('lang-btn', T.lang_btn);
   // Cart view static labels
   const backBtn = document.querySelector('#view-cart .back-btn');
@@ -3340,19 +3353,20 @@ document.addEventListener('fullscreenchange', () => {
   }
 });
 
-// ── Toggle thème manuel ───────────────────────────────
+// ── Toggle thème manuel (cycle auto → clair → sombre → auto) ──────────
 function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme');
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('es-theme', next);
+  const cur = getThemeMode();
+  const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+  document.documentElement.setAttribute('data-theme', resolveThemeMode(next));
+  // 'auto' n'est jamais écrit en storage (uniquement supprimé) : les autres
+  // pages du site qui lisent 'es-theme' passivement retombent alors sur leur
+  // propre calcul horaire au lieu de recevoir une valeur qu'elles ne sauraient
+  // pas résoudre.
+  if (next === 'auto') { localStorage.removeItem('es-theme'); localStorage.removeItem('portal_theme_override'); }
+  else localStorage.setItem('es-theme', next);
   const btn = document.getElementById('dd-theme');
-  if (btn) btn.textContent = next === 'dark' ? t('theme_light') : t('theme_dark');
+  if (btn) btn.textContent = next === 'auto' ? t('theme_auto') : next === 'light' ? t('theme_light') : t('theme_dark');
 }
-(function applyThemeOverride() {
-  const ov = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
-  if (ov) document.documentElement.setAttribute('data-theme', ov);
-})();
 
 // ── Notes panier ──────────────────────────────────────
 function setCartNote(cartKey, val) {
