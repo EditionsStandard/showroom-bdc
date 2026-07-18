@@ -6055,6 +6055,7 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
 // rapide sur "ce qu'il s'est passé" sans ouvrir chaque fiche client.
 app.get('/api/admin/dashboard/timeline', requireRole('owner','agent'), async (req, res) => {
   try {
+    const lang = req.query.lang === 'en' ? 'en' : 'fr';
     const scoped = isBrandScoped(req);
     const bId = req.userBrandId;
     const p = scoped ? [bId] : [];
@@ -6086,14 +6087,22 @@ app.get('/api/admin/dashboard/timeline', requireRole('owner','agent'), async (re
                   ORDER BY e.created_at DESC LIMIT ${LIMIT}`, p)
     ]);
     const events = [];
-    sels.rows.forEach(s => events.push({ at: s.at, icon: '📤', text: `Sélection ${s.selection_number || ''} envoyée à ${s.client_name || s.client_company || ''} — ${s.brand_name}`, who: s.who || '' }));
-    orders.rows.forEach(o => events.push({ at: o.at, icon: '🧾', text: `Commande ${o.order_number || ''} de ${o.client_name || o.client_company || ''} — ${o.brand_name}`, who: '' }));
-    appts.rows.forEach(a => events.push({ at: a.at, icon: '📅', text: `RDV pris avec ${a.client_name || ''} le ${a.slot_date}${a.slot_time ? ' à ' + a.slot_time : ''} — ${a.brand_name}`, who: '' }));
-    reminders.rows.forEach(r => events.push({ at: r.at, icon: r.status === 'sent' ? '✉️' : '🚫', text: `Relance ${r.status === 'sent' ? 'envoyée' : 'rejetée'} — ${r.label || r.type}`, who: r.resolved_by || '' }));
-    orderEvents.rows.forEach(e => events.push({ at: e.at, icon: '📦', text: `Commande ${e.order_number || ''} — ${e.event_type}${e.note ? ' : ' + e.note : ''} — ${e.brand_name}`, who: e.created_by || '' }));
+    if (lang === 'en') {
+      sels.rows.forEach(s => events.push({ at: s.at, icon: '📤', text: `Selection ${s.selection_number || ''} sent to ${s.client_name || s.client_company || ''} — ${s.brand_name}`, who: s.who || '' }));
+      orders.rows.forEach(o => events.push({ at: o.at, icon: '🧾', text: `Order ${o.order_number || ''} from ${o.client_name || o.client_company || ''} — ${o.brand_name}`, who: '' }));
+      appts.rows.forEach(a => events.push({ at: a.at, icon: '📅', text: `Appointment booked with ${a.client_name || ''} on ${a.slot_date}${a.slot_time ? ' at ' + a.slot_time : ''} — ${a.brand_name}`, who: '' }));
+      reminders.rows.forEach(r => events.push({ at: r.at, icon: r.status === 'sent' ? '✉️' : '🚫', text: `Reminder ${r.status === 'sent' ? 'sent' : 'rejected'} — ${r.label || r.type}`, who: r.resolved_by || '' }));
+      orderEvents.rows.forEach(e => events.push({ at: e.at, icon: '📦', text: `Order ${e.order_number || ''} — ${e.event_type}${e.note ? ' : ' + e.note : ''} — ${e.brand_name}`, who: e.created_by || '' }));
+    } else {
+      sels.rows.forEach(s => events.push({ at: s.at, icon: '📤', text: `Sélection ${s.selection_number || ''} envoyée à ${s.client_name || s.client_company || ''} — ${s.brand_name}`, who: s.who || '' }));
+      orders.rows.forEach(o => events.push({ at: o.at, icon: '🧾', text: `Commande ${o.order_number || ''} de ${o.client_name || o.client_company || ''} — ${o.brand_name}`, who: '' }));
+      appts.rows.forEach(a => events.push({ at: a.at, icon: '📅', text: `RDV pris avec ${a.client_name || ''} le ${a.slot_date}${a.slot_time ? ' à ' + a.slot_time : ''} — ${a.brand_name}`, who: '' }));
+      reminders.rows.forEach(r => events.push({ at: r.at, icon: r.status === 'sent' ? '✉️' : '🚫', text: `Relance ${r.status === 'sent' ? 'envoyée' : 'rejetée'} — ${r.label || r.type}`, who: r.resolved_by || '' }));
+      orderEvents.rows.forEach(e => events.push({ at: e.at, icon: '📦', text: `Commande ${e.order_number || ''} — ${e.event_type}${e.note ? ' : ' + e.note : ''} — ${e.brand_name}`, who: e.created_by || '' }));
+    }
     events.sort((a, b) => new Date(b.at) - new Date(a.at));
     res.json({ events: events.slice(0, LIMIT) });
-  } catch(e) { console.error('dashboard timeline:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch(e) { console.error('dashboard timeline:', e.message); res.status(500).json({ error: lang === 'en' ? 'Server error' : 'Erreur serveur' }); }
 });
 
 // Vue « priorités du jour » — agrège tout ce qui attend une action de
@@ -6148,24 +6157,24 @@ app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
 
 app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req, res) => {
   try {
+    const lang = req.query.lang === 'en' ? 'en-GB' : 'fr-FR';
     const scoped = isBrandScoped(req);
     const r = await pool.query(`
-      SELECT TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon') as month,
-             DATE_TRUNC('month', o.created_at) as month_date,
+      SELECT DATE_TRUNC('month', o.created_at) as month_date,
              COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total
       FROM orders o
       LEFT JOIN order_lines ol ON ol.order_id = o.id
       WHERE o.created_at >= NOW() - INTERVAL '6 months'
         AND o.status NOT IN ('draft', 'cancelled')
         ${scoped ? 'AND o.brand_id = $1' : ''}
-      GROUP BY DATE_TRUNC('month', o.created_at), TO_CHAR(DATE_TRUNC('month', o.created_at), 'Mon')
+      GROUP BY DATE_TRUNC('month', o.created_at)
       ORDER BY month_date ASC
     `, scoped ? [req.userBrandId] : []);
     // Build a map of existing data
     const byMonth = {};
     r.rows.forEach(row => {
       const key = new Date(row.month_date).toISOString().slice(0, 7);
-      byMonth[key] = { month: row.month, total: parseFloat(row.total) || 0 };
+      byMonth[key] = { total: parseFloat(row.total) || 0 };
     });
     // Fill in all 6 months including those with 0
     const result = [];
@@ -6173,8 +6182,8 @@ app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = d.toLocaleDateString('fr-FR', { month: 'short' });
-      result.push(byMonth[key] || { month: monthName, total: 0 });
+      const monthName = d.toLocaleDateString(lang, { month: 'short' });
+      result.push({ month: monthName, total: (byMonth[key] || { total: 0 }).total });
     }
     res.json(result);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }

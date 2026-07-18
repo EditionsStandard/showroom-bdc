@@ -620,7 +620,7 @@
 <div class="main">
   <div class="topbar">
     <div style="display:flex;gap:8px;align-items:center;flex:1;max-width:360px;position:relative">
-      <input id="global-search-input" type="text" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
+      <input id="global-search-input" type="text" data-tp="global_search_placeholder" placeholder="🔍 Rechercher commandes, acheteurs…" oninput="globalSearch(this.value)"
         style="width:100%;padding:7px 2px;border-radius:0;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font-size:16px;font-family:inherit;outline:none">
       <div id="global-search-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--input-bg);border:1px solid #333;border-radius: 0;z-index:999;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
     </div>
@@ -628,11 +628,11 @@
       <button id="theme-toggle-mob" onclick="toggleTheme()" style="background:none;border:none;border-radius:0;padding:6px 10px;font-size:11px;color:#aaa;cursor:pointer;min-height:36px;min-width:36px">☀️</button>
       <button id="lang-toggle-mob" onclick="toggleLang()" style="background:none;border:none;border-radius:0;padding:6px 10px;font-size:11px;color:var(--accent);cursor:pointer;min-height:36px;min-width:36px">EN</button>
     </div>
-    <a href="/portal" target="_blank" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius: 0;border:none;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
+    <a href="/portal" target="_blank" data-tt="dash_view_portal_title" title="Voir le portail acheteur" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius: 0;border:none;background:none;color:#888;font-size:11px;text-decoration:none;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="this.style.borderColor='#333';this.style.color='#888'">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      Portail
+      <span data-t="dash_portal_link">Portail</span>
     </a>
-    <button id="btn-push-notif" onclick="initPushNotifications()" style="background:none;border:none;border-radius:0;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
+    <button id="btn-push-notif" onclick="initPushNotifications()" data-t="dash_notifications_btn" style="background:none;border:none;border-radius:0;padding:6px 12px;font-size:11px;color:#888;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='#CCEB3C';this.style.color='#CCEB3C'" onmouseout="if(!this.dataset.active){this.style.borderColor='#333';this.style.color='#888'}">🔔 Notifications</button>
     <a href="/admin/logout" class="btn-logout-top" data-t="logout">⏻ Déconnexion</a>
   </div>
 
@@ -644,10 +644,10 @@
     <!-- Priorités du jour — agrège tout ce qui attend une action -->
     <div class="card agency-only" id="priorities-card" style="margin-bottom:16px;border-color:#3a3300;background:linear-gradient(135deg,#111 60%,#221c00 100%)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <h3 style="margin:0;font-size:14px;color:var(--accent)">Priorités du jour</h3>
+        <h3 style="margin:0;font-size:14px;color:var(--accent)" data-t="dash_priorities_title">Priorités du jour</h3>
         <span id="priorities-count" style="font-size:11px;color:#888"></span>
       </div>
-      <div id="priorities-list"><p style="font-size:12px;color:#555">Chargement…</p></div>
+      <div id="priorities-list"><p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p></div>
     </div>
 
     <div class="stats">
@@ -687,18 +687,18 @@
     <div id="dash-charts-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="card" style="margin-bottom:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="margin:0;font-size:14px">CA mensuel</h3>
+          <h3 style="margin:0;font-size:14px" data-t="dash_ca_monthly_title">CA mensuel</h3>
           <span id="chart-total" style="font-size:11px;color:#888"></span>
         </div>
         <canvas id="revenue-chart" height="120" style="width:100%;display:block"></canvas>
       </div>
       <div class="card" style="margin-bottom:0">
-        <h3 style="margin:0 0 14px;font-size:14px">CA par marque</h3>
+        <h3 style="margin:0 0 14px;font-size:14px" data-t="dash_ca_brand_title">CA par marque</h3>
         <div id="brand-revenue-chart"></div>
       </div>
     </div>
     <div class="card">
-      <h3 style="margin:0 0 14px;font-size:14px">Top produits <span style="font-weight:400;color:#888;font-size:11px">· 6 derniers mois, par quantité commandée</span></h3>
+      <h3 style="margin:0 0 14px;font-size:14px"><span data-t="dash_top_products">Top produits</span> <span style="font-weight:400;color:#888;font-size:11px" data-t="dash_top_products_sub">· 6 derniers mois, par quantité commandée</span></h3>
       <div id="top-products-list"></div>
     </div>
     <div class="card">
@@ -713,9 +713,9 @@
          agency-only : le endpoint est requireRole('owner','agent'), un
          designer (rattaché à une seule marque) recevrait un 403. -->
     <div class="card agency-only">
-      <h3 style="margin:0 0 14px;font-size:14px">Timeline commerciale</h3>
+      <h3 style="margin:0 0 14px;font-size:14px" data-t="dash_timeline_title">Timeline commerciale</h3>
       <div id="dash-timeline" style="max-height:340px;overflow-y:auto">
-        <p style="font-size:12px;color:#555">Chargement…</p>
+        <p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p>
       </div>
     </div>
 
@@ -725,32 +725,32 @@
          indicateur consulté à chaque ouverture du tableau de bord. -->
     <div class="card agency-only" style="margin-bottom:16px;background:linear-gradient(135deg,#111 60%,#1a2200 100%);border-color:#2a3a00">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <h3 style="margin:0;font-size:14px;color:var(--accent)">Partager le showroom</h3>
+        <h3 style="margin:0;font-size:14px;color:var(--accent)" data-t="dash_share_title">Partager le showroom</h3>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('global')" title="Lien d'accès au showroom — les acheteurs devront s'inscrire ou se connecter">
-          🌐 Showroom global
+        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('global')" data-tt="dash_share_global_title" title="Lien d'accès au showroom — les acheteurs devront s'inscrire ou se connecter">
+          <span data-t="dash_share_global">🌐 Showroom global</span>
         </button>
-        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('mailto')" title="Copie un lien mailto que le prospect remplit pour vous demander un accès">
-          📧 Demande par email
+        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('mailto')" data-tt="dash_share_email_title" title="Copie un lien mailto que le prospect remplit pour vous demander un accès">
+          <span data-t="dash_share_email">📧 Demande par email</span>
         </button>
       </div>
       <!-- Cible de l'invitation : toutes les marques (défaut) ou une marque précise -->
       <div style="border-top:1px solid #2a3a00;padding-top:12px">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <select id="share-brand-select" style="padding:8px 12px;font-size:13px;min-width:180px;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius: 0" onchange="updateShareLinks()">
-            <option value="all">🏢 Toutes les marques</option>
+            <option value="all" data-t="dash_all_brands">🏢 Toutes les marques</option>
           </select>
-          <button class="btn btn-secondary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')">🔗 Copier le lien d'invitation</button>
-          <button class="btn btn-secondary btn-sm" id="btn-commande-link" onclick="genCommandeLink()" title="Lien de commande privé qui expire (30 jours) — pour une marque précise">⏳ Lien commande (expire)</button>
+          <button class="btn btn-secondary btn-sm" id="btn-share-invite" onclick="copyShareLink('invite')" data-t="dash_share_copy_invite">🔗 Copier le lien d'invitation</button>
+          <button class="btn btn-secondary btn-sm" id="btn-commande-link" onclick="genCommandeLink()" data-tt="dash_share_order_link_title" title="Lien de commande privé qui expire (30 jours) — pour une marque précise" data-t="dash_share_order_link">⏳ Lien commande (expire)</button>
         </div>
         <!-- Invitation directe : l'agence envoie un email au prospect (selon la cible ci-dessus) -->
-        <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Inviter un prospect par email <span id="invite-scope" style="color:#778;text-transform:none;letter-spacing:0">· toutes les marques</span></div>
-        <textarea id="prospect-invite-email" rows="2" placeholder="email@prospect.com — un ou plusieurs emails, un par ligne ou séparés par virgule" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:13px;font-family:inherit;margin-bottom:8px"></textarea>
+        <div style="font-size:11px;color:#8aa000;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px"><span data-t="dash_invite_prospect">Inviter un prospect par email</span> <span id="invite-scope" style="color:#778;text-transform:none;letter-spacing:0" data-t="dash_invite_scope_all">· toutes les marques</span></div>
+        <textarea id="prospect-invite-email" rows="2" data-tp="dash_invite_placeholder" placeholder="email@prospect.com — un ou plusieurs emails, un par ligne ou séparés par virgule" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:13px;font-family:inherit;margin-bottom:8px"></textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-          <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()">📨 Envoyer l'invitation</button>
+          <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()" data-t="dash_send_invite">📨 Envoyer l'invitation</button>
         </div>
-        <textarea id="prospect-invite-msg" rows="2" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit;margin-bottom:8px"></textarea>
+        <textarea id="prospect-invite-msg" rows="2" data-tp="dash_invite_msg_placeholder" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit;margin-bottom:8px"></textarea>
         <div style="display:flex;gap:8px;max-width:280px">
           <button type="button" id="prospect-invite-lang-fr" class="btn btn-sm" onclick="setProspectInviteLang('fr')" style="flex:1;border-radius:0">🇫🇷 Français</button>
           <button type="button" id="prospect-invite-lang-en" class="btn btn-sm" onclick="setProspectInviteLang('en')" style="flex:1;border-radius:0">🇬🇧 English</button>
@@ -761,37 +761,37 @@
 
     <!-- Demandes de lien de partage émises par les marques (vue agence) -->
     <div class="card agency-only" id="share-requests-card" style="display:none;margin-bottom:16px">
-      <h3 style="margin:0 0 12px;font-size:14px">Demandes de lien de partage</h3>
+      <h3 style="margin:0 0 12px;font-size:14px" data-t="dash_share_requests_title">Demandes de lien de partage</h3>
       <div id="share-requests-list"></div>
     </div>
 
     <!-- ANALYTIQUES ACHETEURS -->
-    <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em">Analytiques</h3>
+    <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:17px;font-weight:400;color:#fff;margin:28px 0 16px;letter-spacing:.02em" data-t="dash_analytics_title">Analytiques</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px" id="buyer-analytics-grid">
       <!-- Top Acheteurs -->
       <div class="card" style="margin-bottom:0">
-        <h3 style="font-size:13px;margin-bottom:14px">Top Acheteurs</h3>
+        <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_top_buyers_title">Top Acheteurs</h3>
         <div class="table-wrap" id="top-buyers-wrap">
           <table style="min-width:300px">
-            <thead><tr><th>Nom</th><th>Société</th><th>Cmds</th><th>CA</th></tr></thead>
-            <tbody id="top-buyers-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
+            <thead><tr><th data-t="th_name">Nom</th><th data-t="th_company">Société</th><th data-t="th_cmds">Cmds</th><th data-t="th_ca">CA</th></tr></thead>
+            <tbody id="top-buyers-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
       <!-- Acheteurs inactifs -->
       <div class="card" style="margin-bottom:0">
-        <h3 style="font-size:13px;margin-bottom:14px">Acheteurs inactifs</h3>
+        <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_inactive_buyers_title">Acheteurs inactifs</h3>
         <div id="inactive-buyers-list" style="max-height:280px;overflow-y:auto">
-          <p style="font-size:12px;color:#555">Chargement…</p>
+          <p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p>
         </div>
       </div>
       <!-- Perf. Marques -->
       <div class="card" style="margin-bottom:0">
-        <h3 style="font-size:13px;margin-bottom:14px">Perf. Marques</h3>
+        <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_top_brands_title">Perf. Marques</h3>
         <div class="table-wrap" id="top-brands-wrap">
           <table style="min-width:280px">
-            <thead><tr><th>Marque</th><th>Cmds</th><th>CA</th><th>Acheteurs</th></tr></thead>
-            <tbody id="top-brands-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
+            <thead><tr><th data-t="th_brand">Marque</th><th data-t="th_cmds">Cmds</th><th data-t="th_ca">CA</th><th data-t="stat_buyers">Acheteurs</th></tr></thead>
+            <tbody id="top-brands-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -799,15 +799,15 @@
 
     <!-- CARTE DU MONDE DES CLIENTS -->
     <div class="card" id="world-map-card" style="margin-bottom:24px">
-      <h3 style="font-size:13px;margin-bottom:14px">Clients dans le monde</h3>
+      <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_world_map_title">Clients dans le monde</h3>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start" id="world-map-grid">
         <div id="world-map-holder" style="height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden">
-          <p style="font-size:12px;color:#555">Chargement de la carte…</p>
+          <p style="font-size:12px;color:#555" data-t="loading_map_label">Chargement de la carte…</p>
         </div>
         <div class="table-wrap">
           <table style="width:100%">
-            <thead><tr><th style="text-align:left">Pays</th><th>Clients</th><th style="text-align:right">CA</th></tr></thead>
-            <tbody id="world-map-list"><tr><td colspan="3" style="color:#555;font-size:12px;text-align:center">Chargement…</td></tr></tbody>
+            <thead><tr><th style="text-align:left" data-t="th_country">Pays</th><th data-t="th_clients">Clients</th><th style="text-align:right" data-t="th_ca">CA</th></tr></thead>
+            <tbody id="world-map-list"><tr><td colspan="3" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -868,10 +868,10 @@
             <option value="" data-t="filter_all_statuses">Tous les statuts</option>
             <option value="confirmed" data-t="status_confirmed">Reçue</option>
             <option value="validated" data-t="status_validated">Validée ✓</option>
-            <option value="in_production">En production</option>
-            <option value="shipped">Expédiée 🚚</option>
+            <option value="in_production" data-t="status_in_production">En production</option>
+            <option value="shipped" data-t="status_shipped">Expédiée 🚚</option>
             <option value="cancelled" data-t="status_cancelled">Annulée</option>
-            <option value="archived">Archivée</option>
+            <option value="archived" data-t="status_archived">Archivée</option>
           </select>
           <select id="orders-sort" onchange="filterOrders()" style="padding:8px 12px;font-size:13px">
             <option value="date_desc" data-t="sort_date_desc">Date ↓</option>
@@ -889,13 +889,13 @@
       <div id="bulk-bar" style="display:none;background:var(--accent);color:var(--black);padding:10px 16px;border-radius: 0;margin-bottom:12px;align-items:center;gap:12px">
         <span id="bulk-count" style="font-weight:700;font-size:13px"></span>
         <select id="bulk-status" style="padding:6px 10px;border-radius: 0;border:none;font-family:'Plex Mono','Space Mono',monospace;font-size:11px">
-          <option value="">Changer le statut…</option>
-          <option value="confirmed">Reçue</option>
-          <option value="validated">Validée</option>
-          <option value="in_production">En production</option>
-          <option value="shipped">Expédiée</option>
+          <option value="" data-t="bulk_change_status">Changer le statut…</option>
+          <option value="confirmed" data-t="status_confirmed">Reçue</option>
+          <option value="validated" data-t="status_validated">Validée</option>
+          <option value="in_production" data-t="status_in_production">En production</option>
+          <option value="shipped" data-t="status_shipped">Expédiée</option>
         </select>
-        <button onclick="applyBulkStatus()" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius: 0;font-family:'Plex Mono','Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
+        <button onclick="applyBulkStatus()" data-t="bulk_apply" style="background:var(--black);color:var(--white);border:none;padding:6px 14px;border-radius: 0;font-family:'Plex Mono','Space Mono',monospace;font-size:11px;cursor:pointer">Appliquer</button>
         <button onclick="clearBulkSelection()" aria-label="Annuler la sélection" style="background:transparent;border:none;color:var(--black);cursor:pointer;font-size:16px;margin-left:auto">✕</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
@@ -918,12 +918,12 @@
     <div id="tab-selections-panel" style="display:none">
       <div class="card" style="padding:16px 20px;margin-bottom:16px">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <input id="sel-search" type="text" placeholder="🔍 Client, email, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterSelections()">
+          <input id="sel-search" type="text" data-tp="sel_search_placeholder" placeholder="🔍 Client, email, société…" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px" oninput="filterSelections()">
           <select id="sel-filter-brand" onchange="filterSelections()" style="padding:8px 12px;font-size:13px;min-width:140px">
-            <option value="">Toutes les marques</option>
+            <option value="" data-t="filter_all_brands">Toutes les marques</option>
           </select>
           <select id="sel-filter-status" onchange="filterSelections()" style="padding:8px 12px;font-size:13px">
-            <option value="">Tous les statuts</option>
+            <option value="" data-t="filter_all_statuses">Tous les statuts</option>
             <option value="pending">En attente</option>
             <option value="confirmed">Confirmée</option>
             <option value="expired">Expirée</option>
@@ -1250,10 +1250,10 @@
 
   <!-- AGENDA -->
   <div id="agenda" class="section">
-    <h1>Agenda — Rendez-vous</h1>
+    <h1 data-t="h1_agenda">Agenda — Rendez-vous</h1>
     <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <select id="agenda-filter-brand" onchange="filterAgenda()" style="padding:6px 12px;font-size:13px;min-width:180px">
-        <option value="">Toutes les marques</option>
+        <option value="" data-t="filter_all_brands">Toutes les marques</option>
       </select>
       <select id="agenda-filter-status" onchange="filterAgenda()" style="padding:6px 12px;font-size:13px">
         <option value="">Tous</option>
@@ -1335,11 +1335,11 @@
   </div>
 
   <div id="stats" class="section">
-    <h1>Statistiques produits</h1>
+    <h1 data-t="h1_stats">Statistiques produits</h1>
     <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <span style="font-size:13px;color:#888">Filtrer par marque :</span>
       <select id="stats-filter-brand" onchange="filterProductStats()" style="padding:6px 12px;font-size:13px;min-width:160px">
-        <option value="">Toutes les marques</option>
+        <option value="" data-t="filter_all_brands">Toutes les marques</option>
       </select>
       <span style="font-size:12px;color:#555;margin-left:auto" id="stats-subtitle">Top 100 produits par vues</span>
     </div>
@@ -1881,10 +1881,10 @@
       <select id="mo-status-select" onchange="changeOrderStatus()" style="padding:6px 10px;font-size:12px;font-weight:600;border-radius:0;border:none;border-bottom:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer">
         <option value="confirmed" data-t="status_confirmed_icon">🟡 Reçue</option>
         <option value="validated" data-t="status_validated_icon">🟢 Validée</option>
-        <option value="in_production">⚙️ En production</option>
-        <option value="shipped">🚚 Expédiée</option>
+        <option value="in_production" data-t="status_in_production_icon">⚙️ En production</option>
+        <option value="shipped" data-t="status_shipped_icon">🚚 Expédiée</option>
         <option value="cancelled" data-t="status_cancelled_icon">🔴 Annulée</option>
-        <option value="archived">📦 Archivée</option>
+        <option value="archived" data-t="status_archived_icon">📦 Archivée</option>
       </select>
     </div>
 
@@ -2226,8 +2226,12 @@ const TRANSLATIONS = {
     filter_all_brands: 'Toutes les marques', filter_all_statuses: 'Tous les statuts',
     status_confirmed: 'Reçue', status_validated: 'Validée ✓', status_cancelled: 'Annulée',
     status_confirmed_icon: '🟡 Reçue', status_validated_icon: '🟢 Validée', status_cancelled_icon: '🔴 Annulée',
+    status_draft_icon: '📝 Brouillon', status_in_production_icon: '⚙️ En production', status_shipped_icon: '🚚 Expédiée', status_archived_icon: '📦 Archivée',
+    status_in_production: 'En production', status_shipped: 'Expédiée', status_archived: 'Archivée',
     sort_date_desc: 'Date ↓', sort_date_asc: 'Date ↑', sort_total_desc: 'Total ↓', sort_brand: 'Marque A→Z',
     orders_search_placeholder: '🔍 Client, société…',
+    sel_search_placeholder: '🔍 Client, email, société…',
+    bulk_change_status: 'Changer le statut…', bulk_apply: 'Appliquer',
     // Form labels
     lbl_name: 'Nom', lbl_email: 'Email', lbl_password: 'Mot de passe', lbl_role: 'Rôle',
     lbl_assigned_brand: 'Marque assignée', lbl_company: 'Société', lbl_phone: 'Téléphone',
@@ -2328,6 +2332,46 @@ const TRANSLATIONS = {
     label_active: 'Actif', label_inactive: 'Inactif',
     label_billing: 'Facturation',
     status_active_label: '✅ Actif', status_trial_label: '⏳ Essai', status_inactive_label: '❌ Impayé',
+    // Dashboard (dynamique)
+    dash_priorities_title: 'Priorités du jour', dash_ca_monthly_title: 'CA mensuel', dash_ca_brand_title: 'CA par marque',
+    global_search_placeholder: '🔍 Rechercher commandes, acheteurs…',
+    dash_view_portal_title: 'Voir le portail acheteur', dash_portal_link: 'Portail', dash_notifications_btn: '🔔 Notifications',
+    dash_top_products: 'Top produits', dash_top_products_sub: '· 6 derniers mois, par quantité commandée',
+    dash_timeline_title: 'Timeline commerciale',
+    dash_share_title: 'Partager le showroom',
+    dash_share_global: '🌐 Showroom global', dash_share_global_title: "Lien d'accès au showroom — les acheteurs devront s'inscrire ou se connecter",
+    dash_share_email: '📧 Demande par email', dash_share_email_title: 'Copie un lien mailto que le prospect remplit pour vous demander un accès',
+    dash_share_copy_invite: "🔗 Copier le lien d'invitation",
+    dash_share_order_link: '⏳ Lien commande (expire)', dash_share_order_link_title: 'Lien de commande privé qui expire (30 jours) — pour une marque précise',
+    dash_invite_prospect: 'Inviter un prospect par email', dash_invite_scope_all: '· toutes les marques',
+    dash_invite_placeholder: 'email@prospect.com — un ou plusieurs emails, un par ligne ou séparés par virgule',
+    dash_send_invite: "📨 Envoyer l'invitation",
+    dash_invite_msg_placeholder: "Message personnalisé (optionnel — sinon message d'invitation standard)…",
+    dash_share_requests_title: 'Demandes de lien de partage',
+    dash_analytics_title: 'Analytiques',
+    dash_top_buyers_title: 'Top Acheteurs', dash_inactive_buyers_title: 'Acheteurs inactifs', dash_top_brands_title: 'Perf. Marques',
+    dash_world_map_title: 'Clients dans le monde', dash_all_brands: '🏢 Toutes les marques',
+    th_country: 'Pays', th_clients: 'Clients', th_ca: 'CA', th_cmds: 'Cmds',
+    loading_label: 'Chargement…', loading_map_label: 'Chargement de la carte…',
+    js_resend: 'Renvoyer',
+    js_no_orders_6mo: 'Aucune commande sur les 6 derniers mois.',
+    js_load_error: 'Erreur de chargement',
+    js_qty_unit_label: (n) => `${n} pièce${n>1?'s':''}`,
+    js_points_to_process: (n) => `${n} point${n>1?'s':''} à traiter`,
+    js_reminders_label: (n) => `${n} relance${n>1?'s':''} à valider`,
+    js_appointments_today: (n) => `${n} RDV aujourd'hui`,
+    js_access_requests_pending: (n) => `${n} demande${n>1?'s':''} d'accès en attente`,
+    js_selections_expiring: (n) => `${n} sélection${n>1?'s':''} expirant sous 48h`,
+    js_orders_to_cosign: (n) => `${n} commande${n>1?'s':''} à contresigner`,
+    js_all_clear: '✓ Rien en attente — tout est à jour.',
+    js_see_arrow: 'Voir →',
+    js_no_recent_activity: 'Aucune activité récente',
+    js_no_country_data: 'Aucun client avec pays renseigné',
+    js_no_data: 'Aucune donnée',
+    js_no_inactive_buyers: 'Aucun acheteur inactif.',
+    js_never: 'Jamais',
+    js_map_unavailable: 'Carte indisponible',
+    js_map_tooltip: (c,b,o,r) => `${c} — ${b} client(s) · ${o} commande(s) · ${r} €`,
   },
   en: {
     // Nav
@@ -2366,8 +2410,12 @@ const TRANSLATIONS = {
     filter_all_brands: 'All brands', filter_all_statuses: 'All statuses',
     status_confirmed: 'Received', status_validated: 'Validated ✓', status_cancelled: 'Cancelled',
     status_confirmed_icon: '🟡 Received', status_validated_icon: '🟢 Validated', status_cancelled_icon: '🔴 Cancelled',
+    status_draft_icon: '📝 Draft', status_in_production_icon: '⚙️ In production', status_shipped_icon: '🚚 Shipped', status_archived_icon: '📦 Archived',
+    status_in_production: 'In production', status_shipped: 'Shipped', status_archived: 'Archived',
     sort_date_desc: 'Date ↓', sort_date_asc: 'Date ↑', sort_total_desc: 'Total ↓', sort_brand: 'Brand A→Z',
     orders_search_placeholder: '🔍 Client, company…',
+    sel_search_placeholder: '🔍 Client, email, company…',
+    bulk_change_status: 'Change status…', bulk_apply: 'Apply',
     // Form labels
     lbl_name: 'Name', lbl_email: 'Email', lbl_password: 'Password', lbl_role: 'Role',
     lbl_assigned_brand: 'Assigned brand', lbl_company: 'Company', lbl_phone: 'Phone',
@@ -2468,6 +2516,46 @@ const TRANSLATIONS = {
     label_active: 'Active', label_inactive: 'Inactive',
     label_billing: 'Billing',
     status_active_label: '✅ Active', status_trial_label: '⏳ Trial', status_inactive_label: '❌ Unpaid',
+    // Dashboard (dynamic)
+    dash_priorities_title: "Today's priorities", dash_ca_monthly_title: 'Monthly revenue', dash_ca_brand_title: 'Revenue by brand',
+    global_search_placeholder: '🔍 Search orders, buyers…',
+    dash_view_portal_title: 'View the buyer portal', dash_portal_link: 'Portal', dash_notifications_btn: '🔔 Notifications',
+    dash_top_products: 'Top products', dash_top_products_sub: '· last 6 months, by quantity ordered',
+    dash_timeline_title: 'Sales timeline',
+    dash_share_title: 'Share the showroom',
+    dash_share_global: '🌐 Global showroom', dash_share_global_title: 'Showroom access link — buyers will need to sign up or log in',
+    dash_share_email: '📧 Request by email', dash_share_email_title: 'Copies a mailto link for the prospect to fill in and request access',
+    dash_share_copy_invite: '🔗 Copy invitation link',
+    dash_share_order_link: '⏳ Order link (expires)', dash_share_order_link_title: 'Private order link that expires (30 days) — for one specific brand',
+    dash_invite_prospect: 'Invite a prospect by email', dash_invite_scope_all: '· all brands',
+    dash_invite_placeholder: 'email@prospect.com — one or more emails, one per line or comma-separated',
+    dash_send_invite: '📨 Send invitation',
+    dash_invite_msg_placeholder: 'Custom message (optional — otherwise standard invitation message)…',
+    dash_share_requests_title: 'Share link requests',
+    dash_analytics_title: 'Analytics',
+    dash_top_buyers_title: 'Top Buyers', dash_inactive_buyers_title: 'Inactive buyers', dash_top_brands_title: 'Brand Performance',
+    dash_world_map_title: 'Clients around the world', dash_all_brands: '🏢 All brands',
+    th_country: 'Country', th_clients: 'Clients', th_ca: 'Revenue', th_cmds: 'Orders',
+    loading_label: 'Loading…', loading_map_label: 'Loading map…',
+    js_resend: 'Resend',
+    js_no_orders_6mo: 'No orders in the last 6 months.',
+    js_load_error: 'Loading error',
+    js_qty_unit_label: (n) => `${n} item${n>1?'s':''}`,
+    js_points_to_process: (n) => `${n} item${n>1?'s':''} to process`,
+    js_reminders_label: (n) => `${n} reminder${n>1?'s':''} to approve`,
+    js_appointments_today: (n) => `${n} appointment${n>1?'s':''} today`,
+    js_access_requests_pending: (n) => `${n} access request${n>1?'s':''} pending`,
+    js_selections_expiring: (n) => `${n} selection${n>1?'s':''} expiring within 48h`,
+    js_orders_to_cosign: (n) => `${n} order${n>1?'s':''} to countersign`,
+    js_all_clear: '✓ Nothing pending — all caught up.',
+    js_see_arrow: 'See →',
+    js_no_recent_activity: 'No recent activity',
+    js_no_country_data: 'No clients with country data',
+    js_no_data: 'No data',
+    js_no_inactive_buyers: 'No inactive buyers.',
+    js_never: 'Never',
+    js_map_unavailable: 'Map unavailable',
+    js_map_tooltip: (c,b,o,r) => `${c} — ${b} client(s) · ${o} order(s) · ${r} €`,
   }
 };
 
@@ -2481,6 +2569,7 @@ function applyLang() {
   document.documentElement.lang = currentLang;
   document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
   document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
+  document.querySelectorAll('[data-tt]').forEach(el => { el.title = t(el.dataset.tt); });
   const btn = document.getElementById('lang-toggle');
   if (btn) btn.textContent = '🌐 ' + (currentLang === 'fr' ? 'EN' : 'FR');
   const btnMob = document.getElementById('lang-toggle-mob');
@@ -2979,7 +3068,7 @@ async function loadAgenda() {
     if (sel) sel.style.display = 'none';
   } else {
     const brands = [...new Set(_allAgenda.map(a => a.brand_name))].sort();
-    if (sel) sel.innerHTML = `<option value="">Toutes les marques</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+    if (sel) sel.innerHTML = `<option value="">${t('filter_all_brands')}</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
   }
   filterAgenda();
 }
@@ -3220,7 +3309,7 @@ async function loadProductStats() {
   _allProductStats = await fetch('/api/admin/product-stats').then(r => r.json());
   const brands = [...new Set(_allProductStats.map(p => p.brand_name))].sort();
   const sel = document.getElementById('stats-filter-brand');
-  sel.innerHTML = `<option value="">Toutes les marques</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+  sel.innerHTML = `<option value="">${t('filter_all_brands')}</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
   filterProductStats();
 }
 
@@ -3725,17 +3814,17 @@ async function loadDashboard() {
   // Peupler le sélecteur de marque de la carte Partage
   const shareSel = document.getElementById('share-brand-select');
   if (shareSel) {
-    shareSel.innerHTML = '<option value="all">🏢 Toutes les marques</option>' +
+    shareSel.innerHTML = `<option value="all">${t('dash_all_brands')}</option>` +
       brands.map(b => `<option value="${b.id}" data-token="${b.invite_token||''}">${esc(b.name)}</option>`).join('');
     updateShareLinks();
   }
 
   // Graphique CA mensuel (6 derniers mois) — via endpoint serveur
-  fetch('/api/dashboard/revenue-chart?months=6').then(r => r.json()).then(chartData => {
+  fetch('/api/dashboard/revenue-chart?months=6&lang=' + currentLang).then(r => r.json()).then(chartData => {
     if (Array.isArray(chartData)) {
       drawRevenueChart(chartData);
       const totalChart = chartData.reduce((s, d) => s + (d.total || 0), 0);
-      document.getElementById('chart-total').textContent = `6 mois · ${totalChart.toFixed(0)} € CA`;
+      document.getElementById('chart-total').textContent = (currentLang === 'en' ? `6 months · ${totalChart.toFixed(0)} € revenue` : `6 mois · ${totalChart.toFixed(0)} € CA`);
     }
   }).catch(() => {
     // Fallback client-side avec les commandes récentes
@@ -3752,7 +3841,8 @@ async function loadDashboard() {
     });
     const fallbackData = Object.entries(months).map(([k, v]) => ({ month: k.slice(5), total: v }));
     drawRevenueChart(fallbackData);
-    document.getElementById('chart-total').textContent = `6 mois · ${fallbackData.reduce((s,d)=>s+d.total,0).toFixed(0)} € CA`;
+    const fallbackTotal = fallbackData.reduce((s,d)=>s+d.total,0).toFixed(0);
+    document.getElementById('chart-total').textContent = (currentLang === 'en' ? `6 months · ${fallbackTotal} € revenue` : `6 mois · ${fallbackTotal} € CA`);
   });
 
   // Tableau des dernières commandes
@@ -3766,7 +3856,7 @@ async function loadDashboard() {
       <td><strong>${(parseFloat(o.total)||0).toFixed(2)} €</strong></td>
       <td>
         <a href="/api/orders/${o.id}/pdf" target="_blank" class="btn btn-secondary btn-sm">PDF</a>
-        <button class="btn btn-green btn-sm" onclick="resend('${o.id}')">Renvoyer</button>
+        <button class="btn btn-green btn-sm" onclick="resend('${o.id}')">${t('js_resend')}</button>
       </td>
     </tr>
   `).join('');
@@ -3806,7 +3896,7 @@ async function loadTopProducts() {
   try {
     const rows = await fetch('/api/dashboard/top-products').then(r => r.json());
     if (!Array.isArray(rows) || !rows.length) {
-      box.innerHTML = '<p style="font-size:13px;color:#666">Aucune commande sur les 6 derniers mois.</p>';
+      box.innerHTML = `<p style="font-size:13px;color:#666">${t('js_no_orders_6mo')}</p>`;
       return;
     }
     const maxQty = Math.max(...rows.map(r => r.qty), 1);
@@ -3818,9 +3908,9 @@ async function loadTopProducts() {
         <div class="dash-row-bar" style="flex:1;background:#1c1c1c;height:1px;position:relative">
           <div style="position:absolute;left:0;top:-2px;width:${Math.round(r.qty/maxQty*100)}%;height:5px;background:${i===0?'var(--accent,#CCEB3C)':'#fafafa'}"></div>
         </div>
-        <div class="dash-row-value" style="font-size:11px;color:#7a7a7a;min-width:120px;text-align:right">${r.qty} pièce${r.qty>1?'s':''} · ${r.revenue.toFixed(0)} €</div>
+        <div class="dash-row-value" style="font-size:11px;color:#7a7a7a;min-width:120px;text-align:right">${t('js_qty_unit_label')(r.qty)} · ${r.revenue.toFixed(0)} €</div>
       </div>`).join('');
-  } catch(e) { box.innerHTML = '<p style="font-size:12px;color:#e07a7a">Erreur de chargement</p>'; }
+  } catch(e) { box.innerHTML = `<p style="font-size:12px;color:#e07a7a">${t('js_load_error')}</p>`; }
 }
 
 // ── Priorités du jour — agrège ce qui attend une action ───────────────
@@ -3834,43 +3924,43 @@ async function loadPriorities() {
   if (!box) return;
   try {
     const d = await fetch('/api/admin/dashboard/priorities').then(r => r.json());
-    countEl.textContent = d.total ? d.total + (d.total > 1 ? ' points à traiter' : ' point à traiter') : '';
+    countEl.textContent = d.total ? t('js_points_to_process')(d.total) : '';
     const sections = [];
     if (d.pendingReminders?.length) sections.push({
-      icon: '✉️', label: `${d.pendingReminders.length} relance(s) à valider`, section: 'pending-reminders',
+      icon: '✉️', label: t('js_reminders_label')(d.pendingReminders.length), section: 'pending-reminders',
       items: d.pendingReminders.map(r => r.label || r.type)
     });
     if (d.todayAppointments?.length) sections.push({
-      icon: '📅', label: `${d.todayAppointments.length} RDV aujourd'hui`, section: 'agenda',
+      icon: '📅', label: t('js_appointments_today')(d.todayAppointments.length), section: 'agenda',
       items: d.todayAppointments.map(a => `${a.slot_time} — ${a.client_name} (${a.brand_name})`)
     });
     if (d.accessRequests?.length) sections.push({
-      icon: '🔑', label: `${d.accessRequests.length} demande(s) d'accès en attente`, section: 'access-requests',
+      icon: '🔑', label: t('js_access_requests_pending')(d.accessRequests.length), section: 'access-requests',
       items: d.accessRequests.map(a => `${a.name}${a.company ? ' — ' + a.company : ''}`)
     });
     if (d.expiringSelections?.length) sections.push({
-      icon: '⏳', label: `${d.expiringSelections.length} sélection(s) expirant sous 48h`, section: null,
+      icon: '⏳', label: t('js_selections_expiring')(d.expiringSelections.length), section: null,
       items: d.expiringSelections.map(s => `${s.selection_number || ''} — ${s.client_name || s.client_company || ''} (${s.brand_name})`)
     });
     if (d.unsignedOrders?.length) sections.push({
-      icon: '✍️', label: `${d.unsignedOrders.length} commande(s) à contresigner`, section: 'orders',
+      icon: '✍️', label: t('js_orders_to_cosign')(d.unsignedOrders.length), section: 'orders',
       items: d.unsignedOrders.map(o => `${o.order_number || ''} — ${o.client_name || o.client_company || ''} (${o.brand_name})`)
     });
 
     if (!sections.length) {
-      box.innerHTML = '<p style="font-size:13px;color:#2ecc71">✓ Rien en attente — tout est à jour.</p>';
+      box.innerHTML = `<p style="font-size:13px;color:#2ecc71">${t('js_all_clear')}</p>`;
       return;
     }
     box.innerHTML = sections.map(s => `
       <div style="padding:10px 0;border-bottom:1px solid #2a2400;${s.section ? 'cursor:pointer' : ''}" ${s.section ? `onclick="goToDashSection('${s.section}')"` : ''}>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong style="font-size:13px">${s.icon} ${esc(s.label)}</strong>
-          ${s.section ? '<span style="font-size:11px;color:#888">Voir →</span>' : ''}
+          ${s.section ? `<span style="font-size:11px;color:#888">${t('js_see_arrow')}</span>` : ''}
         </div>
         <div style="font-size:11px;color:#888;margin-top:4px">${s.items.slice(0,3).map(i => esc(i)).join(' · ')}${s.items.length > 3 ? '…' : ''}</div>
       </div>
     `).join('');
-  } catch(e) { box.innerHTML = '<p style="font-size:12px;color:#e07a7a">Erreur de chargement</p>'; }
+  } catch(e) { box.innerHTML = `<p style="font-size:12px;color:#e07a7a">${t('js_load_error')}</p>`; }
 }
 
 // ── Timeline commerciale (fil chronologique tous acheteurs) ──────────
@@ -3878,7 +3968,7 @@ async function loadDashboardTimeline() {
   const box = document.getElementById('dash-timeline');
   if (!box) return;
   try {
-    const d = await fetch('/api/admin/dashboard/timeline').then(r => r.json());
+    const d = await fetch('/api/admin/dashboard/timeline?lang=' + currentLang).then(r => r.json());
     const events = d.events || [];
     const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
     box.innerHTML = events.length ? events.map(e => {
@@ -3889,8 +3979,8 @@ async function loadDashboardTimeline() {
         <span style="min-width:18px">${esc(e.icon||'•')}</span>
         <div><div>${esc(e.text||'')}</div><div style="font-size:11px;color:#888;margin-top:1px">${when}${who}</div></div>
       </div>`;
-    }).join('') : '<p style="font-size:12px;color:#555">Aucune activité récente</p>';
-  } catch(e) { box.innerHTML = '<p style="font-size:12px;color:#e07a7a">Erreur de chargement</p>'; }
+    }).join('') : `<p style="font-size:12px;color:#555">${t('js_no_recent_activity')}</p>`;
+  } catch(e) { box.innerHTML = `<p style="font-size:12px;color:#e07a7a">${t('js_load_error')}</p>`; }
 }
 
 // ── Carte du monde des clients ────────────────────────────────────────
@@ -3936,13 +4026,13 @@ async function loadWorldMap() {
       <td style="font-size:12px">${esc(d.country)}</td>
       <td style="text-align:center;font-size:12px">${d.buyers || '—'}</td>
       <td style="text-align:right;font-size:12px;color:${d.revenue > 0 ? 'var(--accent)' : 'var(--muted)'}">${d.revenue > 0 ? Math.round(d.revenue).toLocaleString('fr-FR') + ' €' : '—'}</td>
-    </tr>`).join('') || '<tr><td colspan="3" style="color:#555;font-size:12px;text-align:center">Aucun client avec pays renseigné</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="3" style="color:#555;font-size:12px;text-align:center">${t('js_no_country_data')}</td></tr>`;
   }
   // Carte (chargée une seule fois, ~150 Ko gzip)
   const holder = document.getElementById('world-map-holder');
   if (!_worldSvgLoaded) {
     const svg = await fetch('/world-map.svg').then(x => x.ok ? x.text() : null).catch(() => null);
-    if (!svg) { holder.innerHTML = '<p style="font-size:12px;color:#555">Carte indisponible</p>'; return; }
+    if (!svg) { holder.innerHTML = `<p style="font-size:12px;color:#555">${t('js_map_unavailable')}</p>`; return; }
     holder.innerHTML = svg;
     const el = holder.querySelector('svg');
     el.setAttribute('style', 'width:auto;height:100%;max-width:100%;display:block');
@@ -3963,7 +4053,7 @@ async function loadWorldMap() {
     path.classList.add('wm-on');
     path.style.fill = `rgba(204,235,60,${k.toFixed(2)})`;
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-    title.textContent = `${d.country} — ${d.buyers} client(s) · ${d.orders} commande(s) · ${Math.round(d.revenue).toLocaleString('fr-FR')} €`;
+    title.textContent = t('js_map_tooltip')(d.country, d.buyers, d.orders, Math.round(d.revenue).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR'));
     path.appendChild(title);
   });
 }
@@ -3976,7 +4066,7 @@ async function loadBuyerStats() {
     const topBody = document.getElementById('top-buyers-body');
     if (topBody) {
       if (!data.topBuyers || !data.topBuyers.length) {
-        topBody.innerHTML = '<tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Aucune donnée</td></tr>';
+        topBody.innerHTML = `<tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">${t('js_no_data')}</td></tr>`;
       } else {
         topBody.innerHTML = data.topBuyers.map(b => `
           <tr>
@@ -3992,19 +4082,20 @@ async function loadBuyerStats() {
     const inactiveEl = document.getElementById('inactive-buyers-list');
     if (inactiveEl) {
       if (!data.inactiveBuyers || !data.inactiveBuyers.length) {
-        inactiveEl.innerHTML = '<p style="font-size:12px;color:#555">Aucun acheteur inactif.</p>';
+        inactiveEl.innerHTML = `<p style="font-size:12px;color:#555">${t('js_no_inactive_buyers')}</p>`;
       } else {
         const now = Date.now();
+        const dayUnit = currentLang === 'en' ? 'd' : 'j';
         inactiveEl.innerHTML = data.inactiveBuyers.map(b => {
           const lastSeen = b.last_seen_at ? new Date(b.last_seen_at) : null;
           const daysAgo = lastSeen ? Math.floor((now - lastSeen) / 86400000) : null;
           let badge = '';
           if (!lastSeen || daysAgo > 60) {
-            badge = '<span style="background:#3a1a1a;color:#e74c3c;border-radius: 0;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+60j</span>';
+            badge = `<span style="background:#3a1a1a;color:#e74c3c;border-radius: 0;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+60${dayUnit}</span>`;
           } else if (daysAgo > 30) {
-            badge = '<span style="background:#2a1a00;color:#f39c12;border-radius: 0;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+30j</span>';
+            badge = `<span style="background:#2a1a00;color:#f39c12;border-radius: 0;font-size:10px;padding:1px 6px;font-weight:700;margin-left:4px">+30${dayUnit}</span>`;
           }
-          const seenStr = lastSeen ? lastSeen.toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR') : 'Jamais';
+          const seenStr = lastSeen ? lastSeen.toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR') : t('js_never');
           return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1e1e1e">
             <div>
               <div style="font-size:12px;font-weight:600">${esc(b.name)}${badge}</div>
@@ -4020,7 +4111,7 @@ async function loadBuyerStats() {
     const brandsBody = document.getElementById('top-brands-body');
     if (brandsBody) {
       if (!data.topBrands || !data.topBrands.length) {
-        brandsBody.innerHTML = '<tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">Aucune donnée</td></tr>';
+        brandsBody.innerHTML = `<tr><td colspan="4" style="color:#555;font-size:12px;text-align:center">${t('js_no_data')}</td></tr>`;
       } else {
         brandsBody.innerHTML = data.topBrands.map(b => `
           <tr>
@@ -4520,7 +4611,7 @@ function updateShareLinks() {
   // « Toutes les marques » (all) ou vide → invitation globale ; sinon marque précise
   if (!brandId || brandId === 'all') {
     _shareBrandInviteToken = '';
-    if (scope) scope.textContent = '· toutes les marques';
+    if (scope) scope.textContent = t('dash_invite_scope_all');
   } else {
     _shareBrandInviteToken = opt.dataset.token || '';
     if (scope) scope.textContent = '· ' + (opt ? opt.textContent : '');
@@ -6088,7 +6179,7 @@ function resetBuyersFilters() {
   renderBuyersPage();
 }
 
-function STATUS_LABEL() { return { draft: '📝 Brouillon', confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: '⚙️ En production', shipped: '🚚 Expédiée', cancelled: t('status_cancelled_icon'), archived: '📦 Archivée' }; }
+function STATUS_LABEL() { return { draft: t('status_draft_icon'), confirmed: t('status_confirmed_icon'), validated: t('status_validated_icon'), in_production: t('status_in_production_icon'), shipped: t('status_shipped_icon'), cancelled: t('status_cancelled_icon'), archived: t('status_archived_icon') }; }
 const STATUS_BADGE = { draft: 'draft', confirmed: 'confirmed', validated: 'validated', in_production: 'in_production', shipped: 'shipped', cancelled: 'cancelled', archived: 'archived' };
 
 // ── Onglets commandes / sélections ────────────────────────────────────
@@ -6180,7 +6271,7 @@ async function loadSelections() {
   _allSelections = await fetch('/api/agent-selections').then(r => r.json()).catch(() => []);
   const brands = [...new Set(_allSelections.map(s => s.brand_name).filter(Boolean))].sort();
   document.getElementById('sel-filter-brand').innerHTML =
-    `<option value="">Toutes les marques</option>` + brands.map(b => `<option>${b}</option>`).join('');
+    `<option value="">${t('filter_all_brands')}</option>` + brands.map(b => `<option>${b}</option>`).join('');
   document.getElementById('tab-sel-count').textContent = `(${_allSelections.length})`;
   filterSelections();
 }
