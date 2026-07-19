@@ -166,8 +166,9 @@
   .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 24px; }
   .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; margin-bottom: 32px; }
   .brand-hero { position: relative; height: 460px; overflow: hidden; background: var(--mid); }
-  .brand-hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; }
+  .brand-hero-img, .brand-hero-video { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; }
   .brand-hero-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,.04) 45%, rgba(10,10,10,.76) 82%, rgba(10,10,10,.94) 100%); pointer-events: none; }
+  .brand-hero-mute { position: absolute; top: 18px; right: 24px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; background: rgba(10,10,10,.45); border: 1px solid rgba(245,244,240,.22); color: #f5f4f0; cursor: pointer; backdrop-filter: blur(6px); }
   .brand-hero-bottom { position: absolute; left: 24px; right: 24px; bottom: 20px; }
   .brand-hero-name { font-family: var(--dot), monospace; font-size: 28px; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; color: #f5f4f0; text-shadow: 0 2px 14px rgba(0,0,0,.55); margin: 0 0 12px; }
   .brand-link-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -178,9 +179,6 @@
   .brand-link-row-static .brand-link-chip { color: var(--white); background: rgba(120,120,120,.1); border-color: var(--border); }
   .brand-link-row-static .brand-link-chip:hover { background: rgba(120,120,120,.18); }
   .brand-banner-info { padding: 24px 28px; }
-  .brand-video-slot { margin: 4px 28px 24px; padding-top: 18px; border-top: 1px dotted var(--border); }
-  .brand-video-label { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-  .brand-video { width: 100%; max-height: 460px; border-radius: 0; background: #000; display: block; }
   .brand-about { margin-bottom: 18px; }
   .brand-about-location { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .brand-about-tagline { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; font-weight: 600; color: var(--soft); letter-spacing: .02em; margin-bottom: 16px; }
@@ -582,9 +580,8 @@
     .brand-hero { height: 260px; }
     .brand-hero-name { font-size: 19px; margin-bottom: 8px; }
     .brand-hero-bottom { left: 16px; right: 16px; bottom: 14px; }
+    .brand-hero-mute { top: 14px; right: 16px; width: 28px; height: 28px; font-size: 12px; }
     .brand-banner-info { padding: 14px 16px; }
-    .brand-video-slot { margin: 4px 16px 16px; }
-    .brand-video { max-height: 240px; }
     .search-bar { max-width: 100%; }
     .search-bar-sticky { position: sticky; top: 56px; z-index: var(--z-bar); background: var(--black); padding: 8px 0; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
     .collection-filters { flex-wrap: nowrap; padding-bottom: 4px; }
@@ -743,7 +740,7 @@ const TRANSLATIONS = {
     global_search_ph: 'Rechercher un produit dans tous les catalogues…',
     cgv_modal_title: (brand) => `${brand} — Conditions générales de vente`,
     cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
-    brand_video_label: 'Vidéo de marque',
+    brand_video_mute: 'Couper le son', brand_video_unmute: 'Activer le son',
     book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
     appt_err_datetime: 'Veuillez choisir une date et une heure.',
     img_unavailable: 'Image indisponible', compare_limit: 'Maximum 3 produits à comparer.',
@@ -906,7 +903,7 @@ const TRANSLATIONS = {
     global_search_ph: 'Search across all brand catalogs…',
     cgv_modal_title: (brand) => `${brand} — Terms & Conditions`,
     cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
-    brand_video_label: 'Brand video',
+    brand_video_mute: 'Mute', brand_video_unmute: 'Unmute',
     book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
     appt_err_datetime: 'Please select a date and time.',
     img_unavailable: 'Image unavailable', compare_limit: 'Maximum 3 products to compare.',
@@ -2558,6 +2555,21 @@ function brandLinksHtml(brand, extraClass) {
   return `<div class="brand-link-row${extraClass ? ' ' + extraClass : ''}">${websiteChip}${socialChips}</div>`;
 }
 
+// Bascule le son de la vidéo en tête de fiche marque (démarre muette pour
+// autoriser la lecture automatique, comme un Reel).
+function toggleBrandHeroSound() {
+  const v = document.querySelector('.brand-hero-video');
+  const btn = document.getElementById('brand-hero-mute-btn');
+  if (!v) return;
+  v.muted = !v.muted;
+  if (btn) {
+    btn.textContent = v.muted ? '🔇' : '🔊';
+    const label = t(v.muted ? 'brand_video_unmute' : 'brand_video_mute');
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+  }
+}
+
 async function openBrand(brandId, _fromPop) {
   if (!_fromPop) pushNav({ v: 'catalog', brand: brandId });
   // openBrand() peut être appelé depuis n'importe quelle vue (tableau de bord,
@@ -2624,29 +2636,36 @@ async function openBrand(brandId, _fromPop) {
     ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius: 0;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
     : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
+  const videoUrlRaw = (currentBrand.video_url || '').trim();
+  const hasVideo = !!videoUrlRaw;
   const hasCover = !!currentBrand.cover_image;
   const linksHtml = brandLinksHtml(currentBrand);
-  // Avec une image de couverture : nom + liens en surimpression sur la photo (grand format).
-  // Sans image : repli sur le titre + liens simples dans le panneau d'infos.
-  const heroHtml = hasCover ? `<div class="brand-hero">
+  // Priorité à la vidéo (lecture auto, muette, en boucle) si la marque en a une —
+  // sinon repli sur la photo de couverture, sinon repli sur le titre simple.
+  let heroHtml = '';
+  if (hasVideo) {
+    const vsrc = videoUrlRaw.includes('res.cloudinary.com') ? videoUrlRaw.replace('/upload/', '/upload/q_auto,w_1200/') : videoUrlRaw;
+    const posterAttr = hasCover ? ` poster="${esc(currentBrand.cover_image)}"` : '';
+    heroHtml = `<div class="brand-hero">
+      <video class="brand-hero-video" src="${esc(vsrc)}"${posterAttr} autoplay muted loop playsinline></video>
+      <div class="brand-hero-scrim"></div>
+      <button type="button" class="brand-hero-mute" id="brand-hero-mute-btn" onclick="toggleBrandHeroSound()" aria-label="${esc(t('brand_video_unmute'))}" title="${esc(t('brand_video_unmute'))}">🔇</button>
+      <div class="brand-hero-bottom">
+        <h2 class="brand-hero-name">${esc(currentBrand.name)}</h2>
+        ${linksHtml}
+      </div>
+    </div>`;
+  } else if (hasCover) {
+    heroHtml = `<div class="brand-hero">
       <img class="brand-hero-img" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">
       <div class="brand-hero-scrim"></div>
       <div class="brand-hero-bottom">
         <h2 class="brand-hero-name">${esc(currentBrand.name)}</h2>
         ${linksHtml}
       </div>
-    </div>` : '';
-  const nameHtml = hasCover ? '' : `<h2 class="section-title" style="margin-bottom:${linksHtml ? '10px' : '18px'}">${esc(currentBrand.name)}</h2>${linksHtml ? `<div style="margin-bottom:18px">${brandLinksHtml(currentBrand, 'brand-link-row-static')}</div>` : ''}`;
-  const videoUrlRaw = (currentBrand.video_url || '').trim();
-  let brandVideoHtml = '';
-  if (videoUrlRaw) {
-    const vsrc = videoUrlRaw.includes('res.cloudinary.com') ? videoUrlRaw.replace('/upload/', '/upload/q_auto,w_1200/') : videoUrlRaw;
-    const vposter = videoUrlRaw.includes('res.cloudinary.com') ? videoUrlRaw.replace('/upload/', '/upload/so_0,w_1200,q_auto/').replace(/\.[a-zA-Z0-9]+$/, '.jpg') : '';
-    brandVideoHtml = `<div class="brand-video-slot">
-      <div class="brand-video-label">▶ ${t('brand_video_label')}</div>
-      <video src="${esc(vsrc)}" ${vposter ? `poster="${esc(vposter)}"` : ''} preload="none" muted playsinline controls class="brand-video"></video>
     </div>`;
   }
+  const nameHtml = (hasVideo || hasCover) ? '' : `<h2 class="section-title" style="margin-bottom:${linksHtml ? '10px' : '18px'}">${esc(currentBrand.name)}</h2>${linksHtml ? `<div style="margin-bottom:18px">${brandLinksHtml(currentBrand, 'brand-link-row-static')}</div>` : ''}`;
 
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
     <div class="brand-banner">
@@ -2665,7 +2684,6 @@ async function openBrand(brandId, _fromPop) {
         </div>
         ${cgvHtml}
       </div>
-      ${brandVideoHtml}
     </div>
     <div class="search-bar-sticky" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div class="search-bar" style="margin-bottom:0;flex:1;min-width:200px;max-width:360px">
