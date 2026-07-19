@@ -1467,6 +1467,45 @@
       <input type="hidden" id="brand-cover">
     </div>
 
+    <!-- Vidéo de marque -->
+    <div class="form-group" id="brand-video-section">
+      <label>Vidéo de marque <span style="color:#555;font-weight:400;font-size:11px">(optionnelle — affichée sur la fiche marque du portail)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          🎬 Ajouter une vidéo
+          <input type="file" id="brand-video-file" accept="video/*" style="display:none" onchange="handleBrandVideoUpload(this)">
+        </label>
+        <span id="brand-video-progress" style="font-size:12px;color:#888"></span>
+      </div>
+      <div id="brand-video-preview" style="margin-top:4px"></div>
+    </div>
+
+    <!-- Site web & réseaux sociaux -->
+    <div class="form-group" style="margin-top:8px">
+      <label>Site web <span style="color:#555;font-weight:400;font-size:11px">(affiché sur la fiche marque du portail)</span></label>
+      <input id="brand-website" type="text" placeholder="https://...">
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+      <div class="form-group" style="flex:1;min-width:160px">
+        <label>Instagram</label>
+        <input id="brand-instagram" type="text" placeholder="https://instagram.com/...">
+      </div>
+      <div class="form-group" style="flex:1;min-width:160px">
+        <label>Facebook</label>
+        <input id="brand-facebook" type="text" placeholder="https://facebook.com/...">
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="form-group" style="flex:1;min-width:160px">
+        <label>TikTok</label>
+        <input id="brand-tiktok" type="text" placeholder="https://tiktok.com/@...">
+      </div>
+      <div class="form-group" style="flex:1;min-width:160px">
+        <label>LinkedIn</label>
+        <input id="brand-linkedin" type="text" placeholder="https://linkedin.com/company/...">
+      </div>
+    </div>
+
     <!-- À propos -->
     <div class="form-group" style="margin-top:8px">
       <label>À propos de la marque <span style="color:#555;font-weight:400;font-size:11px">(affiché en haut de la fiche marque sur le portail acheteur)</span></label>
@@ -4364,7 +4403,7 @@ async function loadBrands() {
     const coverHtml = b.cover_image
       ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius: 0 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
-    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||''}).replace(/'/g,"&#39;");
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||''}).replace(/'/g,"&#39;");
     const subBadge = {
       active: `<span class="badge" style="background:#1f3d1f;color:#2ecc71">${t('status_active_label')}</span>`,
       trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
@@ -4470,6 +4509,13 @@ function resetBrandModal() {
   document.getElementById('brand-lookbook').value = '';
   document.getElementById('brand-lookbook-status').textContent = '';
   document.getElementById('brand-lookbook-clear').style.display = 'none';
+  document.getElementById('brand-website').value = '';
+  document.getElementById('brand-instagram').value = '';
+  document.getElementById('brand-facebook').value = '';
+  document.getElementById('brand-tiktok').value = '';
+  document.getElementById('brand-linkedin').value = '';
+  currentBrandVideoUrl = '';
+  renderBrandVideoPreview();
   ['brand-logo', 'brand-cover', 'brand-thumbnail'].forEach(id => {
     const thumb = document.getElementById(id + '-thumb');
     if (thumb) thumb.src = '';
@@ -4482,6 +4528,7 @@ function resetBrandModal() {
   document.getElementById('brand-cover-file').value = '';
   document.getElementById('brand-thumbnail-file').value = '';
   document.getElementById('brand-lookbook-file').value = '';
+  document.getElementById('brand-video-file').value = '';
 }
 
 function openBrandModal() {
@@ -4518,6 +4565,13 @@ function editBrand(b) {
   }
   document.getElementById('brand-cgv').value = b.cgv_text || '';
   document.getElementById('brand-about').value = b.about_text || '';
+  document.getElementById('brand-website').value = b.website || '';
+  document.getElementById('brand-instagram').value = b.instagram || '';
+  document.getElementById('brand-facebook').value = b.facebook || '';
+  document.getElementById('brand-tiktok').value = b.tiktok || '';
+  document.getElementById('brand-linkedin').value = b.linkedin || '';
+  currentBrandVideoUrl = b.video_url || '';
+  renderBrandVideoPreview();
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
   document.getElementById('brand-moq-strict').checked = b.moq_strict === true || b.moq_strict === 'true';
@@ -4557,7 +4611,13 @@ async function saveBrand() {
     return_terms: document.getElementById('brand-return-terms').value.trim(),
     order_deadline: document.getElementById('brand-order-deadline').value || null,
     lookbook_url: document.getElementById('brand-lookbook').value,
-    default_currency: document.getElementById('brand-default-currency').value || null
+    default_currency: document.getElementById('brand-default-currency').value || null,
+    website: document.getElementById('brand-website').value.trim(),
+    instagram: document.getElementById('brand-instagram').value.trim(),
+    facebook: document.getElementById('brand-facebook').value.trim(),
+    tiktok: document.getElementById('brand-tiktok').value.trim(),
+    linkedin: document.getElementById('brand-linkedin').value.trim(),
+    video_url: currentBrandVideoUrl
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';
@@ -5532,6 +5592,7 @@ async function toggleProductActive(id, newActive) {
 let currentImages = [];
 let currentVariants = []; // [{color, images:[]}]
 let currentVideoUrl = '';
+let currentBrandVideoUrl = '';
 
 function resetProductForm() {
   currentImages = [];
@@ -5880,6 +5941,52 @@ async function handleVideoUpload(input) {
     currentVideoUrl = url;
     if (prog) prog.textContent = '✓ Vidéo prête';
     renderVideoPreview();
+    toast('Vidéo ajoutée');
+  } catch(e) {
+    if (prog) prog.textContent = '';
+    toast('Échec de l\'envoi : ' + (e.message || ''), true);
+  }
+}
+
+// ── Vidéo marque : même mécanisme que la vidéo produit ci-dessus ──
+function renderBrandVideoPreview() {
+  const el = document.getElementById('brand-video-preview');
+  if (!el) return;
+  if (!currentBrandVideoUrl) { el.innerHTML = '<span style="font-size:12px;color:#555">Aucune vidéo</span>'; return; }
+  el.innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <video src="${esc(currentBrandVideoUrl)}#t=0.1" preload="metadata" muted playsinline controls style="max-width:220px;max-height:160px;border-radius: 0;background:#000"></video>
+    <button class="btn btn-danger btn-sm" type="button" onclick="removeBrandVideo()">✕ Retirer la vidéo</button>
+  </div>`;
+}
+function removeBrandVideo() { currentBrandVideoUrl = ''; renderBrandVideoPreview(); }
+
+async function handleBrandVideoUpload(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('video/')) { toast('Fichier vidéo requis', true); return; }
+  if (file.size > 200 * 1024 * 1024) { toast('Vidéo trop lourde (max 200 Mo). Raccourcissez-la.', true); return; }
+  const prog = document.getElementById('brand-video-progress');
+  try {
+    const sig = await (await fetch('/api/cloudinary-signature')).json();
+    if (!sig.signature) throw new Error(sig.error || 'Signature indisponible');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('api_key', sig.apiKey);
+    fd.append('timestamp', sig.timestamp);
+    fd.append('folder', sig.folder);
+    fd.append('signature', sig.signature);
+    const url = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/video/upload`);
+      xhr.upload.onprogress = e => { if (e.lengthComputable && prog) prog.textContent = `Envoi… ${Math.round(e.loaded / e.total * 100)}%`; };
+      xhr.onload = () => { try { const r = JSON.parse(xhr.responseText); r.secure_url ? resolve(r.secure_url) : reject(new Error(r.error?.message || 'Échec upload')); } catch(e) { reject(e); } };
+      xhr.onerror = () => reject(new Error('Erreur réseau'));
+      xhr.send(fd);
+    });
+    currentBrandVideoUrl = url;
+    if (prog) prog.textContent = '✓ Vidéo prête';
+    renderBrandVideoPreview();
     toast('Vidéo ajoutée');
   } catch(e) {
     if (prog) prog.textContent = '';

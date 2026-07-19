@@ -165,8 +165,22 @@
   .back-btn { background: none; border: none; color: var(--soft); font-size: 13px; cursor: pointer; margin-bottom: 20px; font-family: 'Plex Mono', 'Space Mono', monospace; letter-spacing: .06em; min-height: 44px; padding: 10px 0; display: inline-flex; align-items: center; }
   .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 24px; }
   .brand-banner { background: var(--dark); border: 1px solid var(--border); border-radius: 0; overflow: hidden; margin-bottom: 32px; }
-  .brand-banner-cover { width: 100%; height: 260px; object-fit: cover; object-position: center top; display: block; }
+  .brand-hero { position: relative; height: 460px; overflow: hidden; background: var(--mid); }
+  .brand-hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; }
+  .brand-hero-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,.04) 45%, rgba(10,10,10,.76) 82%, rgba(10,10,10,.94) 100%); pointer-events: none; }
+  .brand-hero-bottom { position: absolute; left: 24px; right: 24px; bottom: 20px; }
+  .brand-hero-name { font-family: var(--dot), monospace; font-size: 28px; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; color: #f5f4f0; text-shadow: 0 2px 14px rgba(0,0,0,.55); margin: 0 0 12px; }
+  .brand-link-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .brand-link-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--dot), monospace; font-size: 11px; letter-spacing: .04em; color: #f5f4f0; background: rgba(245,244,240,.12); border: 1px solid rgba(245,244,240,.24); padding: 7px 12px; text-decoration: none; transition: background .15s, border-color .15s; }
+  .brand-link-chip:hover { background: rgba(245,244,240,.2); border-color: rgba(245,244,240,.4); }
+  .brand-link-chip.icon-only { padding: 7px 9px; }
+  .brand-link-chip svg { width: 13px; height: 13px; display: block; }
+  .brand-link-row-static .brand-link-chip { color: var(--white); background: rgba(120,120,120,.1); border-color: var(--border); }
+  .brand-link-row-static .brand-link-chip:hover { background: rgba(120,120,120,.18); }
   .brand-banner-info { padding: 24px 28px; }
+  .brand-video-slot { margin: 4px 28px 24px; padding-top: 18px; border-top: 1px dotted var(--border); }
+  .brand-video-label { font-family: var(--dot), monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .brand-video { width: 100%; max-height: 460px; border-radius: 0; background: #000; display: block; }
   .brand-about { margin-bottom: 18px; }
   .brand-about-location { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .brand-about-tagline { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; font-weight: 600; color: var(--soft); letter-spacing: .02em; margin-bottom: 16px; }
@@ -565,8 +579,12 @@
     .qty-btn { width: 34px; height: 34px; min-width: 34px; font-size: 18px; border-radius: 0; }
     .qty-display { min-width: 22px; font-size: 13px; }
     .qty-row span[style*="min-width:30px"] { min-width: 24px !important; font-size: 10px !important; }
-    .brand-banner-cover { height: 140px; }
+    .brand-hero { height: 260px; }
+    .brand-hero-name { font-size: 19px; margin-bottom: 8px; }
+    .brand-hero-bottom { left: 16px; right: 16px; bottom: 14px; }
     .brand-banner-info { padding: 14px 16px; }
+    .brand-video-slot { margin: 4px 16px 16px; }
+    .brand-video { max-height: 240px; }
     .search-bar { max-width: 100%; }
     .search-bar-sticky { position: sticky; top: 56px; z-index: var(--z-bar); background: var(--black); padding: 8px 0; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
     .collection-filters { flex-wrap: nowrap; padding-bottom: 4px; }
@@ -725,6 +743,7 @@ const TRANSLATIONS = {
     global_search_ph: 'Rechercher un produit dans tous les catalogues…',
     cgv_modal_title: (brand) => `${brand} — Conditions générales de vente`,
     cgv_btn_label: (brand) => `${brand} — Conditions générales de vente`,
+    brand_video_label: 'Vidéo de marque',
     book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
     appt_err_datetime: 'Veuillez choisir une date et une heure.',
     img_unavailable: 'Image indisponible', compare_limit: 'Maximum 3 produits à comparer.',
@@ -887,6 +906,7 @@ const TRANSLATIONS = {
     global_search_ph: 'Search across all brand catalogs…',
     cgv_modal_title: (brand) => `${brand} — Terms & Conditions`,
     cgv_btn_label: (brand) => `${brand} — Terms & Conditions`,
+    brand_video_label: 'Brand video',
     book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
     appt_err_datetime: 'Please select a date and time.',
     img_unavailable: 'Image unavailable', compare_limit: 'Maximum 3 products to compare.',
@@ -2509,6 +2529,35 @@ function brandCardHtml(b, i) {
   return `<div class="brand-card" style="position:relative" onclick="openBrand('${b.id}')">${newBadge}${cover}<div class="brand-info"><span class="brand-idx">${idx}</span><div class="brand-name-row"><div class="brand-name">${esc(b.name)}</div>${seasonPill}</div>${desc}${metaHtml}<div class="brand-cta">${cta}</div></div></div>`;
 }
 
+// Icônes réseaux sociaux (fiche marque) — monochromes, héritent currentColor
+function brandSocialIcon(kind) {
+  const icons = {
+    instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-7.6h2.55l.38-2.96h-2.93V8.53c0-.86.24-1.44 1.47-1.44h1.57V4.46A21 21 0 0 0 14.3 4.3c-2.2 0-3.7 1.34-3.7 3.8v2.34H8.05v2.96H10.6V21h2.9z"/></svg>',
+    tiktok: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.5 3c.4 2.1 1.9 3.6 4 3.9v2.6a6.6 6.6 0 0 1-4-1.3v6.6a5.4 5.4 0 1 1-5.4-5.4c.3 0 .6 0 .9.1v2.7a2.7 2.7 0 1 0 1.9 2.6V3h2.6z"/></svg>',
+    linkedin: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.5 4.78 5.75V21h-4v-5.5c0-1.3-.02-3-1.87-3-1.87 0-2.16 1.4-2.16 2.9V21h-4z"/></svg>'
+  };
+  return icons[kind] || '';
+}
+
+// Chips « site web » + réseaux sociaux de la fiche marque — n'affiche que les
+// liens réellement renseignés ; re-valide http(s) côté client (defense in depth,
+// le serveur neutralise déjà javascript:/data: à l'enregistrement).
+function brandLinksHtml(brand, extraClass) {
+  const safe = (u) => /^https?:\/\//i.test(String(u || '').trim()) ? u.trim() : '';
+  const site = safe(brand.website);
+  const siteLabel = site.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+  const websiteChip = site ? `<a class="brand-link-chip" href="${esc(site)}" target="_blank" rel="noopener">🌐 ${esc(siteLabel)}</a>` : '';
+  const socialChips = ['instagram', 'facebook', 'tiktok', 'linkedin'].map(kind => {
+    const url = safe(brand[kind]);
+    if (!url) return '';
+    const label = kind.charAt(0).toUpperCase() + kind.slice(1);
+    return `<a class="brand-link-chip icon-only" href="${esc(url)}" target="_blank" rel="noopener" title="${label}" aria-label="${label}">${brandSocialIcon(kind)}</a>`;
+  }).join('');
+  if (!websiteChip && !socialChips) return '';
+  return `<div class="brand-link-row${extraClass ? ' ' + extraClass : ''}">${websiteChip}${socialChips}</div>`;
+}
+
 async function openBrand(brandId, _fromPop) {
   if (!_fromPop) pushNav({ v: 'catalog', brand: brandId });
   // openBrand() peut être appelé depuis n'importe quelle vue (tableau de bord,
@@ -2575,13 +2624,35 @@ async function openBrand(brandId, _fromPop) {
     ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius: 0;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
     : '';
   const cgvHtml = currentBrand.cgv_text ? `<div class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
-  const coverHtml = currentBrand.cover_image ? `<img class="brand-banner-cover" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">` : '';
+  const hasCover = !!currentBrand.cover_image;
+  const linksHtml = brandLinksHtml(currentBrand);
+  // Avec une image de couverture : nom + liens en surimpression sur la photo (grand format).
+  // Sans image : repli sur le titre + liens simples dans le panneau d'infos.
+  const heroHtml = hasCover ? `<div class="brand-hero">
+      <img class="brand-hero-img" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">
+      <div class="brand-hero-scrim"></div>
+      <div class="brand-hero-bottom">
+        <h2 class="brand-hero-name">${esc(currentBrand.name)}</h2>
+        ${linksHtml}
+      </div>
+    </div>` : '';
+  const nameHtml = hasCover ? '' : `<h2 class="section-title" style="margin-bottom:${linksHtml ? '10px' : '18px'}">${esc(currentBrand.name)}</h2>${linksHtml ? `<div style="margin-bottom:18px">${brandLinksHtml(currentBrand, 'brand-link-row-static')}</div>` : ''}`;
+  const videoUrlRaw = (currentBrand.video_url || '').trim();
+  let brandVideoHtml = '';
+  if (videoUrlRaw) {
+    const vsrc = videoUrlRaw.includes('res.cloudinary.com') ? videoUrlRaw.replace('/upload/', '/upload/q_auto,w_1200/') : videoUrlRaw;
+    const vposter = videoUrlRaw.includes('res.cloudinary.com') ? videoUrlRaw.replace('/upload/', '/upload/so_0,w_1200,q_auto/').replace(/\.[a-zA-Z0-9]+$/, '.jpg') : '';
+    brandVideoHtml = `<div class="brand-video-slot">
+      <div class="brand-video-label">▶ ${t('brand_video_label')}</div>
+      <video src="${esc(vsrc)}" ${vposter ? `poster="${esc(vposter)}"` : ''} preload="none" muted playsinline controls class="brand-video"></video>
+    </div>`;
+  }
 
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
     <div class="brand-banner">
-      ${coverHtml}
+      ${heroHtml}
       <div class="brand-banner-info">
-        <h2 class="section-title" style="margin-bottom:10px">${esc(currentBrand.name)}</h2>
+        ${nameHtml}
         ${aboutHtml}
         ${moqHtml}
         ${deliveryHtml}
@@ -2594,6 +2665,7 @@ async function openBrand(brandId, _fromPop) {
         </div>
         ${cgvHtml}
       </div>
+      ${brandVideoHtml}
     </div>
     <div class="search-bar-sticky" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div class="search-bar" style="margin-bottom:0;flex:1;min-width:200px;max-width:360px">
