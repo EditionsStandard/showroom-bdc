@@ -1676,7 +1676,7 @@ function applyLang() {
   <button class="img-close" id="img-close" aria-label="Fermer">✕</button>
   <div class="img-modal-main">
     <button class="img-nav img-nav-prev" id="img-prev">‹</button>
-    <img id="img-modal-src" src="" alt="" onerror="imgModalFail(this)">
+    <img id="img-modal-src" alt="" onerror="imgModalFail(this)">
     <div id="img-modal-fallback" style="display:none;flex-direction:column;align-items:center;gap:10px;color:#999;font-size:14px">
       <span style="font-size:48px;opacity:.4">🏷️</span>
       <span data-t="img_unavailable">Image indisponible</span>
@@ -2856,9 +2856,12 @@ async function openBrand(brandId, _fromPop) {
   const nameHtml = (hasVideo || hasCover) ? '' : `<h2 class="section-title" style="margin-bottom:${linksHtml ? '10px' : '18px'}">${esc(currentBrand.name)}</h2>${linksHtml ? `<div style="margin-bottom:18px">${brandLinksHtml(currentBrand, 'brand-link-row-static')}</div>` : ''}`;
 
   // Réassort suggéré : produits déjà commandés par cet acheteur chez cette
-  // marque (encore actifs) + nouveautés de la même collection.
+  // marque (encore actifs) + nouveautés de la même collection. Masqué durant
+  // un accès anticipé verrouillé — sinon un acheteur non privilégié pourrait
+  // parcourir (même s'il ne peut pas commander) la collection réservée via ce
+  // raccourci, ce qui contredit la promesse "réservé" de la bannière au-dessus.
   let reorderHtml = '';
-  if (Array.isArray(data.reorder_suggestions) && data.reorder_suggestions.length) {
+  if (!earlyAccessLocked && Array.isArray(data.reorder_suggestions) && data.reorder_suggestions.length) {
     const isEn = currentLang === 'en';
     const dateFmt = data.last_order_date ? new Date(data.last_order_date + 'T12:00:00').toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { month: 'long', year: 'numeric' }) : '';
     const cards = data.reorder_suggestions.map(rp => {
@@ -3131,7 +3134,6 @@ function renderProductsPage() {
         <div class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" data-tr="${esc(sentenceCase(p.description))}">${esc(sentenceCase(p.description))}</div>
         ${p.color ? `<div class="product-meta">${esc(p.color)}</div>` : ''}
         ${priceBlockHtml(p.price, p.price_retail, true)}
-        ${stockBadgeHtml(p) ? `<div style="margin-top:6px">${stockBadgeHtml(p)}</div>` : ''}
         ${qtyHtml}
       </div>
     </div>`;
