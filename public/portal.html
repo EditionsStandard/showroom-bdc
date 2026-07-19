@@ -88,6 +88,21 @@
   .dropdown-item.danger { color: #e74c3c; }
   .dropdown-item.danger:hover { background: #e74c3c; color: #fff; }
   .dropdown-sep { height: 1px; background: var(--border); margin: 4px 0; }
+  /* ── Notifications ── */
+  .notif-menu { position: relative; flex-shrink: 0; }
+  .notif-btn { position: relative; background: transparent; border: none; padding: 6px 8px; cursor: pointer; font-size: 16px; line-height: 1; color: var(--white); }
+  .notif-btn:hover { opacity: .75; }
+  .notif-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); background: var(--dark); border: 1px solid var(--border); border-radius: 0; width: 320px; max-width: 90vw; max-height: 420px; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: var(--z-dropdown); }
+  .notif-menu.open .notif-dropdown { display: block; }
+  .notif-dropdown-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--white); position: sticky; top: 0; background: var(--dark); }
+  .notif-markall { background: none; border: none; color: var(--accent); font-size: 10px; letter-spacing: .04em; text-transform: none; cursor: pointer; font-family: inherit; padding: 0; }
+  .notif-item { display: block; width: 100%; text-align: left; padding: 12px 16px; border: none; background: none; border-bottom: 1px solid var(--border); cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; }
+  .notif-item:hover { background: var(--border); }
+  .notif-item.unread { background: rgba(204,235,60,.05); }
+  .notif-item-title { font-size: 12px; color: var(--white); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .notif-item.unread .notif-item-title::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .notif-item-body { font-size: 11.5px; color: var(--soft); margin-top: 3px; line-height: 1.5; }
+  .notif-item-time { font-size: 10px; color: var(--muted); margin-top: 5px; }
   /* ── Profile form ── */
   .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-bottom: 24px; }
   .profile-grid .field-full { grid-column: 1 / -1; }
@@ -179,6 +194,22 @@
   .brand-link-row-static .brand-link-chip { color: var(--white); background: rgba(120,120,120,.1); border-color: var(--border); }
   .brand-link-row-static .brand-link-chip:hover { background: rgba(120,120,120,.18); }
   .brand-banner-info { padding: 24px 28px; }
+  .follow-brand-btn { display: inline-flex; align-items: center; gap: 7px; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); background: none; border: 1px solid var(--border); border-radius: 0; padding: 8px 14px; cursor: pointer; transition: border-color .15s, color .15s; }
+  .follow-brand-btn:hover { border-color: var(--soft); color: var(--white); }
+  .follow-brand-btn.active { color: var(--accent); border-color: var(--accent); }
+  /* ── Réassort suggéré ── */
+  .reorder-shelf { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 18px 24px; margin-bottom: 32px; }
+  .reorder-head { margin-bottom: 14px; }
+  .reorder-title { font-family: var(--dot), monospace; font-size: 13px; letter-spacing: .04em; color: var(--white); }
+  .reorder-title span { color: var(--muted); font-size: 11px; font-weight: 400; }
+  .reorder-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .rcard { background: var(--mid); border: 1px solid var(--border); display: flex; gap: 10px; padding: 10px; align-items: center; cursor: pointer; transition: border-color .15s; }
+  .rcard:hover { border-color: var(--soft); }
+  .rcard img { width: 54px; height: 54px; object-fit: cover; background: #fff; flex-shrink: 0; }
+  .rcard-info { min-width: 0; }
+  .rcard-ref { font-family: var(--dot), monospace; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .rcard-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .rcard-price { font-size: 12px; color: var(--accent); font-weight: 700; margin-top: 4px; font-family: var(--dot), monospace; }
   .brand-about { margin-bottom: 18px; }
   .brand-about-location { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .brand-about-tagline { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; font-weight: 600; color: var(--soft); letter-spacing: .02em; margin-bottom: 16px; }
@@ -188,6 +219,22 @@
   .brand-about-positioning { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 16px; padding-top: 14px; border-top: 1px dotted var(--border); }
   .brand-about-positioning strong { color: var(--soft); font-weight: 600; }
   .brand-banner-moq { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--accent); background: rgba(204,235,60,.08); display: inline-block; padding: 8px 14px; border-radius: 0; margin-bottom: 14px; }
+  .early-access-banner { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; padding: 9px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .early-access-banner.locked { color: #e8a15a; background: rgba(232,161,90,.08); border: 1px solid rgba(232,161,90,.28); }
+  .early-access-banner.unlocked { color: var(--accent); background: rgba(204,235,60,.08); border: 1px solid rgba(204,235,60,.28); }
+  .product-card.locked .product-img { filter: blur(6px) brightness(.6); }
+  .product-card.locked .fav-btn, .product-card.locked .shortlist-btn, .product-card.locked .compare-btn { display: none !important; }
+  .locked-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 0 14px; z-index: var(--z-card); pointer-events: none; }
+  .locked-overlay .icon { font-size: 20px; }
+  .locked-overlay .txt { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--white); text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  /* Compte à rebours — remplace la ligne texte "commandes ouvertes jusqu'au"
+     quand l'échéance approche (≤ 14 jours), pour créer une vraie urgence
+     visuelle plutôt qu'une date noyée dans le texte. */
+  .deadline-countdown { display: flex; align-items: center; gap: 14px; background: linear-gradient(90deg, rgba(204,235,60,.1), rgba(204,235,60,.03)); border: 1px solid rgba(204,235,60,.28); padding: 10px 16px; margin-bottom: 14px; font-family: 'Plex Mono', 'Space Mono', monospace; flex-wrap: wrap; }
+  .dc-label { font-size: 11px; color: var(--soft); }
+  .dc-cell { display: flex; align-items: baseline; gap: 4px; }
+  .dc-n { font-size: 17px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .dc-u { font-size: 9px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
   .brand-banner-cgv-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px; }
   .brand-banner-cgv-title { font-family: var(--dot), monospace; font-size: 13px; color: var(--white); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 16px; }
   .cgv-brand-page { max-height: 320px; overflow-y: auto; background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 20px 24px; }
@@ -229,6 +276,12 @@
   .stock-badge.in { background:#1a3a1a; color:#2ecc71; }
   .stock-badge.low { background:#3a2a0a; color:#ffa726; }
   .stock-badge.out { background:#3a1a1a; color:#f44336; }
+  /* Même info que .stock-badge, posée sur la vignette catalogue (bas-gauche,
+     libre de toute autre pastille) pour être visible sans ouvrir la fiche */
+  .stock-badge-overlay { position: absolute; bottom: 8px; left: 8px; font-size: 9px; padding: 3px 8px; font-weight: 700; letter-spacing: .04em; font-family: 'Plex Mono', 'Space Mono', monospace; backdrop-filter: blur(3px); z-index: var(--z-card); pointer-events: none; }
+  .stock-badge-overlay.in { background: rgba(26,58,26,.85); color: #2ecc71; }
+  .stock-badge-overlay.low { background: rgba(58,42,10,.85); color: #ffa726; }
+  .stock-badge-overlay.out { background: rgba(58,26,26,.85); color: #f44336; }
   .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .qty-btn { width: 44px; height: 44px; min-width: 44px; background: transparent; border: none; color: var(--soft); cursor: pointer; font-size: 18px; border-radius: 0; transition: color .15s; }
   .qty-btn:hover { color: var(--white); }
@@ -404,6 +457,9 @@
 
   /* ── Badge nouveau ── */
   .badge-new { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--black); font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 2px 8px; border-radius: 0; font-family: 'Plex Mono', 'Space Mono', monospace; text-transform: uppercase; pointer-events: none; z-index: var(--z-card); }
+  /* Best-seller : mêmes règles de position que .badge-new (dont le décalage carte
+     produit ci-dessous), mais habillage inversé pour ne pas se confondre avec NEW */
+  .badge-new.badge-best { background: var(--dark); color: var(--accent); border: 1px solid var(--accent); }
 
   /* ── Sort toolbar ── */
   .sort-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
@@ -790,6 +846,10 @@ const TRANSLATIONS = {
     price_on_request: 'Prix sur demande',
     retail_label: 'PVC conseillé :',
     stock_out: '● Rupture de stock', stock_low: (n) => `● Plus que ${n}`, stock_in: (n) => `● En stock (${n})`,
+    best_seller_badge: '★ Best-seller',
+    reorder_title: 'Comme lors de votre dernière commande', reorder_tag_again: 'Déjà commandé', reorder_tag_new: 'Nouveauté — même collection',
+    notif_title: 'Notifications', notif_mark_all: 'Tout marquer lu', notif_empty: 'Aucune notification',
+    follow_brand: 'Suivre', following_brand: 'Suivi ✓',
     fav_add_title: 'Ajouter aux favoris', shortlist_add_title: 'Ajouter à la shortlist',
     compare_add_title: 'Comparer ce produit', compare_btn: '⊕ Comparer', compare_compared_btn: '✓ Comparé',
     view_product_title: 'Voir la fiche produit',
@@ -947,6 +1007,10 @@ const TRANSLATIONS = {
     price_on_request: 'Price on request',
     retail_label: 'RRP:',
     stock_out: '● Out of stock', stock_low: (n) => `● Only ${n} left`, stock_in: (n) => `● In stock (${n})`,
+    best_seller_badge: '★ Best-seller',
+    reorder_title: 'Like your last order', reorder_tag_again: 'Ordered before', reorder_tag_new: 'New — same collection',
+    notif_title: 'Notifications', notif_mark_all: 'Mark all read', notif_empty: 'No notifications',
+    follow_brand: 'Follow', following_brand: 'Following ✓',
     fav_add_title: 'Add to favorites', shortlist_add_title: 'Add to shortlist',
     compare_add_title: 'Compare this product', compare_btn: '⊕ Compare', compare_compared_btn: '✓ Compared',
     view_product_title: 'View product page',
@@ -1249,6 +1313,18 @@ function applyLang() {
         <option value="ko">🌐 한국어</option>
         <option value="th">🌐 ไทย</option>
       </select>
+      <div class="notif-menu" id="notif-menu">
+        <button class="notif-btn" onclick="toggleNotifMenu()" title="Notifications" aria-label="Notifications">
+          🔔<span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--accent);color:#111;font-size:9px;font-weight:700;border-radius:0;padding:1px 5px;min-width:14px;text-align:center;line-height:1.4"></span>
+        </button>
+        <div class="notif-dropdown" id="notif-dropdown">
+          <div class="notif-dropdown-header">
+            <span data-t="notif_title">Notifications</span>
+            <button class="notif-markall" id="notif-markall" onclick="markAllNotifsRead()" style="display:none" data-t="notif_mark_all">Tout marquer lu</button>
+          </div>
+          <div id="notif-list"><p style="padding:16px;font-size:12px;color:var(--muted)" data-t="notif_empty">Aucune notification</p></div>
+        </div>
+      </div>
       <div class="user-menu" id="user-menu">
         <div class="user-btn" onclick="toggleUserMenu()">
           <div class="user-avatar" id="user-avatar">?</div>
@@ -1708,6 +1784,7 @@ function autoSetCurrency(code) {
 }
 let currentBrand = null;
 let currentProducts = [];
+let earlyAccessLocked = false; // vrai si la marque courante est en accès anticipé et que l'acheteur n'est pas privilégié
 let CART_KEY = 'portal_cart';
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
@@ -1932,7 +2009,75 @@ function closeUserMenu() {
 }
 document.addEventListener('click', e => {
   if (!document.getElementById('user-menu').contains(e.target)) closeUserMenu();
+  if (!document.getElementById('notif-menu').contains(e.target)) closeNotifMenu();
 });
+
+// ── Notifications (marques suivies) ──────────────────────────────────
+function toggleNotifMenu() {
+  const open = document.getElementById('notif-menu').classList.toggle('open');
+  if (open) loadNotifList();
+}
+function closeNotifMenu() { document.getElementById('notif-menu').classList.remove('open'); }
+function setNotifBadge(n) {
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  if (n > 0) { badge.textContent = n; badge.style.display = ''; } else { badge.style.display = 'none'; }
+}
+async function refreshNotifBadge() {
+  try { const d = await fetch('/api/portal/notifications/unread').then(r => r.json()); setNotifBadge((d && d.unread) || 0); } catch(e) {}
+}
+function notifTimeAgo(dateStr) {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const isEn = currentLang === 'en';
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return isEn ? 'Just now' : "À l'instant";
+  if (min < 60) return isEn ? `${min} min ago` : `Il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return isEn ? `${h}h ago` : `Il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  return isEn ? `${d}d ago` : `Il y a ${d} j`;
+}
+async function loadNotifList() {
+  const el = document.getElementById('notif-list');
+  try {
+    const list = await fetch('/api/portal/notifications').then(r => r.json());
+    const markAllBtn = document.getElementById('notif-markall');
+    const hasUnread = Array.isArray(list) && list.some(n => !n.read_at);
+    if (markAllBtn) markAllBtn.style.display = hasUnread ? '' : 'none';
+    if (!Array.isArray(list) || !list.length) { el.innerHTML = `<p style="padding:16px;font-size:12px;color:var(--muted)">${t('notif_empty')}</p>`; return; }
+    el.innerHTML = list.map(n => `
+      <button class="notif-item${n.read_at ? '' : ' unread'}" onclick="openNotif('${esc(n.id)}','${esc(n.brand_id||'')}')">
+        <div class="notif-item-title">${esc(n.title)}</div>
+        ${n.body ? `<div class="notif-item-body">${esc(n.body)}</div>` : ''}
+        <div class="notif-item-time">${esc(notifTimeAgo(n.created_at))}</div>
+      </button>
+    `).join('');
+  } catch(e) { el.innerHTML = `<p style="padding:16px;font-size:12px;color:var(--muted)">${t('notif_empty')}</p>`; }
+}
+function openNotif(id, brandId) {
+  fetch(`/api/portal/notifications/${id}/read`, { method: 'POST' }).catch(() => {});
+  refreshNotifBadge();
+  closeNotifMenu();
+  if (brandId) openBrand(brandId);
+}
+async function markAllNotifsRead() {
+  await fetch('/api/portal/notifications/read-all', { method: 'POST' }).catch(() => {});
+  refreshNotifBadge();
+  loadNotifList();
+}
+async function toggleBrandFollow(brandId) {
+  const btn = document.getElementById('follow-brand-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(`/api/portal/brands/${brandId}/follow`, { method: 'POST' });
+    const d = await r.json();
+    if (currentBrand) currentBrand.following = d.following;
+    if (btn) {
+      btn.classList.toggle('active', d.following);
+      btn.innerHTML = `${d.following ? '★' : '☆'} <span>${d.following ? t('following_brand') : t('follow_brand')}</span>`;
+    }
+  } catch(e) {} finally { if (btn) btn.disabled = false; }
+}
 
 function fmtPrice(amountEur) {
   const converted = parseFloat(amountEur || 0) * (selectedCurrency.rate || 1);
@@ -2026,13 +2171,23 @@ async function syncCartFromServer() {
   } catch(e) {}
 }
 
-function stockBadgeHtml(p) {
-  if (!p.stock_enabled) return '';
+function stockTier(p) {
+  if (!p.stock_enabled) return null;
   const qty = p.stock_qty;
-  if (qty === null || qty === undefined) return '';
-  if (qty === 0) return `<span class="stock-badge out">${t('stock_out')}</span>`;
-  if (qty <= 3) return `<span class="stock-badge low">${t('stock_low', qty)}</span>`;
-  return `<span class="stock-badge in">${t('stock_in', qty)}</span>`;
+  if (qty === null || qty === undefined) return null;
+  if (qty === 0) return { tier: 'out', label: t('stock_out') };
+  if (qty <= 3) return { tier: 'low', label: t('stock_low', qty) };
+  return { tier: 'in', label: t('stock_in', qty) };
+}
+function stockBadgeHtml(p) {
+  const s = stockTier(p);
+  return s ? `<span class="stock-badge ${s.tier}">${s.label}</span>` : '';
+}
+// Même information que stockBadgeHtml(), mais posée sur la vignette elle-même
+// (grille catalogue) pour être visible sans ouvrir la fiche produit.
+function stockOverlayBadgeHtml(p) {
+  const s = stockTier(p);
+  return s ? `<span class="stock-badge-overlay ${s.tier}">${s.label}</span>` : '';
 }
 
 function sentenceCase(s) {
@@ -2141,6 +2296,8 @@ async function init() {
   updateCartBar();
   refreshMsgBadge();
   setInterval(refreshMsgBadge, 60000); // badge messages non lus (léger polling)
+  refreshNotifBadge();
+  setInterval(refreshNotifBadge, 60000);
   // État de base de l'historique : "retour" reste dans le portail (accueil)
   history.replaceState({ v: 'dashboard', brand: null }, '', '/portal');
   loadDashboard();
@@ -2600,6 +2757,7 @@ async function openBrand(brandId, _fromPop) {
   if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
   currentBrand = data.brand;
   currentProducts = data.products;
+  earlyAccessLocked = !!currentBrand.early_access_locked;
   trackBrandView(currentBrand);
   if (currentBrand.default_currency) {
     autoSetCurrency(currentBrand.default_currency);
@@ -2620,14 +2778,44 @@ async function openBrand(brandId, _fromPop) {
   const paymentHtml = paymentTermsSafe ? `<div class="brand-banner-moq">💳 <span data-tr="${esc(paymentTermsSafe)}">${esc(paymentTermsSafe)}</span></div>` : '';
   const returnTermsSafe = (currentBrand.return_terms || '').trim().replace(/\n/g, ' · ');
   const returnHtml = returnTermsSafe ? `<div class="brand-banner-moq">↩ <span data-tr="${esc(returnTermsSafe)}">${esc(returnTermsSafe)}</span></div>` : '';
+  // Accès anticipé : bannière négative (verrouillé) ou positive (privilégié) —
+  // uniquement tant que la date d'ouverture générale n'est pas passée.
+  let earlyAccessHtml = '';
+  const earlyAccessActive = currentBrand.early_access_until && new Date(currentBrand.early_access_until) > new Date();
+  if (earlyAccessActive) {
+    const isEn = currentLang === 'en';
+    const fmtEa = new Date(currentBrand.early_access_until).toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    earlyAccessHtml = earlyAccessLocked
+      ? `<div class="early-access-banner locked">🔒 <span>${esc(isEn ? 'Early access — reserved for privileged buyers until ' : 'Accès anticipé — réservé à nos clients privilégiés jusqu\'au ')}${esc(fmtEa)}</span></div>`
+      : `<div class="early-access-banner unlocked">🔓 <span>${esc(isEn ? 'Early access — you can see this collection before general opening (' : 'Accès anticipé — vous voyez cette collection avant l\'ouverture générale (')}${esc(fmtEa)})</span></div>`;
+  }
   let deadlineHtml = '';
   const orderDeadline = (currentBrand.order_deadline || '').slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(orderDeadline)) {
     const isEn = currentLang === 'en';
-    const past = new Date(orderDeadline + 'T23:59:59') < new Date();
+    const deadlineDate = new Date(orderDeadline + 'T23:59:59');
+    const now = new Date();
+    const past = deadlineDate < now;
     const fmt = new Date(orderDeadline + 'T12:00:00').toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-    const lbl = isEn ? (past ? 'Order deadline passed' : 'Orders open until') : (past ? 'Date limite de commande dépassée' : "Commandes ouvertes jusqu'au");
-    deadlineHtml = `<div class="brand-banner-moq">${past ? '⚠' : '🗓'} ${esc(lbl)} ${past ? '(' + esc(fmt) + ')' : esc(fmt)}</div>`;
+    const msLeft = deadlineDate - now;
+    const daysLeft = Math.floor(msLeft / 86400000);
+    const hoursLeft = Math.floor((msLeft % 86400000) / 3600000);
+    if (past) {
+      const lbl = isEn ? 'Order deadline passed' : 'Date limite de commande dépassée';
+      deadlineHtml = `<div class="brand-banner-moq">⚠ ${esc(lbl)} (${esc(fmt)})</div>`;
+    } else if (daysLeft <= 14) {
+      // Échéance proche : compte à rebours visuel plutôt qu'une date en texte,
+      // pour créer une vraie urgence à l'approche de la limite.
+      const dcLbl = isEn ? 'Orders open —' : 'Commandes ouvertes —';
+      deadlineHtml = `<div class="deadline-countdown">
+        <span class="dc-label">🗓 ${esc(dcLbl)}</span>
+        <span class="dc-cell"><span class="dc-n">${String(daysLeft).padStart(2,'0')}</span><span class="dc-u">${esc(isEn ? 'days' : 'jours')}</span></span>
+        <span class="dc-cell"><span class="dc-n">${String(hoursLeft).padStart(2,'0')}</span><span class="dc-u">${esc(isEn ? 'hrs' : 'heures')}</span></span>
+      </div>`;
+    } else {
+      const lbl = isEn ? 'Orders open until' : "Commandes ouvertes jusqu'au";
+      deadlineHtml = `<div class="brand-banner-moq">🗓 ${esc(lbl)} ${esc(fmt)}</div>`;
+    }
   }
   const aboutHtml = currentBrand.about_text ? formatAbout(currentBrand.about_text) : '';
   // N'affiche le lien que si l'URL est http(s) (neutralise un éventuel javascript: hérité)
@@ -2667,6 +2855,35 @@ async function openBrand(brandId, _fromPop) {
   }
   const nameHtml = (hasVideo || hasCover) ? '' : `<h2 class="section-title" style="margin-bottom:${linksHtml ? '10px' : '18px'}">${esc(currentBrand.name)}</h2>${linksHtml ? `<div style="margin-bottom:18px">${brandLinksHtml(currentBrand, 'brand-link-row-static')}</div>` : ''}`;
 
+  // Réassort suggéré : produits déjà commandés par cet acheteur chez cette
+  // marque (encore actifs) + nouveautés de la même collection.
+  let reorderHtml = '';
+  if (Array.isArray(data.reorder_suggestions) && data.reorder_suggestions.length) {
+    const isEn = currentLang === 'en';
+    const dateFmt = data.last_order_date ? new Date(data.last_order_date + 'T12:00:00').toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { month: 'long', year: 'numeric' }) : '';
+    const cards = data.reorder_suggestions.map(rp => {
+      let imgs = [];
+      try { imgs = JSON.parse(rp.images || '[]'); } catch(e) {}
+      if (!imgs.length && rp.image_url) imgs = [rp.image_url];
+      const thumb = imgs[0] ? cldTransform(imgs[0], 'w_200,c_limit,q_auto,f_auto') : '';
+      const tag = rp.reason === 'reordered' ? t('reorder_tag_again') : t('reorder_tag_new');
+      return `<div class="rcard" onclick="openProductDrawer('${esc(rp.id)}')">
+        ${thumb ? `<img src="${esc(thumb)}" alt="">` : `<div style="width:54px;height:54px;background:var(--dark);flex-shrink:0"></div>`}
+        <div class="rcard-info">
+          <div class="rcard-ref">${esc(rp.reference)}</div>
+          <div class="rcard-meta">${esc(tag)}</div>
+          <div class="rcard-price">${parseFloat(rp.price) > 0 ? fmtPrice(rp.price) : t('price_on_request')}</div>
+        </div>
+      </div>`;
+    }).join('');
+    reorderHtml = `<div class="reorder-shelf">
+      <div class="reorder-head">
+        <div class="reorder-title">${esc(t('reorder_title'))} <span>— ${esc(currentBrand.name)}${dateFmt ? ', ' + esc(dateFmt) : ''}</span></div>
+      </div>
+      <div class="reorder-strip">${cards}</div>
+    </div>`;
+  }
+
   container.innerHTML = `<button class="back-btn" onclick="closeBrand()">${t('back_brands')}</button>
     <div class="brand-banner">
       ${heroHtml}
@@ -2677,14 +2894,17 @@ async function openBrand(brandId, _fromPop) {
         ${deliveryHtml}
         ${paymentHtml}
         ${returnHtml}
+        ${earlyAccessHtml}
         ${deadlineHtml}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${lookbookHtml||cgvHtml?'14px':'0'}">
           ${lookbookHtml}
           <button onclick="openApptModal('${currentBrand.id}')" style="display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-size:11px;font-weight:600;color:var(--accent);background:none;border:none;border-radius:0;padding:9px 2px;cursor:pointer;letter-spacing:.14em;text-transform:uppercase">📅 ${t('book_appointment')}</button>
+          <button id="follow-brand-btn" onclick="toggleBrandFollow('${currentBrand.id}')" class="follow-brand-btn${currentBrand.following ? ' active' : ''}">${currentBrand.following ? '★' : '☆'} <span>${currentBrand.following ? t('following_brand') : t('follow_brand')}</span></button>
         </div>
         ${cgvHtml}
       </div>
     </div>
+    ${reorderHtml}
     <div class="search-bar-sticky" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div class="search-bar" style="margin-bottom:0;flex:1;min-width:200px;max-width:360px">
         <input id="product-search" type="text" placeholder="${t('search_ph')}" oninput="applyProductFilters()">
@@ -2846,6 +3066,12 @@ function renderProductsPage() {
   if (!list.length) { el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><p style="font-size:13px;font-family:'Plex Mono','Space Mono',monospace;margin-bottom:14px">${t('search_no_result')}</p><button onclick="clearFilters()" style="background:none;border:1px solid var(--border);color:var(--soft);padding:8px 18px;border-radius: 0;font-size:12px;cursor:pointer;font-family:inherit">${t('reset_filters_btn')}</button></div>`; return; }
   el.classList.toggle('list-view', productViewMode === 'list');
   const nowMs = Date.now();
+  const lockedFmt = earlyAccessLocked && currentBrand?.early_access_until
+    ? new Date(currentBrand.early_access_until).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR', { day: '2-digit', month: 'short' })
+    : '';
+  const lockedOverlayHtml = earlyAccessLocked
+    ? `<div class="locked-overlay"><span class="icon">🔒</span><span class="txt">${esc(currentLang === 'en' ? 'Opens ' + lockedFmt : 'Ouverture le ' + lockedFmt)}</span></div>`
+    : '';
   el.innerHTML = list.map(p => {
     let imgs = [];
     try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
@@ -2855,17 +3081,28 @@ function renderProductsPage() {
     const videoBadge = p.video_url ? `<span class="img-count-badge" style="right:auto;left:8px">▶ Vidéo</span>` : '';
     const isNew = p.created_at && (nowMs - new Date(p.created_at).getTime()) < 30 * 24 * 3600 * 1000;
     const isFav = favorites.has(p.id);
-    const badgeNew = isNew ? `<span class="badge-new">NEW</span>` : '';
+    // Priorité à "Best-seller" (signal plus rare et plus engageant) si le produit
+    // cumule les deux ; sinon NEW.
+    const badgeNew = p.best_seller ? `<span class="badge-new badge-best">${t('best_seller_badge')}</span>` : (isNew ? `<span class="badge-new">NEW</span>` : '');
+    const stockOverlay = stockOverlayBadgeHtml(p);
     const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="${t('fav_add_title')}">${isFav?'♥':'♡'}</button>`;
     const isShort = shortlist.has(p.id);
     const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="${t('shortlist_add_title')}">🔖</button>`;
     const img = imgs[0]
-      ? `<div class="product-img-wrap" onclick="openCarousel(${imgsJson},0)">
+      ? `<div class="product-img-wrap"${earlyAccessLocked ? '' : ` onclick="openCarousel(${imgsJson},0)"`}>
           <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
           ${imgs[1] ? `<img class="product-img-2" src="${esc(cldTransform(imgs[1], 'w_500,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
-          ${imgBadge}${videoBadge}${badgeNew}${favBtn}${shortBtn}
+          ${earlyAccessLocked ? lockedOverlayHtml : `${imgBadge}${videoBadge}${badgeNew}${stockOverlay}${favBtn}${shortBtn}`}
          </div>`
-      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${videoBadge}${badgeNew}${favBtn}${shortBtn}</div>`;
+      : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${earlyAccessLocked ? lockedOverlayHtml : `${videoBadge}${badgeNew}${stockOverlay}${favBtn}${shortBtn}`}</div>`;
+    if (earlyAccessLocked) {
+      return `<div class="product-card locked" data-pid="${p.id}" style="position:relative">${img}
+        <div class="product-info">
+          <div class="product-ref">${esc(p.reference)}</div>
+          <div class="product-desc" data-tr="${esc(sentenceCase(p.description))}">${esc(sentenceCase(p.description))}</div>
+        </div>
+      </div>`;
+    }
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
     const key0 = currentBrand.id + '|' + p.id + '|';
     const _isOutOfStock = p.stock_enabled && p.stock_qty === 0;
