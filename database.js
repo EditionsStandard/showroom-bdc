@@ -351,6 +351,13 @@ async function init() {
     // manuelle depuis l'admin, indépendante de l'expiration 24h.
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS pdf_token TEXT",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS pdf_revoked BOOLEAN DEFAULT false",
+    // Fiche marque portail : site web, réseaux sociaux, vidéo de marque (optionnels)
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS website TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS instagram TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS facebook TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS tiktok TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS linkedin TEXT DEFAULT ''",
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''",
     // Pas de backfill : les commandes déjà existantes sont de toute façon hors de
     // la fenêtre de 24h de l'endpoint public. Les nouvelles commandes reçoivent
     // un pdf_token généré en JS (crypto.randomBytes) à la création.
