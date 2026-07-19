@@ -358,6 +358,31 @@ async function init() {
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS tiktok TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS linkedin TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''",
+    // Marques suivies par un acheteur — alerte quand une marque suivie publie
+    // une nouvelle collection (voir buyer_notifications ci-dessous).
+    `CREATE TABLE IF NOT EXISTS brand_follows (
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (buyer_id, brand_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS buyer_notifications (
+      id TEXT PRIMARY KEY,
+      buyer_id TEXT NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+      brand_id TEXT REFERENCES brands(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'new_collection',
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    "CREATE INDEX IF NOT EXISTS idx_buyer_notifications_buyer ON buyer_notifications(buyer_id, created_at DESC)",
+    // Accès anticipé : la marque peut réserver sa collection à ses clients
+    // privilégiés jusqu'à une date d'ouverture générale. is_privileged vit sur
+    // buyer_brand_terms (déjà la table des surcharges par couple acheteur×marque)
+    // plutôt que dans une nouvelle table.
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS early_access_until TIMESTAMPTZ DEFAULT NULL",
+    "ALTER TABLE buyer_brand_terms ADD COLUMN IF NOT EXISTS is_privileged BOOLEAN DEFAULT false",
     // Pas de backfill : les commandes déjà existantes sont de toute façon hors de
     // la fenêtre de 24h de l'endpoint public. Les nouvelles commandes reçoivent
     // un pdf_token généré en JS (crypto.randomBytes) à la création.

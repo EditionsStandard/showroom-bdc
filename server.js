@@ -1383,18 +1383,20 @@ app.post('/api/brands', requireRole('owner'), async (req, res) => {
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
   const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(req.body.order_deadline || '') ? req.body.order_deadline : null;
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)',
-    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'']);
+  const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(req.body.early_access_until || '') ? req.body.early_access_until : null;
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)',
+    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil]);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
-    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url } = req.body;
+    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until } = req.body;
     if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
     const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(order_deadline || '') ? order_deadline : null;
-    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22 WHERE id=$23',
-      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', req.params.id]);
+    const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(early_access_until || '') ? early_access_until : null;
+    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23 WHERE id=$24',
+      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1555,6 +1557,62 @@ app.get('/api/brands/:brandId/products', requireBrandScope('owner','agent','desi
   res.json(r.rows);
 });
 
+// ── Marques suivies & notifications "nouvelle collection" ──────────────────
+// isNewCollection() est vérifié AVANT l'insertion pour savoir si cette
+// collection existait déjà chez la marque ; notifyBrandFollowers() prévient
+// ensuite chaque acheteur qui suit la marque (cloche du portail + email),
+// une seule fois par collection réellement nouvelle (pas par produit).
+async function isNewCollection(brandId, collectionName) {
+  if (!collectionName) return false;
+  const r = await pool.query('SELECT 1 FROM products WHERE brand_id=$1 AND collection_name=$2 LIMIT 1', [brandId, collectionName]);
+  return r.rows.length === 0;
+}
+async function notifyBrandFollowers(req, brandId, collectionName) {
+  try {
+    const followers = await pool.query(
+      `SELECT bf.buyer_id, b.email, b.name FROM brand_follows bf
+       JOIN buyers b ON b.id = bf.buyer_id WHERE bf.brand_id = $1`,
+      [brandId]
+    );
+    if (!followers.rows.length) return;
+    const brandRes = await pool.query('SELECT name FROM brands WHERE id=$1', [brandId]);
+    const brandName = brandRes.rows[0]?.name || '';
+    const title = `${brandName} a publié une nouvelle collection`;
+    const body = collectionName ? `Découvrez « ${collectionName} », disponible dès maintenant.` : 'De nouvelles pièces sont disponibles dès maintenant.';
+    for (const f of followers.rows) {
+      pool.query(
+        'INSERT INTO buyer_notifications (id, buyer_id, brand_id, type, title, body) VALUES ($1,$2,$3,$4,$5,$6)',
+        [uuidv4(), f.buyer_id, brandId, 'new_collection', title, body]
+      ).catch(e => console.error('[notif-insert]', e.message));
+    }
+    sendNewCollectionEmails(req, followers.rows, brandName, collectionName).catch(e => console.error('[notify-followers-email]', e.message));
+  } catch(e) { console.error('[notify-followers]', e.message); }
+}
+async function sendNewCollectionEmails(req, followerRows, brandName, collectionName) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+  const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+  const from = fromAddress || 'showroom@editionsstandard.com';
+  const resend = newResendClient(resendKey);
+  const link = `${getBaseUrl(req)}/portal`;
+  const subject = `${brandName} — nouvelle collection disponible`;
+  for (const f of followerRows) {
+    if (!f.email) continue;
+    const content = `
+      <p>Bonjour <strong>${escHtml(f.name || '')}</strong>,</p>
+      <p><strong>${escHtml(brandName)}</strong>, une marque que vous suivez, vient de publier de nouvelles pièces${collectionName ? ` — <strong>${escHtml(collectionName)}</strong>` : ''}.</p>
+      <p style="margin-top:22px"><a href="${escHtml(link)}" style="display:inline-block;background:#CCEB3C;color:#111;padding:10px 20px;text-decoration:none;font-weight:700;font-size:12px;letter-spacing:.04em">Voir la collection</a></p>
+    `;
+    const { error } = await resend.emails.send({
+      from: `${showroomName} <${from}>`,
+      to: [f.email],
+      subject,
+      html: emailLayout({ showroomName, brandName, content })
+    }).catch(e => ({ error: e }));
+    if (error) console.error('[resend] new-collection:', error.message || error);
+  }
+}
+
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
@@ -1572,11 +1630,13 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
     if (fields.length) { vals.push(eid); await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals); }
     return res.json({ id: eid, updated: true });
   }
+  const isNewColl = await isNewCollection(req.params.brandId, collection_name);
   const id = uuidv4();
   await pool.query(
     'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id,video_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
     [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'']
   );
+  if (isNewColl) notifyBrandFollowers(req, req.params.brandId, collection_name).catch(e => console.error('[notify]', e.message));
   res.json({ id });
 });
 
@@ -1836,6 +1896,11 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
     const header = parseCSVRow(lines[0]).map(h => h.trim().toLowerCase());
     const idx = (col) => header.indexOf(col);
     let imported = 0, skipped = 0;
+    const existingCollections = new Set((await pool.query(
+      "SELECT DISTINCT collection_name FROM products WHERE brand_id=$1 AND collection_name IS NOT NULL AND collection_name != ''",
+      [brandId]
+    )).rows.map(r => r.collection_name));
+    const newlySeenCollections = new Set();
     for (let i = 1; i < lines.length; i++) {
       const row = parseCSVRow(lines[i]);
       const get = (col) => (row[idx(col)] || '').trim();
@@ -1860,9 +1925,11 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
           'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,collection_name,composition,category) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
           [uuidv4(), brandId, reference, description, color, sizes, price, price_retail, collection_name, composition, category]
         );
+        if (collection_name && !existingCollections.has(collection_name)) newlySeenCollections.add(collection_name);
       }
       imported++;
     }
+    for (const coll of newlySeenCollections) notifyBrandFollowers(req, brandId, coll).catch(e => console.error('[notify]', e.message));
     res.json({ imported, skipped });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -1874,6 +1941,11 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
     let created = 0, updated = 0;
     const errors = [];
+    const existingCollections = new Set((await pool.query(
+      "SELECT DISTINCT collection_name FROM products WHERE brand_id=$1 AND collection_name IS NOT NULL AND collection_name != ''",
+      [req.params.brandId]
+    )).rows.map(r => r.collection_name));
+    const newlySeenCollections = new Set();
     for (const row of rows) {
       if (!row || typeof row !== 'object') { errors.push('Ligne invalide ignorée'); continue; }
       const ref = (row.reference || row.Reference || row.ref || '').trim();
@@ -1907,10 +1979,12 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
           const id = uuidv4();
           await pool.query(`INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,collection_name,composition,category,active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1)`,
             [id, req.params.brandId, ref, fields.description, fields.color, fields.sizes, fields.price, fields.price_retail, fields.collection_name, fields.composition, fields.category]);
+          if (fields.collection_name && !existingCollections.has(fields.collection_name)) newlySeenCollections.add(fields.collection_name);
           created++;
         }
       } catch(e) { errors.push(`${ref}: ${e.message}`); }
     }
+    for (const coll of newlySeenCollections) notifyBrandFollowers(req, req.params.brandId, coll).catch(e => console.error('[notify]', e.message));
     res.json({ created, updated, errors });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4552,7 +4626,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
   try {
-    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency, website, instagram, facebook, tiktok, linkedin, video_url FROM brands WHERE id=$1", [req.params.brandId]);
+    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load
@@ -4561,6 +4635,54 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
         'INSERT INTO product_stats (product_id, views) VALUES ($1, 1) ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()',
         [prod.id]
       ).catch(e => console.error('[product-stats-error]', e.message));
+    }
+    // Best-sellers : top 3 produits de la marque par quantité réellement commandée
+    // (hors brouillons/annulées), avec un minimum pour éviter qu'une seule petite
+    // commande suffise à décrocher le badge sur une marque peu active.
+    const bestSellers = await pool.query(
+      `SELECT ol.product_id, SUM(ol.quantity) AS qty
+       FROM order_lines ol
+       JOIN orders o ON o.id = ol.order_id
+       WHERE o.brand_id = $1 AND o.status NOT IN ('draft', 'cancelled')
+       GROUP BY ol.product_id
+       HAVING SUM(ol.quantity) >= 2
+       ORDER BY qty DESC
+       LIMIT 3`,
+      [req.params.brandId]
+    );
+    const bestSellerIds = new Set(bestSellers.rows.map(r => r.product_id));
+    // Réassort suggéré : produits de la dernière commande de cet acheteur avec
+    // cette marque encore actifs au catalogue, complétés par des nouveautés de
+    // la même collection qu'il n'a pas encore commandées.
+    const lastOrder = (await pool.query(
+      `SELECT id, TO_CHAR(created_at,'YYYY-MM-DD') AS created_at FROM orders
+       WHERE buyer_id=$1 AND brand_id=$2 AND status NOT IN ('draft','cancelled')
+       ORDER BY created_at DESC LIMIT 1`,
+      [req.session.buyerPortal.id, req.params.brandId]
+    )).rows[0];
+    let reorderSuggestions = [];
+    if (lastOrder) {
+      const reorderedIds = new Set();
+      const collections = new Set();
+      const reordered = await pool.query(
+        `SELECT DISTINCT ol.product_id, pr.collection_name FROM order_lines ol
+         JOIN products pr ON pr.id = ol.product_id
+         WHERE ol.order_id=$1 AND pr.active != 0`,
+        [lastOrder.id]
+      );
+      reordered.rows.forEach(r => { reorderedIds.add(r.product_id); if (r.collection_name) collections.add(r.collection_name); });
+      const reorderedProducts = p.rows.filter(prod => reorderedIds.has(prod.id))
+        .map(prod => ({ ...prod, reason: 'reordered' }));
+      const freshCount = Math.max(0, 4 - reorderedProducts.length);
+      const freshProducts = freshCount > 0 && collections.size
+        ? p.rows.filter(prod => !reorderedIds.has(prod.id) && collections.has(prod.collection_name))
+            .sort((a, b2) => new Date(b2.created_at) - new Date(a.created_at))
+            .slice(0, freshCount)
+            .map(prod => ({ ...prod, reason: 'same_collection' }))
+        : [];
+      reorderSuggestions = [...reorderedProducts, ...freshProducts]
+        .slice(0, 4)
+        .map(prod => ({ ...prod, image_url: cloudinaryOpt(prod.image_url) }));
     }
     const brand = b.rows[0];
     // Conditions négociées pour cet acheteur avec cette marque, le cas échéant
@@ -4580,9 +4702,65 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
     brand.logo_url = cloudinaryOpt(brand.logo_url);
     brand.cover_image = cloudinaryOpt(brand.cover_image);
     brand.thumbnail = cloudinaryOpt(brand.thumbnail);
-    const products = p.rows.map(prod => ({ ...prod, image_url: cloudinaryOpt(prod.image_url) }));
-    res.json({ brand, products });
+    const following = await pool.query('SELECT 1 FROM brand_follows WHERE buyer_id=$1 AND brand_id=$2', [req.session.buyerPortal.id, req.params.brandId]);
+    brand.following = following.rows.length > 0;
+    // Accès anticipé : verrouillé pour tout acheteur non marqué "privilégié"
+    // pour CETTE marque tant que la date d'ouverture générale n'est pas passée.
+    brand.early_access_locked = false;
+    if (brand.early_access_until && new Date(brand.early_access_until) > new Date()) {
+      const priv = await pool.query('SELECT is_privileged FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.session.buyerPortal.id, req.params.brandId]);
+      brand.early_access_locked = !(priv.rows[0] && priv.rows[0].is_privileged);
+    }
+    const products = p.rows.map(prod => ({ ...prod, image_url: cloudinaryOpt(prod.image_url), best_seller: bestSellerIds.has(prod.id) }));
+    res.json({ brand, products, reorder_suggestions: reorderSuggestions, last_order_date: lastOrder ? lastOrder.created_at : null });
   } catch(e) { console.error('portal products:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Suivre / ne plus suivre une marque — bascule simple, idempotente des deux côtés.
+app.post('/api/portal/brands/:brandId/follow', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const brandId = req.params.brandId;
+    const existing = await pool.query('SELECT 1 FROM brand_follows WHERE buyer_id=$1 AND brand_id=$2', [buyerId, brandId]);
+    if (existing.rows.length) {
+      await pool.query('DELETE FROM brand_follows WHERE buyer_id=$1 AND brand_id=$2', [buyerId, brandId]);
+      return res.json({ following: false });
+    }
+    await pool.query('INSERT INTO brand_follows (buyer_id, brand_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [buyerId, brandId]);
+    res.json({ following: true });
+  } catch(e) { console.error('brand follow:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Notifications acheteur (alerte "nouvelle collection" pour l'instant — type
+// ouvert pour de futurs types sans changer le contrat de l'endpoint).
+app.get('/api/portal/notifications', requireBuyerAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT n.id, n.brand_id, n.type, n.title, n.body, n.read_at, n.created_at, b.name AS brand_name
+       FROM buyer_notifications n LEFT JOIN brands b ON b.id = n.brand_id
+       WHERE n.buyer_id=$1 ORDER BY n.created_at DESC LIMIT 30`,
+      [req.session.buyerPortal.id]
+    );
+    res.json(r.rows);
+  } catch(e) { console.error('notifications list:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.get('/api/portal/notifications/unread', requireBuyerAuth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT COUNT(*) AS n FROM buyer_notifications WHERE buyer_id=$1 AND read_at IS NULL', [req.session.buyerPortal.id]);
+    res.json({ unread: parseInt(r.rows[0].n, 10) || 0 });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/portal/notifications/:id/read', requireBuyerAuth, async (req, res) => {
+  try {
+    await pool.query('UPDATE buyer_notifications SET read_at=NOW() WHERE id=$1 AND buyer_id=$2 AND read_at IS NULL', [req.params.id, req.session.buyerPortal.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
+});
+app.post('/api/portal/notifications/read-all', requireBuyerAuth, async (req, res) => {
+  try {
+    await pool.query('UPDATE buyer_notifications SET read_at=NOW() WHERE buyer_id=$1 AND read_at IS NULL', [req.session.buyerPortal.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 async function checkMoq(brand_id, lines) {
@@ -4628,10 +4806,20 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
     byBrand[line.brand_id].push(line);
   }
 
-  // Validate MOQ for every brand BEFORE creating any order — all or nothing
-  const brandsList = await pool.query('SELECT id, name FROM brands WHERE id = ANY($1)', [Object.keys(byBrand)]);
+  // Validate MOQ + accès anticipé pour chaque marque AVANT de créer la moindre
+  // commande — all or nothing. L'accès anticipé n'est pas qu'un habillage
+  // visuel : un acheteur non privilégié ne doit pas pouvoir commander une
+  // collection encore réservée en appelant directement l'API.
+  const brandsList = await pool.query('SELECT id, name, early_access_until FROM brands WHERE id = ANY($1)', [Object.keys(byBrand)]);
   const brandNameOf = id => brandsList.rows.find(b => b.id === id)?.name || id;
   for (const [brand_id, brandLines] of Object.entries(byBrand)) {
+    const brandRow = brandsList.rows.find(b => b.id === brand_id);
+    if (brandRow && brandRow.early_access_until && new Date(brandRow.early_access_until) > new Date()) {
+      const priv = await pool.query('SELECT is_privileged FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [buyer.id, brand_id]);
+      if (!(priv.rows[0] && priv.rows[0].is_privileged)) {
+        return res.status(403).json({ error: `${brandNameOf(brand_id)} : collection encore en accès anticipé, pas encore ouverte aux commandes.` });
+      }
+    }
     const moqError = await checkMoq(brand_id, brandLines);
     if (moqError) return res.status(400).json({ error: `${brandNameOf(brand_id)} : ${moqError}` });
   }
@@ -5293,7 +5481,7 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     if (brandIds.length) {
       const [defaultsRes, overridesRes] = await Promise.all([
         pool.query('SELECT id, payment_terms, delivery_terms, return_terms FROM brands WHERE id = ANY($1)', [brandIds]),
-        pool.query('SELECT brand_id, payment_terms, delivery_terms, return_terms, updated_at, updated_by FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id = ANY($2)', [req.params.id, brandIds])
+        pool.query('SELECT brand_id, payment_terms, delivery_terms, return_terms, is_privileged, updated_at, updated_by FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id = ANY($2)', [req.params.id, brandIds])
       ]);
       const defaultsByBrand = Object.fromEntries(defaultsRes.rows.map(b => [b.id, b]));
       const overridesByBrand = Object.fromEntries(overridesRes.rows.map(o => [o.brand_id, o]));
@@ -5323,16 +5511,17 @@ app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), a
     const paymentTerms = (req.body.payment_terms || '').toString().trim();
     const deliveryTerms = (req.body.delivery_terms || '').toString().trim();
     const returnTerms = (req.body.return_terms || '').toString().trim();
-    if (!paymentTerms && !deliveryTerms && !returnTerms) {
+    const isPrivileged = req.body.is_privileged === true;
+    if (!paymentTerms && !deliveryTerms && !returnTerms && !isPrivileged) {
       await pool.query('DELETE FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.params.id, req.params.brandId]);
       logAudit(req, 'buyer_terms_cleared', 'buyer', req.params.id, req.params.brandId);
       return res.json({ ok: true, cleared: true });
     }
     await pool.query(
-      `INSERT INTO buyer_brand_terms (buyer_id, brand_id, payment_terms, delivery_terms, return_terms, updated_at, updated_by)
-       VALUES ($1,$2,$3,$4,$5,NOW(),$6)
-       ON CONFLICT (buyer_id, brand_id) DO UPDATE SET payment_terms=$3, delivery_terms=$4, return_terms=$5, updated_at=NOW(), updated_by=$6`,
-      [req.params.id, req.params.brandId, paymentTerms, deliveryTerms, returnTerms, req.session.staffUser?.email || (req.session.admin ? 'owner' : '')]
+      `INSERT INTO buyer_brand_terms (buyer_id, brand_id, payment_terms, delivery_terms, return_terms, is_privileged, updated_at, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7)
+       ON CONFLICT (buyer_id, brand_id) DO UPDATE SET payment_terms=$3, delivery_terms=$4, return_terms=$5, is_privileged=$6, updated_at=NOW(), updated_by=$7`,
+      [req.params.id, req.params.brandId, paymentTerms, deliveryTerms, returnTerms, isPrivileged, req.session.staffUser?.email || (req.session.admin ? 'owner' : '')]
     );
     logAudit(req, 'buyer_terms_updated', 'buyer', req.params.id, req.params.brandId);
     res.json({ ok: true });

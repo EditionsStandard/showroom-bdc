@@ -1554,6 +1554,12 @@
       <input id="brand-order-deadline" type="date">
     </div>
 
+    <!-- Accès anticipé -->
+    <div class="form-group" style="margin-top:8px">
+      <label>Accès anticipé jusqu'au <span style="color:#555;font-weight:400;font-size:11px">(optionnel — avant cette date, seuls les acheteurs marqués « client privilégié » pour cette marque voient la collection en clair ; réglage par acheteur dans sa fiche)</span></label>
+      <input id="brand-early-access" type="date">
+    </div>
+
     <!-- Lookbook PDF -->
     <div class="form-group" style="margin-top:8px">
       <label>Lookbook PDF <span style="color:#555;font-weight:400;font-size:11px">(affiché en bouton de téléchargement sur la fiche marque)</span></label>
@@ -2265,6 +2271,12 @@
     <div class="form-group">
       <label>↩ Retours</label>
       <input type="text" id="bt-return" placeholder="">
+    </div>
+    <div class="form-group" style="margin-top:4px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="bt-privileged" style="width:auto;accent-color:var(--accent)">
+        <span>🔓 Client privilégié pour cette marque <span style="color:#666;font-weight:400;font-size:11px">(accès anticipé aux collections avant l'ouverture générale, si réglée)</span></span>
+      </label>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-buyer-terms')">Annuler</button>
@@ -4403,7 +4415,7 @@ async function loadBrands() {
     const coverHtml = b.cover_image
       ? `<img src="${b.cover_image}" style="width:100%;height:80px;object-fit:cover;border-radius: 0 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
-    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||''}).replace(/'/g,"&#39;");
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||''}).replace(/'/g,"&#39;");
     const subBadge = {
       active: `<span class="badge" style="background:#1f3d1f;color:#2ecc71">${t('status_active_label')}</span>`,
       trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
@@ -4514,6 +4526,7 @@ function resetBrandModal() {
   document.getElementById('brand-facebook').value = '';
   document.getElementById('brand-tiktok').value = '';
   document.getElementById('brand-linkedin').value = '';
+  document.getElementById('brand-early-access').value = '';
   currentBrandVideoUrl = '';
   renderBrandVideoPreview();
   ['brand-logo', 'brand-cover', 'brand-thumbnail'].forEach(id => {
@@ -4579,6 +4592,7 @@ function editBrand(b) {
   document.getElementById('brand-payment-terms').value = b.payment_terms || '';
   document.getElementById('brand-return-terms').value = b.return_terms || '';
   document.getElementById('brand-order-deadline').value = (b.order_deadline || '').slice(0, 10);
+  document.getElementById('brand-early-access').value = (b.early_access_until || '').slice(0, 10);
   if (b.lookbook_url) {
     document.getElementById('brand-lookbook').value = b.lookbook_url;
     const fname = b.lookbook_url.split('/').pop().split('?')[0];
@@ -4610,6 +4624,7 @@ async function saveBrand() {
     payment_terms: document.getElementById('brand-payment-terms').value.trim(),
     return_terms: document.getElementById('brand-return-terms').value.trim(),
     order_deadline: document.getElementById('brand-order-deadline').value || null,
+    early_access_until: document.getElementById('brand-early-access').value || null,
     lookbook_url: document.getElementById('brand-lookbook').value,
     default_currency: document.getElementById('brand-default-currency').value || null,
     website: document.getElementById('brand-website').value.trim(),
@@ -7834,6 +7849,7 @@ async function openBuyerProfile(id) {
   const negotiatedTerms = d.negotiatedTerms || [];
   document.getElementById('bp-terms').innerHTML = negotiatedTerms.length ? negotiatedTerms.map(nt => {
     const hasOverride = !!nt.override;
+    const isPrivileged = nt.override?.is_privileged === true || nt.override?.is_privileged === 'true';
     const rows = [
       ['💳 Paiement', nt.override?.payment_terms || nt.default.payment_terms || '—'],
       ['🚚 Livraison', nt.override?.delivery_terms || nt.default.delivery_terms || '—'],
@@ -7843,6 +7859,7 @@ async function openBuyerProfile(id) {
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
       + '<strong style="font-size:13px">' + esc(nt.brand_name) + '</strong>'
       + '<div style="display:flex;align-items:center;gap:8px">'
+      + (isPrivileged ? '<span style="font-size:10px;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em;background:#3d3a1f;color:#CCEB3C">🔓 Privilégié</span>' : '')
       + '<span style="font-size:10px;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em;' + (hasOverride ? 'background:#1e3a1e;color:#2ecc71' : 'background:#2a2a2a;color:#888') + '">' + (hasOverride ? 'Personnalisées' : 'Par défaut') + '</span>'
       + '<button class="btn btn-secondary btn-sm" onclick=\'openBuyerTermsModal(' + JSON.stringify(nt.brand_id) + ',' + JSON.stringify(nt.brand_name) + ',' + JSON.stringify(nt.override) + ')\'>Modifier</button>'
       + '</div></div>'
@@ -8047,6 +8064,7 @@ function openBuyerTermsModal(brandId, brandName, override) {
   document.getElementById('bt-payment').value = override?.payment_terms || '';
   document.getElementById('bt-delivery').value = override?.delivery_terms || '';
   document.getElementById('bt-return').value = override?.return_terms || '';
+  document.getElementById('bt-privileged').checked = override?.is_privileged === true || override?.is_privileged === 'true';
   openModal('modal-buyer-terms');
 }
 async function saveBuyerTerms() {
@@ -8055,10 +8073,11 @@ async function saveBuyerTerms() {
   const payment_terms = document.getElementById('bt-payment').value.trim();
   const delivery_terms = document.getElementById('bt-delivery').value.trim();
   const return_terms = document.getElementById('bt-return').value.trim();
+  const is_privileged = document.getElementById('bt-privileged').checked;
   try {
     const r = await fetch(`/api/admin/buyers/${buyerId}/terms/${brandId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_terms, delivery_terms, return_terms })
+      body: JSON.stringify({ payment_terms, delivery_terms, return_terms, is_privileged })
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { toast(d.error || 'Erreur', true); return; }
