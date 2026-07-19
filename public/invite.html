@@ -16,23 +16,23 @@
   [data-theme="light"] { --black:#f5f4f0; --dark:#fff; --border:#ddd; --white:#111; --soft:#444; --muted:#888; --accent:#6b8500; --input-bg:#f0efeb; --line:rgba(17,17,17,.45); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--black); color: var(--white); font-family: 'Plex Mono','Space Mono',monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
-  .card { background: var(--dark); border: 1px solid var(--border); border-radius:0; padding: 40px; width: 100%; max-width: 400px; }
+  .card { background: var(--dark); border: 1px solid var(--border); border-radius:10px; padding: 40px; width: 100%; max-width: 400px; }
   .logo-wrap { text-align: center; margin-bottom: 32px; position: relative; }
-  .logo-wrap img { width: 56px; height: 56px; border-radius:0; }
+  .logo-wrap img { width: 56px; height: 56px; border-radius:10px; }
   .logo-wrap h1 { font-family: 'Plex Mono','Space Mono','Plex Mono','Space Mono',monospace; font-size: 17px; color: var(--white); font-weight: 400; margin-top: 12px; letter-spacing: .02em; }
   .logo-wrap .showroom-sub { color: var(--muted); font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: .1em; }
-  .brand-block { text-align: center; margin-bottom: 20px; padding: 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius:0; }
+  .brand-block { text-align: center; margin-bottom: 20px; padding: 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius:10px; }
   .brand-logo { max-height: 44px; max-width: 140px; object-fit: contain; margin-bottom: 6px; display: block; margin: 0 auto 6px; }
   .brand-name { font-size: 11px; font-weight: 700; letter-spacing: .15em; color: var(--muted); text-transform: uppercase; }
   label { display: block; font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .1em; }
-  input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius:0; padding: 7px 1px 9px; font-size: 14px; color: var(--white); font-family: 'Plex Mono','Space Mono',monospace; outline: none; transition: border-color .2s; margin-bottom: 16px; }
+  input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius:10px; padding: 7px 1px 9px; font-size: 14px; color: var(--white); font-family: 'Plex Mono','Space Mono',monospace; outline: none; transition: border-color .2s; margin-bottom: 16px; }
   input:focus { border-bottom-color: var(--white); }
   /* Bouton fantôme aligné sur portal.html/portal-login.html (référence esthétique
      du site) plutôt que le remplissage plein citron vert utilisé ici auparavant. */
-  .btn { width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); border-radius:0; padding: 15px 14px 14px; font-size: 11px; font-weight: 400; cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .3em; text-transform: uppercase; margin-top: 4px; transition: background .25s, color .25s, opacity .15s; }
+  .btn { width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); border-radius:10px; padding: 15px 14px 14px; font-size: 11px; font-weight: 400; cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .3em; text-transform: uppercase; margin-top: 4px; transition: background .25s, color .25s, opacity .15s; }
   .btn:hover:not(:disabled) { background: var(--white); color: var(--black); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius:0; padding: 10px 14px; font-size: 12px; margin-bottom: 16px; display: none; }
+  .error { background: #1a0a0a; border: 1px solid #c0392b33; color: #e74c3c; border-radius:10px; padding: 10px 14px; font-size: 12px; margin-bottom: 16px; display: none; }
   .success { text-align: center; display: none; }
   .success h2 { font-size: 18px; margin-bottom: 8px; color: var(--white); }
   .success p { color: var(--soft); font-size: 13px; margin-bottom: 20px; }
@@ -42,7 +42,7 @@
   #invalid h2 { font-size: 16px; color: #e74c3c; margin-bottom: 8px; }
   #invalid p { color: var(--soft); font-size: 13px; line-height: 1.6; }
   #loading { text-align: center; padding: 40px; color: var(--soft); font-size: 13px; }
-  #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius:0; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
+  #lang-toggle { position: absolute; top: 0; right: 0; background: none; border: 1px solid var(--border); border-radius:10px; padding: 3px 10px; font-size: 10px; color: var(--soft); cursor: pointer; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .05em; transition: border-color .2s, color .2s; }
   #lang-toggle:hover { border-color: var(--accent); color: var(--white); }
   .sep { height: 1px; background: var(--border); margin: 20px 0; }
   @media (max-width: 767px) {
