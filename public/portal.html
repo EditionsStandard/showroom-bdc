@@ -1675,13 +1675,13 @@ function applyLang() {
 <div class="img-modal" id="img-modal">
   <button class="img-close" id="img-close" aria-label="Fermer">✕</button>
   <div class="img-modal-main">
-    <button class="img-nav img-nav-prev" id="img-prev">‹</button>
+    <button class="img-nav img-nav-prev" id="img-prev" aria-label="Image précédente">‹</button>
     <img id="img-modal-src" alt="" onerror="imgModalFail(this)">
     <div id="img-modal-fallback" style="display:none;flex-direction:column;align-items:center;gap:10px;color:#999;font-size:14px">
       <span style="font-size:48px;opacity:.4">🏷️</span>
       <span data-t="img_unavailable">Image indisponible</span>
     </div>
-    <button class="img-nav img-nav-next" id="img-next">›</button>
+    <button class="img-nav img-nav-next" id="img-next" aria-label="Image suivante">›</button>
   </div>
   <div class="img-dots" id="img-dots"></div>
   <div class="img-counter" id="img-counter"></div>
@@ -1698,8 +1698,8 @@ function applyLang() {
   <div class="drawer-body">
     <div class="drawer-gallery" id="drawer-gallery">
       <img id="drawer-img-main" class="drawer-gallery-main" src="" alt="" style="cursor:default" onerror="this.style.visibility='hidden'">
-      <button class="drawer-gallery-nav drawer-gallery-prev" id="drawer-prev" onclick="drawerNav(-1)">‹</button>
-      <button class="drawer-gallery-nav drawer-gallery-next" id="drawer-next" onclick="drawerNav(1)">›</button>
+      <button class="drawer-gallery-nav drawer-gallery-prev" id="drawer-prev" onclick="drawerNav(-1)" aria-label="Image précédente">‹</button>
+      <button class="drawer-gallery-nav drawer-gallery-next" id="drawer-next" onclick="drawerNav(1)" aria-label="Image suivante">›</button>
       <button onclick="openCarousel(drawerImgs,drawerImgIdx)" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.45);border:none;border-radius: 0;color:#fff;font-size:16px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1" title="Agrandir">⤢</button>
       <div class="drawer-gallery-dots" id="drawer-dots"></div>
     </div>
@@ -2439,7 +2439,7 @@ function renderPmsgAttachPreview() {
   const a = _pmsgPendingAttachment;
   const isImg = (a.type || '').startsWith('image/');
   preview.style.display = 'flex';
-  preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}">` : '<span style="font-size:18px">📄</span>'}<span class="name">${esc(a.name)}</span><span class="remove" onclick="clearPmsgAttachment()">✕</span>`;
+  preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}" alt="">` : '<span style="font-size:18px">📄</span>'}<span class="name">${esc(a.name)}</span><span class="remove" onclick="clearPmsgAttachment()">✕</span>`;
 }
 function clearPmsgAttachment() { _pmsgPendingAttachment = null; renderPmsgAttachPreview(); }
 
@@ -4202,7 +4202,7 @@ function renderCarousel() {
   document.getElementById('img-counter').textContent = n > 1 ? (carouselIdx + 1) + ' / ' + n : '';
   const dots = document.getElementById('img-dots');
   dots.innerHTML = n > 1 ? carouselImgs.map((_, i) =>
-    '<button class="img-dot' + (i === carouselIdx ? ' active' : '') + '" data-i="' + i + '"></button>'
+    '<button class="img-dot' + (i === carouselIdx ? ' active' : '') + '" data-i="' + i + '" aria-label="Image ' + (i + 1) + '"></button>'
   ).join('') : '';
 }
 
@@ -4448,7 +4448,7 @@ function drawerSetImg(idx) {
   // dots
   const dots = document.getElementById('drawer-dots');
   dots.innerHTML = drawerImgs.map((_, i) =>
-    `<button class="drawer-gallery-dot${i===idx?' active':''}" onclick="drawerSetImg(${i})"></button>`
+    `<button class="drawer-gallery-dot${i===idx?' active':''}" onclick="drawerSetImg(${i})" aria-label="Image ${i + 1}"></button>`
   ).join('');
   dots.style.display = drawerImgs.length > 1 ? 'flex' : 'none';
   // thumbs active
