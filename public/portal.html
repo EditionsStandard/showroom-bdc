@@ -4058,7 +4058,7 @@ function openProductDrawer(productId, _fromPop) {
   const thumbsEl = document.getElementById('drawer-thumbs');
   thumbsEl.style.display = imgs.length > 1 ? 'flex' : 'none';
   thumbsEl.innerHTML = imgs.map((src, i) =>
-    `<img class="drawer-thumb${i===0?' active':''}" src="${esc(src)}" alt="" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})" onerror="this.style.display='none'">`
+    `<img class="drawer-thumb${i===0?' active':''}" src="${esc(cldTransform(src, 'w_100,h_100,c_fill,q_auto,f_auto'))}" alt="" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})" onerror="this.style.display='none'">`
   ).join('');
 
   // Stock badge dans le drawer
@@ -4115,7 +4115,7 @@ function drawerSetImg(idx) {
   drawerImgIdx = idx;
   const main = document.getElementById('drawer-img-main');
   main.style.visibility = ''; // réinitialise si une image précédente avait échoué
-  main.src = drawerImgs[idx] || '';
+  main.src = drawerImgs[idx] ? cldTransform(drawerImgs[idx], 'w_1000,c_limit,q_auto,f_auto') : '';
   // dots
   const dots = document.getElementById('drawer-dots');
   dots.innerHTML = drawerImgs.map((_, i) =>
