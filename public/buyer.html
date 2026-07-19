@@ -20,24 +20,24 @@
   .sub { font-family: 'Plex Mono','Space Mono',monospace; font-size: 11px; color: var(--muted); margin-bottom: 28px; text-transform: uppercase; letter-spacing: .1em; }
   .field { margin-bottom: 16px; }
   .field label { display:block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
-  .field input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius:10px; padding: 7px 1px 9px; color: var(--white); font-size: 14px; font-family: 'Plex Mono','Space Mono',monospace; outline: none; }
+  .field input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); border-radius:0; padding: 7px 1px 9px; color: var(--white); font-size: 14px; font-family: 'Plex Mono','Space Mono',monospace; outline: none; }
   .field input:focus { border-bottom-color: var(--white); }
-  .btn { display: block; width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); padding: 15px 14px 14px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; border-radius:10px; font-family: 'Plex Mono', 'Space Mono', monospace; transition: background .25s, color .25s, opacity .15s; }
+  .btn { display: block; width: 100%; background: transparent; color: var(--white); border: 1px solid var(--line); padding: 15px 14px 14px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; border-radius:0; font-family: 'Plex Mono', 'Space Mono', monospace; transition: background .25s, color .25s, opacity .15s; }
   .btn:hover:not(:disabled) { background: var(--white); color: var(--black); }
   .btn:disabled { opacity: .5; cursor: default; }
-  .msg { font-family: 'Plex Mono','Space Mono',monospace; font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 16px; padding: 14px; background: var(--dark); border: 1px dotted var(--border); border-radius:10px; }
+  .msg { font-family: 'Plex Mono','Space Mono',monospace; font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 16px; padding: 14px; background: var(--dark); border: 1px dotted var(--border); border-radius:0; }
   .msg.error { color: var(--accent); }
-  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius:10px; padding: 16px 18px; margin-bottom: 12px; }
+  .order-card { background: var(--dark); border: 1px solid var(--border); border-radius:0; padding: 16px 18px; margin-bottom: 12px; }
   .order-ref { font-family: var(--dot), monospace; font-size: 13px; color: var(--soft); letter-spacing: .04em; }
   .order-date { font-family: 'Plex Mono','Space Mono',monospace; font-size: 12px; color: var(--muted); margin-top: 2px; }
   .order-total { font-family: var(--dot), monospace; font-size: 20px; font-weight: 400; color: var(--accent); margin-top: 8px; }
-  .order-status { display:inline-block; font-size: 11px; padding: 4px 12px; border-radius:10px; margin-top: 8px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Plex Mono', 'Space Mono', monospace; }
+  .order-status { display:inline-block; font-size: 11px; padding: 4px 12px; border-radius:0; margin-top: 8px; text-transform: uppercase; letter-spacing: .08em; font-family: 'Plex Mono', 'Space Mono', monospace; }
   .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
   .order-status.validated { background: #1f3d1f; color: #5ec95e; }
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
   .order-pdf { display: inline-block; margin-top: 10px; font-size: 11px; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-family: 'Plex Mono','Space Mono',monospace; letter-spacing: .02em; }
   .loader { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
-  #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:10px; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
+  #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:0; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
   #lang-btn:hover { border-color:var(--accent); color:var(--white); }
   #lang-btn option { background:#111; color:#fff; }
   @media (max-width: 767px) {
@@ -70,7 +70,7 @@
 </select>
 <div class="wrap" id="app">
   <a href="/" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;text-decoration:none;color:var(--soft);font-size:11px;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">
-    <img src="/logo.svg" style="width:24px;height:24px;border-radius:10px"> ← <span id="back-home">Accueil</span>
+    <img src="/logo.svg" style="width:24px;height:24px;border-radius:0"> ← <span id="back-home">Accueil</span>
   </a>
   <h1 id="page-title">Mon espace commandes</h1>
   <p class="sub" id="page-sub">Consultez l'historique de vos commandes.</p>
@@ -252,7 +252,7 @@ async function loadBrandInfo() {
     const parts = [];
     if (logo) parts.push(`<img src="${esc(logo)}" alt="${esc(brand.name)}" style="height:36px;object-fit:contain;margin-bottom:10px;display:block">`);
     if (brand.about_text) parts.push(`<p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);line-height:1.6;margin-bottom:12px">${esc(brand.about_text)}</p>`);
-    if (brand.lookbook_url) parts.push(`<a href="${esc(brand.lookbook_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:700;color:var(--black);background:var(--accent);border-radius:10px;padding:8px 14px;text-decoration:none;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">📄 Lookbook</a>`);
+    if (brand.lookbook_url) parts.push(`<a href="${esc(brand.lookbook_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:700;color:var(--black);background:var(--accent);border-radius:0;padding:8px 14px;text-decoration:none;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">📄 Lookbook</a>`);
     if (parts.length) el.innerHTML = `<div class="order-card" style="margin-bottom:20px">${parts.join('')}</div>`;
   } catch(e) {}
 }
