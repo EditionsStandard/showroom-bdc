@@ -69,12 +69,12 @@
   .product-ref { font-family: var(--dot), monospace; font-size: 21px; font-weight: 400; color: var(--white); letter-spacing: .02em; line-height: 1.2; }
   .product-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); margin-top: 6px; line-height: 1.7; font-weight: 400; letter-spacing: .01em; }
   .product-tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .tag { font-size: 11px; color: var(--soft); background: var(--mid); padding: 5px 12px; border-radius: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .tag { font-size: 11px; color: var(--soft); background: var(--mid); padding: 5px 12px; border-radius: 0; letter-spacing: .06em; text-transform: uppercase; }
   .tag-price { font-size: 11px; font-weight: 600; color: var(--accent); background: rgba(204,235,60,.08); letter-spacing: .04em; }
   .tag-retail { font-size: 11px; color: var(--soft); background: var(--mid); letter-spacing: .04em; }
 
   /* ── Variant colors ── */
-  .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 10px; padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Plex Mono', 'Space Mono', monospace; }
+  .color-btn { background: transparent; border: 1px solid var(--border); color: var(--soft); border-radius: 0; padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; transition: border-color .15s, color .15s; font-family: 'Plex Mono', 'Space Mono', monospace; }
   .color-btn.active { border-color: var(--accent); color: var(--accent); }
 
   /* ── Size / qty rows ── */
@@ -84,8 +84,8 @@
   .size-label { font-size: 12px; font-weight: 500; color: var(--white); min-width: 60px; letter-spacing: .06em; text-transform: uppercase; }
   .qty-ctrl { display: flex; align-items: center; gap: 0; }
   .qty-btn { width: 44px; height: 44px; border: 1px solid var(--border); background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--soft); font-weight: 300; user-select: none; touch-action: manipulation; transition: color .15s, border-color .15s; }
-  .qty-btn:first-child { border-radius: 10px; }
-  .qty-btn:last-child { border-radius: 10px; }
+  .qty-btn:first-child { border-radius: 0; }
+  .qty-btn:last-child { border-radius: 0; }
   .qty-btn:active { color: var(--accent); border-color: var(--accent); }
   .qty-display { width: 48px; text-align: center; font-size: 15px; font-weight: 500; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); height: 44px; line-height: 42px; }
   .qty-display.active { color: var(--accent); }
@@ -97,7 +97,7 @@
   .search-icon { color: var(--muted); font-size: 16px; }
 
   /* ── Bouton "ajouter référence sans taille" ── */
-  .btn-add-ref { width: calc(100% - 40px); margin: 0 20px 12px; display: block; background: transparent; border: 1px dashed var(--border); color: var(--soft); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 9px; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; transition: border-color .15s, color .15s; border-radius: 10px; }
+  .btn-add-ref { width: calc(100% - 40px); margin: 0 20px 12px; display: block; background: transparent; border: 1px dashed var(--border); color: var(--soft); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 9px; cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace; transition: border-color .15s, color .15s; border-radius: 0; }
   .btn-add-ref:hover { border-color: var(--accent); color: var(--accent); }
   .btn-add-ref.active { border-color: var(--accent); color: var(--accent); background: rgba(204,235,60,.06); }
 
@@ -126,7 +126,7 @@
   }
   .pres-exit {
     position: fixed; top: 10px; right: 12px; z-index: 260;
-    background: var(--accent); border: none; color: #111; border-radius: 10px;
+    background: var(--accent); border: none; color: #111; border-radius: 0;
     padding: 8px 16px; font-size: 11px; cursor: pointer; font-weight: 700;
     font-family: 'Plex Mono', 'Space Mono', monospace; letter-spacing: .06em;
     display: none; box-shadow: 0 2px 8px rgba(0,0,0,.4);
@@ -143,7 +143,7 @@
   .pres-toggle {
     display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
     z-index: 260; background: var(--dark); border: 1px solid var(--accent);
-    color: var(--accent); border-radius: 10px; padding: 8px 16px; font-size: 11px;
+    color: var(--accent); border-radius: 0; padding: 8px 16px; font-size: 11px;
     cursor: pointer; font-family: 'Plex Mono', 'Space Mono', monospace;
     letter-spacing: .06em; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.4);
     white-space: nowrap;
@@ -162,7 +162,7 @@
 
   /* ── Forms ── */
   .page-pad { padding: 24px 20px 110px; }
-  .form-section { background: var(--dark); border: 1px solid var(--border); border-radius: 10px; padding: 24px 20px; margin-bottom: 2px; }
+  .form-section { background: var(--dark); border: 1px solid var(--border); border-radius: 0; padding: 24px 20px; margin-bottom: 2px; }
   @media (min-width: 768px) { .form-section { padding: 32px 40px; } }
   .form-section h3 { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--white); letter-spacing: .02em; }
   .field { margin-bottom: 18px; }
@@ -237,7 +237,7 @@
   .offline-dot { width: 7px; height: 7px; border-radius: 50%; background: #e74c3c; display: inline-block; margin-right: 8px; animation: pulse-red 1.5s infinite; }
   .online-dot { background: var(--accent); animation: none; }
   @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:.3} }
-  .pending-badge { background: var(--accent); color: var(--black); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: .04em; }
+  .pending-badge { background: var(--accent); color: var(--black); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 0; letter-spacing: .04em; }
 
   /* ── Carousel lightbox ── */
   .img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.97); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
@@ -292,7 +292,7 @@
     .btn-back { padding: 20px 0; }
 
     /* Form: 2 columns */
-    .form-section { border-radius: 10px; border-left: none; border-right: none; padding: 32px 0; }
+    .form-section { border-radius: 0; border-left: none; border-right: none; padding: 32px 0; }
     .form-section h3 { font-size: 22px; margin-bottom: 28px; }
     .form-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
     .field-full { grid-column: 1 / -1; }
@@ -407,7 +407,7 @@
   #theme-toggle {
     background: none;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0;
     padding: 5px 11px;
     cursor: pointer;
     color: var(--soft);
@@ -540,11 +540,11 @@
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
-      <select id="lang-toggle-0" onchange="setLang(this.value)" aria-label="Langue / Language" style="background:var(--black);border:1px solid var(--border);border-radius:10px;padding:5px 8px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;appearance:none;-webkit-appearance:none">
+      <select id="lang-toggle-0" onchange="setLang(this.value)" aria-label="Langue / Language" style="background:var(--black);border:1px solid var(--border);border-radius:0;padding:5px 8px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;appearance:none;-webkit-appearance:none">
         <option value="fr">🌐 FR</option><option value="en">🌐 EN</option><option value="it">🌐 IT</option><option value="es">🌐 ES</option><option value="de">🌐 DE</option><option value="zh">🌐 中文</option><option value="ja">🌐 日本語</option><option value="ko">🌐 한국어</option><option value="th">🌐 ไทย</option>
       </select>
-      <button onclick="toggleTheme()" style="background:none;border:1px solid var(--border);border-radius:10px;padding:5px 11px;cursor:pointer;color:var(--soft);font-size:15px;line-height:1">🌙</button>
-      <a href="/" title="Retour à l'accueil" style="background:none;border:1px solid var(--border);border-radius:10px;padding:5px 14px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:'Plex Mono','Space Mono',monospace;text-decoration:none;display:flex;align-items:center">← Accueil</a>
+      <button onclick="toggleTheme()" style="background:none;border:1px solid var(--border);border-radius:0;padding:5px 11px;cursor:pointer;color:var(--soft);font-size:15px;line-height:1">🌙</button>
+      <a href="/" title="Retour à l'accueil" style="background:none;border:1px solid var(--border);border-radius:0;padding:5px 14px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:'Plex Mono','Space Mono',monospace;text-decoration:none;display:flex;align-items:center">← Accueil</a>
     </div>
     <button class="landing-btn" id="btn-start" data-i18n="btn_start">Commencer ma sélection →</button>
     <a id="btn-rdv" href="#" style="display:none;text-align:center;margin-top:12px;font-size:11px;color:var(--soft);text-decoration:underline;text-underline-offset:3px;letter-spacing:.04em" data-i18n="btn_rdv">📅 Réserver un rendez-vous</a>
@@ -561,13 +561,13 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
-      <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:10px;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:inherit"></select>
-      <select id="lang-toggle" onchange="setLang(this.value)" title="Switch language" aria-label="Langue / Language" style="background:var(--black);border:1px solid var(--border);border-radius:10px;padding:5px 8px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;appearance:none;-webkit-appearance:none">
+      <select id="currency-select" onchange="changeCurrency(this.value)" style="display:none;background:none;border:1px solid var(--border);border-radius:0;padding:5px 10px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:inherit"></select>
+      <select id="lang-toggle" onchange="setLang(this.value)" title="Switch language" aria-label="Langue / Language" style="background:var(--black);border:1px solid var(--border);border-radius:0;padding:5px 8px;cursor:pointer;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.08em;font-family:inherit;appearance:none;-webkit-appearance:none">
         <option value="fr">🌐 FR</option><option value="en">🌐 EN</option><option value="it">🌐 IT</option><option value="es">🌐 ES</option><option value="de">🌐 DE</option><option value="zh">🌐 中文</option><option value="ja">🌐 日本語</option><option value="ko">🌐 한국어</option><option value="th">🌐 ไทย</option>
       </select>
       <button id="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button>
       <a href="/" title="Retour à l'accueil" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.04em;font-family:'Plex Mono','Space Mono',monospace">
-        <img src="/logo.svg" style="width:32px;height:32px;border-radius:10px;flex-shrink:0;opacity:.85">
+        <img src="/logo.svg" style="width:32px;height:32px;border-radius:0;flex-shrink:0;opacity:.85">
         <span class="home-link-label" style="display:none">← Accueil</span>
       </a>
     </div>
@@ -578,8 +578,8 @@
 <div id="agent-bar" style="display:none;background:#10243a;color:#cfe3ff;padding:10px 16px;font-size:13px;display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1d3a5c">
   <span>👤 <strong>Mode agent</strong> — scanne le QR de chaque produit (ou clique « + Référence »). <strong id="agent-ref-count" style="color:var(--accent)">0 référence</strong> dans la sélection.</span>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button onclick="togglePresentationMode()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">👁 Présenter</button>
-    <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
+    <button onclick="togglePresentationMode()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">👁 Présenter</button>
+    <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
   </div>
 </div>
 
@@ -589,20 +589,20 @@
 <div class="pres-indicator">MODE PRÉSENTATION</div>
 
 <!-- Toast confirmation d'ajout par QR -->
-<div id="qr-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--dark);padding:12px 20px;border-radius:10px;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;font-size:14px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.4)"></div>
+<div id="qr-toast" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--dark);padding:12px 20px;border-radius:0;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;font-size:14px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.4)"></div>
 
 <!-- Modal envoi sélection agent -->
 <div id="agent-send-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px">
-  <div style="background:#141414;border:1px solid #262626;border-radius:10px;padding:22px;max-width:420px;width:100%;color:#f5f5f5;font-family:'Plex Mono','Space Mono',monospace">
+  <div style="background:#141414;border:1px solid #262626;border-radius:0;padding:22px;max-width:420px;width:100%;color:#f5f5f5;font-family:'Plex Mono','Space Mono',monospace">
     <h3 style="margin:0 0 4px;font-size:17px">Envoyer la sélection</h3>
     <p id="agent-send-count" style="margin:0 0 16px;font-size:13px;color:#bdbdbd"></p>
-    <div style="margin-bottom:10px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Email acheteur *</label><input id="agent-send-email" type="email" placeholder="acheteur@boutique.com" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:10px;padding:10px"></div>
-    <div style="margin-bottom:10px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Nom de la boutique</label><input id="agent-send-company" type="text" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:10px;padding:10px"></div>
-    <div style="margin-bottom:14px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Nom du contact</label><input id="agent-send-name" type="text" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:10px;padding:10px"></div>
+    <div style="margin-bottom:10px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Email acheteur *</label><input id="agent-send-email" type="email" placeholder="acheteur@boutique.com" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:0;padding:10px"></div>
+    <div style="margin-bottom:10px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Nom de la boutique</label><input id="agent-send-company" type="text" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:0;padding:10px"></div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;color:#bdbdbd;display:block;margin-bottom:4px">Nom du contact</label><input id="agent-send-name" type="text" style="width:100%;box-sizing:border-box;background:#1c1c1c;border:1px solid #262626;color:#fff;border-radius:0;padding:10px"></div>
     <div id="agent-send-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;gap:10px">
-      <button onclick="closeAgentSend()" style="flex:1;background:transparent;border:1px solid #333;color:#bbb;border-radius:10px;padding:11px;cursor:pointer;font-family:inherit">Annuler</button>
-      <button id="agent-send-btn" onclick="sendAgentSelectionFromCart()" style="flex:1;background:var(--accent);color:var(--dark);border:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer</button>
+      <button onclick="closeAgentSend()" style="flex:1;background:transparent;border:1px solid #333;color:#bbb;border-radius:0;padding:11px;cursor:pointer;font-family:inherit">Annuler</button>
+      <button id="agent-send-btn" onclick="sendAgentSelectionFromCart()" style="flex:1;background:var(--accent);color:var(--dark);border:none;border-radius:0;padding:11px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer</button>
     </div>
   </div>
 </div>
@@ -656,7 +656,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h4 data-i18n="recap_sel" style="margin:0">Votre sélection</h4>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:10px;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">Tout effacer</button>
+        <button onclick="clearCart()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.04em">Tout effacer</button>
         <button id="btn-dl-selection" onclick="downloadSelection()" style="background:none;border:1px solid var(--border);padding:6px 12px;font-size:10px;color:var(--soft);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;font-family:inherit;display:flex;align-items:center;gap:6px">📄 <span data-i18n="btn_dl_sel">Télécharger</span></button>
       </div>
     </div>
@@ -677,7 +677,7 @@
   <button class="btn-back" id="back-to-3" data-i18n="back">← Retour</button>
   <div class="recap-card">
     <h4 data-i18n="cgv_title">Conditions générales</h4>
-    <div id="cgv-text-display" style="font-size:13px;line-height:2;color:var(--soft);max-height:420px;overflow-y:auto;border:1px solid var(--border);padding:20px 24px;margin-bottom:20px;background:var(--black);border-radius:10px;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.01em"></div>
+    <div id="cgv-text-display" style="font-size:13px;line-height:2;color:var(--soft);max-height:420px;overflow-y:auto;border:1px solid var(--border);padding:20px 24px;margin-bottom:20px;background:var(--black);border-radius:0;font-family:'Plex Mono','Space Mono',monospace;letter-spacing:.01em"></div>
     <label class="cgv-check-label">
       <input type="checkbox" id="cgv-checkbox">
       <span data-i18n="cgv_accept">J'ai lu et j'accepte les conditions générales de vente</span>
@@ -743,7 +743,7 @@
     </div>
 
     <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:16px">
-      <button id="btn-open-mail" onclick="shareOrderMail()" style="background:var(--accent);color:var(--black);border:none;padding:15px 32px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:10px;font-family:inherit;width:100%;max-width:340px">✉️ Envoyer par mail avec PDF</button>
+      <button id="btn-open-mail" onclick="shareOrderMail()" style="background:var(--accent);color:var(--black);border:none;padding:15px 32px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border-radius:0;font-family:inherit;width:100%;max-width:340px">✉️ Envoyer par mail avec PDF</button>
       <a id="btn-dl-pdf" href="#" style="display:none;font-size:11px;color:var(--soft);letter-spacing:.06em;text-decoration:underline;text-underline-offset:3px" download>📄 Télécharger le PDF séparément</a>
       <p id="mail-share-hint" style="font-size:10px;color:var(--muted);letter-spacing:.04em;text-align:center;max-width:300px">Sur iPhone : choisissez Spark ou Airmail dans la liste<br>Sur Mac : le PDF se télécharge + le mail s'ouvre</p>
     </div>
@@ -1322,7 +1322,7 @@ async function init() {
     const logoSrc = data.brand.logo || data.brand.logo_url || '';
     if (logoSrc) {
       document.getElementById('landing-brand-logo').innerHTML = '<img src="' + esc(logoSrc) + '" style="height:40px;max-width:120px;object-fit:contain;margin-bottom:8px">';
-      document.getElementById('brand-logo-wrap').innerHTML = '<img src="' + esc(logoSrc) + '" style="height:44px;max-width:100px;object-fit:contain;border-radius:10px">';
+      document.getElementById('brand-logo-wrap').innerHTML = '<img src="' + esc(logoSrc) + '" style="height:44px;max-width:100px;object-fit:contain;border-radius:0">';
     }
     if (data.brand.cover_image) {
       const ci = document.getElementById('landing-cover-img');
@@ -1660,7 +1660,7 @@ function _origRenderProducts(products) {
       imgHtml = '<div class="product-img-wrap" style="position:relative" id="imgwrap_' + p.id + '">'
         + (firstSrc ? '<img class="product-img" id="pimg_' + p.id + '" src="' + esc(cldTransform(firstSrc, 'w_500,c_limit,q_auto,f_auto')) + '" loading="lazy" data-images="' + esc(JSON.stringify(firstImgs)) + '" onerror="this.style.display=\'none\'">'
                     : '<div class="product-img-placeholder"></div>')
-        + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
+        + (firstImgs.length > 1 ? '<span id="pimgbadge_' + p.id + '" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:0;pointer-events:none">' + firstImgs.length + ' 📷</span>' : '<span id="pimgbadge_' + p.id + '" style="display:none"></span>')
         + '</div>'
         + '<div class="variant-colors" id="vcolors_' + p.id + '" data-pid="' + p.id + '" data-variants="' + variantsJson + '" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px">'
         + variants.map((v, vi) => '<button class="color-btn' + (vi===0?' active':'') + '" data-vi="' + vi + '" data-pid="' + p.id + '">' + esc(v.color||('Coloris '+(vi+1))) + '</button>').join('')
@@ -1668,7 +1668,7 @@ function _origRenderProducts(products) {
     } else if (imgs.length) {
       imgHtml = '<div class="product-img-wrap" style="position:relative">'
         + '<img class="product-img" src="' + esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto')) + '" loading="lazy" data-images="' + esc(JSON.stringify(imgs)) + '" onerror="this.parentElement.style.display=\'none\'">'
-        + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
+        + (imgs.length > 1 ? '<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:0;pointer-events:none">' + imgs.length + ' 📷</span>' : '')
         + '</div>';
     } else {
       imgHtml = '<div class="product-img-placeholder"></div>';
@@ -2013,7 +2013,7 @@ function renderRecap() {
           let imgs = [];
           try { imgs = JSON.parse(l.product.images || '[]'); } catch(e) {}
           if (!imgs.length && l.product.image_url) imgs = [l.product.image_url];
-          const thumb = imgs[0] ? '<img src="' + esc(cldTransform(imgs[0], 'w_100,c_limit,q_auto,f_auto')) + '" loading="lazy" style="width:36px;height:36px;object-fit:cover;border-radius:10px;display:block">' : '';
+          const thumb = imgs[0] ? '<img src="' + esc(cldTransform(imgs[0], 'w_100,c_limit,q_auto,f_auto')) + '" loading="lazy" style="width:36px;height:36px;object-fit:cover;border-radius:0;display:block">' : '';
           return '<tr>'
             + '<td>' + thumb + '</td>'
             + '<td class="td-ref">' + esc(l.product.reference) + '</td>'
@@ -2050,8 +2050,8 @@ function renderRecap() {
       : '<span style="color:var(--soft)">' + unit(current) + ' / ' + unit(target) + ' — encore ' + unit(target - current) + '</span>';
     return '<div style="margin-bottom:10px">'
       + label
-      + '<div style="margin-top:5px;height:5px;background:var(--border);border-radius:10px;overflow:hidden">'
-      + '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:10px;transition:width .3s"></div>'
+      + '<div style="margin-top:5px;height:5px;background:var(--border);border-radius:0;overflow:hidden">'
+      + '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:0;transition:width .3s"></div>'
       + '</div></div>';
   }
 
@@ -2592,7 +2592,7 @@ async function syncPendingOrders() {
 function showToast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);padding:10px 20px;font-size:12px;font-weight:700;letter-spacing:.06em;z-index:300;border-radius:10px;white-space:nowrap';
+  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);padding:10px 20px;font-size:12px;font-weight:700;letter-spacing:.06em;z-index:300;border-radius:0;white-space:nowrap';
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3500);
 }
@@ -2640,7 +2640,7 @@ async function loadMyOrders() {
         in_production:{ color:'#f0a030', bg:'rgba(240,160,48,.12)', label:'En production' },
       };
       const c = cfg[s] || { color:'var(--muted)', bg:'rgba(255,255,255,.06)', label: s };
-      return `<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.color};background:${c.bg}">${c.label}</span>`;
+      return `<span style="display:inline-block;padding:2px 10px;border-radius:0;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.color};background:${c.bg}">${c.label}</span>`;
     };
     list.innerHTML = orders.map(o => {
       const date = new Date(o.created_at).toLocaleDateString('fr-FR');
