@@ -18,34 +18,34 @@
     .head img { height:40px; max-width:120px; object-fit:contain; }
     h1 { font-size:22px; margin:0; }
     .sub { color:var(--soft); font-size:13px; margin:4px 0 24px; }
-    .line { display:flex; gap:12px; align-items:center; background:var(--dark); border:1px solid var(--border); border-radius:0; padding:10px 12px; margin-bottom:8px; }
-    .line img { width:56px; height:72px; object-fit:contain; background:#fff; border-radius:0; flex-shrink:0; }
-    .line .ph { width:56px; height:72px; background:var(--input-bg); border-radius:0; flex-shrink:0; }
+    .line { display:flex; gap:12px; align-items:center; background:var(--dark); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:8px; }
+    .line img { width:56px; height:72px; object-fit:contain; background:#fff; border-radius:10px; flex-shrink:0; }
+    .line .ph { width:56px; height:72px; background:var(--input-bg); border-radius:10px; flex-shrink:0; }
     .line .info { flex:1; min-width:0; }
     .line .ref { font-weight:700; font-size:14px; }
     .line .desc { font-size:12px; color:var(--soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .line .price { font-size:12px; color:var(--accent); margin-top:2px; }
     .qty { display:flex; align-items:center; gap:6px; }
-    .qty button { width:32px; height:32px; border-radius:0; border:1px solid var(--border); background:var(--input-bg); color:var(--white); font-size:18px; cursor:pointer; }
-    .qty input { width:46px; text-align:center; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:0; height:32px; font-size:14px; }
-    .card { background:transparent; border:none; border-top:1px solid var(--border); border-radius:0; padding:20px 2px; margin-top:0; }
+    .qty button { width:32px; height:32px; border-radius:10px; border:1px solid var(--border); background:var(--input-bg); color:var(--white); font-size:18px; cursor:pointer; }
+    .qty input { width:46px; text-align:center; background:var(--input-bg); border:1px solid var(--border); color:var(--white); border-radius:10px; height:32px; font-size:14px; }
+    .card { background:transparent; border:none; border-top:1px solid var(--border); border-radius:10px; padding:20px 2px; margin-top:0; }
     label { display:block; font-size:8.5px; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.22em; font-family:'Plex Mono','Space Mono',monospace; }
-    input[type=email], input[type=text], input[type=password] { width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--white); border-radius:0; padding:7px 1px 9px; font-size:14px; outline:none; letter-spacing:.03em; transition:border-color .25s; }
+    input[type=email], input[type=text], input[type=password] { width:100%; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--white); border-radius:10px; padding:7px 1px 9px; font-size:14px; outline:none; letter-spacing:.03em; transition:border-color .25s; }
     input[type=email]:focus, input[type=text]:focus, input[type=password]:focus { border-bottom-color:var(--white); }
     input[readonly] { color:var(--muted); }
     .field { margin-bottom:24px; }
-    .cgv { font-size:12px; color:var(--soft); max-height:120px; overflow:auto; border:1px solid var(--border); border-radius:0; padding:12px; margin-bottom:12px; white-space:pre-wrap; background:transparent; line-height:1.7; }
+    .cgv { font-size:12px; color:var(--soft); max-height:120px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:12px; white-space:pre-wrap; background:transparent; line-height:1.7; }
     .chk { display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--white); }
-    #sig { width:100%; height:140px; background:#fff; border-radius:0; touch-action:none; cursor:crosshair; }
+    #sig { width:100%; height:140px; background:#fff; border-radius:10px; touch-action:none; cursor:crosshair; }
     .sigbar { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
     .link { color:var(--accent); cursor:pointer; font-size:12px; background:none; border:none; }
     .bar { position:fixed; bottom:0; left:0; right:0; background:var(--accent); color:#111; display:flex; justify-content:space-between; align-items:center; padding:14px 18px calc(14px + env(safe-area-inset-bottom)); }
     .bar strong { font-size:17px; }
-    .bar button { background:#111; color:#fff; border:none; padding:13px 22px; border-radius:0; font-weight:700; cursor:pointer; font-size:14px; font-family:'Plex Mono','Space Mono',monospace; }
+    .bar button { background:#111; color:#fff; border:none; padding:13px 22px; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px; font-family:'Plex Mono','Space Mono',monospace; }
     .bar button:disabled { opacity:.5; cursor:not-allowed; }
     .msg { padding:40px 16px; text-align:center; color:var(--soft); }
     .err { color:#e07a7a; }
-    #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:0; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
+    #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:10px; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
     #lang-btn option { background:#111; color:#fff; }
 
     /* ── Layout desktop 2 colonnes : références à gauche, récap/formulaire à droite ── */
@@ -58,9 +58,9 @@
     }
 
     /* ── Carte référence + grille de tailles ── */
-    .ref-card { border:1px solid var(--border); border-radius:0; margin-bottom:10px; background:transparent; }
+    .ref-card { border:1px solid var(--border); border-radius:10px; margin-bottom:10px; background:transparent; }
     .ref-head { display:flex; gap:12px; align-items:flex-start; padding:12px; cursor:pointer; }
-    .ref-head img, .ref-head .ph { width:64px; height:82px; object-fit:contain; background:#fff; border-radius:0; flex-shrink:0; }
+    .ref-head img, .ref-head .ph { width:64px; height:82px; object-fit:contain; background:#fff; border-radius:10px; flex-shrink:0; }
     .ref-head .ph { background:var(--input-bg); }
     .ref-info { flex:1; min-width:0; }
     .ref-info .ref { font-weight:700; font-size:14px; letter-spacing:.02em; }
@@ -72,15 +72,15 @@
     .sz-row:last-child { border-bottom:none; }
     .sz-label { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--white); }
     .sz-ctrl { display:flex; align-items:center; gap:6px; }
-    .szb { width:34px; height:34px; border:1px solid var(--border); background:transparent; color:var(--soft); font-size:18px; line-height:1; cursor:pointer; border-radius:0; transition:border-color .15s, color .15s; }
+    .szb { width:34px; height:34px; border:1px solid var(--border); background:transparent; color:var(--soft); font-size:18px; line-height:1; cursor:pointer; border-radius:10px; transition:border-color .15s, color .15s; }
     .szb:hover, .szb:active { border-color:var(--accent); color:var(--accent); }
-    .szi { width:50px; height:34px; text-align:center; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--white); border-radius:0; font-size:15px; font-family:inherit; }
+    .szi { width:50px; height:34px; text-align:center; background:transparent; border:none; border-bottom:1px solid var(--border); color:var(--white); border-radius:10px; font-size:15px; font-family:inherit; }
     .szi.on { border-bottom-color:var(--accent); color:var(--accent); font-weight:700; }
 
     /* ── Fiche produit (modale) ── */
     .fiche-ov { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; align-items:flex-end; justify-content:center; z-index:200; }
     .fiche-ov.open { display:flex; }
-    .fiche { background:var(--black); width:100%; max-width:560px; max-height:92vh; overflow-y:auto; border-top:1px solid var(--border); border-radius:0; padding:18px 18px calc(28px + env(safe-area-inset-bottom)); }
+    .fiche { background:var(--black); width:100%; max-width:560px; max-height:92vh; overflow-y:auto; border-top:1px solid var(--border); border-radius:10px; padding:18px 18px calc(28px + env(safe-area-inset-bottom)); }
     @media (min-width:900px){ .fiche-ov{ align-items:center; } .fiche{ border:1px solid var(--border); max-height:88vh; } }
     .fiche-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .fiche-close { background:none; border:none; color:var(--soft); font-size:22px; cursor:pointer; line-height:1; }
@@ -90,7 +90,7 @@
     .fiche .fdesc { font-size:13px; color:var(--soft); line-height:1.6; margin-bottom:6px; }
     .fiche .fmeta { font-size:12px; color:var(--muted); margin-bottom:2px; }
     .fiche .fprice { font-size:14px; color:var(--accent); margin:8px 0 14px; }
-    .fiche-done { width:100%; background:transparent; color:var(--white); border:1px solid var(--line); padding:15px 14px 14px; font-weight:400; font-size:12px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; border-radius:0; font-family:inherit; margin-top:14px; transition:background .25s, color .25s; }
+    .fiche-done { width:100%; background:transparent; color:var(--white); border:1px solid var(--line); padding:15px 14px 14px; font-weight:400; font-size:12px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; border-radius:10px; font-family:inherit; margin-top:14px; transition:background .25s, color .25s; }
     .fiche-done:hover { background:var(--white); color:var(--black); }
     .fiche-gallery img { cursor:zoom-in; }
     /* Photo plein écran (comme la fiche marque) */
@@ -402,7 +402,7 @@ function render() {
     <div class="sel-grid">
       <div class="sel-main">
         <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-          <button type="button" onclick="clearAll()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:inherit;letter-spacing:.04em">${t('clear_all')}</button>
+          <button type="button" onclick="clearAll()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:10px;font-family:inherit;letter-spacing:.04em">${t('clear_all')}</button>
         </div>
         ${cards}
       </div>
@@ -546,7 +546,7 @@ async function confirmSelection() {
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
-  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
+  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:10px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
