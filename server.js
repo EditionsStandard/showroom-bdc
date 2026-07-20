@@ -1780,7 +1780,11 @@ app.post('/api/brands/:brandId/products/reorder', requireBrandScope('owner','age
       if (target.rows[0]) {
         const refOrder = target.rows[0].sort_order;
         if (refOrder !== null && refOrder !== undefined) {
-          await pool.query('UPDATE products SET sort_order=$1 WHERE id=$2', [refOrder - 1, productId]).catch(e => console.error('[sort-order-error]', e.message));
+          // brand_id=$3 obligatoire — sans ce filtre, un agent/designer borné à sa
+          // marque pourrait modifier le sort_order d'un produit d'une autre marque
+          // en fournissant son id directement (hors UI, la cible n'était jamais
+          // revérifiée, contrairement à beforeProductId juste au-dessus).
+          await pool.query('UPDATE products SET sort_order=$1 WHERE id=$2 AND brand_id=$3', [refOrder - 1, productId, req.params.brandId]).catch(e => console.error('[sort-order-error]', e.message));
         }
       }
     }
@@ -3774,7 +3778,10 @@ app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, 
     const brand = bRes.rows[0];
     if (!brand) return res.status(404).json({ error: 'Marque introuvable' });
     const productIds = [...new Set((lines||[]).map(l => l.product_id))];
-    const pRes = await pool.query('SELECT * FROM products WHERE id = ANY($1)', [productIds]);
+    // brand_id=$2 obligatoire — sans ce filtre, un product_id d'une autre marque
+    // glissé dans les lignes serait résolu quand même (prix wholesale/retail
+    // et catalogue d'une marque tierce exposés dans le PDF, cf. createOrder()).
+    const pRes = await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id = $2', [productIds, brand_id]);
     const productMap = {};
     pRes.rows.forEach(p => { productMap[p.id] = p; });
     const resolvedLines = (lines||[]).filter(l => productMap[l.product_id]).map(l => ({ ...l, product: productMap[l.product_id] }));
@@ -4543,6 +4550,29 @@ app.get('/api/portal/favorites', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Marques actuellement verrouillées (accès anticipé, acheteur non privilégié)
+// parmi un lot de brand_id — même règle que GET /api/portal/brands/:brandId/products
+// (early_access_until + buyer_brand_terms.is_privileged), mais réutilisable pour
+// tout endpoint qui résout des produits par ID à travers plusieurs marques à la
+// fois (favoris, recherche, envoi de sélection par email…). Sans ce filtre
+// répliqué partout où un product_id est résolu, la vignette "verrouillée" du
+// catalogue n'est qu'un habillage client-side contournable en récupérant le
+// même produit via un de ces autres chemins.
+async function getLockedBrandIds(buyerId, brandIds) {
+  const uniqueIds = [...new Set(brandIds)].filter(Boolean);
+  if (!uniqueIds.length) return new Set();
+  const rows = (await pool.query(
+    `SELECT b.id, b.early_access_until, bt.is_privileged
+     FROM brands b LEFT JOIN buyer_brand_terms bt ON bt.brand_id = b.id AND bt.buyer_id = $2
+     WHERE b.id = ANY($1)`,
+    [uniqueIds, buyerId]
+  )).rows;
+  const now = new Date();
+  const locked = new Set();
+  rows.forEach(r => { if (r.early_access_until && new Date(r.early_access_until) > now && !r.is_privileged) locked.add(r.id); });
+  return locked;
+}
+
 // Résolution générique d'IDs produits → objets produits (utilisée par les vues
 // Favoris et Shortlist pour les produits pas déjà chargés dans currentProducts).
 // DOIT rester déclarée AVANT /api/portal/favorites/:productId : sinon Express
@@ -4559,7 +4589,8 @@ app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) =>
        FROM products p WHERE p.id = ANY($1) AND p.active != 0`,
       [ids]
     );
-    res.json(r.rows);
+    const locked = await getLockedBrandIds(req.session.buyerPortal.id, r.rows.map(p => p.brand_id));
+    res.json(r.rows.filter(p => !locked.has(p.brand_id)));
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
@@ -4979,7 +5010,8 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
        FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = ANY($1)`,
       [productIds]
     );
-    const prodMap = Object.fromEntries(prodRows.rows.map(p => [p.id, p]));
+    const lockedBrands = await getLockedBrandIds(req.session.buyerPortal.id, prodRows.rows.map(p => p.brand_id));
+    const prodMap = Object.fromEntries(prodRows.rows.filter(p => !lockedBrands.has(p.brand_id)).map(p => [p.id, p]));
     const trustedItems = items
       .filter(l => l && prodMap[l.product_id])
       .map(l => {
@@ -5830,7 +5862,8 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
       ORDER BY p.reference
       LIMIT 40
     `, [like]);
-    res.json(r.rows);
+    const locked = await getLockedBrandIds(req.session.buyerPortal.id, r.rows.map(p => p.brand_id));
+    res.json(r.rows.filter(p => !locked.has(p.brand_id)));
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
@@ -8286,12 +8319,24 @@ app.post('/api/selections/draft', requireRole('owner', 'agent'), async (req, res
     const { brand_id, client_name, client_email, client_company, items_json, notes, draft_name } = req.body;
     if (!brand_id || !client_email) return res.status(400).json({ error: 'brand_id et client_email requis' });
     if (isBrandScoped(req) && brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    // Ne garder que des product_id appartenant réellement à cette marque — même
+    // garde que /api/brands/:brandId/agent-selection, sinon un brouillon peut
+    // injecter le catalogue/prix d'une autre marque dans un lien envoyé à un
+    // acheteur via /api/selections/drafts/:token/send puis GET /api/selection/:token.
+    let items = [];
+    try { items = JSON.parse(items_json || '[]'); } catch(e) {}
+    if (!Array.isArray(items)) items = [];
+    const candidateIds = [...new Set(items.map(i => i && i.product_id).filter(Boolean))];
+    const ownProductIds = candidateIds.length
+      ? new Set((await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, brand_id])).rows.map(r => r.id))
+      : new Set();
+    const cleanItemsJson = JSON.stringify(items.filter(i => i && ownProductIds.has(i.product_id)));
     const token = uuidv4();
     const expires = new Date(Date.now() + 90 * 24 * 3600 * 1000); // 90 jours
     await pool.query(
       `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at, status, draft_name)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10)`,
-      [token, brand_id, client_name||'', client_email.toLowerCase().trim(), client_company||'', items_json||'[]', notes||'', req.session?.staffUser?.email || 'owner', expires, draft_name||'']
+      [token, brand_id, client_name||'', client_email.toLowerCase().trim(), client_company||'', cleanItemsJson, notes||'', req.session?.staffUser?.email || 'owner', expires, draft_name||'']
     );
     res.json({ token });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
