@@ -825,12 +825,14 @@ const cartLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Invitation prospect : seul endpoint d'email sortant sans limiteur — un compte
-// agent (rôle bas niveau de confiance, scopé à une marque) pouvait déclencher un
-// nombre illimité d'envois Resend en boucle depuis le formulaire multi-emails
-// du tableau de bord. Plafond généreux (compatible avec un vrai envoi en masse
-// après un salon) mais borné, et par COMPTE (authedUserRateLimitKey) — pas par
-// IP — pour ne pas bloquer toute l'agence derrière la même IP de bureau.
+// Emails sortants déclenchés par du staff (invitation prospect, renvoi d'accès/
+// commande, relances) : un compte agent (rôle bas niveau de confiance, scopé à
+// une marque) pouvait déclencher un nombre illimité d'envois Resend en boucle.
+// Plafond généreux (compatible avec un vrai envoi en masse après un salon) mais
+// borné, et par COMPTE (authedUserRateLimitKey) — pas par IP — pour ne pas
+// bloquer toute l'agence derrière la même IP de bureau. Réutilisé tel quel sur
+// tous les endpoints d'email sortant déclenchables par un agent (pas un
+// limiteur dédié par endpoint : même risque, même seuil raisonnable).
 const prospectInviteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 200,
@@ -1008,7 +1010,7 @@ app.get('/api/staff/mfa/status', requireAdmin, async (req, res) => {
   res.json({ enabled: (await getSetting('owner_mfa_enabled')) === 'on' });
 });
 
-app.post('/api/staff/mfa/setup', requireAdmin, async (req, res) => {
+app.post('/api/staff/mfa/setup', requireAdmin, passwordLimiter, async (req, res) => {
   try {
     const secret = authenticator.generateSecret();
     const label = req.session.staffUser?.email || 'owner';
@@ -1023,7 +1025,7 @@ app.post('/api/staff/mfa/setup', requireAdmin, async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.post('/api/staff/mfa/confirm', requireAdmin, async (req, res) => {
+app.post('/api/staff/mfa/confirm', requireAdmin, passwordLimiter, async (req, res) => {
   try {
     const code = (req.body.code || '').toString().trim();
     let secret;
@@ -1245,7 +1247,7 @@ async function sendStaffWelcomeEmail(req, { email, name, role, password, isNew =
 // étant hashés (non récupérables), on en génère un NOUVEAU, on le définit, puis
 // on l'envoie par email avec le lien de connexion. Repli : renvoie le mot de
 // passe dans la réponse si l'email n'est pas configuré (le owner le relaie).
-app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, res) => {
+app.post('/api/staff/:id/resend-credentials', requireRole('owner'), prospectInviteLimiter, async (req, res) => {
   try {
     const u = (await pool.query('SELECT id, email, name, role FROM admin_users WHERE id=$1', [req.params.id])).rows[0];
     if (!u) return res.status(404).json({ error: 'Compte introuvable' });
@@ -1382,6 +1384,10 @@ app.post('/api/settings', requireRole('owner'), async (req, res) => {
   for (let [key, value] of Object.entries(req.body)) {
     if (!allowed.includes(key)) continue;
     if (key === 'admin_password' && value && !value.startsWith('$2')) {
+      // Même longueur minimale que partout ailleurs (acheteurs, staff) — ce
+      // mot de passe protège le compte le plus privilégié du système, il ne
+      // doit pas être le seul à échapper à la règle.
+      if (value.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
       value = await bcrypt.hash(value, 10);
     }
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
@@ -2330,7 +2336,7 @@ app.get('/api/cloudinary-signature', requireRole('owner','agent','designer'), (r
 });
 
 const uploadPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
-app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadPdf.single('pdf'), async (req, res) => {
+app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadLimiter, uploadPdf.single('pdf'), async (req, res) => {
   try {
     if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Fichier PDF requis' });
     // resource_type:'raw' ne transcode pas le contenu côté Cloudinary (contrairement aux
@@ -2824,7 +2830,7 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
 
 // Relance manuelle d'une sélection en attente : renvoie l'email (rappel) à l'acheteur
 // avec le lien de sa sélection. Bornée à la marque de l'agent. Refusée si validée/expirée.
-app.post('/api/agent-selections/:token/remind', requireRole('owner','agent'), async (req, res) => {
+app.post('/api/agent-selections/:token/remind', requireRole('owner','agent'), prospectInviteLimiter, async (req, res) => {
   try {
     const sel = await pool.query(
       'SELECT a.brand_id, a.used, a.expires_at, a.client_email, a.client_name, a.selection_number, b.name AS brand_name FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
@@ -3478,7 +3484,7 @@ async function sendAppointmentVideoEmail(appt) {
 }
 
 // ── Magic link accès direct portail ──────────────────────────────────
-app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), async (req, res) => {
+app.post('/api/admin/buyers/:id/send-access', requireRole('owner','agent'), prospectInviteLimiter, async (req, res) => {
   try {
     if (!await checkBuyerBrandScope(req, res)) return;
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
@@ -3550,7 +3556,7 @@ app.get('/portal/access', async (req, res) => {
   } catch(e) { res.redirect('/portal'); }
 });
 
-app.post('/api/orders/:id/resend', requireRole('owner','agent'), async (req, res) => {
+app.post('/api/orders/:id/resend', requireRole('owner','agent'), prospectInviteLimiter, async (req, res) => {
   try {
     if (!await checkOrderBrandScope(req, res)) return;
     const pdf = await generateOrderPDF(req.params.id);
@@ -4408,7 +4414,7 @@ app.get('/api/portal/mfa/status', requireBuyerAuth, async (req, res) => {
   res.json({ enabled: !!r.rows[0]?.mfa_enabled });
 });
 
-app.post('/api/portal/mfa/setup', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/mfa/setup', requireBuyerAuth, passwordLimiter, async (req, res) => {
   try {
     const secret = authenticator.generateSecret();
     const uri = authenticator.keyuri(req.session.buyerPortal.email, 'Showroom Editions Standard', secret);
@@ -4418,7 +4424,7 @@ app.post('/api/portal/mfa/setup', requireBuyerAuth, async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.post('/api/portal/mfa/confirm', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/mfa/confirm', requireBuyerAuth, passwordLimiter, async (req, res) => {
   try {
     const code = (req.body.code || '').toString().trim();
     const r = await pool.query('SELECT mfa_pending_secret FROM buyers WHERE id=$1', [req.session.buyerPortal.id]);
@@ -6232,7 +6238,7 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   res.json({ ok: true, total: parseFloat(totRes.rows[0]?.total || 0) });
 });
 
-app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), async (req, res) => {
+app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), prospectInviteLimiter, async (req, res) => {
   try {
     if (!await checkBuyerBrandScope(req, res)) return;
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
@@ -6771,7 +6777,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
           <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Email</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(email)}</td></tr>
           <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Pays</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(country||'—')}</td></tr>
           ${instagram ? `<tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Instagram</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(instagram)}</td></tr>` : ''}
-          ${website ? `<tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Website</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)"><a href="${escHtml(website)}" style="color:#6b8500">${escHtml(website)}</a></td></tr>` : ''}
+          ${website ? `<tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Website</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)"><a href="${escHtml(safeHttpUrl(website))}" style="color:#6b8500">${escHtml(website)}</a></td></tr>` : ''}
           ${message ? `<tr><td style="padding:8px;color:#888;vertical-align:top">Message</td><td style="padding:8px">${escHtml(message)}</td></tr>` : ''}
         </table>
         ${emailBtn(adminUrl, 'GÉRER LES DEMANDES →')}

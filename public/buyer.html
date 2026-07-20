@@ -234,7 +234,7 @@ async function requestLink() {
 async function verifyAndLoad() {
   const r = await fetch(`/api/buyer/verify?brand_id=${brandId}&token=${urlToken}`).then(r => r.json());
   if (r.error) {
-    document.getElementById('login-msg').innerHTML = `<div class="msg error">${r.error}</div>`;
+    document.getElementById('login-msg').innerHTML = `<div class="msg error">${esc(r.error)}</div>`;
     return;
   }
   document.getElementById('login-view').style.display = 'none';
