@@ -378,6 +378,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
     // cache (navigateur ou PWA installée) ne doit jamais masquer une nouvelle
     // version déployée. Les autres assets (css/js/img) gardent le cache long.
     if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    // Helmet pose Cross-Origin-Resource-Policy: same-origin par défaut sur TOUTE
+    // réponse (y compris ces fichiers statiques) — un navigateur/WebView qui
+    // charge une de ces images depuis un autre contexte d'origine (le logo dans
+    // un email ouvert par le client mail, un partage de lien…) la bloque alors
+    // silencieusement (constaté : logo d'en-tête invisible dans les emails,
+    // cadre vide à la place). Ces images sont déjà publiques (aucune auth sur
+    // express.static) et prévues pour être intégrées ailleurs que le site —
+    // on assouplit donc explicitement la policy pour elles uniquement, le
+    // reste du site (pages HTML, API) garde la protection stricte par défaut.
+    if (/\.(png|jpe?g|gif|webp|svg|ico)$/i.test(filePath)) res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   }
 }));
 // Secret de session : jamais de valeur connue en production. Si SESSION_SECRET
