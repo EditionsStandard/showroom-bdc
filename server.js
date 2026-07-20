@@ -139,7 +139,7 @@ const VAPID_PUBLIC_KEY = isValidVapidPublicKey(VAPID_PUBLIC_KEY_RAW) ? VAPID_PUB
 const VAPID_PRIVATE_KEY = (VAPID_PRIVATE_KEY_RAW && /^[A-Za-z0-9_-]+$/.test(VAPID_PRIVATE_KEY_RAW)) ? VAPID_PRIVATE_KEY_RAW : null;
 if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    'mailto:' + (process.env.ADMIN_EMAIL || 'nguyen.boun@gmail.com'),
+    'mailto:' + (process.env.ADMIN_EMAIL || 'admin@localhost'),
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
   );
@@ -4589,13 +4589,22 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erreur lors de l\'export' }); }
 });
 
-// RGPD — anonymise les commandes (conservation légale) puis supprime le compte,
-// le tout dans une transaction pour éviter un état incohérent en cas d'échec.
+// RGPD — anonymise les commandes (conservation légale des montants/lignes)
+// puis supprime le compte, le tout dans une transaction pour éviter un état
+// incohérent en cas d'échec. Couvre TOUS les champs personnels de la commande
+// — pas seulement nom/email/téléphone : la société, le pays et surtout la
+// signature manuscrite (image) restaient jusqu'ici intacts après une demande
+// d'effacement, ce qui videait la demande de son sens sur ces champs-là.
 async function anonymizeAndDeleteBuyer(buyerId) {
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
-    await dbClient.query(`UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='', buyer_id=NULL WHERE buyer_id=$1`, [buyerId]);
+    await dbClient.query(
+      `UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='',
+         client_company='', client_country='', notes='', buyer_signature='', agent_signature=NULL, buyer_id=NULL
+       WHERE buyer_id=$1`,
+      [buyerId]
+    );
     await dbClient.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
     await dbClient.query('COMMIT');
   } catch(e) {
@@ -6761,7 +6770,12 @@ app.delete('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => 
     // Un acheteur est partagé entre marques : un agent scopé ne peut pas supprimer
     // un compte global (cela impacterait les commandes d'autres marques).
     if (isBrandScoped(req)) return res.status(403).json({ error: 'Suppression réservée à un administrateur showroom.' });
-    await pool.query('DELETE FROM buyers WHERE id=$1', [req.params.id]);
+    // Même traitement que la suppression en libre-service (RGPD) : un simple
+    // DELETE FROM buyers laissait nom/email/téléphone/société/pays/notes et la
+    // signature manuscrite intacts et en clair dans orders (buyer_id passe juste
+    // à NULL) — un acheteur supprimé côté admin restait donc entièrement
+    // identifiable dans l'historique des commandes.
+    await anonymizeAndDeleteBuyer(req.params.id);
     logAudit(req, 'delete_buyer', 'buyer', req.params.id, '');
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -8911,8 +8925,8 @@ init().then(() => {
     async function runBackup() {
       try {
         const resendKey = process.env.RESEND_API_KEY;
-        const adminEmail = process.env.ADMIN_EMAIL || 'nguyen.boun@gmail.com';
-        if (!resendKey) return;
+        const adminEmail = process.env.ADMIN_EMAIL || await getSetting('showroom_email');
+        if (!resendKey || !adminEmail) return;
 
         const [buyers, orders, brands] = await Promise.all([
           pool.query('SELECT id,email,name,company,country,created_at FROM buyers ORDER BY created_at DESC'),
