@@ -2241,7 +2241,11 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), uploadLim
   if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !looksLikeImage(req.file.buffer)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    const slug = `img-${Date.now()}`;
+    // Aléatoire (pas Date.now()) : les URLs Cloudinary sont servies publiquement
+    // sans authentification — un identifiant basé sur l'horodatage ne se devine
+    // qu'à quelques centaines de valeurs près si le moment d'upload est connu/
+    // estimable (ex. date de création d'une marque, visible publiquement).
+    const slug = `img-${crypto.randomBytes(16).toString('hex')}`;
     // ?size=large : fonds plein écran (image de connexion) — limite élargie à 1920px
     const max = req.query.size === 'large' ? 1920 : 1200;
     const result = await cloudinary.uploader.upload(base64, {
@@ -2391,7 +2395,7 @@ app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadLimit
     // images) : le Content-Type déclaré ne suffit pas, on vérifie la signature réelle du fichier.
     if (req.file.buffer.slice(0, 4).toString('latin1') !== '%PDF') return res.status(400).json({ error: 'Fichier PDF invalide' });
     const base64 = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
-    const slug = `lookbook-${Date.now()}`;
+    const slug = `lookbook-${crypto.randomBytes(16).toString('hex')}`;
     const result = await cloudinary.uploader.upload(base64, {
       folder: 'showroom/lookbooks',
       public_id: slug,
@@ -2674,7 +2678,7 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
     // gonflerait la ligne produit sans limite (jusqu'à 200 fichiers/appel) tout
     // en répondant "ok" côté client alors que l'upload a en réalité échoué.
     try {
-      const slug = `${product.reference}-${colorHint || product.color}-${Date.now()}`.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
+      const slug = `${product.reference}-${colorHint || product.color}-${crypto.randomBytes(6).toString('hex')}`.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
       const uploaded = await cloudinary.uploader.upload(base64, {
         folder: `showroom/${brandId}`,
         public_id: slug,
