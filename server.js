@@ -838,6 +838,18 @@ const passwordLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+// /api/portal/translate appelle un LLM payant (Claude) par lot non mis en cache —
+// un compte acheteur (auto-inscrit via lien d'invitation, sans vetting) pouvait
+// jusqu'ici envoyer un flot illimité de textes inédits et générer un coût API sans
+// borne. Limite par COMPTE (comme uploadLimiter), pas par IP.
+const translateLimiter = rateLimit({
+  windowMs: 3600000, // 1 heure
+  max: 100,
+  keyGenerator: authedUserRateLimitKey,
+  message: { error: 'Trop de requêtes de traduction. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // Mot de passe oublié / lien magique acheteur : plusieurs acheteurs partagent
 // souvent la même IP (WiFi showroom) — 5/h (emailLimiter) les bloquerait
 // mutuellement, comme le bug de validation déjà corrigé (confirmLimiter). Les
@@ -2483,7 +2495,7 @@ app.get('/api/brands/:brandId/appointments', requireBrandScope('owner','agent','
   res.json(r.rows);
 });
 
-app.get('/api/public/brands/:brandId/slots', async (req, res) => {
+app.get('/api/public/brands/:brandId/slots', publicLimiter, async (req, res) => {
   const days = [];
   const now = new Date();
   for (let i = 1; i <= 14; i++) {
@@ -6027,7 +6039,7 @@ async function translateBatch(texts, lang) {
   return out;
 }
 
-app.post('/api/portal/translate', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/translate', requireBuyerAuth, translateLimiter, async (req, res) => {
   try {
     const { texts, lang } = req.body;
     if (!Array.isArray(texts) || !lang || !TRANSLATE_LANGS[lang]) return res.status(400).json({ error: 'Requête invalide' });
@@ -6376,6 +6388,15 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
+    const ord = await dbClient.query('SELECT status FROM orders WHERE id=$1', [req.params.id]);
+    // 'cancelled' : le stock a déjà été recrédité en totalité par restoreOrderStock()
+    // au moment de l'annulation — modifier les lignes ensuite recréditerait le stock
+    // une seconde fois (delta<0) ou en réserverait à tort (delta>0). 'archived' est
+    // un état terminal, comme sur /status et /sign.
+    if (['cancelled','archived'].includes(ord.rows[0]?.status)) {
+      await dbClient.query('ROLLBACK');
+      return res.status(409).json({ error: 'Commande annulée ou archivée : lignes non modifiables.' });
+    }
     // Lignes actuelles + état stock du produit (verrou ligne produit via FOR UPDATE indirect)
     const cur = await dbClient.query(
       `SELECT ol.id, ol.product_id, ol.quantity, ol.size, p.stock_enabled, p.stock_qty, p.reference
