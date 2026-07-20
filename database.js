@@ -480,6 +480,13 @@ async function init() {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (template_key, lang)
     )`,
+    // Verrouillage de compte après échecs de connexion répétés — complète le
+    // rate-limit par IP (bruteforce distribué) avec un verrou par compte
+    // (mot de passe deviné/réutilisé fuité, essayé depuis des IP variées).
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS failed_login_count INTEGER DEFAULT 0",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS failed_login_count INTEGER DEFAULT 0",
+    "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

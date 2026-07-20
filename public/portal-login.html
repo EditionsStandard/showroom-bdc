@@ -185,6 +185,7 @@ const TRANSLATIONS = {
     confirm_password_label: 'Confirmer',
     save_btn: 'Enregistrer',
     login_error: 'Email ou mot de passe incorrect.',
+    locked_error: 'Compte temporairement verrouillé suite à trop de tentatives. Réessayez dans quelques minutes.',
     email_required: 'Email requis.',
     reset_success: 'Si un compte existe pour cet email, vous recevrez un lien dans quelques minutes.',
     pw_too_short: 'Le mot de passe doit contenir au moins 12 caractères.',
@@ -216,6 +217,7 @@ const TRANSLATIONS = {
     confirm_password_label: 'Confirm',
     save_btn: 'Save',
     login_error: 'Incorrect email or password.',
+    locked_error: 'Account temporarily locked after too many attempts. Please try again in a few minutes.',
     email_required: 'Email required.',
     reset_success: 'If an account exists for this email, you will receive a link in a few minutes.',
     pw_too_short: 'Password must be at least 12 characters.',
@@ -235,7 +237,7 @@ const TRANSLATIONS = {
     password_label: 'Password', password_placeholder: '••••••••', login_btn: 'Accedi',
     forgot_link: 'Password dimenticata?', request_access_link: "Richiedi l'accesso", back_link: '← Indietro', your_email_label: 'La tua email',
     send_reset_btn: 'Invia il link', new_password_label: 'Nuova password', confirm_password_label: 'Conferma',
-    save_btn: 'Salva', login_error: 'Email o password non corretti.', email_required: 'Email obbligatoria.',
+    save_btn: 'Salva', login_error: 'Email o password non corretti.', locked_error: 'Account temporaneamente bloccato dopo troppi tentativi. Riprova tra qualche minuto.', email_required: 'Email obbligatoria.',
     reset_success: 'Se esiste un account per questa email, riceverai un link tra pochi minuti.',
     pw_too_short: 'La password deve contenere almeno 6 caratteri.', pw_mismatch: 'Le password non corrispondono.',
     pw_updated: 'Password aggiornata. Reindirizzamento…', network_error: 'Errore di rete, riprova.',
@@ -245,7 +247,7 @@ const TRANSLATIONS = {
     password_label: 'Contraseña', password_placeholder: '••••••••', login_btn: 'Iniciar sesión',
     forgot_link: '¿Olvidaste tu contraseña?', request_access_link: "Solicitar acceso", back_link: '← Volver', your_email_label: 'Tu correo',
     send_reset_btn: 'Enviar enlace', new_password_label: 'Nueva contraseña', confirm_password_label: 'Confirmar',
-    save_btn: 'Guardar', login_error: 'Correo o contraseña incorrectos.', email_required: 'Correo obligatorio.',
+    save_btn: 'Guardar', login_error: 'Correo o contraseña incorrectos.', locked_error: 'Cuenta bloqueada temporalmente tras demasiados intentos. Vuelve a intentarlo en unos minutos.', email_required: 'Correo obligatorio.',
     reset_success: 'Si existe una cuenta para este correo, recibirás un enlace en unos minutos.',
     pw_too_short: 'La contraseña debe tener al menos 6 caracteres.', pw_mismatch: 'Las contraseñas no coinciden.',
     pw_updated: 'Contraseña actualizada. Redirigiendo…', network_error: 'Error de red, inténtalo de nuevo.',
@@ -255,7 +257,7 @@ const TRANSLATIONS = {
     password_label: 'Passwort', password_placeholder: '••••••••', login_btn: 'Anmelden',
     forgot_link: 'Passwort vergessen?', request_access_link: "Zugang anfragen", back_link: '← Zurück', your_email_label: 'Ihre E-Mail',
     send_reset_btn: 'Link senden', new_password_label: 'Neues Passwort', confirm_password_label: 'Bestätigen',
-    save_btn: 'Speichern', login_error: 'E-Mail oder Passwort falsch.', email_required: 'E-Mail erforderlich.',
+    save_btn: 'Speichern', login_error: 'E-Mail oder Passwort falsch.', locked_error: 'Konto vorübergehend gesperrt nach zu vielen Versuchen. Bitte in einigen Minuten erneut versuchen.', email_required: 'E-Mail erforderlich.',
     reset_success: 'Falls ein Konto für diese E-Mail existiert, erhalten Sie in wenigen Minuten einen Link.',
     pw_too_short: 'Das Passwort muss mindestens 6 Zeichen lang sein.', pw_mismatch: 'Die Passwörter stimmen nicht überein.',
     pw_updated: 'Passwort aktualisiert. Weiterleitung…', network_error: 'Netzwerkfehler, bitte erneut versuchen.',
@@ -265,7 +267,7 @@ const TRANSLATIONS = {
     password_label: '密码', password_placeholder: '••••••••', login_btn: '登录',
     forgot_link: '忘记密码？', request_access_link: "申请访问", back_link: '← 返回', your_email_label: '您的邮箱',
     send_reset_btn: '发送重置链接', new_password_label: '新密码', confirm_password_label: '确认',
-    save_btn: '保存', login_error: '邮箱或密码错误。', email_required: '请输入邮箱。',
+    save_btn: '保存', login_error: '邮箱或密码错误。', locked_error: '尝试次数过多，账户已暂时锁定。请几分钟后再试。', email_required: '请输入邮箱。',
     reset_success: '如果该邮箱已注册账户，您将在几分钟内收到链接。',
     pw_too_short: '密码至少需要6个字符。', pw_mismatch: '两次输入的密码不一致。',
     pw_updated: '密码已更新，正在跳转…', network_error: '网络错误，请重试。',
@@ -275,7 +277,7 @@ const TRANSLATIONS = {
     password_label: 'パスワード', password_placeholder: '••••••••', login_btn: 'ログイン',
     forgot_link: 'パスワードをお忘れですか？', request_access_link: "アクセスをリクエスト", back_link: '← 戻る', your_email_label: 'メールアドレス',
     send_reset_btn: 'リンクを送信', new_password_label: '新しいパスワード', confirm_password_label: '確認',
-    save_btn: '保存', login_error: 'メールアドレスまたはパスワードが正しくありません。', email_required: 'メールアドレスを入力してください。',
+    save_btn: '保存', login_error: 'メールアドレスまたはパスワードが正しくありません。', locked_error: '試行回数が多いためアカウントが一時的にロックされました。数分後に再度お試しください。', email_required: 'メールアドレスを入力してください。',
     reset_success: 'このメールアドレスのアカウントが存在する場合、数分以内にリンクが届きます。',
     pw_too_short: 'パスワードは6文字以上で入力してください。', pw_mismatch: 'パスワードが一致しません。',
     pw_updated: 'パスワードを更新しました。リダイレクトします…', network_error: 'ネットワークエラーです。もう一度お試しください。',
@@ -285,7 +287,7 @@ const TRANSLATIONS = {
     password_label: '비밀번호', password_placeholder: '••••••••', login_btn: '로그인',
     forgot_link: '비밀번호를 잊으셨나요?', request_access_link: "액세스 요청", back_link: '← 뒤로', your_email_label: '이메일',
     send_reset_btn: '링크 보내기', new_password_label: '새 비밀번호', confirm_password_label: '확인',
-    save_btn: '저장', login_error: '이메일 또는 비밀번호가 올바르지 않습니다.', email_required: '이메일이 필요합니다.',
+    save_btn: '저장', login_error: '이메일 또는 비밀번호가 올바르지 않습니다.', locked_error: '시도 횟수가 너무 많아 계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해 주세요.', email_required: '이메일이 필요합니다.',
     reset_success: '해당 이메일로 계정이 있으면 몇 분 내에 링크를 받게 됩니다.',
     pw_too_short: '비밀번호는 6자 이상이어야 합니다.', pw_mismatch: '비밀번호가 일치하지 않습니다.',
     pw_updated: '비밀번호가 업데이트되었습니다. 이동 중…', network_error: '네트워크 오류입니다. 다시 시도해 주세요.',
@@ -295,7 +297,7 @@ const TRANSLATIONS = {
     password_label: 'รหัสผ่าน', password_placeholder: '••••••••', login_btn: 'เข้าสู่ระบบ',
     forgot_link: 'ลืมรหัสผ่าน?', request_access_link: "ขอสิทธิ์เข้าถึง", back_link: '← กลับ', your_email_label: 'อีเมลของคุณ',
     send_reset_btn: 'ส่งลิงก์', new_password_label: 'รหัสผ่านใหม่', confirm_password_label: 'ยืนยัน',
-    save_btn: 'บันทึก', login_error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', email_required: 'ต้องระบุอีเมล',
+    save_btn: 'บันทึก', login_error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', locked_error: 'บัญชีถูกล็อกชั่วคราวเนื่องจากพยายามเข้าสู่ระบบหลายครั้งเกินไป โปรดลองอีกครั้งในอีกไม่กี่นาที', email_required: 'ต้องระบุอีเมล',
     reset_success: 'หากมีบัญชีสำหรับอีเมลนี้ คุณจะได้รับลิงก์ภายในไม่กี่นาที',
     pw_too_short: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', pw_mismatch: 'รหัสผ่านไม่ตรงกัน',
     pw_updated: 'อัปเดตรหัสผ่านแล้ว กำลังเปลี่ยนเส้นทาง…', network_error: 'เกิดข้อผิดพลาดเครือข่าย โปรดลองอีกครั้ง',
@@ -385,6 +387,8 @@ function toggleLoginBackupCode() {
 if (location.search.includes('step=mfa')) {
   showView('mfa');
   if (location.search.includes('error')) showMessage(document.getElementById('mfa-login-error'), t('mfa_error'), 'error');
+} else if (location.search.includes('error=locked')) {
+  showMessage(document.getElementById('login-error'), t('locked_error'), 'error');
 } else if (location.search.includes('error')) {
   showMessage(document.getElementById('login-error'), t('login_error'), 'error');
 }

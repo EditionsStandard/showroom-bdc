@@ -78,7 +78,7 @@
     <p>Espace réservé — équipe & marques du showroom.</p>
   </div>
   <form method="POST" action="/admin/login" id="password-form">
-    <script>if(location.search.includes('step=mfa')) document.write(''); else if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
+    <script>if(location.search.includes('step=mfa')) document.write(''); else if(location.search.includes('error=locked')) document.write('<div class="error">Compte temporairement verrouillé suite à trop de tentatives. Réessayez dans quelques minutes.</div>'); else if(location.search.includes('error')) document.write('<div class="error">Identifiants incorrects.</div>')</script>
     <div id="email-field" class="field" style="display:none">
       <label>Email</label>
       <input type="email" name="email" id="email-input" placeholder="email@exemple.com" disabled autocomplete="off">

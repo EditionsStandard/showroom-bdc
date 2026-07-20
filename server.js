@@ -172,6 +172,44 @@ const crypto = require('crypto');
 // timing mesurable et fiable pour énumérer les comptes enregistrés.
 const DUMMY_BCRYPT_HASH = bcrypt.hashSync('dummy-password-never-used-' + crypto.randomBytes(8).toString('hex'), 10);
 
+// Verrouillage de compte après échecs répétés — complète loginLimiter (par IP)
+// avec un verrou par compte, seul rempart contre un mot de passe deviné/fuité
+// essayé depuis des IP variées (hors de portée d'un rate-limit par IP seul).
+const LOGIN_LOCKOUT_THRESHOLD = 8;
+const LOGIN_LOCKOUT_MINUTES = 15;
+
+// table ne provient jamais d'une entrée utilisateur (toujours 'admin_users' ou
+// 'buyers', codé en dur aux points d'appel) — l'interpolation ici est sûre.
+async function recordLoginFailure(table, id) {
+  const r = await pool.query(`UPDATE ${table} SET failed_login_count = COALESCE(failed_login_count,0) + 1 WHERE id=$1 RETURNING failed_login_count`, [id]);
+  if ((r.rows[0]?.failed_login_count || 0) >= LOGIN_LOCKOUT_THRESHOLD) {
+    await pool.query(`UPDATE ${table} SET locked_until = NOW() + INTERVAL '${LOGIN_LOCKOUT_MINUTES} minutes' WHERE id=$1`, [id]);
+  }
+}
+async function clearLoginFailures(table, id) {
+  await pool.query(`UPDATE ${table} SET failed_login_count = 0, locked_until = NULL WHERE id=$1`, [id]);
+}
+function isLocked(row) {
+  return !!(row?.locked_until && new Date(row.locked_until) > new Date());
+}
+// Même principe pour le compte owner historique, sans ligne admin_users —
+// son état (comme owner_mfa_*) vit dans la table settings en clé/valeur.
+async function recordOwnerLoginFailure() {
+  const count = parseInt((await getSetting('owner_failed_login_count')) || '0', 10) + 1;
+  await pool.query("INSERT INTO settings (key,value) VALUES ('owner_failed_login_count',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [String(count)]);
+  if (count >= LOGIN_LOCKOUT_THRESHOLD) {
+    const until = new Date(Date.now() + LOGIN_LOCKOUT_MINUTES * 60000).toISOString();
+    await pool.query("INSERT INTO settings (key,value) VALUES ('owner_locked_until',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [until]);
+  }
+}
+async function clearOwnerLoginFailures() {
+  await pool.query("DELETE FROM settings WHERE key IN ('owner_failed_login_count','owner_locked_until')");
+}
+async function isOwnerLocked() {
+  const until = await getSetting('owner_locked_until');
+  return !!(until && new Date(until) > new Date());
+}
+
 // ── Structured logger ───────────────────────────────────────────────
 const log = {
   info: (msg, data={}) => console.log(JSON.stringify({ level:'info', msg, ...data, ts: new Date().toISOString() })),
@@ -869,10 +907,12 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (email) {
-    const r = await pool.query('SELECT id, email, role, brand_id, name, password_hash, mfa_enabled FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
+    const r = await pool.query('SELECT id, email, role, brand_id, name, password_hash, mfa_enabled, locked_until FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
     const user = r.rows[0];
     const passwordOk = await bcrypt.compare(password || '', user?.password_hash || DUMMY_BCRYPT_HASH);
-    if (user && passwordOk) {
+    const locked = isLocked(user);
+    if (user && passwordOk && !locked) {
+      await clearLoginFailures('admin_users', user.id);
       if (user.mfa_enabled) {
         // Mot de passe correct mais MFA active : pas de session privilégiée tant
         // que le code TOTP n'est pas vérifié — mfaPending ne porte aucun droit.
@@ -890,10 +930,20 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
         req.session.save(err2 => err2 ? res.redirect('/admin/login?error=1') : res.redirect('/admin'));
       });
     }
+    if (user && locked) {
+      logAuditRaw(user.email, 'login_blocked_locked', 'staff', user.id, req.ip);
+      return res.redirect('/admin/login?error=locked');
+    }
+    if (user) await recordLoginFailure('admin_users', user.id);
     logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip);
     return res.redirect('/admin/login?error=1');
   }
 
+  const ownerLocked = await isOwnerLocked();
+  if (ownerLocked) {
+    logAuditRaw('admin', 'login_blocked_locked', 'staff', '', req.ip);
+    return res.redirect('/admin/login?error=locked');
+  }
   const adminPassword = await getSetting('admin_password');
   let valid = false;
   if (adminPassword.startsWith('$2')) {
@@ -907,6 +957,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     }
   }
   if (valid) {
+    await clearOwnerLoginFailures();
     const ownerMfaEnabled = (await getSetting('owner_mfa_enabled')) === 'on';
     if (ownerMfaEnabled) {
       req.session.mfaPending = { kind: 'owner' };
@@ -921,6 +972,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
       req.session.save(err2 => err2 ? res.redirect('/admin/login?error=1') : res.redirect('/admin'));
     });
   } else {
+    await recordOwnerLoginFailure();
     logAuditRaw('admin', 'login_failed', 'staff', '', req.ip);
     res.redirect('/admin/login?error=1');
   }
@@ -4397,11 +4449,13 @@ function isSafeNextPath(next) {
 
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
+  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled, locked_until FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
   const safeNext = isSafeNextPath(req.body.next) ? req.body.next : '';
   const passwordOk = await bcrypt.compare(password || '', buyer?.password_hash || DUMMY_BCRYPT_HASH);
-  if (buyer && passwordOk) {
+  const locked = isLocked(buyer);
+  if (buyer && passwordOk && !locked) {
+    await clearLoginFailures('buyers', buyer.id);
     if (buyer.mfa_enabled) {
       // Mot de passe correct mais MFA active côté acheteur : pas de session
       // privilégiée tant que le code TOTP n'est pas vérifié (même principe
@@ -4422,8 +4476,13 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
     });
     return;
   }
-  logAuditRaw((email||'').toLowerCase().trim(), 'login_failed', 'buyer', '', req.ip);
   const failNext = safeNext ? '&next=' + encodeURIComponent(safeNext) : '';
+  if (buyer && locked) {
+    logAuditRaw(buyer.email, 'login_blocked_locked', 'buyer', buyer.id, req.ip);
+    return res.redirect('/editions-showroom-b2b-portail?error=locked' + failNext);
+  }
+  if (buyer) await recordLoginFailure('buyers', buyer.id);
+  logAuditRaw((email||'').toLowerCase().trim(), 'login_failed', 'buyer', '', req.ip);
   res.redirect('/editions-showroom-b2b-portail?error=1' + failNext);
 });
 
@@ -8591,7 +8650,17 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
     const user = rows[0];
     const valid = await bcrypt.compare(password, user?.password_hash || DUMMY_BCRYPT_HASH);
-    if (!user || !valid) { logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip); return res.status(401).json({ error: 'Invalid credentials' }); }
+    const locked = isLocked(user);
+    if (user && locked) {
+      logAuditRaw(user.email, 'login_blocked_locked', 'staff', user.id, req.ip);
+      return res.status(423).json({ error: 'account_locked', message: 'Compte temporairement verrouillé suite à trop de tentatives. Réessayez dans quelques minutes.' });
+    }
+    if (!user || !valid) {
+      if (user) await recordLoginFailure('admin_users', user.id);
+      logAuditRaw(email.toLowerCase().trim(), 'login_failed', 'staff', '', req.ip);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    await clearLoginFailures('admin_users', user.id);
     if (!user.mfa_enabled) {
       // MFA obligatoire sur tous les comptes admin_users, mais l'app agent (PWA
       // légère, sans page profil) n'a pas d'écran d'enrôlement QR — on renvoie
