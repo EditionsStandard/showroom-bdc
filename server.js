@@ -940,28 +940,47 @@ app.post('/admin/login/mfa', loginLimiter, async (req, res) => {
 
   const step = currentTotpStep();
   if (pending.kind === 'staff') {
-    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes, mfa_last_step FROM admin_users WHERE id=$1', [pending.id]);
+    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM admin_users WHERE id=$1', [pending.id]);
     const row = r.rows[0];
     if (row?.mfa_secret) {
-      if (code && Number(row.mfa_last_step) !== step && authenticator.check(code, row.mfa_secret)) {
-        ok = true;
-        await pool.query('UPDATE admin_users SET mfa_last_step=$1 WHERE id=$2', [step, pending.id]);
+      if (code && authenticator.check(code, row.mfa_secret)) {
+        // Anti-rejeu atomique : un simple SELECT puis UPDATE séparés laisse une
+        // fenêtre où deux requêtes concurrentes avec le MÊME code (intercepté,
+        // rejoué) passeraient toutes les deux authenticator.check() avant qu'aucune
+        // n'ait encore écrit mfa_last_step. L'UPDATE conditionnel ci-dessous est
+        // atomique côté Postgres (verrou de ligne) : une seule requête peut
+        // effectivement réclamer ce pas de temps, l'autre obtient rowCount=0.
+        const claim = await pool.query('UPDATE admin_users SET mfa_last_step=$1 WHERE id=$2 AND mfa_last_step IS DISTINCT FROM $1 RETURNING id', [step, pending.id]);
+        ok = claim.rowCount > 0;
       } else if (backupCode) {
         const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
-        if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
+        // Même principe : l'UPDATE ne s'applique que si mfa_backup_codes n'a pas
+        // changé depuis la lecture — sinon deux requêtes concurrentes pourraient
+        // consommer deux fois le même code de secours.
+        if (updated) {
+          const claim = await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2 AND mfa_backup_codes=$3 RETURNING id', [JSON.stringify(updated), pending.id, row.mfa_backup_codes]);
+          ok = usedBackup = claim.rowCount > 0;
+        }
       }
     }
   } else if (pending.kind === 'owner') {
     const secret = await getSetting('owner_mfa_secret');
     if (secret) {
-      const lastStep = Number((await getSetting('owner_mfa_last_step')) || 0);
-      if (code && lastStep !== step && authenticator.check(code, secret)) {
-        ok = true;
-        await pool.query("INSERT INTO settings (key,value) VALUES ('owner_mfa_last_step',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [String(step)]);
+      if (code && authenticator.check(code, secret)) {
+        const claim = await pool.query(
+          `INSERT INTO settings (key,value) VALUES ('owner_mfa_last_step',$1)
+           ON CONFLICT (key) DO UPDATE SET value=$1 WHERE settings.value IS DISTINCT FROM $1
+           RETURNING key`,
+          [String(step)]
+        );
+        ok = claim.rowCount > 0;
       } else if (backupCode) {
         const backupJson = await getSetting('owner_mfa_backup_codes');
         const updated = consumeBackupCode(backupJson, backupCode);
-        if (updated) { ok = true; usedBackup = true; await pool.query("UPDATE settings SET value=$1 WHERE key='owner_mfa_backup_codes'", [JSON.stringify(updated)]); }
+        if (updated) {
+          const claim = await pool.query("UPDATE settings SET value=$1 WHERE key='owner_mfa_backup_codes' AND value=$2 RETURNING key", [JSON.stringify(updated), backupJson]);
+          ok = usedBackup = claim.rowCount > 0;
+        }
       }
     }
   }
@@ -1648,6 +1667,11 @@ async function sendNewCollectionEmails(req, followerRows, brandName, collectionN
 // followers. On plafonne le nombre de collections notifiées par import — un
 // import légitime n'en introduit jamais plus qu'une poignée à la fois.
 const MAX_NEW_COLLECTION_NOTIFICATIONS_PER_IMPORT = 5;
+// Chaque ligne d'un import CSV/JSON déclenche 1-2 aller-retours DB séquentiels
+// (SELECT + INSERT/UPDATE), sans traitement par lots ni timeout dédié — un
+// fichier de plusieurs dizaines de milliers de lignes peut monopoliser le pool
+// de connexions plusieurs minutes malgré une taille de fichier modeste.
+const MAX_CSV_IMPORT_ROWS = 5000;
 function notifyNewCollections(req, brandId, newlySeenCollections) {
   const collections = [...newlySeenCollections];
   if (collections.length > MAX_NEW_COLLECTION_NOTIFICATIONS_PER_IMPORT) {
@@ -1695,7 +1719,10 @@ app.post('/api/brands/:brandId/sample-product', requireBrandScope('owner','agent
     const { reference, description, color, price, image } = req.body;
     if (!reference || !String(reference).trim()) return res.status(400).json({ error: 'Référence requise' });
     const ref = String(reference).trim().slice(0, 120);
-    const img = (typeof image === 'string' && /^(https?:|data:image\/)/i.test(image.trim())) ? image.trim() : '';
+    // data:image/svg+xml exclu comme partout ailleurs (ALLOWED_IMAGE_MIMES) — un
+    // SVG peut embarquer du <script>/<foreignObject> exécuté si le champ est un
+    // jour affiché autrement qu'en <img src>.
+    const img = (typeof image === 'string' && /^(https?:|data:image\/)/i.test(image.trim()) && !/^data:image\/svg/i.test(image.trim())) ? image.trim() : '';
     // Réutilise une référence existante de la marque (évite les doublons)
     const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [req.params.brandId, ref]);
     if (existing.rows[0]) return res.json({ id: existing.rows[0].id, reference: ref, existing: true });
@@ -1941,6 +1968,12 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
     const text = req.file.buffer.toString('utf-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = text.split('\n').filter(l => l.trim());
     if (lines.length < 2) return res.status(400).json({ error: 'Fichier vide ou sans données' });
+    // Plafond de lignes : chaque ligne déclenche 1-2 aller-retours DB séquentiels
+    // (SELECT + INSERT/UPDATE) dans la même requête HTTP, sans traitement par
+    // lots ni timeout dédié — un fichier de plusieurs dizaines de milliers de
+    // lignes (pourtant sous la limite de taille de 5 Mo si les lignes sont
+    // courtes) peut monopoliser le pool de connexions plusieurs minutes.
+    if (lines.length - 1 > MAX_CSV_IMPORT_ROWS) return res.status(400).json({ error: `Fichier trop volumineux (${lines.length - 1} lignes, maximum ${MAX_CSV_IMPORT_ROWS}). Scindez-le en plusieurs imports.` });
     // Expected header: reference,description,color,sizes,price,price_retail,collection,composition,category
     const header = parseCSVRow(lines[0]).map(h => h.trim().toLowerCase());
     const idx = (col) => header.indexOf(col);
@@ -1988,6 +2021,7 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
   try {
     const { rows } = req.body;
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
+    if (rows.length > MAX_CSV_IMPORT_ROWS) return res.status(400).json({ error: `Trop de lignes (${rows.length}, maximum ${MAX_CSV_IMPORT_ROWS}). Scindez l'import.` });
     let created = 0, updated = 0;
     const errors = [];
     const existingCollections = new Set((await pool.query(
@@ -2052,6 +2086,7 @@ app.post('/api/brands/:brandId/smart-merge/preview', requireBrandScope('owner', 
   try {
     const { rows } = req.body;
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
+    if (rows.length > MAX_CSV_IMPORT_ROWS) return res.status(400).json({ error: `Trop de lignes (${rows.length}, maximum ${MAX_CSV_IMPORT_ROWS}). Scindez l'import.` });
     const prods = await pool.query(
       'SELECT id, reference, description, color, price, price_retail, sizes, composition, category FROM products WHERE brand_id=$1',
       [req.params.brandId]
@@ -2189,8 +2224,21 @@ app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, r
 // embarquer du <script>/<foreignObject> exécuté si le fichier est ouvert
 // directement dans un onglet (le champ mimetype matcherait `startsWith('image/')`).
 const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+// req.file.mimetype vient du Content-Type déclaré par le CLIENT sur la partie
+// multipart — falsifiable (ex. `curl -F "image=@payload.html;type=image/jpeg"`),
+// contrairement à /api/upload-pdf qui vérifie déjà la signature binaire réelle
+// (%PDF). Même contrôle ici sur les octets magiques des 4 formats autorisés,
+// pour ne jamais faire confiance qu'à une étiquette déclarative.
+function looksLikeImage(buf) {
+  if (!buf || buf.length < 12) return false;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true; // PNG
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true; // JPEG
+  if (buf.slice(0,4).toString('latin1') === 'GIF8') return true; // GIF
+  if (buf.slice(0,4).toString('latin1') === 'RIFF' && buf.slice(8,12).toString('latin1') === 'WEBP') return true; // WebP
+  return false;
+}
 app.post('/api/upload-image', requireRole('owner','agent','designer'), uploadLimiter, upload.single('image'), async (req, res) => {
-  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
+  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !looksLikeImage(req.file.buffer)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const slug = `img-${Date.now()}`;
@@ -2559,7 +2607,12 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
   res.json({ ok: true, total: prods.rows.length, updated });
 });
 
-app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, upload.array('photos', 200), async (req, res) => {
+// 80 fichiers/appel (pas 200) : uploadLimiter plafonne le nombre d'APPELS/heure,
+// pas le volume de fichiers — un import en lot reste un seul appel HTTP, donc
+// jamais bloqué par cette limite pensée pour la fréquence. Réduire le plafond
+// par appel borne le pire cas (compte compromis) sans gêner un import légitime
+// (une séance photo complète dépasse rarement 80 références à la fois).
+app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, upload.array('photos', 80), async (req, res) => {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
@@ -2611,7 +2664,7 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
       try { existing = JSON.parse(product.images || '[]'); } catch(e) {}
       pending.set(product.id, { images: existing.slice(), ranks: existing.map(() => -1) });
     }
-    if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype)) {
+    if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype) || !looksLikeImage(file.buffer)) {
       results.push({ file: file.originalname, status: 'rejected', reason: 'type de fichier non autorisé' });
       continue;
     }
@@ -3312,23 +3365,43 @@ app.patch('/api/orders/bulk-status', requireRole('owner','agent'), async (req, r
     const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
     const scoped = isBrandScoped(req);
     let updated = 0;
+    // Même verrou que PUT /api/orders/:id/status, par commande — sans lui, deux
+    // changements de statut concurrents sur la même commande (ex. une action
+    // groupée qui recouvre un changement individuel simultané) lisent le même
+    // oldStatus avant qu'aucun n'écrive : une annulation peut alors recréditer
+    // le stock DEUX fois pour une seule commande (stock fantôme), ou une sortie
+    // de brouillon le décrémenter deux fois (sur-engagement).
     for (const orderId of ids) {
-      const prev = await pool.query('SELECT status, brand_id FROM orders WHERE id=$1', [orderId]);
-      if (!prev.rows[0]) continue;
-      if (scoped && prev.rows[0].brand_id !== req.userBrandId) continue; // n'agit que sur sa marque
-      const oldStatus = prev.rows[0].status || '';
-      if (oldStatus === 'archived') continue; // statut terminal, cf. PUT /api/orders/:id/status
-      // Même logique de cohérence stock que PUT /api/orders/:id/status : une
-      // annulation groupée doit recréditer le stock suivi, et confirmer un
-      // brouillon (issu de /reorder) doit le décrémenter.
+      const dbClient = await pool.connect();
+      let oldStatus, brandId, skip = false;
+      try {
+        await dbClient.query('BEGIN');
+        const prev = await dbClient.query('SELECT status, brand_id FROM orders WHERE id=$1 FOR UPDATE', [orderId]);
+        if (!prev.rows[0]) { await dbClient.query('ROLLBACK'); continue; }
+        brandId = prev.rows[0].brand_id;
+        if (scoped && brandId !== req.userBrandId) { await dbClient.query('ROLLBACK'); continue; } // n'agit que sur sa marque
+        oldStatus = prev.rows[0].status || '';
+        if (oldStatus === 'archived') { await dbClient.query('ROLLBACK'); continue; } // statut terminal
+        // Même logique de cohérence stock que PUT /api/orders/:id/status : une
+        // annulation groupée doit recréditer le stock suivi, et confirmer un
+        // brouillon (issu de /reorder) doit le décrémenter.
+        if (oldStatus === 'draft' && status !== 'draft') {
+          const stockResult = await decrementOrderStockOnActivation(orderId);
+          if (stockResult.error) { await dbClient.query('ROLLBACK'); continue; } // stock insuffisant : ignorée, pas les autres
+        }
+        await dbClient.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
+        await dbClient.query('COMMIT');
+      } catch(e) {
+        await dbClient.query('ROLLBACK');
+        console.error('bulk-status transaction error:', e.message);
+        skip = true;
+      } finally {
+        dbClient.release();
+      }
+      if (skip || oldStatus === undefined) continue;
       if (status === 'cancelled' && oldStatus !== 'cancelled') {
         restoreOrderStock(orderId).catch(e => console.error('restoreOrderStock (bulk):', e.message));
       }
-      if (oldStatus === 'draft' && status !== 'draft') {
-        const stockResult = await decrementOrderStockOnActivation(orderId);
-        if (stockResult.error) continue; // stock insuffisant : cette commande est ignorée, pas les autres
-      }
-      await pool.query('UPDATE orders SET status=$1 WHERE id=$2', [status, orderId]);
       await pool.query(
         'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
         [uuidv4(), orderId, oldStatus, status, changedBy]
@@ -3354,7 +3427,15 @@ app.delete('/api/orders/:id', requireRole('owner','agent'), async (req, res) => 
     if (!await checkOrderBrandScope(req, res)) return;
     // Copie email au propriétaire AVANT suppression (la commande n'existera plus après)
     await notifyOwnerOrder(req.params.id, 'Commande supprimée');
-    await restoreOrderStock(req.params.id);
+    // Ne recréditer le stock que s'il est encore réellement engagé : une commande
+    // 'cancelled' l'a déjà été recrédité par PUT/PATCH .../status, et une commande
+    // 'draft' (issue de /reorder) n'a jamais décrémenté le stock à la création —
+    // le recréditer quand même dans ces deux cas gonfle stock_qty artificiellement
+    // (stock fantôme) sans qu'aucune vente correspondante n'ait jamais eu lieu.
+    const cur = await pool.query('SELECT status FROM orders WHERE id=$1', [req.params.id]);
+    if (cur.rows[0] && !['cancelled', 'draft'].includes(cur.rows[0].status)) {
+      await restoreOrderStock(req.params.id);
+    }
     await pool.query('DELETE FROM order_lines WHERE order_id=$1', [req.params.id]);
     await pool.query('DELETE FROM orders WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -3858,9 +3939,38 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   // Clé aléatoire dédiée (jamais l'UUID de la commande) exigée pour accéder au
   // PDF public — voir /api/public/orders/:id/pdf.
   const pdfToken = crypto.randomBytes(24).toString('base64url');
+  const dedupKey = `order-dedup:${brand_id}:${buyer_id || (client_email || '').toLowerCase().trim()}`;
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
+    // Anti-double-soumission : un double-clic sur "Commander" ou une requête
+    // rejouée après un timeout apparent côté client (ni /api/public/orders ni
+    // /api/portal/checkout ne portent de clé d'idempotence) ne doit pas créer
+    // deux commandes distinctes — double décrément de stock, double email/
+    // notification. Le verrou consultatif transactionnel sérialise les
+    // créations pour ce couple (marque, acheteur) : sans lui, deux requêtes
+    // vraiment simultanées passeraient toutes les deux la vérification de
+    // doublon ci-dessous avant qu'aucune n'ait committé la sienne. Fenêtre
+    // courte (20s) et signature stricte (mêmes lignes/quantités/tailles) pour
+    // ne jamais fusionner deux commandes réellement différentes passées coup
+    // sur coup par le même acheteur.
+    await dbClient.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [dedupKey]);
+    const linesSignature = resolvedLines.map(l => `${l.product_id}:${l.quantity}:${l.size || ''}`).sort().join('|');
+    const dupCandidates = await dbClient.query(
+      `SELECT id, pdf_token, order_number FROM orders
+       WHERE brand_id=$1 AND created_at > NOW() - INTERVAL '20 seconds'
+         AND (($2::text IS NOT NULL AND buyer_id=$2) OR ($2::text IS NULL AND buyer_id IS NULL AND lower(client_email)=$3))
+       ORDER BY created_at DESC LIMIT 5`,
+      [brand_id, buyer_id || null, (client_email || '').toLowerCase().trim()]
+    );
+    for (const cand of dupCandidates.rows) {
+      const candLines = (await dbClient.query('SELECT product_id, quantity, size FROM order_lines WHERE order_id=$1', [cand.id])).rows;
+      const candSignature = candLines.map(l => `${l.product_id}:${l.quantity}:${l.size || ''}`).sort().join('|');
+      if (candSignature === linesSignature) {
+        await dbClient.query('COMMIT');
+        return { order_id: cand.id, pdf_token: cand.pdf_token, order_number: cand.order_number };
+      }
+    }
     const seqRes = await dbClient.query("SELECT LPAD(nextval('order_number_seq')::TEXT, 4, '0') AS num");
     const orderNumber = 'ES-' + seqRes.rows[0].num;
     await dbClient.query(
@@ -4322,16 +4432,22 @@ app.post('/editions-showroom-b2b-portail/mfa', loginLimiter, async (req, res) =>
   const backupCode = (req.body.backup_code || '').toString().trim();
   let ok = false, usedBackup = false;
 
-  const r = await pool.query('SELECT mfa_secret, mfa_backup_codes, mfa_last_step FROM buyers WHERE id=$1', [pending.id]);
+  const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM buyers WHERE id=$1', [pending.id]);
   const row = r.rows[0];
   if (row?.mfa_secret) {
     const step = currentTotpStep();
-    if (code && Number(row.mfa_last_step) !== step && authenticator.check(code, row.mfa_secret)) {
-      ok = true;
-      await pool.query('UPDATE buyers SET mfa_last_step=$1 WHERE id=$2', [step, pending.id]);
+    if (code && authenticator.check(code, row.mfa_secret)) {
+      // Anti-rejeu atomique — cf. commentaire équivalent sur /admin/login/mfa :
+      // l'UPDATE conditionnel garantit qu'une seule requête concurrente avec le
+      // même code peut réclamer ce pas de temps.
+      const claim = await pool.query('UPDATE buyers SET mfa_last_step=$1 WHERE id=$2 AND mfa_last_step IS DISTINCT FROM $1 RETURNING id', [step, pending.id]);
+      ok = claim.rowCount > 0;
     } else if (backupCode) {
       const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
-      if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE buyers SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
+      if (updated) {
+        const claim = await pool.query('UPDATE buyers SET mfa_backup_codes=$1 WHERE id=$2 AND mfa_backup_codes=$3 RETURNING id', [JSON.stringify(updated), pending.id, row.mfa_backup_codes]);
+        ok = usedBackup = claim.rowCount > 0;
+      }
     }
   }
 
@@ -5620,6 +5736,12 @@ app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), a
 
 const ALLOWED_MSG_ATTACH_MIMES = [...ALLOWED_IMAGE_MIMES, 'application/pdf'];
 const MSG_COLS = 'id, sender, body, attachment_url, attachment_name, attachment_type, created_at';
+// Même vérification par octets magiques que looksLikeImage()/upload-pdf — le
+// mimetype déclaré par le client ne suffit pas.
+function looksLikeMsgAttachment(mimetype, buf) {
+  if (mimetype === 'application/pdf') return !!buf && buf.length >= 4 && buf.slice(0,4).toString('latin1') === '%PDF';
+  return looksLikeImage(buf);
+}
 
 function attachmentEmailNote(name) {
   return name ? `<p style="font-size:12px;color:#888">📎 Pièce jointe : ${escHtml(name)}</p>` : '';
@@ -5627,7 +5749,7 @@ function attachmentEmailNote(name) {
 
 // Portail : upload d'une pièce jointe (image ou PDF) avant envoi du message
 app.post('/api/portal/messages/attachment', requireBuyerAuth, uploadLimiter, upload.single('file'), async (req, res) => {
-  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
+  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype) || !looksLikeMsgAttachment(req.file.mimetype, req.file.buffer)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(base64, {
@@ -5644,7 +5766,7 @@ app.post('/api/portal/messages/attachment', requireBuyerAuth, uploadLimiter, upl
 // Admin : même upload, côté agence
 app.post('/api/admin/buyers/:id/messages/attachment', requireRole('owner', 'agent'), uploadLimiter, upload.single('file'), async (req, res) => {
   if (!(await checkBuyerBrandScope(req, res))) return;
-  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
+  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype) || !looksLikeMsgAttachment(req.file.mimetype, req.file.buffer)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(base64, {
@@ -8477,17 +8599,21 @@ app.post('/api/agent/login/mfa', loginLimiter, async (req, res) => {
   const code = (req.body.code || '').toString().trim();
   const backupCode = (req.body.backup_code || '').toString().trim();
   try {
-    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes, mfa_last_step FROM admin_users WHERE id=$1', [pending.id]);
+    const r = await pool.query('SELECT mfa_secret, mfa_backup_codes FROM admin_users WHERE id=$1', [pending.id]);
     const row = r.rows[0];
     let ok = false, usedBackup = false;
     if (row?.mfa_secret) {
       const step = currentTotpStep();
-      if (code && Number(row.mfa_last_step) !== step && authenticator.check(code, row.mfa_secret)) {
-        ok = true;
-        await pool.query('UPDATE admin_users SET mfa_last_step=$1 WHERE id=$2', [step, pending.id]);
+      // Anti-rejeu atomique — cf. commentaire équivalent sur /admin/login/mfa.
+      if (code && authenticator.check(code, row.mfa_secret)) {
+        const claim = await pool.query('UPDATE admin_users SET mfa_last_step=$1 WHERE id=$2 AND mfa_last_step IS DISTINCT FROM $1 RETURNING id', [step, pending.id]);
+        ok = claim.rowCount > 0;
       } else if (backupCode) {
         const updated = consumeBackupCode(row.mfa_backup_codes, backupCode);
-        if (updated) { ok = true; usedBackup = true; await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2', [JSON.stringify(updated), pending.id]); }
+        if (updated) {
+          const claim = await pool.query('UPDATE admin_users SET mfa_backup_codes=$1 WHERE id=$2 AND mfa_backup_codes=$3 RETURNING id', [JSON.stringify(updated), pending.id, row.mfa_backup_codes]);
+          ok = usedBackup = claim.rowCount > 0;
+        }
       }
     }
     if (!ok) {
