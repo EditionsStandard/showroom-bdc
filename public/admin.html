@@ -1480,6 +1480,22 @@
       <div id="brand-video-preview" style="margin-top:4px"></div>
     </div>
 
+    <!-- Fond page d'invitation -->
+    <div class="form-group">
+      <label>Fond de la page d'invitation <span style="color:#555;font-weight:400;font-size:11px">(affiché derrière le formulaire de création de compte /rejoindre/... propre à cette marque — sinon le fond général des Réglages s'applique)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          🖼️ Choisir image
+          <input type="file" id="brand-invite-bg-file" accept="image/*" style="display:none" onchange="handleBrandImg(this,'brand-invite-bg','brand-invite-bg-preview')">
+        </label>
+        <button class="btn btn-danger btn-sm" id="brand-invite-bg-clear" onclick="clearBrandImg('brand-invite-bg','brand-invite-bg-preview','brand-invite-bg-clear')" style="display:none">✕ Supprimer</button>
+      </div>
+      <div id="brand-invite-bg-preview" style="display:none;margin-top:6px">
+        <img id="brand-invite-bg-thumb" src="" alt="" style="max-height:120px;width:100%;object-fit:cover;border-radius: 0;border:1px solid #333">
+      </div>
+      <input type="hidden" id="brand-invite-bg">
+    </div>
+
     <!-- Site web & réseaux sociaux -->
     <div class="form-group" style="margin-top:8px">
       <label>Site web <span style="color:#555;font-weight:400;font-size:11px">(affiché sur la fiche marque du portail)</span></label>
@@ -4415,7 +4431,7 @@ async function loadBrands() {
     const coverHtml = b.cover_image
       ? `<img src="${b.cover_image}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius: 0 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
-    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||''}).replace(/'/g,"&#39;");
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||'',invite_bg_url:b.invite_bg_url||''}).replace(/'/g,"&#39;");
     const subBadge = {
       active: `<span class="badge" style="background:#1f3d1f;color:#2ecc71">${t('status_active_label')}</span>`,
       trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
@@ -4529,7 +4545,8 @@ function resetBrandModal() {
   document.getElementById('brand-early-access').value = '';
   currentBrandVideoUrl = '';
   renderBrandVideoPreview();
-  ['brand-logo', 'brand-cover', 'brand-thumbnail'].forEach(id => {
+  document.getElementById('brand-invite-bg').value = '';
+  ['brand-logo', 'brand-cover', 'brand-thumbnail', 'brand-invite-bg'].forEach(id => {
     const thumb = document.getElementById(id + '-thumb');
     if (thumb) thumb.src = '';
     const preview = document.getElementById(id + '-preview');
@@ -4542,6 +4559,7 @@ function resetBrandModal() {
   document.getElementById('brand-thumbnail-file').value = '';
   document.getElementById('brand-lookbook-file').value = '';
   document.getElementById('brand-video-file').value = '';
+  document.getElementById('brand-invite-bg-file').value = '';
 }
 
 function openBrandModal() {
@@ -4575,6 +4593,13 @@ function editBrand(b) {
     document.getElementById('brand-cover-thumb').src = b.cover_image;
     document.getElementById('brand-cover-preview').style.display = 'block';
     document.getElementById('brand-cover-clear').style.display = '';
+  }
+  // fond page d'invitation
+  if (b.invite_bg_url) {
+    document.getElementById('brand-invite-bg').value = b.invite_bg_url;
+    document.getElementById('brand-invite-bg-thumb').src = b.invite_bg_url;
+    document.getElementById('brand-invite-bg-preview').style.display = 'block';
+    document.getElementById('brand-invite-bg-clear').style.display = '';
   }
   document.getElementById('brand-cgv').value = b.cgv_text || '';
   document.getElementById('brand-about').value = b.about_text || '';
@@ -4632,7 +4657,8 @@ async function saveBrand() {
     facebook: document.getElementById('brand-facebook').value.trim(),
     tiktok: document.getElementById('brand-tiktok').value.trim(),
     linkedin: document.getElementById('brand-linkedin').value.trim(),
-    video_url: currentBrandVideoUrl
+    video_url: currentBrandVideoUrl,
+    invite_bg_url: document.getElementById('brand-invite-bg').value
   };
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/brands/${id}` : '/api/brands';

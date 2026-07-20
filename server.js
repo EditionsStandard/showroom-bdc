@@ -1379,24 +1379,24 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 // PUT/DELETE /api/brands/:id). Un agent est rattaché à UNE marque existante,
 // il n'a jamais besoin d'en créer une autre.
 app.post('/api/brands', requireRole('owner'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, website, instagram, facebook, tiktok, linkedin, video_url } = req.body;
+  const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, website, instagram, facebook, tiktok, linkedin, video_url, invite_bg_url } = req.body;
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
   const id = uuidv4();
   const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(req.body.order_deadline || '') ? req.body.order_deadline : null;
   const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(req.body.early_access_until || '') ? req.body.early_access_until : null;
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)',
-    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil]);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until,invite_bg_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)',
+    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'']);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
-    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until } = req.body;
+    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until, invite_bg_url } = req.body;
     if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
     const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(order_deadline || '') ? order_deadline : null;
     const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(early_access_until || '') ? early_access_until : null;
-    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23 WHERE id=$24',
-      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, req.params.id]);
+    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23, invite_bg_url=$24 WHERE id=$25',
+      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -6927,13 +6927,13 @@ app.post('/api/admin/security/revoke-all-pdf-tokens', requireRole('owner'), asyn
 
 app.get('/api/invite/:token', async (req, res) => {
   const r = await pool.query(`
-    SELECT bil.*, b.name as brand_name, b.logo as brand_logo
+    SELECT bil.*, b.name as brand_name, b.logo as brand_logo, b.invite_bg_url as brand_bg
     FROM brand_invite_links bil
     JOIN brands b ON b.id = bil.brand_id
     WHERE bil.token=$1 AND bil.active != 0
   `, [req.params.token]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Lien invalide ou désactivé.' });
-  res.json({ brand_name: r.rows[0].brand_name, brand_logo: r.rows[0].brand_logo });
+  res.json({ brand_name: r.rows[0].brand_name, brand_logo: r.rows[0].brand_logo, brand_bg: r.rows[0].brand_bg || '' });
 });
 
 // emailLimiter (IP, 5/h) plutôt que buyerAuthLimiter : ce dernier est keyé par

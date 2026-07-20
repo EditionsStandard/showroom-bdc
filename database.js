@@ -383,6 +383,10 @@ async function init() {
     // plutôt que dans une nouvelle table.
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS early_access_until TIMESTAMPTZ DEFAULT NULL",
     "ALTER TABLE buyer_brand_terms ADD COLUMN IF NOT EXISTS is_privileged BOOLEAN DEFAULT false",
+    // Fond personnalisé de la page de création de compte (/rejoindre/:token) —
+    // par marque, pour que chaque démarche d'invitation ait son ambiance propre.
+    // À défaut, la page retombe sur le fond global (settings.login_bg_url).
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS invite_bg_url TEXT DEFAULT ''",
     // Pas de backfill : les commandes déjà existantes sont de toute façon hors de
     // la fenêtre de 24h de l'endpoint public. Les nouvelles commandes reçoivent
     // un pdf_token généré en JS (crypto.randomBytes) à la création.
