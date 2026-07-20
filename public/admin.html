@@ -5038,9 +5038,14 @@ async function showProductQR(brandId, productId) {
 
 function printProductQR() {
   const img = document.getElementById('qr-product-img').src;
-  const ref = document.getElementById('qr-product-ref').textContent;
-  const desc = document.getElementById('qr-product-desc').textContent;
-  const url = document.getElementById('qr-product-url').textContent;
+  // .textContent renvoie la valeur texte brute (référence/description saisies
+  // par n'importe quel rôle, y compris designer) : réinjecter cette chaîne
+  // telle quelle dans document.write() la fait interpréter comme HTML — donc
+  // échapper ici, même si elle a été affichée sans risque via textContent
+  // ailleurs dans la page.
+  const ref = esc(document.getElementById('qr-product-ref').textContent);
+  const desc = esc(document.getElementById('qr-product-desc').textContent);
+  const url = esc(document.getElementById('qr-product-url').textContent);
   const w = window.open('', '_blank');
   w.document.write(`<html><body style="text-align:center;font-family:'Plex Mono','Space Mono',monospace;padding:30px">
     <h2 style="margin:0">${ref}</h2>
@@ -5057,12 +5062,16 @@ async function printAllProductQR() {
   w.document.close();
   const data = await fetch(`/api/brands/${currentBrandId}/qrcodes-all`).then(r => r.json());
   const fmt = n => n > 0 ? Number(n).toFixed(2) + ' €' : '';
+  // Champs produit (réf/description/couleur) modifiables par le rôle le moins
+  // privilégié (designer, cantonné à sa marque) mais consommés ici par
+  // owner/agent via document.write() — échapper est impératif, sinon un
+  // designer peut faire exécuter du JS dans une session admin plus privilégiée.
   const cardsHtml = data.items.map(item => `
     <div class="card">
-      <img src="${item.qr}" alt="QR code ${item.reference}">
-      ${item.collection ? `<div class="collection">${item.collection}</div>` : ''}
-      <div class="ref">${item.reference}</div>
-      ${item.color ? `<div class="meta">${item.color}</div>` : ''}
+      <img src="${item.qr}" alt="QR code ${esc(item.reference)}">
+      ${item.collection ? `<div class="collection">${esc(item.collection)}</div>` : ''}
+      <div class="ref">${esc(item.reference)}</div>
+      ${item.color ? `<div class="meta">${esc(item.color)}</div>` : ''}
       ${fmt(item.price) ? `<div class="price">WS ${fmt(item.price)}</div>` : ''}
       ${fmt(item.price_retail) ? `<div class="price retail">RRP ${fmt(item.price_retail)}</div>` : ''}
     </div>`).join('');
@@ -5081,7 +5090,7 @@ async function printAllProductQR() {
     @media print{body{padding:10px}.card{border-color:#ccc}.no-print{display:none}}
   </style></head><body>
   <div class="no-print" style="margin-bottom:16px">
-    <h2>${data.brand} — ${data.items.length} référence(s)</h2>
+    <h2>${esc(data.brand)} — ${data.items.length} référence(s)</h2>
     <button onclick="window.print()" style="padding:8px 16px;cursor:pointer">🖨️ Imprimer</button>
   </div>
   <div class="grid">${cardsHtml}</div>

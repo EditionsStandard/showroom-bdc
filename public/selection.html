@@ -332,7 +332,7 @@ async function load() {
   DATA = d;
   render();
 }
-function showErr(m) { document.getElementById('wrap').innerHTML = `<div class="msg err">${m}</div>`; }
+function showErr(m) { document.getElementById('wrap').innerHTML = `<div class="msg err">${esc(m)}</div>`; }
 
 let cart = {};        // clé "product_id|taille" -> quantité (source de vérité, choisie par le client)
 let cartInit = false;
