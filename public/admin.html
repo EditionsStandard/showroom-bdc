@@ -6865,7 +6865,7 @@ async function viewOrder(id) {
     (o.client_phone ? ` · ${esc(o.client_phone)}` : '') +
     (o.client_country ? `<br>${esc(o.client_country)}` : '');
 
-  const canEditLines = currentUserRole !== 'designer';
+  const canEditLines = currentUserRole !== 'designer' && !['cancelled','archived'].includes(o.status);
   document.getElementById('mo-lines').innerHTML = lines.map(l => {
     const qty = Number(l.quantity) || 0;
     const price = parseFloat(l.unit_price || 0);
