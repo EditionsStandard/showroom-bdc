@@ -8911,6 +8911,9 @@ init().then(() => {
         DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
       `);
       await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
+      // Rétention du journal d'audit : 12 mois — suffisant pour investiguer un
+      // incident détecté tardivement, sans accumuler indéfiniment des emails/IPs.
+      await pool.query("DELETE FROM admin_audit_log WHERE created_at < NOW() - INTERVAL '12 months'");
     } catch(e) { log.error('[cleanup]', { err: e.message }); }
   }, 6 * 60 * 60 * 1000);
 
