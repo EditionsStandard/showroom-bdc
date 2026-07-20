@@ -6528,6 +6528,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
           ['Email', email],
           ['Password', password],
         ])}
+        <p style="font-size:13px;color:#888">You can change this password at any time from your account, under <strong>My profile</strong>.</p>
         ${emailBtn(portalUrl, 'Access showroom →')}
         <p style="font-size:13px;color:#888;margin-top:28px">Feel free to contact us if you have any questions.</p>
         <p>Best regards,<br><strong>${showroomName}</strong></p>
@@ -6538,6 +6539,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
           ['Email', email],
           ['Mot de passe', password],
         ])}
+        <p style="font-size:13px;color:#888">Vous pouvez modifier ce mot de passe à tout moment depuis votre espace, rubrique <strong>Mon profil</strong>.</p>
         ${emailBtn(portalUrl, 'Accéder au showroom →')}
         <p style="font-size:13px;color:#888;margin-top:28px">En cas de question, n'hésitez pas à nous contacter.</p>
         <p>Cordialement,<br><strong>${showroomName}</strong></p>
