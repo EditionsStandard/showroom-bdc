@@ -1612,6 +1612,21 @@ async function sendNewCollectionEmails(req, followerRows, brandName, collectionN
     if (error) console.error('[resend] new-collection:', error.message || error);
   }
 }
+// Un import CSV peut introduire un grand nombre de collection_name distinctes
+// en un seul appel (fichier mal formé, ou volontairement pour spammer les
+// abonnés d'une marque) ; chacune déclenche un envoi d'email à tous les
+// followers. On plafonne le nombre de collections notifiées par import — un
+// import légitime n'en introduit jamais plus qu'une poignée à la fois.
+const MAX_NEW_COLLECTION_NOTIFICATIONS_PER_IMPORT = 5;
+function notifyNewCollections(req, brandId, newlySeenCollections) {
+  const collections = [...newlySeenCollections];
+  if (collections.length > MAX_NEW_COLLECTION_NOTIFICATIONS_PER_IMPORT) {
+    console.error(`[notify] ${collections.length} nouvelles collections en un import pour la marque ${brandId} — notification limitée aux ${MAX_NEW_COLLECTION_NOTIFICATIONS_PER_IMPORT} premières`);
+  }
+  for (const coll of collections.slice(0, MAX_NEW_COLLECTION_NOTIFICATIONS_PER_IMPORT)) {
+    notifyBrandFollowers(req, brandId, coll).catch(e => console.error('[notify]', e.message));
+  }
+}
 
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
   const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
@@ -1885,7 +1900,7 @@ function parsePrice(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','agent'), uploadCsv.single('file'), async (req, res) => {
+app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','agent'), uploadLimiter, uploadCsv.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Fichier CSV requis' });
     const brandId = req.params.brandId;
@@ -1929,13 +1944,13 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
       }
       imported++;
     }
-    for (const coll of newlySeenCollections) notifyBrandFollowers(req, brandId, coll).catch(e => console.error('[notify]', e.message));
+    notifyNewCollections(req, brandId, newlySeenCollections);
     res.json({ imported, skipped });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // ── Import CSV produits (JSON rows) ─────────────────────────────────
-app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 'designer'), async (req, res) => {
+app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 'designer'), uploadLimiter, async (req, res) => {
   try {
     const { rows } = req.body;
     if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Aucune ligne' });
@@ -1984,7 +1999,7 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
         }
       } catch(e) { errors.push(`${ref}: ${e.message}`); }
     }
-    for (const coll of newlySeenCollections) notifyBrandFollowers(req, req.params.brandId, coll).catch(e => console.error('[notify]', e.message));
+    notifyNewCollections(req, req.params.brandId, newlySeenCollections);
     res.json({ created, updated, errors });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4711,8 +4726,16 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
       const priv = await pool.query('SELECT is_privileged FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.session.buyerPortal.id, req.params.brandId]);
       brand.early_access_locked = !(priv.rows[0] && priv.rows[0].is_privileged);
     }
-    const products = p.rows.map(prod => ({ ...prod, image_url: cloudinaryOpt(prod.image_url), best_seller: bestSellerIds.has(prod.id) }));
-    res.json({ brand, products, reorder_suggestions: reorderSuggestions, last_order_date: lastOrder ? lastOrder.created_at : null });
+    // Accès anticipé verrouillé : le client se contente d'afficher une vignette
+    // "verrouillée" (référence + description) sans jamais lire photos/prix/stock
+    // — mais un acheteur non privilégié qui inspecte directement cette réponse
+    // ne doit pas non plus pouvoir les récupérer. Les données commercialement
+    // sensibles de la collection réservée sont donc retirées côté serveur, pas
+    // seulement masquées côté client.
+    const products = p.rows.map(prod => brand.early_access_locked
+      ? { id: prod.id, reference: prod.reference, description: prod.description, collection_name: prod.collection_name, category: prod.category, season_id: prod.season_id, active: prod.active, created_at: prod.created_at, best_seller: false }
+      : { ...prod, image_url: cloudinaryOpt(prod.image_url), best_seller: bestSellerIds.has(prod.id) });
+    res.json({ brand, products, reorder_suggestions: brand.early_access_locked ? [] : reorderSuggestions, last_order_date: lastOrder ? lastOrder.created_at : null });
   } catch(e) { console.error('portal products:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
