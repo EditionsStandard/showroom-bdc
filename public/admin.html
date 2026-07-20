@@ -1200,7 +1200,7 @@
         <div class="form-group"><label data-t="lbl_password">Mot de passe</label><input id="staff-password" type="password"></div>
         <div class="form-group"><label data-t="lbl_role">Rôle</label>
           <select id="staff-role" onchange="toggleStaffBrandField()">
-            <option value="agent" data-t="role_agent">Agent showroom — toutes les marques</option>
+            <option value="agent" data-t="role_agent">Agent showroom</option>
             <option value="designer" data-t="role_designer">Designer — une marque assignée</option>
             <option value="owner" id="role-owner-option" style="display:none" data-t="role_owner">Fondateur — accès complet</option>
           </select>
@@ -1209,6 +1209,7 @@
       <div class="form-group" id="staff-brand-field" style="display:none">
         <label data-t="lbl_assigned_brand">Marque assignée</label>
         <select id="staff-brand-id"></select>
+        <div id="staff-brand-hint" style="font-size:11px;color:#666;margin-top:4px"></div>
       </div>
       <button class="btn btn-primary" onclick="createStaff()" data-t="btn_create_account">Créer le compte</button>
     </div>
@@ -2095,13 +2096,16 @@
     <div class="form-group"><label data-t="lbl_email">Email</label><input type="email" id="edit-staff-email"></div>
     <div class="form-group"><label data-t="lbl_new_password">Nouveau mot de passe <span style="color:#666;font-weight:400" data-t="pw_leave_blank">(laisser vide = inchangé)</span></label><input type="password" id="edit-staff-password" placeholder="••••••••"></div>
     <div class="form-group"><label data-t="lbl_role">Rôle</label>
-      <select id="edit-staff-role" onchange="document.getElementById('edit-staff-brand-field').style.display=this.value==='designer'?'block':'none'">
+      <select id="edit-staff-role" onchange="toggleEditStaffBrandField()">
         <option value="agent" data-t="role_agent_short">Agent showroom</option>
         <option value="designer">Designer</option>
         <option value="owner" id="edit-role-owner-option" style="display:none" data-t="role_owner">Fondateur — accès complet</option>
       </select>
     </div>
-    <div class="form-group" id="edit-staff-brand-field" style="display:none"><label data-t="th_brand">Marque</label><select id="edit-staff-brand-id"></select></div>
+    <div class="form-group" id="edit-staff-brand-field" style="display:none">
+      <label data-t="th_brand">Marque</label><select id="edit-staff-brand-id"></select>
+      <div id="edit-staff-brand-hint" style="font-size:11px;color:#666;margin-top:4px"></div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-staff')" data-t="btn_cancel">Annuler</button>
       <button class="btn" onclick="saveEditStaff()" data-t="btn_save">Enregistrer</button>
@@ -2359,10 +2363,12 @@ const TRANSLATIONS = {
     lbl_category_hint: 'Catégorie', lbl_composition: 'Composition',
     lbl_sizes: 'Tailles disponibles (séparées par virgule)',
     lbl_product_photos: 'Photos du produit',
-    opt_none: '— Aucune —',
-    role_agent: 'Agent showroom — toutes les marques', role_designer: 'Designer — une marque assignée',
+    opt_none: '— Aucune —', opt_all_brands: '— Toutes les marques —',
+    role_agent: 'Agent showroom', role_designer: 'Designer — une marque assignée',
     role_owner: 'Fondateur — accès complet',
     role_agent_short: 'Agent showroom',
+    hint_agent_brand: "Optionnel — laissez sur « Toutes les marques » pour un agent multi-marques, ou assignez une marque pour cantonner son accès à celle-ci uniquement.",
+    hint_designer_brand: 'Obligatoire pour un designer.',
     // Settings
     settings_lang: "Langue de l'interface", settings_lang_note: "S'applique à cet appareil/navigateur — chaque personne ayant accès à l'admin choisit la sienne indépendamment.",
     settings_showroom: 'Showroom', settings_smtp: 'Configuration SMTP (envoi emails)', settings_email: 'Envoi des emails',
@@ -2544,10 +2550,12 @@ const TRANSLATIONS = {
     lbl_category_hint: 'Category', lbl_composition: 'Composition',
     lbl_sizes: 'Available sizes (comma-separated)',
     lbl_product_photos: 'Product photos',
-    opt_none: '— None —',
-    role_agent: 'Showroom agent — all brands', role_designer: 'Designer — one assigned brand',
+    opt_none: '— None —', opt_all_brands: '— All brands —',
+    role_agent: 'Showroom agent', role_designer: 'Designer — one assigned brand',
     role_owner: 'Founder — full access',
     role_agent_short: 'Showroom agent',
+    hint_agent_brand: 'Optional — leave on "All brands" for a multi-brand agent, or assign a brand to restrict their access to that brand only.',
+    hint_designer_brand: 'Required for a designer.',
     // Settings
     settings_lang: 'Interface language', settings_lang_note: 'Applies to this device/browser — each person with admin access chooses their own independently.',
     settings_showroom: 'Showroom', settings_smtp: 'SMTP configuration (email sending)', settings_email: 'Email sending',
@@ -2895,7 +2903,11 @@ function releaseMfaMandatory() {
 initUserRole();
 
 function toggleStaffBrandField() {
-  document.getElementById('staff-brand-field').style.display = document.getElementById('staff-role').value === 'designer' ? 'block' : 'none';
+  const role = document.getElementById('staff-role').value;
+  document.getElementById('staff-brand-field').style.display = (role === 'designer' || role === 'agent') ? 'block' : 'none';
+  document.getElementById('staff-brand-hint').textContent = role === 'agent'
+    ? t('hint_agent_brand')
+    : (role === 'designer' ? t('hint_designer_brand') : '');
 }
 
 let _staffPresenceTimer = null;
@@ -2911,7 +2923,7 @@ async function loadStaff() {
     asArray(fetch('/api/staff/presence'))
   ]);
   const sel = document.getElementById('staff-brand-id');
-  sel.innerHTML = brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+  sel.innerHTML = `<option value="">${t('opt_all_brands')}</option>` + brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
 
   const onlineSet = new Set(onlineIds);
   const roleLabel = { owner: t('role_owner'), agent: t('role_agent_short'), designer: 'Designer' };
@@ -2992,16 +3004,24 @@ async function deleteStaff(id, label) {
   toast(t('js_account_deleted'));
 }
 
+function toggleEditStaffBrandField() {
+  const role = document.getElementById('edit-staff-role').value;
+  document.getElementById('edit-staff-brand-field').style.display = (role === 'designer' || role === 'agent') ? 'block' : 'none';
+  document.getElementById('edit-staff-brand-hint').textContent = role === 'agent'
+    ? t('hint_agent_brand')
+    : (role === 'designer' ? t('hint_designer_brand') : '');
+}
+
 async function openEditStaff(s) {
   const brands = await fetch('/api/brands').then(r => r.json());
   const sel = document.getElementById('edit-staff-brand-id');
-  sel.innerHTML = brands.map(b => `<option value="${b.id}" ${b.id === s.brand_id ? 'selected' : ''}>${b.name}</option>`).join('');
+  sel.innerHTML = `<option value="">${t('opt_all_brands')}</option>` + brands.map(b => `<option value="${b.id}" ${b.id === s.brand_id ? 'selected' : ''}>${b.name}</option>`).join('');
   document.getElementById('edit-staff-id').value = s.id;
   document.getElementById('edit-staff-name').value = s.name || '';
   document.getElementById('edit-staff-email').value = s.email || '';
   document.getElementById('edit-staff-password').value = '';
   document.getElementById('edit-staff-role').value = s.role || 'agent';
-  document.getElementById('edit-staff-brand-field').style.display = s.role === 'designer' ? 'block' : 'none';
+  toggleEditStaffBrandField();
   openModal('modal-edit-staff');
 }
 
