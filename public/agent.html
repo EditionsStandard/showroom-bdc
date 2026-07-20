@@ -180,6 +180,8 @@ async function doLogin() {
       const data = await r.json().catch(() => ({}));
       err.textContent = data.error === 'mfa_setup_required'
         ? (data.message || "Double authentification obligatoire : activez-la d'abord sur /admin.")
+        : data.error === 'account_locked'
+        ? (data.message || 'Compte temporairement verrouillé suite à trop de tentatives. Réessayez dans quelques minutes.')
         : 'Email ou mot de passe incorrect.';
       err.style.display = 'block';
       btn.disabled = false; btn.textContent = 'Connexion';
