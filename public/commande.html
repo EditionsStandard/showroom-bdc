@@ -576,7 +576,7 @@
 
 <!-- Bandeau MODE AGENT (visible seulement si agent/owner connecté) -->
 <div id="agent-bar" style="display:none;background:#10243a;color:#cfe3ff;padding:10px 16px;font-size:13px;display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #1d3a5c">
-  <span>👤 <strong>Mode agent</strong> — scanne le QR de chaque produit (ou clique « + Référence »). <strong id="agent-ref-count" style="color:var(--accent)">0 référence</strong> dans la sélection.</span>
+  <span>👤 <strong>Mode agent<span id="agent-bar-name"></span></strong> — scanne le QR de chaque produit (ou clique « + Référence »). <strong id="agent-ref-count" style="color:var(--accent)">0 référence</strong> dans la sélection.</span>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button onclick="togglePresentationMode()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">👁 Présenter</button>
     <button onclick="openAgentSend()" style="background:var(--accent);color:var(--dark);border:none;border-radius:0;padding:8px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">📨 Envoyer à un acheteur</button>
@@ -1416,6 +1416,10 @@ async function detectAgentMode() {
       isAgentMode = true;
       const bar = document.getElementById('agent-bar');
       bar.style.display = 'flex';
+      // Identité affichée sur un appareil de vente potentiellement partagé entre
+      // plusieurs agents — sans ça, impossible de savoir qui est connecté.
+      const who = me.name || me.email || '';
+      document.getElementById('agent-bar-name').textContent = who ? ` — ${who}` : '';
       updateAgentBar();
       // Si un QR a été scanné avant que le mode agent soit confirmé (fetch async),
       // on ajoute maintenant la référence en attente.

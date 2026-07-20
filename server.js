@@ -1114,6 +1114,12 @@ app.post('/api/staff/ping', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Marque assignable à un agent (cantonnement à cette marque — cf. isBrandScoped)
+// ou laissée vide pour un agent multi-marques ; obligatoire pour un designer.
+function staffBrandIdFor(role, brand_id) {
+  return (role === 'designer' || role === 'agent') ? (brand_id || null) : null;
+}
+
 app.post('/api/staff', requireRole('owner'), async (req, res) => {
   const { email, password, role, brand_id, name } = req.body;
   if (!email || !password || !role) return res.status(400).json({ error: 'Email, mot de passe et rôle requis' });
@@ -1125,13 +1131,15 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
 
   const hash = await bcrypt.hash(password, 10);
   const id = uuidv4();
+  const cleanEmail = email.toLowerCase().trim();
   try {
     await pool.query(
       'INSERT INTO admin_users (id, email, password_hash, role, brand_id, name) VALUES ($1,$2,$3,$4,$5,$6)',
-      [id, email.toLowerCase().trim(), hash, role, role === 'designer' ? brand_id : null, name || '']
+      [id, cleanEmail, hash, role, staffBrandIdFor(role, brand_id), name || '']
     );
-    logAudit(req, 'create_staff', 'staff', id, `${email.toLowerCase().trim()} (${role})`);
+    logAudit(req, 'create_staff', 'staff', id, `${cleanEmail} (${role})`);
     res.json({ id });
+    sendStaffWelcomeEmail(req, { email: cleanEmail, name: name || '', role, password }).catch(e => console.error('Staff welcome email error:', e.message));
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     console.error(err); res.status(500).json({ error: "Erreur serveur" });
@@ -1171,9 +1179,9 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, normalizedEmail, role, role === 'designer' ? brand_id : null, hash, req.params.id]);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), hash, req.params.id]);
     } else {
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, normalizedEmail, role, role === 'designer' ? brand_id : null, req.params.id]);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), req.params.id]);
     }
     logAudit(req, 'update_staff', 'staff', req.params.id, `role=${role}`);
     // Editer sa propre fiche (nom/email/mdp) sans changer son propre rôle ne doit
@@ -1202,6 +1210,37 @@ app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Email d'identifiants staff, partagé entre la création de compte (accès tout
+// juste créé par l'owner) et le renvoi/régénération manuelle — même gabarit,
+// copie légèrement adaptée. Repli silencieux si RESEND_API_KEY absente : les
+// deux appelants gèrent eux-mêmes le cas "non envoyé" (réponse HTTP déjà partie
+// pour la création ; mot de passe renvoyé en clair pour le renvoi manuel).
+async function sendStaffWelcomeEmail(req, { email, name, role, password, isNew = true }) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) { console.log('RESEND_API_KEY non configurée — email identifiants staff non envoyé'); return { emailed: false }; }
+  const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+  const resend = newResendClient(resendKey);
+  const loginUrl = `${getBaseUrl(req)}/admin/login`;
+  const roleLabel = { owner: 'Propriétaire', agent: 'Agent', designer: 'Marque / Designer' }[role] || role;
+  const { error } = await resend.emails.send({
+    from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+    to: [email],
+    subject: isNew ? `${showroomName || 'Showroom'} — bienvenue, votre accès a été créé` : `${showroomName || 'Showroom'} — vos identifiants d'accès`,
+    html: emailLayout({ showroomName, content:
+      `<h2 style="font-size:18px;margin:0 0 16px">${isNew ? 'Bienvenue sur votre espace' : "Vos identifiants d'accès"}</h2>
+       <p>Bonjour ${escHtml(name || '')},</p>
+       <p>${isNew ? 'Un accès vient de vous être créé sur' : 'Voici vos identifiants pour accéder à'} votre espace :</p>
+       ${emailInfoBox([['Email', email], ['Mot de passe', password], ['Rôle', roleLabel]])}
+       ${emailBtn(loginUrl, 'SE CONNECTER')}
+       <p style="color:#888;font-size:12px">Conservez cet email en lieu sûr et ne le transférez pas.${isNew ? '' : ' Ce mot de passe remplace le précédent.'}</p>` })
+  });
+  // Le SDK Resend résout avec {data:null,error} au lieu de rejeter sur un échec
+  // API — sans cette vérification, l'appelant croirait l'email envoyé alors que
+  // le destinataire n'a rien reçu (compte créé/mot de passe changé "à l'aveugle").
+  if (error) { console.error('[resend] staff-credentials:', error.message || error); return { emailed: false }; }
+  return { emailed: true };
+}
+
 // Renvoi des identifiants d'un compte staff (marque/agent). Les mots de passe
 // étant hashés (non récupérables), on en génère un NOUVEAU, on le définit, puis
 // on l'envoie par email avec le lien de connexion. Repli : renvoie le mot de
@@ -1214,32 +1253,7 @@ app.post('/api/staff/:id/resend-credentials', requireRole('owner'), async (req, 
     const hash = await bcrypt.hash(newPw, 10);
     await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, u.id]);
     logAudit(req, 'resend_staff_credentials', 'staff', u.id, u.email);
-    let emailed = false;
-    const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
-      const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
-      const resend = newResendClient(resendKey);
-      const loginUrl = `${getBaseUrl(req)}/admin/login`;
-      const roleLabel = { owner: 'Propriétaire', agent: 'Agent', designer: 'Marque / Designer' }[u.role] || u.role;
-      const { error } = await resend.emails.send({
-        from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
-        to: [u.email],
-        subject: `${showroomName || 'Showroom'} — vos identifiants d'accès`,
-        html: emailLayout({ showroomName, content:
-          `<h2 style="font-size:18px;margin:0 0 16px">Vos identifiants d'accès</h2>
-           <p>Bonjour ${escHtml(u.name || '')},</p>
-           <p>Voici vos identifiants pour accéder à votre espace :</p>
-           ${emailInfoBox([['Email', u.email], ['Mot de passe', newPw], ['Rôle', roleLabel]])}
-           ${emailBtn(loginUrl, 'SE CONNECTER')}
-           <p style="color:#888;font-size:12px">Conservez cet email en lieu sûr et ne le transférez pas. Ce mot de passe remplace le précédent.</p>` })
-      });
-      // Le SDK Resend résout avec {data:null,error} au lieu de rejeter sur un échec
-      // API — sans cette vérification, `emailed` restait à true et le mot de passe
-      // (déjà remplacé en base) n'était renvoyé ni par email ni dans la réponse :
-      // le compte se retrouvait verrouillé alors que tout semblait avoir réussi.
-      if (error) console.error('[resend] resend-credentials:', error.message || error);
-      else emailed = true;
-    }
+    const { emailed } = await sendStaffWelcomeEmail(req, { email: u.email, name: u.name, role: u.role, password: newPw, isNew: false });
     res.json({ ok: true, emailed, email: u.email, password: emailed ? undefined : newPw });
   } catch(e) { console.error('resend staff creds:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
