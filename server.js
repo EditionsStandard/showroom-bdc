@@ -705,16 +705,19 @@ function slugify(str) {
     .slice(0, 60);
 }
 
-// Slug lisible pour un lien d'invitation (ex. /rejoindre/zara), dérivé du nom
-// de marque. Suffixe numérique en cas de collision (deux marques au nom proche) ;
-// repli sur un court identifiant aléatoire si le nom ne produit aucun caractère
-// latin/chiffre (ex. nom uniquement en emoji/idéogrammes).
-async function uniqueInviteSlug(brandName) {
+// Slug lisible pour un lien partagé (ex. /rejoindre/zara, /c/zara), dérivé du
+// nom de marque. Suffixe numérique en cas de collision — soit deux marques au
+// nom proche, soit (pour commande_links) plusieurs liens actifs simultanés
+// pour la MÊME marque. Repli sur un court identifiant aléatoire si le nom ne
+// produit aucun caractère latin/chiffre (ex. nom uniquement en emoji/idéogrammes).
+// table ne provient jamais d'une entrée utilisateur (toujours un littéral codé
+// en dur aux points d'appel) — l'interpolation ici est sûre.
+async function uniqueSlugFor(table, brandName) {
   const base = slugify(brandName) || crypto.randomBytes(3).toString('hex');
   let candidate = base;
   let n = 2;
   while (true) {
-    const exists = await pool.query('SELECT 1 FROM brand_invite_links WHERE slug=$1', [candidate]);
+    const exists = await pool.query(`SELECT 1 FROM ${table} WHERE slug=$1`, [candidate]);
     if (!exists.rows.length) return candidate;
     candidate = `${base}-${n++}`;
   }
@@ -1409,7 +1412,7 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
         // (même nom) se compte comme une collision et le slug dérive à chaque
         // régénération (zara → zara-2 → zara-3…) au lieu de rester stable.
         await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [brandId]);
-        const slug = await uniqueInviteSlug(br.name);
+        const slug = await uniqueSlugFor('brand_invite_links', br.name);
         await pool.query('INSERT INTO brand_invite_links (token, brand_id, active, slug) VALUES ($1,$2,1,$3)', [token, brandId, slug]);
         t = { token, slug };
       }
@@ -1595,16 +1598,18 @@ app.delete('/api/brands/:id', requireRole('owner'), async (req, res) => {
 // session staff ou token, plus d'accès direct par simple UUID de marque).
 async function getOrCreateCommandeLink(brandId, createdBy) {
   const existing = await pool.query(
-    "SELECT token FROM commande_links WHERE brand_id=$1 AND active=1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1",
+    "SELECT token, slug FROM commande_links WHERE brand_id=$1 AND active=1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1",
     [brandId]
   );
-  if (existing.rows[0]) return existing.rows[0].token;
+  if (existing.rows[0]) return existing.rows[0].slug || existing.rows[0].token;
   const token = crypto.randomBytes(18).toString('base64url');
+  const brandName = (await pool.query('SELECT name FROM brands WHERE id=$1', [brandId])).rows[0]?.name || '';
+  const slug = await uniqueSlugFor('commande_links', brandName);
   await pool.query(
-    "INSERT INTO commande_links (token, brand_id, expires_at, created_by) VALUES ($1,$2,NOW() + INTERVAL '90 days',$3)",
-    [token, brandId, createdBy || 'qrcode']
+    "INSERT INTO commande_links (token, brand_id, expires_at, created_by, slug) VALUES ($1,$2,NOW() + INTERVAL '90 days',$3,$4)",
+    [token, brandId, createdBy || 'qrcode', slug]
   );
-  return token;
+  return slug;
 }
 
 // QR codes réservés à l'agence (owner/agent) : la distribution/diffusion ne
@@ -3867,10 +3872,13 @@ app.get('/commande/:brandId', requireCommandeAccess, (req, res) => sendPage(res,
 // redirige vers la marque ; sinon page « lien expiré/invalide ».
 app.get('/c/:token', async (req, res) => {
   try {
-    const r = await pool.query('SELECT brand_id, expires_at, active FROM commande_links WHERE token=$1', [req.params.token]);
+    const r = await pool.query('SELECT token, brand_id, expires_at, active FROM commande_links WHERE token=$1 OR slug=$1', [req.params.token]);
     const link = r.rows[0];
     if (link && link.active && new Date(link.expires_at) > new Date()) {
-      req.session.commandeToken = req.params.token;
+      // Toujours le token réel en session (pas le slug éventuellement utilisé
+      // dans l'URL) : hasCommandeAccess() revérifie ensuite via la colonne
+      // token, jamais slug — sinon l'accès serait refusé dès la requête suivante.
+      req.session.commandeToken = link.token;
       const qs = req.query.product ? ('?product=' + encodeURIComponent(req.query.product)) : '';
       return res.redirect(302, '/commande/' + link.brand_id + qs);
     }
@@ -3882,22 +3890,23 @@ app.get('/c/:token', async (req, res) => {
 // Génère un lien de commande expirant pour une marque (owner/agent, borné à la marque).
 app.post('/api/brands/:brandId/commande-link', requireBrandScope('owner','agent'), async (req, res) => {
   try {
-    const b = await pool.query('SELECT id FROM brands WHERE id=$1', [req.params.brandId]);
+    const b = await pool.query('SELECT id, name FROM brands WHERE id=$1', [req.params.brandId]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const days = Math.min(90, Math.max(1, parseInt(req.body.days) || 30));
     const token = crypto.randomBytes(18).toString('base64url');
     const createdBy = req.session?.staffUser?.email || 'owner';
+    const slug = await uniqueSlugFor('commande_links', b.rows[0].name);
     await pool.query(
-      "INSERT INTO commande_links (token, brand_id, expires_at, created_by) VALUES ($1,$2,NOW() + ($3 || ' days')::interval,$4)",
-      [token, req.params.brandId, String(days), createdBy]);
+      "INSERT INTO commande_links (token, brand_id, expires_at, created_by, slug) VALUES ($1,$2,NOW() + ($3 || ' days')::interval,$4,$5)",
+      [token, req.params.brandId, String(days), createdBy, slug]);
     logAudit(req, 'create_commande_link', 'brand', req.params.brandId, days + 'j');
-    res.json({ token, url: `${getBaseUrl(req)}/c/${token}`, days });
+    res.json({ token, slug, url: `${getBaseUrl(req)}/c/${slug}`, days });
   } catch(e) { console.error('create commande-link:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/brands/:brandId/commande-links', requireBrandScope('owner','agent'), async (req, res) => {
   try {
-    const r = await pool.query('SELECT token, expires_at, active, created_by, created_at FROM commande_links WHERE brand_id=$1 ORDER BY created_at DESC', [req.params.brandId]);
+    const r = await pool.query('SELECT token, slug, expires_at, active, created_by, created_at FROM commande_links WHERE brand_id=$1 ORDER BY created_at DESC', [req.params.brandId]);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -6936,7 +6945,7 @@ app.post('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'),
   // DELETE avant de calculer le slug : cf. commentaire équivalent plus haut
   // (auto-création du lien) — évite de faire dériver le slug à chaque régénération.
   await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [req.params.brandId]);
-  const slug = await uniqueInviteSlug(b.rows[0].name);
+  const slug = await uniqueSlugFor('brand_invite_links', b.rows[0].name);
   await pool.query('INSERT INTO brand_invite_links (token, brand_id, active, slug) VALUES ($1,$2,1,$3)', [token, req.params.brandId, slug]);
   res.json({ token, slug });
 });
