@@ -391,6 +391,18 @@
   .order-status.confirmed { background: rgba(204,235,60,.12); color: var(--accent); }
   .order-status.validated { background: #1f3d1f; color: #2ecc71; }
   .order-status.cancelled { background: #2a2a2a; color: var(--muted); }
+  /* Frise de suivi — uniquement pour les 4 statuts de progression normale
+     (confirmed→validated→in_production→shipped) ; draft/cancelled/archived
+     gardent le simple badge ci-dessus, une frise n'aurait pas de sens. */
+  .order-timeline { display: flex; align-items: flex-start; margin-top: 12px; }
+  .ot-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; width: 74px; }
+  .ot-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); border: 2px solid var(--border); box-sizing: content-box; }
+  .ot-step.done .ot-dot { background: var(--accent); border-color: var(--accent); }
+  .ot-step.active .ot-dot { background: var(--dark); border-color: var(--accent); }
+  .ot-label { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); text-align: center; line-height: 1.3; }
+  .ot-step.done .ot-label, .ot-step.active .ot-label { color: var(--soft); }
+  .ot-line { flex: 1; height: 2px; background: var(--border); margin: 5px -6px 0; min-width: 8px; }
+  .ot-line.done { background: var(--accent); }
   .loader { text-align: center; padding: 60px; color: var(--muted); font-size: 14px; }
   .success-check { width:72px; height:72px; border-radius:50%; background:rgba(204,235,60,.1); border:2px dotted var(--accent); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:28px; color:var(--accent); }
   .msg { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 14px; color: var(--soft); line-height: 1.7; padding: 16px; background: var(--dark); border-radius: 0; margin-top: 14px; }
@@ -4131,6 +4143,18 @@ let ordersPage = 0;
 const ORDERS_PER_PAGE = 20;
 let ordersData_sorted = [];
 
+const ORDER_TIMELINE_STEPS = ['confirmed', 'validated', 'in_production', 'shipped'];
+function orderTimelineHtml(status) {
+  if (!ORDER_TIMELINE_STEPS.includes(status)) return '';
+  const labels = STATUS_LABELS();
+  const currentIdx = ORDER_TIMELINE_STEPS.indexOf(status);
+  return `<div class="order-timeline">` + ORDER_TIMELINE_STEPS.map((step, i) => {
+    const state = i < currentIdx ? 'done' : i === currentIdx ? 'active' : '';
+    const lineState = i < currentIdx ? 'done' : '';
+    const line = i > 0 ? `<div class="ot-line ${lineState}"></div>` : '';
+    return `${line}<div class="ot-step ${state}"><div class="ot-dot"></div><div class="ot-label">${esc(labels[step])}</div></div>`;
+  }).join('') + `</div>`;
+}
 function STATUS_LABELS() {
   return {
     draft: t('status_draft'), confirmed: t('status_confirmed'), validated: t('status_validated'),
@@ -4168,6 +4192,7 @@ function renderOrdersList(data) {
       <div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:3px">${new Date(o.created_at).toLocaleDateString(locale,{day:'2-digit',month:'long',year:'numeric'})}</div>
       <div style="font-family:var(--dot),monospace;font-size:19px;color:var(--accent);margin-top:8px">${fmtPrice(o.total||0)}</div>
       <span class="order-status ${o.status}">${statusLabel[o.status]||o.status}</span>
+      ${orderTimelineHtml(o.status)}
       ${o.delivery_window ? `<div style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);margin-top:8px">🚚 ${currentLang==='en'?'Delivery':'Livraison'} : <strong style="color:var(--white)">${esc(o.delivery_window)}</strong></div>` : ''}
       <div id="lines-${o.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px"></div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">
