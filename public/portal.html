@@ -3113,8 +3113,11 @@ function applyProductFilters() {
 }
 
 function closeBrand(_fromPop) {
-  // Le bouton "← retour aux marques" reflète le bouton retour du navigateur
-  if (!_fromPop && currentBrand) { history.back(); return; }
+  // Le bouton "← retour aux marques" reflète aussi le bouton retour du
+  // navigateur, mais ne dépend plus uniquement de history.back() : après une
+  // restauration bfcache (fréquent sur iOS), il peut n'y avoir aucune entrée
+  // d'historique à défaire, laissant l'ancienne vue bloquée à l'écran.
+  if (!_fromPop && currentBrand) { history.back(); }
   if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
   document.getElementById('brand-picker').style.display = 'block';
   document.getElementById('brand-products').style.display = 'none';
@@ -4517,12 +4520,17 @@ function openProductDrawer(productId, _fromPop) {
 }
 
 function closeProductDrawer(_fromPop) {
-  // Le bouton fermer / backdrop / Échap reflète le bouton retour du navigateur
-  // (même logique que closeBrand) — sauf si le drawer n'est pas ouvert ou si
-  // on est déjà en train de dérouler un popstate.
-  if (!_fromPop && !window._navRestoring && document.getElementById('product-drawer')?.classList.contains('open')) {
+  // Le bouton fermer / backdrop / Échap reflète aussi le bouton retour du
+  // navigateur (même logique que closeBrand) — mais si la page a été
+  // restaurée depuis le cache arrière (bfcache, fréquent sur iOS après mise
+  // en arrière-plan), il n'y a parfois plus d'entrée d'historique vers
+  // laquelle reculer : history.back() ne fait alors rien et le tiroir
+  // restait bloqué ouvert. On ferme donc toujours immédiatement, et on
+  // tente history.back() en plus (pas à la place) pour garder le bouton
+  // retour du navigateur synchronisé quand c'est possible.
+  const wasOpen = document.getElementById('product-drawer')?.classList.contains('open');
+  if (!_fromPop && !window._navRestoring && wasOpen) {
     history.back();
-    return;
   }
   document.getElementById('drawer-overlay').classList.remove('open');
   document.getElementById('product-drawer').classList.remove('open');
