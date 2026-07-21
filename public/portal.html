@@ -56,19 +56,37 @@
   /* ── Shell : sidebar (desktop) + colonne principale ── */
   .shell { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
   .sidebar { border-right: 1px solid var(--border); padding: 26px 20px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
-  .sidebar-logo-link { display: block; width: fit-content; margin-bottom: 40px; cursor: pointer; }
+  .sidebar-logo-link { display: block; width: fit-content; margin-bottom: 24px; cursor: pointer; }
   .sidebar-logo-link img { width: 64px; height: 64px; border-radius: 0; display: block; }
+  /* Sélecteur de compte façon "workspace switcher" (Notion) : épinglé en haut
+     de la sidebar plutôt qu'en haut à droite de la topbar — un clic ouvre
+     langue/thème/déconnexion juste en dessous, dans la sidebar elle-même. */
+  .acct-switcher { display: flex; align-items: center; gap: 10px; padding: 8px; margin: 0 -8px 22px; cursor: pointer; border-radius: 4px; transition: background .12s; }
+  .acct-switcher:hover { background: var(--mid); }
+  .acct-switcher .id { flex: 1; min-width: 0; }
+  .acct-switcher .id .nm { color: var(--white); font-size: 11.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acct-switcher .id .co { color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acct-switcher .chev { color: var(--muted); flex-shrink: 0; transition: transform .15s; }
+  .acct-switcher.open .chev { transform: rotate(180deg); }
+  .acct-panel { display: none; margin: -14px -8px 18px; background: var(--dark); border: 1px solid var(--border); }
+  .acct-switcher.open + .acct-panel { display: block; }
+  .acct-panel .dropdown-item { font-size: 12.5px; padding: 9px 12px; }
   .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .sidebar-nav a { color: var(--soft); text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; border-left: 2px solid transparent; transition: color .15s, border-color .15s; }
+  .sidebar-nav a { display: flex; align-items: center; gap: 10px; color: var(--soft); text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; border-left: 2px solid transparent; transition: color .15s, border-color .15s; }
+  .sidebar-nav a svg { flex-shrink: 0; opacity: .7; }
   .sidebar-nav a.active { color: var(--white); border-left: 2px solid var(--accent); }
+  .sidebar-nav a.active svg { opacity: 1; }
   .sidebar-nav a:hover { color: var(--white); }
-  .sidebar .nav-logout { display: block; color: #e05e5e; text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; }
-  .sidebar .nav-logout:hover { opacity: .7; }
+  .sidebar-nav-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .14em; padding: 16px 12px 6px; }
   .main-col { min-width: 0; }
   .topbar { background: var(--black); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: flex-end; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
   .topbar-logo-link { display: none; margin-right: auto; cursor: pointer; }
   .topbar-logo-link img { width: 56px; height: 56px; border-radius: 0; display: block; }
-  /* ── User dropdown ── */
+  /* ── User dropdown (repli mobile/tablette : la sidebar — et son sélecteur
+     de compte — est masquée sous 901px, donc ce menu topbar reste le seul
+     accès à Mon profil/Favoris/Shortlist/Langue/Thème/Déconnexion. Sur
+     desktop il est redondant avec la sidebar, donc masqué.) ── */
+  @media (min-width: 901px) { .user-menu { display: none !important; } }
   .user-menu { position: relative; flex-shrink: 0; }
   .user-btn { display: flex; align-items: center; gap: 9px; background: transparent; border: none; border-radius: 0; padding: 6px 14px 6px 6px; cursor: pointer; font-family: inherit; font-size: 11px; color: var(--white); letter-spacing: .06em; transition: border-color .15s; user-select: none; }
   .user-btn:hover { opacity: .75; }
@@ -144,14 +162,18 @@
   .msg-attach-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .msg-attach-preview .remove { cursor: pointer; color: var(--muted); flex-shrink: 0; }
   .msg-attach-preview .remove:hover { color: var(--white); }
-  /* Messagerie : fenêtre de tchat flottante en bas à gauche de la fenêtre
-     (desktop et mobile), remontée au-dessus de cart-bar/mobile-nav quand
+  /* Messagerie : fenêtre de tchat flottante — bas gauche sur mobile, bas
+     droite sur desktop — remontée au-dessus de cart-bar/mobile-nav quand
      ils sont visibles. */
   .chat-fab, .chat-panel { position: fixed; left: 16px; bottom: 24px; z-index: var(--z-toast); transition: bottom .15s; }
   body.cart-bar-open .chat-fab, body.cart-bar-open .chat-panel { bottom: 94px; }
+  @media (min-width: 901px) { .chat-fab, .chat-panel { left: auto; right: 16px; } }
   @media (max-width: 640px) {
-    .chat-fab, .chat-panel { bottom: calc(66px + env(safe-area-inset-bottom)); }
-    body.cart-bar-open .chat-fab, body.cart-bar-open .chat-panel { bottom: calc(128px + env(safe-area-inset-bottom)); }
+    /* La bulle fait doublon avec le bouton "Messages" de la barre du bas sur
+       mobile (même action) — seul le panneau ouvert reste utile ici. */
+    .chat-fab { display: none !important; }
+    .chat-panel { bottom: calc(66px + env(safe-area-inset-bottom)); }
+    body.cart-bar-open .chat-panel { bottom: calc(128px + env(safe-area-inset-bottom)); }
   }
   .chat-fab { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #111; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
   .chat-fab svg { width: 22px; height: 22px; }
@@ -608,6 +630,10 @@
       display: flex; position: fixed; bottom: 0; left: 0; right: 0;
       background: var(--dark); border-top: 1px solid var(--border);
       z-index: var(--z-bar); padding: 0 0 env(safe-area-inset-bottom);
+      /* Force sa propre couche de composition : atténue le jank Safari iOS où
+         les éléments fixed "sautent"/disparaissent brièvement pendant le
+         scroll (rétraction de la barre d'adresse), même sans clavier ouvert. */
+      transform: translateZ(0); -webkit-transform: translateZ(0);
     }
     .mobile-nav button {
       flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -809,7 +835,7 @@ const TRANSLATIONS = {
     dash_contact: 'Votre contact', dash_contact_generic: "L'équipe showroom", dash_contact_message: 'Envoyer un message',
     dash_view_all_orders: 'Voir toutes mes commandes →', dash_view_catalog: 'Parcourir le catalogue →',
     dash_brands: 'Marques',
-    nav_dashboard: 'Accueil',
+    nav_dashboard: 'Accueil', nav_favs: 'Mes favoris', dash_personal: 'Personnel',
     account_title: 'Mon profil', account_info: 'Informations personnelles', account_save: 'Enregistrer les modifications',
     account_pw: 'Changer le mot de passe', pw_current: 'Mot de passe actuel', pw_new: 'Nouveau mot de passe', pw_btn: 'Changer le mot de passe',
     prof_name: 'Prénom / Nom *', prof_company: 'Entreprise / Boutique', prof_email: 'Email', prof_phone: 'Téléphone', prof_country: 'Pays',
@@ -976,7 +1002,7 @@ const TRANSLATIONS = {
     dash_contact: 'Your contact', dash_contact_generic: 'The showroom team', dash_contact_message: 'Send a message',
     dash_view_all_orders: 'View all my orders →', dash_view_catalog: 'Browse the catalog →',
     dash_brands: 'Brands',
-    nav_dashboard: 'Home',
+    nav_dashboard: 'Home', nav_favs: 'My favourites', dash_personal: 'Personal',
     account_title: 'My profile', account_info: 'Personal information', account_save: 'Save changes',
     account_pw: 'Change password', pw_current: 'Current password', pw_new: 'New password', pw_btn: 'Change password',
     prof_name: 'First / Last name *', prof_company: 'Company / Store', prof_email: 'Email', prof_phone: 'Phone', prof_country: 'Country',
@@ -1191,20 +1217,16 @@ async function _translateNow(root) {
 function applyLang() {
   const T = uiDict();
   const _sid = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  _sid('nav-catalog', T.nav_catalog);
-  _sid('nav-orders', T.nav_orders);
-  _sid('nav-profile', T.nav_profile);
-  _sid('nav-logout', T.nav_logout);
-  _sid('dd-catalog', T.dd_catalog);
-  _sid('dd-orders', T.dd_orders);
-  _sid('dd-profile', T.dd_profile);
-  _sid('dd-favs', T.dd_favs);
+  // Scan générique [data-t] : couvre les libellés portés par un <span> à côté
+  // d'une icône SVG (nav sidebar, panneau de compte) — un _sid() direct sur
+  // l'élément parent écraserait l'icône en remplaçant tout le textContent.
+  document.querySelectorAll('[data-t]').forEach(el => { const v = T[el.dataset.t]; if (v !== undefined) el.textContent = v; });
   _sid('dd-logout', T.dd_logout);
-  const _ls = document.getElementById('dd-lang-select'); if (_ls) _ls.value = currentLang;
   const _ls2 = document.getElementById('lang-select'); if (_ls2) _ls2.value = currentLang;
   // Bouton thème : libellé = mode courant (auto/clair/sombre), cycle via toggleTheme
+  // (valeur dynamique — pas un simple data-t, donc réglé explicitement après le scan générique)
   const _themeMode = typeof getThemeMode === 'function' ? getThemeMode() : 'auto';
-  _sid('dd-theme', _themeMode === 'auto' ? T.theme_auto : _themeMode === 'light' ? T.theme_light : T.theme_dark);
+  _sid('sw-theme-label', _themeMode === 'auto' ? T.theme_auto : _themeMode === 'light' ? T.theme_light : T.theme_dark);
   _sid('lang-btn', T.lang_btn);
   document.querySelector('.chat-panel-head .t').textContent = T.chat_title;
   const pmsgInput = document.getElementById('pmsg-input');
@@ -1322,13 +1344,25 @@ function applyLang() {
 <div class="shell">
   <aside class="sidebar">
     <a class="sidebar-logo-link" onclick="showView('dashboard')" title="Accueil"><img src="/logo.svg" alt="Editions Standard"></a>
+    <div class="acct-switcher" id="acct-switcher" onclick="toggleAcctSwitcher()">
+      <div class="user-avatar" id="sw-avatar">?</div>
+      <div class="id"><div class="nm" id="sw-name">Mon espace</div><div class="co" id="sw-company"></div></div>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="acct-panel" id="acct-panel">
+      <button id="sw-theme" class="dropdown-item" onclick="toggleTheme()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> <span id="sw-theme-label" data-t="theme_auto">Thème</span></button>
+      <div class="dropdown-sep"></div>
+      <a id="sw-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> <span data-t="nav_logout">Déconnexion</span></a>
+    </div>
     <nav class="sidebar-nav">
-      <a id="nav-dashboard" class="active" onclick="showView('dashboard')" data-t="nav_dashboard">Accueil</a>
-      <a id="nav-catalog" onclick="showView('catalog')">Catalogue</a>
-      <a id="nav-orders" onclick="showView('orders')">Mes commandes</a>
-      <a id="nav-profile" onclick="showView('account')">Mon profil</a>
+      <a id="nav-dashboard" class="active" onclick="showView('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span data-t="nav_dashboard">Accueil</span></a>
+      <a id="nav-catalog" onclick="showView('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_catalog">Catalogue</span></a>
+      <a id="nav-orders" onclick="showView('orders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Mes commandes</span></a>
+      <div class="sidebar-nav-label" data-t="dash_personal">Personnel</div>
+      <a id="nav-favs" onclick="showView('favs')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> <span data-t="nav_favs">Mes favoris</span></a>
+      <a id="nav-shortlist" onclick="showView('shortlist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg> <span data-t="shortlist_title">Ma shortlist</span></a>
+      <a id="nav-profile" onclick="showView('account')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <span data-t="nav_profile">Mon profil</span></a>
     </nav>
-    <a id="nav-logout" href="/portal-logout" class="nav-logout" onclick="portalLogout()">Déconnexion</a>
   </aside>
 
   <div class="main-col">
@@ -1371,28 +1405,7 @@ function applyLang() {
             <div class="uemail" id="dd-email">—</div>
             <div class="ucompany" id="dd-company"></div>
           </div>
-          <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
-          <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
-          <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
-          <button id="dd-messages" class="dropdown-item" onclick="openChatWidget()">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
-          <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
-          <div class="dropdown-sep"></div>
-          <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
           <button id="dd-shortlist" class="dropdown-item" onclick="closeUserMenu();showView('shortlist')">🔖 <span data-t="shortlist_title">Ma shortlist</span></button>
-          <div class="dropdown-item" style="display:flex;align-items:center;gap:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">🌐
-            <select id="dd-lang-select" onchange="setLang(this.value)" style="appearance:none;-webkit-appearance:none;flex:1;background:transparent;color:inherit;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:4px 2px;font-family:inherit;font-size:12px;cursor:pointer">
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-              <option value="it">Italiano</option>
-              <option value="es">Español</option>
-              <option value="de">Deutsch</option>
-              <option value="zh">中文</option>
-              <option value="ja">日本語</option>
-              <option value="ko">한국어</option>
-              <option value="th">ไทย</option>
-            </select>
-          </div>
-          <button id="dd-theme" class="dropdown-item" onclick="closeUserMenu();toggleTheme()" style="font-family:'Plex Mono','Space Mono',monospace;font-size:12px;letter-spacing:.06em">☀ Thème</button>
           <div class="dropdown-sep"></div>
           <a id="dd-logout" class="dropdown-item danger" href="/portal-logout" onclick="portalLogout()">⏻ Déconnexion</a>
         </div>
@@ -2026,9 +2039,20 @@ function closeUserMenu() {
   const pb = document.getElementById('present-btn');
   if (pb) pb.style.visibility = '';
 }
+// Sélecteur de compte de la sidebar (desktop) — même mécanique que le menu
+// profil de la topbar (repli mobile), juste une autre pastille à toggler.
+function toggleAcctSwitcher() {
+  document.getElementById('acct-switcher').classList.toggle('open');
+}
+function closeAcctSwitcher() {
+  document.getElementById('acct-switcher').classList.remove('open');
+}
 document.addEventListener('click', e => {
   if (!document.getElementById('user-menu').contains(e.target)) closeUserMenu();
   if (!document.getElementById('notif-menu').contains(e.target)) closeNotifMenu();
+  const switcher = document.getElementById('acct-switcher');
+  const panel = document.getElementById('acct-panel');
+  if (switcher && panel && !switcher.contains(e.target) && !panel.contains(e.target)) closeAcctSwitcher();
 });
 
 // ── Notifications (marques suivies) ──────────────────────────────────
@@ -2285,13 +2309,16 @@ async function init() {
   syncCartFromServer();
   syncFavoritesFromServer();
   syncShortlistFromServer();
-  // Populate user menu
+  // Populate user menu (topbar dropdown — mobile) + sidebar switcher (desktop)
   const initials = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = initials;
   document.getElementById('user-name').textContent = me.name || 'Mon espace';
   document.getElementById('dd-name').textContent = me.name || '';
   document.getElementById('dd-email').textContent = me.email || '';
   document.getElementById('dd-company').textContent = me.company || '';
+  document.getElementById('sw-avatar').textContent = initials;
+  document.getElementById('sw-name').textContent = me.name || 'Mon espace';
+  document.getElementById('sw-company').textContent = me.company || '';
   try {
     const brandsRes = await fetch('/api/portal/brands');
     const brandsData = await brandsRes.json();
@@ -2357,7 +2384,9 @@ function showView(view, _fromPop) {
   document.getElementById('nav-dashboard')?.classList.toggle('active', view === 'dashboard');
   document.getElementById('nav-catalog').classList.toggle('active', view === 'catalog');
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
-  document.getElementById('nav-profile').classList.toggle('active', view === 'account');
+  document.getElementById('nav-profile')?.classList.toggle('active', view === 'account');
+  document.getElementById('nav-favs')?.classList.toggle('active', view === 'favs');
+  document.getElementById('nav-shortlist')?.classList.toggle('active', view === 'shortlist');
   document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).some(k => cart[k].qty > 0)) ? 'flex' : 'none';
   syncChatCartOffset();
   if (view === 'dashboard') loadDashboard();
@@ -2539,10 +2568,14 @@ async function saveProfile() {
     }).then(r => r.json());
     if (r.error) { msg.textContent = r.error; msg.style.color = '#e74c3c'; return; }
     me = { ...me, name, company, phone, country };
+    const newInitials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('user-name').textContent = name;
-    document.getElementById('user-avatar').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('user-avatar').textContent = newInitials;
     document.getElementById('dd-name').textContent = name;
     document.getElementById('dd-company').textContent = company;
+    document.getElementById('sw-name').textContent = name;
+    document.getElementById('sw-avatar').textContent = newInitials;
+    document.getElementById('sw-company').textContent = company;
     msg.innerHTML = `<span style="color:var(--accent)">${t('prof_saved')}</span>`;
   } catch(e) {
     msg.innerHTML = `<span style="color:#e74c3c">${t('err_network')}</span>`;
@@ -3716,7 +3749,7 @@ function toggleTheme() {
   // pas résoudre.
   if (next === 'auto') { localStorage.removeItem('es-theme'); localStorage.removeItem('portal_theme_override'); }
   else localStorage.setItem('es-theme', next);
-  const btn = document.getElementById('dd-theme');
+  const btn = document.getElementById('sw-theme-label');
   if (btn) btn.textContent = next === 'auto' ? t('theme_auto') : next === 'light' ? t('theme_light') : t('theme_dark');
 }
 
