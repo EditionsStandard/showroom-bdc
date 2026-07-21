@@ -98,6 +98,7 @@ function renderClauses(doc, text, ctx) {
 }
 const multer = require('multer');
 const { Resend } = require('resend');
+const sanitizeHtml = require('sanitize-html');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 
 // ── Web Push notifications ────────────────────────────────────────────
@@ -659,6 +660,30 @@ async function restoreOrderStock(orderId) {
 // Helpers
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Nettoyage strict du message enrichi saisi par le staff (composer riche de
+// l'invitation prospect, contenteditable côté client) avant de l'insérer
+// dans l'email envoyé. Ne JAMAIS faire confiance au nettoyage fait dans le
+// navigateur (contournable en modifiant la requête) — seule cette étape
+// côté serveur fait foi. Autorise uniquement la mise en forme minimale
+// (gras/italique/paragraphes/liens) ; tout le reste (script, style, iframe,
+// attributs on*…) est supprimé. Les liens sont systématiquement forcés en
+// target=_blank/rel=noopener/noreferrer et restreints aux schémas
+// http(s)/mailto — jamais javascript: ou data:.
+function sanitizeRichMessage(html) {
+  return sanitizeHtml(String(html || ''), {
+    allowedTags: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'a'],
+    allowedAttributes: { a: ['href'] },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    transformTags: {
+      div: 'p',
+      a: (tagName, attribs) => ({
+        tagName: 'a',
+        attribs: { href: attribs.href || '#', target: '_blank', rel: 'noopener noreferrer' }
+      })
+    }
+  }).trim();
 }
 
 // Neutralise l'injection de formule CSV/XLSX (Excel/Sheets exécutent les cellules
@@ -1477,7 +1502,11 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email prospect invalide' });
-    const customMsg = (req.body.message || '').toString().trim().slice(0, 2000);
+    // Le message vient du composer riche côté admin (contenteditable) : du
+    // HTML, pas du texte brut. Plus de marge (4000) qu'un texte simple car
+    // la mise en forme (balises) consomme des caractères ; sanitizeRichMessage()
+    // ci-dessous fait le nettoyage de sécurité qui compte réellement.
+    const customMsg = sanitizeRichMessage((req.body.message || '').toString().slice(0, 4000));
     const brandId = (req.body.brand_id || '').toString().trim();
     // Cible : marque précise (lien /rejoindre) ou toutes les marques (/demande-acces)
     let brandName = '';
@@ -1527,8 +1556,10 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
     // Un message personnalisé (saisi pour cet envoi précis) remplace le corps
     // du modèle éditable — le bouton reste toujours présent pour garantir un
     // lien cliquable, même si l'agent oublie de le mentionner dans son texte.
+    // customMsg est déjà du HTML nettoyé (sanitizeRichMessage) avec sa propre
+    // structure de paragraphes — ne pas ré-échapper ni ré-envelopper ici.
     const bodyHtml = customMsg
-      ? `<p>${escHtml(customMsg).replace(/\n/g, '<br>')}</p>${buttonHtml}`
+      ? `${customMsg}${buttonHtml}`
       : applyTemplateVars(tpl.body, { marque: marqueHtml, showroom: escHtml(showroomName || ''), bouton: buttonHtml });
     const { error } = await resend.emails.send({
       from: `${showroomName || 'Showroom'} <${fromAddress || 'showroom@editionsstandard.com'}>`,
