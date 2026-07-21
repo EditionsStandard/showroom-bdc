@@ -487,10 +487,15 @@ async function init() {
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS failed_login_count INTEGER DEFAULT 0",
     "ALTER TABLE buyers ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ",
+    // Slug lisible dérivé du nom de la marque, en plus du token aléatoire — les
+    // liens déjà partagés/imprimés (?token=...) continuent de fonctionner, le
+    // slug est juste une seconde façon de résoudre le même lien.
+    "ALTER TABLE brand_invite_links ADD COLUMN IF NOT EXISTS slug TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
   }
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
 
   // Table timeline événements commande
   await pool.query(`

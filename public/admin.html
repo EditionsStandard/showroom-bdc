@@ -4765,7 +4765,7 @@ async function refreshInviteLink() {
   inviteActive = data.active === 1;
   document.getElementById('invite-no-link').style.display = 'none';
   document.getElementById('invite-has-link').style.display = 'block';
-  document.getElementById('invite-url').textContent = `${location.origin}/rejoindre/${data.token}`;
+  document.getElementById('invite-url').textContent = `${location.origin}/rejoindre/${data.slug || data.token}`;
   document.getElementById('invite-status-dot').style.background = inviteActive ? '#2ecc71' : '#e74c3c';
   document.getElementById('invite-status-label').textContent = inviteActive ? t('invite_link_active') : t('invite_link_inactive');
   const toggleBtn = document.getElementById('invite-toggle-btn');
@@ -4938,7 +4938,7 @@ async function copyShareLink(type) {
         const r = await fetch(`/api/brands/${brandId}/invite-link`, { method: 'POST' }).catch(() => null);
         if (!r || !r.ok) return toast('Erreur génération lien', true);
         const d = await r.json();
-        _shareBrandInviteToken = d.token || '';
+        _shareBrandInviteToken = d.slug || d.token || '';
         const opt = sel.options[sel.selectedIndex];
         if (opt) opt.dataset.token = _shareBrandInviteToken;
         updateShareLinks();
