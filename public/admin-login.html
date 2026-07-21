@@ -88,6 +88,9 @@
       <input type="password" name="password" autofocus placeholder="••••••••">
     </div>
     <button class="btn" type="submit">Connexion</button>
+    <div class="toggle" id="forgot-toggle" style="display:none">
+      <a href="/admin/reset-password">Mot de passe oublié ?</a>
+    </div>
   </form>
   <form method="POST" action="/admin/login/mfa" id="mfa-form" style="display:none">
     <script>if(location.search.includes('step=mfa') && location.search.includes('error')) document.write('<div class="error">Code invalide.</div>')</script>
@@ -121,9 +124,11 @@ function toggleMode() {
   const field = document.getElementById('email-field');
   const input = document.getElementById('email-input');
   const link = document.getElementById('toggle-link');
+  const forgot = document.getElementById('forgot-toggle');
   const showingEmail = field.style.display === 'block';
   field.style.display = showingEmail ? 'none' : 'block';
   input.disabled = showingEmail;
+  forgot.style.display = showingEmail ? 'none' : 'block';
   if (showingEmail) input.value = '';
   link.textContent = showingEmail ? 'Connexion agent / designer →' : '← Connexion owner';
 }

@@ -1117,6 +1117,87 @@ app.get('/admin/logout', (req, res) => {
 });
 app.get('/admin', requireAdmin, (req, res) => sendPage(res, 'admin.html'));
 
+app.get('/admin/reset-password', (req, res) => sendPage(res, 'admin-reset-password.html'));
+
+// Mot de passe oublié / réinitialisation pour le staff (owner avec compte
+// email, agent, designer — admin_users). Même principe que le flux acheteur
+// (buyerAuthLimiter/buyer_password_resets) : token 256 bits, seul le hash est
+// stocké, réponse toujours identique côté /forgot-password pour ne jamais
+// révéler si un email correspond à un compte. Le compte owner "historique"
+// (mot de passe unique en settings.admin_password, sans ligne admin_users)
+// n'est pas couvert ici — il reste géré via Paramètres > Sécurité une fois
+// connecté.
+app.post('/api/staff/forgot-password', buyerAuthLimiter, async (req, res) => {
+  const { email } = req.body || {};
+  res.json({ ok: true }); // toujours succès — ne révèle jamais si l'email existe
+  if (!email) return;
+  try {
+    const a = await pool.query('SELECT id, name FROM admin_users WHERE email=$1', [email.toLowerCase().trim()]);
+    if (!a.rows[0]) return;
+    const admin = a.rows[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+    await pool.query('DELETE FROM admin_password_resets WHERE admin_id=$1', [admin.id]);
+    await pool.query(
+      'INSERT INTO admin_password_resets (token, admin_id, expires_at) VALUES ($1,$2,$3)',
+      [tokenHash, admin.id, expires]
+    );
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return;
+    const resend = newResendClient(resendKey);
+    const showroomName = await getSetting('showroom_name');
+    const fromAddress = await getSetting('smtp_from');
+    const resetUrl = `${getBaseUrl(req)}/admin/reset-password?token=${token}`;
+    const { error } = await resend.emails.send({
+      from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [email],
+      subject: `Réinitialisation de mot de passe — ${showroomName}`,
+      html: emailLayout({
+        showroomName,
+        content: `
+          <p>Bonjour${admin.name ? ' <strong>' + escHtml(admin.name) + '</strong>' : ''},</p>
+          <p>Vous avez demandé à réinitialiser votre mot de passe pour l'espace admin <strong>${showroomName}</strong>.</p>
+          ${emailBtn(resetUrl, 'Choisir un nouveau mot de passe →')}
+          <p style="font-size:13px;color:#888;margin-top:24px">Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
+          <p>Cordialement,<br><strong>${showroomName}</strong></p>
+        `
+      })
+    });
+    if (error) console.error('[resend] staff forgot-password:', error.message || error);
+  } catch (e) { console.error('staff forgot-password error:', e.message); }
+});
+
+app.post('/api/staff/reset-password', buyerAuthLimiter, async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password || password.length < 12)
+    return res.json({ error: 'Données invalides (12 caractères minimum).' });
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const r = await pool.query(
+      'SELECT admin_id FROM admin_password_resets WHERE token=$1 AND used=false AND expires_at > NOW()',
+      [tokenHash]
+    );
+    if (!r.rows[0]) return res.json({ error: 'Lien invalide ou expiré.' });
+    const adminId = r.rows[0].admin_id;
+    const hash = await bcrypt.hash(password, 10);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE admin_users SET password_hash=$1, failed_login_count=0, locked_until=NULL WHERE id=$2', [hash, adminId]);
+      await client.query('UPDATE admin_password_resets SET used=true WHERE token=$1', [tokenHash]);
+      await client.query('COMMIT');
+    } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
+    finally { client.release(); }
+    // Un reset via lien mail invalide toutes les sessions existantes de ce
+    // compte (pas de session "courante" légitime à préserver, contrairement
+    // au changement de mot de passe depuis l'admin une fois déjà connecté).
+    await invalidateStaffSessions(adminId, null);
+    logAuditRaw('staff:' + adminId, 'password_reset', 'staff', adminId, req.ip);
+    res.json({ ok: true });
+  } catch (e) { res.json({ error: 'Erreur serveur.' }); }
+});
+
 // ── MFA : enrôlement et gestion (self-service, tous rôles connectés) ────
 // Le secret n'est écrit dans mfa_secret (actif) qu'après vérification d'un
 // code — tant qu'il est seulement dans mfa_pending_secret, la MFA reste
