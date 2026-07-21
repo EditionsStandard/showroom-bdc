@@ -2966,6 +2966,11 @@ async function handleStaffAvatarUpload(input, prefix) {
 
 let _staffPresenceTimer = null;
 async function loadStaff() {
+  // "Agent showroom" est la 1re option du select (donc déjà sélectionnée à
+  // l'ouverture de la section) — toggleStaffBrandField() n'étant appelé que sur
+  // onchange, le champ Marque assignée restait masqué tant qu'on ne touchait
+  // pas au select, même pour un agent (qui en a besoin dans la majorité des cas).
+  toggleStaffBrandField();
   // Chaque fetch retombe sur [] si la réponse n'est pas 2xx (ex. 403 pour un
   // rôle non-owner qui aurait forcé cette section) — un corps d'erreur JSON
   // {error:...} n'est pas un tableau et ferait planter .map()/new Set() plus
@@ -3356,12 +3361,15 @@ function renderArList() {
     return;
   }
   list.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Instagram</th><th>Website</th><th>Message</th>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}</tr></thead>
+    <thead><tr>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}<th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Instagram</th><th>Website</th><th>Message</th></tr></thead>
     <tbody>${rows.map(x => {
       const date = new Date(x.created_at).toLocaleDateString('fr-FR');
       const statusBadge = x.status === 'approved'
         ? '<span style="color:#34d399;font-size:11px">✓ Approuvée</span>'
         : '<span style="color:#f87171;font-size:11px">✗ Refusée</span>';
+      // Colonne Actions en premier (et non en dernier) : sur un écran standard,
+      // le tableau (9 colonnes de détails) dépassait la largeur visible et les
+      // boutons Approuver/Refuser restaient hors champ sans indice de défilement.
       const actions = _arTab === 'pending'
         ? `<td style="white-space:nowrap">
             <button class="btn btn-sm" onclick="handleAccessRequest('${x.id}','approve',${x.existing_account ? 'true' : 'false'})" style="background:#34d399;color:#000;margin-right:4px">✓ Approuver</button>
@@ -3369,6 +3377,7 @@ function renderArList() {
            </td>`
         : `<td>${statusBadge}</td>`;
       return `<tr>
+        ${actions}
         <td style="white-space:nowrap;font-size:12px">${date}</td>
         <td><strong>${esc(x.name)}</strong></td>
         <td>${esc(x.company||'—')}</td>
@@ -3378,7 +3387,6 @@ function renderArList() {
         <td style="font-size:12px">${x.instagram ? `<a href="https://instagram.com/${esc(x.instagram.replace('@',''))}" target="_blank" style="color:var(--accent)">${esc(x.instagram)}</a>` : '—'}</td>
         <td style="font-size:12px">${x.website ? `<a href="${esc(x.website)}" target="_blank" style="color:var(--accent)">↗</a>` : '—'}</td>
         <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.message||'')}">${esc(x.message||'—')}</td>
-        ${actions}
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
@@ -3393,9 +3401,15 @@ async function handleAccessRequest(id, action, existingAccount) {
   const r = await fetch(`/api/access-requests/${id}/${action}`, { method: 'POST' }).catch(() => null);
   if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
   const d = await r.json().catch(() => ({}));
-  toast(action === 'approve'
-    ? (d.reused ? 'Approuvée — compte déjà existant, nouveau mot de passe envoyé à l\'acheteur' : 'Demande approuvée — email envoyé à l\'acheteur')
-    : 'Demande refusée');
+  if (action === 'approve' && d.emailed === false) {
+    // Pas d'email configuré/envoyé : le mot de passe temporaire ne serait connu
+    // de personne sinon — on le montre pour transmission manuelle à l'acheteur.
+    prompt('Email non configuré ou échec d\'envoi. Communiquez ce mot de passe manuellement à l\'acheteur :', d.temp_password || '');
+  } else {
+    toast(action === 'approve'
+      ? (d.reused ? 'Approuvée — compte déjà existant, nouveau mot de passe envoyé à l\'acheteur' : 'Demande approuvée — email envoyé à l\'acheteur')
+      : 'Demande refusée');
+  }
   loadAccessRequests();
   if (action === 'approve') loadDashboard();
 }

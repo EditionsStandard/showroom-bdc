@@ -7146,8 +7146,13 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
     // mot de passe) ne connaissaient. On le renvoie dans la réponse si l'email
     // n'est pas confirmé envoyé, pour transmission manuelle.
     if (sendErr) { console.error('[resend] access-request-approve:', sendErr.message || sendErr); return res.json({ ok: true, reused, emailed: false, temp_password: tempPassword }); }
+  } else {
+    // Pas de RESEND_API_KEY configurée : sans ce repli, le mot de passe temporaire
+    // n'était communiqué nulle part (ni email, ni réponse) — le compte acheteur
+    // était créé mais définitivement inaccessible.
+    return res.json({ ok: true, reused, emailed: false, temp_password: tempPassword });
   }
-  res.json({ ok: true, reused });
+  res.json({ ok: true, reused, emailed: true });
  } catch(e) { console.error('approve access request:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
