@@ -1192,6 +1192,14 @@
     <h1 data-t="h1_staff">Comptes</h1>
     <div class="card">
       <h3 data-t="staff_create_title">Créer un compte</h3>
+      <div class="form-group">
+        <label data-t="lbl_photo">Photo</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="staff-avatar-preview" style="display:inline-block"></span>
+          <input type="file" accept="image/*" id="staff-avatar-input" onchange="handleStaffAvatarUpload(this,'staff')">
+        </div>
+        <input type="hidden" id="staff-avatar-url">
+      </div>
       <div class="form-row">
         <div class="form-group"><label data-t="lbl_name">Nom</label><input id="staff-name" type="text" data-tp="ph_full_name"></div>
         <div class="form-group"><label data-t="lbl_email">Email</label><input id="staff-email" type="email" data-tp="ph_email_ex"></div>
@@ -2092,6 +2100,14 @@
   <div class="modal">
     <h3 data-t="edit_staff_title">Modifier le compte</h3>
     <input type="hidden" id="edit-staff-id">
+    <div class="form-group">
+      <label data-t="lbl_photo">Photo</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="edit-staff-avatar-preview" style="display:inline-block"></span>
+        <input type="file" accept="image/*" id="edit-staff-avatar-input" onchange="handleStaffAvatarUpload(this,'edit-staff')">
+      </div>
+      <input type="hidden" id="edit-staff-avatar-url">
+    </div>
     <div class="form-group"><label data-t="lbl_name">Nom</label><input type="text" id="edit-staff-name"></div>
     <div class="form-group"><label data-t="lbl_email">Email</label><input type="email" id="edit-staff-email"></div>
     <div class="form-group"><label data-t="lbl_new_password">Nouveau mot de passe <span style="color:#666;font-weight:400" data-t="pw_leave_blank">(laisser vide = inchangé)</span></label><input type="password" id="edit-staff-password" placeholder="••••••••"></div>
@@ -2354,7 +2370,7 @@ const TRANSLATIONS = {
     sel_search_placeholder: '🔍 Client, email, société…',
     bulk_change_status: 'Changer le statut…', bulk_apply: 'Appliquer',
     // Form labels
-    lbl_name: 'Nom', lbl_email: 'Email', lbl_password: 'Mot de passe', lbl_role: 'Rôle',
+    lbl_name: 'Nom', lbl_email: 'Email', lbl_password: 'Mot de passe', lbl_role: 'Rôle', lbl_photo: 'Photo',
     lbl_assigned_brand: 'Marque assignée', lbl_company: 'Société', lbl_phone: 'Téléphone',
     lbl_country: 'Pays', lbl_email_req: 'Email *', lbl_password_req: 'Mot de passe *',
     lbl_new_password: 'Nouveau mot de passe', pw_leave_blank: '(laisser vide = inchangé)',
@@ -2541,7 +2557,7 @@ const TRANSLATIONS = {
     sel_search_placeholder: '🔍 Client, email, company…',
     bulk_change_status: 'Change status…', bulk_apply: 'Apply',
     // Form labels
-    lbl_name: 'Name', lbl_email: 'Email', lbl_password: 'Password', lbl_role: 'Role',
+    lbl_name: 'Name', lbl_email: 'Email', lbl_password: 'Password', lbl_role: 'Role', lbl_photo: 'Photo',
     lbl_assigned_brand: 'Assigned brand', lbl_company: 'Company', lbl_phone: 'Phone',
     lbl_country: 'Country', lbl_email_req: 'Email *', lbl_password_req: 'Password *',
     lbl_new_password: 'New password', pw_leave_blank: '(leave blank = unchanged)',
@@ -2910,6 +2926,43 @@ function toggleStaffBrandField() {
     : (role === 'designer' ? t('hint_designer_brand') : '');
 }
 
+// ── Photo de profil staff (pastille) ────────────────────────────────
+// Repli sur des initiales colorées (déterministe par email/nom) tant qu'aucune
+// photo n'a été uploadée — évite un cercle vide pour tous les comptes existants.
+function staffInitials(name, email) {
+  const src = (name || '').trim() || (email || '');
+  const parts = src.split(/\s+/).filter(Boolean);
+  const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : src.slice(0, 2);
+  return (initials || '?').toUpperCase();
+}
+function staffColor(key) {
+  const s = key || '?';
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360}, 45%, 38%)`;
+}
+function avatarHtml(url, name, email, size) {
+  if (url) return `<img src="${esc(url)}" alt="" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;vertical-align:middle;flex-shrink:0">`;
+  const bg = staffColor(email || name || '?');
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:#fff;font-size:${Math.round(size*0.4)}px;font-weight:600;flex-shrink:0">${esc(staffInitials(name, email))}</span>`;
+}
+async function handleStaffAvatarUpload(input, prefix) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const fd = new FormData();
+    fd.append('image', file);
+    const r = await fetch('/api/upload-image', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (!r.ok || !data.url) throw new Error(data.detail || data.error || 'Upload failed');
+    document.getElementById(`${prefix}-avatar-url`).value = data.url;
+    document.getElementById(`${prefix}-avatar-preview`).innerHTML = avatarHtml(data.url, '', '', 48);
+  } catch(e) {
+    toast('Erreur upload photo : ' + e.message, true);
+  }
+  input.value = '';
+}
+
 let _staffPresenceTimer = null;
 async function loadStaff() {
   // Chaque fetch retombe sur [] si la réponse n'est pas 2xx (ex. 403 pour un
@@ -2938,7 +2991,7 @@ async function loadStaff() {
     return `
     <tr data-staff-id="${esc(s.id)}">
       <td style="text-align:center">${dot}</td>
-      <td>${esc(s.name) || '—'}</td>
+      <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(s.avatar_url, s.name, s.email, 26)}<span>${esc(s.name) || '—'}</span></div></td>
       <td>${esc(s.email)}</td>
       <td>${esc(roleLabel[s.role] || s.role)}</td>
       <td>${esc(s.brand_name) || '—'}</td>
@@ -2982,17 +3035,20 @@ async function createStaff() {
   const password = document.getElementById('staff-password').value;
   const role = document.getElementById('staff-role').value;
   const brand_id = document.getElementById('staff-brand-id').value;
+  const avatar_url = document.getElementById('staff-avatar-url').value;
   if (!email || !password) { toast('Email et mot de passe requis', true); return; }
 
   const r = await fetch('/api/staff', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password, role, brand_id })
+    body: JSON.stringify({ name, email, password, role, brand_id, avatar_url })
   }).then(r => r.json());
   if (r.error) { toast(r.error, true); return; }
 
   document.getElementById('staff-name').value = '';
   document.getElementById('staff-email').value = '';
   document.getElementById('staff-password').value = '';
+  document.getElementById('staff-avatar-url').value = '';
+  document.getElementById('staff-avatar-preview').innerHTML = '';
   loadStaff();
   toast(t('js_account_created'));
 }
@@ -3021,6 +3077,8 @@ async function openEditStaff(s) {
   document.getElementById('edit-staff-email').value = s.email || '';
   document.getElementById('edit-staff-password').value = '';
   document.getElementById('edit-staff-role').value = s.role || 'agent';
+  document.getElementById('edit-staff-avatar-url').value = s.avatar_url || '';
+  document.getElementById('edit-staff-avatar-preview').innerHTML = avatarHtml(s.avatar_url, s.name, s.email, 48);
   toggleEditStaffBrandField();
   openModal('modal-edit-staff');
 }
@@ -3042,7 +3100,8 @@ async function saveEditStaff() {
     name: document.getElementById('edit-staff-name').value.trim(),
     email: document.getElementById('edit-staff-email').value.trim(),
     role: document.getElementById('edit-staff-role').value,
-    brand_id: document.getElementById('edit-staff-brand-id').value
+    brand_id: document.getElementById('edit-staff-brand-id').value,
+    avatar_url: document.getElementById('edit-staff-avatar-url').value
   };
   const pwd = document.getElementById('edit-staff-password').value;
   if (pwd) body.password = pwd;
