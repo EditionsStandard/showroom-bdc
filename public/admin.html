@@ -1164,6 +1164,18 @@
           <span id="s-login-bg-status" style="font-size:11px;color:#666"></span>
         </div>
       </div>
+      <div class="form-group">
+        <label>Fond — variante mobile (optionnelle)</label>
+        <p style="font-size:11px;color:#666;margin:2px 0 8px">Cadrage pensé pour un écran vertical (le recadrage automatique du fond ci-dessus peut couper un sujet important en format large). Laisser vide pour réutiliser le même fond que sur desktop.</p>
+        <input type="hidden" id="s-login-bg-mobile">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <img id="s-login-bg-mobile-preview" src="" alt="" style="display:none;width:68px;height:120px;object-fit:cover;border:1px solid var(--border)">
+          <input type="file" id="s-login-bg-mobile-file" accept="image/*,video/mp4,video/webm,video/quicktime" style="display:none" onchange="uploadLoginBg(this.files[0],'-mobile')">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('s-login-bg-mobile-file').click()">🖼 Choisir une image</button>
+          <button class="btn btn-secondary btn-sm" type="button" id="s-login-bg-mobile-remove" style="display:none" onclick="removeLoginBg('-mobile')">✕ Retirer</button>
+          <span id="s-login-bg-mobile-status" style="font-size:11px;color:#666"></span>
+        </div>
+      </div>
       <div class="sep"></div>
       <h3 data-t="settings_email">Envoi des emails</h3>
       <p style="font-size:12px;color:#888;margin:-4px 0 12px">Les emails sont envoyés via Resend (configuré côté serveur). Indique simplement l'adresse expéditeur affichée aux destinataires.</p>
@@ -7707,6 +7719,7 @@ async function loadSettings() {
   document.getElementById('s-agent-phone').value = s.agent_phone || '';
   document.getElementById('s-cgv-text').value = s.cgv_text || '';
   setLoginBgUI(s.login_bg_url || '');
+  setLoginBgUI(s.login_bg_url_mobile || '', '-mobile');
 
   let currencies = [];
   try { currencies = JSON.parse(s.currencies_json || '[]'); } catch(e) {}
@@ -7812,10 +7825,14 @@ async function clearTranslateCache() {
 }
 
 // ── Image de fond des pages de connexion/inscription ──────────────────
-function setLoginBgUI(url) {
-  document.getElementById('s-login-bg').value = url;
-  const prev = document.getElementById('s-login-bg-preview');
-  const rm = document.getElementById('s-login-bg-remove');
+// suffix='' = fond desktop (s-login-bg...) ; suffix='-mobile' = variante
+// mobile optionnelle (s-login-bg-mobile...), même cadrage plus adapté au
+// format vertical. À défaut de variante mobile, le fond desktop est réutilisé.
+function setLoginBgUI(url, suffix) {
+  suffix = suffix || '';
+  document.getElementById('s-login-bg' + suffix).value = url;
+  const prev = document.getElementById('s-login-bg' + suffix + '-preview');
+  const rm = document.getElementById('s-login-bg' + suffix + '-remove');
   if (url) {
     // Vidéo : Cloudinary génère une vignette jpg en remplaçant l'extension
     prev.src = /\.(mp4|webm|mov)(\?|$)/i.test(url) ? url.replace(/\.(mp4|webm|mov)(\?|$)/i, '.jpg') : url;
@@ -7823,9 +7840,10 @@ function setLoginBgUI(url) {
   }
   else { prev.style.display = 'none'; rm.style.display = 'none'; }
 }
-async function uploadLoginBg(file) {
+async function uploadLoginBg(file, suffix) {
   if (!file) return;
-  const status = document.getElementById('s-login-bg-status');
+  suffix = suffix || '';
+  const status = document.getElementById('s-login-bg' + suffix + '-status');
   status.textContent = 'Envoi en cours…';
   try {
     let url;
@@ -7855,13 +7873,14 @@ async function uploadLoginBg(file) {
       if (d.error || !d.url) { status.textContent = ''; toast(d.error || 'Erreur upload', true); return; }
       url = d.url;
     }
-    setLoginBgUI(url);
+    setLoginBgUI(url, suffix);
     status.textContent = 'Fond prêt — clique « Enregistrer » pour appliquer.';
   } catch(e) { status.textContent = ''; toast(e.message || 'Erreur réseau', true); }
 }
-function removeLoginBg() {
-  setLoginBgUI('');
-  document.getElementById('s-login-bg-status').textContent = 'Image retirée — clique « Enregistrer » pour appliquer.';
+function removeLoginBg(suffix) {
+  suffix = suffix || '';
+  setLoginBgUI('', suffix);
+  document.getElementById('s-login-bg' + suffix + '-status').textContent = 'Image retirée — clique « Enregistrer » pour appliquer.';
 }
 
 async function saveSettings() {
@@ -7882,6 +7901,7 @@ async function saveSettings() {
     cgv_text: document.getElementById('s-cgv-text').value,
     currencies_json: JSON.stringify(collectCurrencies()),
     login_bg_url: document.getElementById('s-login-bg').value,
+    login_bg_url_mobile: document.getElementById('s-login-bg-mobile').value,
   };
   const pass = document.getElementById('s-admin-pass').value;
   if (pass) body.admin_password = pass;

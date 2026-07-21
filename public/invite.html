@@ -254,7 +254,7 @@ async function init() {
   document.getElementById('loading').style.display = 'none';
   if (!r || !r.ok) {
     document.getElementById('invalid').style.display = 'block';
-    fetch('/api/public/branding').then(r => r.json()).then(b => applyBg(b && b.login_bg_url)).catch(() => {});
+    fetch('/api/public/branding').then(r => r.json()).then(b => applyBg(b && ((window.matchMedia('(max-width: 640px)').matches && b.login_bg_url_mobile) || b.login_bg_url))).catch(() => {});
     return;
   }
   const data = await r.json();
@@ -262,7 +262,7 @@ async function init() {
   if (data.brand_bg) {
     applyBg(data.brand_bg);
   } else {
-    fetch('/api/public/branding').then(r => r.json()).then(b => applyBg(b && b.login_bg_url)).catch(() => {});
+    fetch('/api/public/branding').then(r => r.json()).then(b => applyBg(b && ((window.matchMedia('(max-width: 640px)').matches && b.login_bg_url_mobile) || b.login_bg_url))).catch(() => {});
   }
 
   const brandBlock = document.getElementById('brand-block');

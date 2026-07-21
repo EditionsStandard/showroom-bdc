@@ -1631,7 +1631,7 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 });
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season','login_bg_url','showroom_website','showroom_instagram','showroom_facebook','showroom_tiktok','showroom_linkedin','showroom_contact_email'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season','login_bg_url','login_bg_url_mobile','showroom_website','showroom_instagram','showroom_facebook','showroom_tiktok','showroom_linkedin','showroom_contact_email'];
   // Liens affichés publiquement dans le footer de tous les emails (jamais
   // javascript:/data: — mêmes contrôles que les liens de marque).
   const urlKeys = ['showroom_website','showroom_instagram','showroom_facebook','showroom_tiktok','showroom_linkedin'];
@@ -4099,10 +4099,10 @@ app.get('/api/public/cgv', async (req, res) => {
 // sensible ici — uniquement le nom du showroom et l'image de fond choisie
 // dans Réglages (changeable à tout moment par l'owner).
 app.get('/api/public/branding', async (req, res) => {
-  const [showroom_name, login_bg_url] = await Promise.all([
-    getSetting('showroom_name'), getSetting('login_bg_url')
+  const [showroom_name, login_bg_url, login_bg_url_mobile] = await Promise.all([
+    getSetting('showroom_name'), getSetting('login_bg_url'), getSetting('login_bg_url_mobile')
   ]);
-  res.json({ showroom_name: showroom_name || '', login_bg_url: login_bg_url || '' });
+  res.json({ showroom_name: showroom_name || '', login_bg_url: login_bg_url || '', login_bg_url_mobile: login_bg_url_mobile || '' });
 });
 
 app.get('/api/public/brands/:brandId', requireCommandeAccessParam, async (req, res) => {
