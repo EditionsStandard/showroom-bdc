@@ -533,6 +533,27 @@ async function init() {
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)').catch(e => console.error('Index endpoint ignoré:', e.message.split('\n')[0]));
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS commande_links_slug_idx ON commande_links(slug)').catch(e => console.error('Index slug commande_links ignoré:', e.message.split('\n')[0]));
 
+  // Sécurité — les slugs générés avant ce correctif étaient dérivés du nom de
+  // marque SANS aucun aléa (ex. "zara"), devinable par quiconque connaît
+  // publiquement le nom de la marque, contournant le token secret sur les
+  // liens /c/:token (prix wholesale) et /rejoindre/:token (auto-inscription).
+  // On regénère un suffixe aléatoire pour toute ligne qui n'en a pas déjà un
+  // — détecté par l'absence d'un suffixe hexadécimal de 8 caractères en fin
+  // de slug, le format produit par la nouvelle génération de uniqueSlugFor().
+  // Idempotent : une ligne déjà corrigée est ignorée aux exécutions suivantes.
+  for (const table of ['commande_links', 'brand_invite_links']) {
+    try {
+      const rows = await pool.query(`SELECT slug FROM ${table} WHERE slug IS NOT NULL AND slug !~ '-[0-9a-f]{8}$'`);
+      for (const row of rows.rows) {
+        let candidate;
+        do {
+          candidate = `${row.slug}-${crypto.randomBytes(4).toString('hex')}`;
+        } while ((await pool.query(`SELECT 1 FROM ${table} WHERE slug=$1`, [candidate])).rows.length);
+        await pool.query(`UPDATE ${table} SET slug=$1 WHERE slug=$2`, [candidate, row.slug]);
+      }
+    } catch(e) { console.error(`Sécurisation slug ${table} ignorée:`, e.message.split('\n')[0]); }
+  }
+
   // Table timeline événements commande
   await pool.query(`
     CREATE TABLE IF NOT EXISTS order_events (
