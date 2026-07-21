@@ -2762,13 +2762,22 @@ function updateSettingsLangButtons() {
 }
 
 document.addEventListener('DOMContentLoaded', applyLang);
-// Reflet passif de l'état des notifications au chargement (sans prompt)
-document.addEventListener('DOMContentLoaded', () => {
+// Reflet passif de l'état des notifications au chargement (sans prompt) — vérifie
+// un abonnement PushManager réellement actif, pas seulement la permission
+// navigateur : Notification.permission peut rester "granted" alors que
+// l'abonnement lui-même n'a jamais été créé (fenêtre de permission fermée avant
+// la fin du flux) ou a expiré côté navigateur, ce qui affichait « activées » à
+// tort et ne laissait aucun moyen de s'apercevoir que rien n'était réellement
+// envoyé.
+document.addEventListener('DOMContentLoaded', async () => {
   try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const btn = document.getElementById('btn-push-notif');
-      if (btn) { btn.textContent = '🔔 Notifications activées'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.dataset.active = '1'; }
-    }
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (!sub) return;
+    const btn = document.getElementById('btn-push-notif');
+    if (btn) { btn.textContent = '🔔 Notifications activées'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.dataset.active = '1'; }
   } catch(e) {}
 });
 

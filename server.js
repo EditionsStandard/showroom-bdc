@@ -154,13 +154,22 @@ async function sendPushToAdmins(title, body, brandId) {
   if (!webpush || !VAPID_PUBLIC_KEY) return;
   try {
     const subs = await pool.query(`
-      SELECT ps.subscription_json FROM push_subscriptions ps
+      SELECT ps.id, ps.subscription_json FROM push_subscriptions ps
       LEFT JOIN admin_users au ON au.id = ps.staff_id
       WHERE ps.staff_id IS NULL OR au.role = 'owner' ${brandId ? "OR (au.role IN ('agent','designer') AND au.brand_id = $1)" : ''}
     `, brandId ? [brandId] : []);
     for (const row of subs.rows) {
       const sub = JSON.parse(row.subscription_json);
-      webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(e => console.error('[push-error]', e.message));
+      webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(e => {
+        console.error('[push-error]', e.statusCode || '', e.message);
+        // 404/410 : le service de push confirme que cet abonnement n'existe plus
+        // (désinstallation, permission révoquée, appareil réinitialisé…) — sans
+        // ce nettoyage, la ligne restait en base indéfiniment et chaque envoi
+        // futur échouait silencieusement sur le même endpoint mort.
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          pool.query('DELETE FROM push_subscriptions WHERE id=$1', [row.id]).catch(() => {});
+        }
+      });
     }
   } catch(e) {}
 }
@@ -3597,9 +3606,14 @@ app.post('/api/admin/push-subscribe', requireRole('owner','agent'), async (req, 
     if (!subscription || typeof subscription.endpoint !== 'string' || !subscription.keys) return res.status(400).json({ error: 'Missing subscription' });
     if (!isSafePushEndpoint(subscription.endpoint)) return res.status(400).json({ error: 'Service de notification non reconnu' });
     const id = uuidv4();
+    // ON CONFLICT (endpoint) — pas (id), toujours un UUID neuf donc jamais en
+    // conflit : sans clé sur l'endpoint réel, chaque re-souscription (rechargement,
+    // mise à jour du service worker) empilait une nouvelle ligne au lieu de
+    // rafraîchir l'abonnement existant pour ce même appareil.
     await pool.query(
-      'INSERT INTO push_subscriptions (id, subscription_json, staff_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
-      [id, JSON.stringify(subscription), req.session.staffUser?.id || null]
+      `INSERT INTO push_subscriptions (id, subscription_json, staff_id, endpoint) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (endpoint) DO UPDATE SET subscription_json=EXCLUDED.subscription_json, staff_id=EXCLUDED.staff_id`,
+      [id, JSON.stringify(subscription), req.session.staffUser?.id || null, subscription.endpoint]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erreur' }); }
