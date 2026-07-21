@@ -2029,6 +2029,7 @@
     <div id="mo-total" style="text-align:right;font-size:16px;font-weight:700;color:#fff;padding:10px 12px;background:var(--black);border-radius: 0;margin-bottom:14px"></div>
     <div id="mo-lines-edit-bar" style="display:none;margin-bottom:14px;text-align:right">
       <span id="mo-lines-edit-hint" style="font-size:11px;color:#888;margin-right:10px"></span>
+      <button class="btn btn-secondary btn-sm" onclick="cancelOrderLinesEdit()" data-t="btn_cancel">Annuler</button>
       <button class="btn btn-primary btn-sm" onclick="saveOrderLines()">💾 Enregistrer les modifications</button>
     </div>
 
@@ -6987,6 +6988,17 @@ function recomputeOrderTotal() {
 function zeroLine(btn) {
   const inp = btn.parentElement.querySelector('.mo-line-qty');
   if (inp) { inp.value = 0; recomputeOrderTotal(); }
+}
+
+// Revient aux quantités affichées à l'ouverture de la modale (defaultValue
+// reflète l'attribut value="" du template, jamais modifié par la frappe) —
+// sans recharger toute la commande depuis le serveur.
+function cancelOrderLinesEdit() {
+  document.querySelectorAll('#mo-lines .mo-line-qty').forEach(inp => {
+    inp.value = inp.defaultValue;
+    inp.closest('tr').style.opacity = '';
+  });
+  recomputeOrderTotal();
 }
 
 async function saveOrderLines() {
