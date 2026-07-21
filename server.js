@@ -2607,7 +2607,7 @@ app.post('/api/public/appointments', publicLimiter, async (req, res) => {
     if (!isValidAppointmentSlot(String(slot_date), String(slot_time))) {
       return res.status(400).json({ error: 'Créneau invalide' });
     }
-    const brand = await pool.query('SELECT 1 FROM brands WHERE id=$1', [brand_id]);
+    const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]);
     if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
 
     const name = String(client_name).trim().slice(0, 200);
@@ -2627,6 +2627,7 @@ app.post('/api/public/appointments', publicLimiter, async (req, res) => {
     airtableTouchStore(email).catch(() => {}); // reflète le RDV dans le CRM Airtable
     // Send confirmation emails (non-blocking)
     sendAppointmentConfirmationEmail({ id, brand_id, client_name: name, client_email: email, client_phone: phone, slot_date, slot_time, notes: note }).catch(e => console.error('RDV email error:', e.message));
+    sendPushToAdmins('Nouveau rendez-vous', `${name} — ${brand.rows[0].name} — ${slot_date} ${slot_time}`, brand_id).catch(() => {});
     res.json({ ok: true, id });
   } catch(e) { console.error('public appointment error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -4274,7 +4275,19 @@ async function sendAgentSelectionEmail({ email, name, brandName, selectionNumber
 }
 
 // ── Notifications email au propriétaire (traçabilité sélections & commandes) ──
+// Aperçu texte pour une notification push à partir du HTML d'un email owner —
+// simple retrait de balises, aucune mise en forme requise pour un aperçu court.
+function stripHtmlForPush(html) {
+  return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+}
+
 async function notifyOwner(subject, contentHtml) {
+  // Push indépendant de l'email : deux canaux distincts (VAPID vs RESEND_API_KEY),
+  // l'un ne doit jamais bloquer ni conditionner l'autre — sinon toute l'activité
+  // du site (nouvelle commande, message acheteur, RDV, statut modifié…) qui passe
+  // par notifyOwner() resterait invisible en push tant que l'email n'est pas
+  // configuré, alors que les deux canaux sont indépendants pour l'utilisateur.
+  sendPushToAdmins(subject, stripHtmlForPush(contentHtml)).catch(() => {});
   try {
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return;
@@ -6810,7 +6823,7 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   }
   const id = crypto.randomUUID();
   try {
-    const brand = await pool.query('SELECT 1 FROM brands WHERE id=$1', [brand_id]);
+    const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]);
     if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
     await pool.query(
       'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
@@ -6818,6 +6831,9 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
     );
     res.json({ ok: true, id });
     airtableTouchStore(buyer.email).catch(() => {}); // reflète le RDV dans le CRM Airtable
+    // Contrairement à /api/public/appointments, cette route (acheteur déjà
+    // connecté) n'avait aucune notification propriétaire — ni email ni push.
+    sendPushToAdmins('Nouveau rendez-vous', `${buyer.name || buyer.email} — ${brand.rows[0].name} — ${slot_date} ${slot_time}`, brand_id).catch(() => {});
   } catch(e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
     console.error(e); res.status(500).json({ error: "Erreur serveur" });
@@ -7045,6 +7061,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   );
   // CRM Airtable : crée une fiche « Prospect » (non bloquant)
   airtableUpsertProspect({ email: email.toLowerCase().trim(), name: name.trim(), company: (company||'').trim() }).catch(() => {});
+  sendPushToAdmins('Nouvelle demande d\'accès', `${name}${company ? ' — ' + company : ''}`).catch(() => {});
   // Notifier l'admin
   const [showroomName, adminEmail, fromAddress] = await Promise.all([
     getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
