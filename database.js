@@ -494,11 +494,28 @@ async function init() {
     // Photo de profil (pastille) — différencier visuellement owner/agent/designer
     // dans la liste des comptes. Optionnelle, repli sur des initiales côté client.
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''",
+    // Endpoint de l'abonnement push, extrait de subscription_json — sans clé
+    // d'unicité, chaque re-souscription (rechargement de page, mise à jour du
+    // service worker) insérait une NOUVELLE ligne au lieu de rafraîchir la
+    // précédente : la table accumulait des doublons/abonnements morts sans
+    // jamais être nettoyée, et un envoi pouvait échouer silencieusement sur un
+    // endpoint expiré pendant que l'UI affichait « Notifications activées ».
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS endpoint TEXT",
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS staff_id TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
   }
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
+  // Backfill + dédoublonnage des abonnements push existants avant de poser la
+  // contrainte d'unicité (des doublons ont pu s'accumuler tant que le bug était
+  // présent) — ne garde que la ligne la plus récente par endpoint.
+  await pool.query(`UPDATE push_subscriptions SET endpoint = subscription_json::json->>'endpoint' WHERE endpoint IS NULL`).catch(e => console.error('Backfill endpoint ignoré:', e.message.split('\n')[0]));
+  await pool.query(`
+    DELETE FROM push_subscriptions a USING push_subscriptions b
+    WHERE a.endpoint IS NOT NULL AND a.endpoint = b.endpoint AND a.created_at < b.created_at
+  `).catch(e => console.error('Dédoublonnage push_subscriptions ignoré:', e.message.split('\n')[0]));
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)').catch(e => console.error('Index endpoint ignoré:', e.message.split('\n')[0]));
 
   // Table timeline événements commande
   await pool.query(`
