@@ -1408,6 +1408,12 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
     // lien direct/relance), le prospect n'a pas encore de compte.
     const isEn = req.body.lang === 'en';
     const lang = isEn ? 'en' : 'fr';
+    // Le prospect n'a pas de langue enregistrée (pas encore de compte) et la
+    // page d'atterrissage se base par défaut sur localStorage (donc FR au tout
+    // premier clic) — sans ce paramètre, un email envoyé en anglais atterrit
+    // sur une page en français. ?lang= est lu en priorité par invite.html et
+    // demande-acces.html.
+    link += (link.includes('?') ? '&' : '?') + 'lang=' + lang;
     const marqueHtml = brandName
       ? (isEn ? `the <strong>${escHtml(brandName)}</strong> collection` : `la collection <strong>${escHtml(brandName)}</strong>`)
       : (isEn ? 'our curated brands' : 'notre sélection de marques');
