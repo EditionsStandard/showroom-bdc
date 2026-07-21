@@ -502,6 +502,11 @@ async function init() {
     // endpoint expiré pendant que l'UI affichait « Notifications activées ».
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS endpoint TEXT",
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS staff_id TEXT",
+    // Slug lisible pour les liens de commande (/c/...), même principe que les
+    // liens d'invitation (/rejoindre/...) — plusieurs liens actifs peuvent
+    // coexister pour une même marque, d'où le suffixe numérique en cas de
+    // collision géré par uniqueSlugFor().
+    "ALTER TABLE commande_links ADD COLUMN IF NOT EXISTS slug TEXT",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
@@ -516,6 +521,7 @@ async function init() {
     WHERE a.endpoint IS NOT NULL AND a.endpoint = b.endpoint AND a.created_at < b.created_at
   `).catch(e => console.error('Dédoublonnage push_subscriptions ignoré:', e.message.split('\n')[0]));
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)').catch(e => console.error('Index endpoint ignoré:', e.message.split('\n')[0]));
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS commande_links_slug_idx ON commande_links(slug)').catch(e => console.error('Index slug commande_links ignoré:', e.message.split('\n')[0]));
 
   // Table timeline événements commande
   await pool.query(`
