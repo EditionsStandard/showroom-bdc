@@ -395,7 +395,7 @@ const TR = {
 // Fond d'écran personnalisé (uploadé depuis Admin → Réglages, partagé avec la connexion)
 fetch("/api/public/branding").then(r => r.json()).then(b => {
   if (!b || !b.login_bg_url) return;
-  const url = b.login_bg_url;
+  const url = (window.matchMedia("(max-width: 640px)").matches && b.login_bg_url_mobile) || b.login_bg_url;
   if (/\.(mp4|webm|mov|m4v|ogv)(\?|$)/i.test(url) || /\/video\/upload\//i.test(url)) {
     // Fond vidéo : lecture muette en boucle. On force explicitement play() car
     // définir la propriété .autoplay via JS n'est pas toujours honorée (Safari,
