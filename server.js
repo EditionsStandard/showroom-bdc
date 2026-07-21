@@ -6962,7 +6962,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
     html: emailLayout({
       showroomName,
       content: isEn ? `
-        <p>Hello${name ? ' <strong>' + name + '</strong>' : ''},</p>
+        <p>Hello${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
         <p>Your B2B showroom access for <strong>${showroomName}</strong> has been created. You can now browse our brands, view collections, and place orders online.</p>
         ${emailInfoBox([
           ['Email', email],
@@ -6973,7 +6973,7 @@ async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
         <p style="font-size:13px;color:#888;margin-top:28px">Feel free to contact us if you have any questions.</p>
         <p>Best regards,<br><strong>${showroomName}</strong></p>
       ` : `
-        <p>Bonjour${name ? ' <strong>' + name + '</strong>' : ''},</p>
+        <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
         <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
         ${emailInfoBox([
           ['Email', email],
