@@ -491,6 +491,9 @@ async function init() {
     // liens déjà partagés/imprimés (?token=...) continuent de fonctionner, le
     // slug est juste une seconde façon de résoudre le même lien.
     "ALTER TABLE brand_invite_links ADD COLUMN IF NOT EXISTS slug TEXT",
+    // Photo de profil (pastille) — différencier visuellement owner/agent/designer
+    // dans la liste des comptes. Optionnelle, repli sur des initiales côté client.
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

@@ -1204,7 +1204,7 @@ app.get('/api/me', requireAdmin, (req, res) => {
 // ==================== STAFF ACCOUNTS (owner only) ====================
 
 app.get('/api/staff', requireRole('owner'), async (req, res) => {
-  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.created_at, a.last_seen_at, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
+  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.avatar_url, a.created_at, a.last_seen_at, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
   res.json(r.rows);
 });
 
@@ -1229,8 +1229,15 @@ function staffBrandIdFor(role, brand_id) {
   return (role === 'designer' || role === 'agent') ? (brand_id || null) : null;
 }
 
+// Photo de profil : uniquement une URL Cloudinary issue de /api/upload-image
+// (jamais une URL arbitraire fournie telle quelle — même garde-fou que les
+// pièces jointes de messagerie acheteur).
+function sanitizeAvatarUrl(url) {
+  return (typeof url === 'string' && url.startsWith('https://res.cloudinary.com/')) ? url : '';
+}
+
 app.post('/api/staff', requireRole('owner'), async (req, res) => {
-  const { email, password, role, brand_id, name } = req.body;
+  const { email, password, role, brand_id, name, avatar_url } = req.body;
   if (!email || !password || !role) return res.status(400).json({ error: 'Email, mot de passe et rôle requis' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
   if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
@@ -1243,8 +1250,8 @@ app.post('/api/staff', requireRole('owner'), async (req, res) => {
   const cleanEmail = email.toLowerCase().trim();
   try {
     await pool.query(
-      'INSERT INTO admin_users (id, email, password_hash, role, brand_id, name) VALUES ($1,$2,$3,$4,$5,$6)',
-      [id, cleanEmail, hash, role, staffBrandIdFor(role, brand_id), name || '']
+      'INSERT INTO admin_users (id, email, password_hash, role, brand_id, name, avatar_url) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [id, cleanEmail, hash, role, staffBrandIdFor(role, brand_id), name || '', sanitizeAvatarUrl(avatar_url)]
     );
     logAudit(req, 'create_staff', 'staff', id, `${cleanEmail} (${role})`);
     res.json({ id });
@@ -1269,7 +1276,7 @@ async function invalidateStaffSessions(userId, exceptSid) {
 
 app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
   try {
-    const { name, email, role, brand_id, password } = req.body;
+    const { name, email, role, brand_id, password, avatar_url } = req.body;
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
     if (password && password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
     if (!['owner', 'agent', 'designer'].includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
@@ -1286,11 +1293,12 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
       }
     }
     const normalizedEmail = email.toLowerCase().trim();
+    const cleanAvatarUrl = sanitizeAvatarUrl(avatar_url);
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5 WHERE id=$6', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), hash, req.params.id]);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5,avatar_url=$6 WHERE id=$7', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), hash, cleanAvatarUrl, req.params.id]);
     } else {
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4 WHERE id=$5', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), req.params.id]);
+      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,avatar_url=$5 WHERE id=$6', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), cleanAvatarUrl, req.params.id]);
     }
     logAudit(req, 'update_staff', 'staff', req.params.id, `role=${role}`);
     // Editer sa propre fiche (nom/email/mdp) sans changer son propre rôle ne doit
