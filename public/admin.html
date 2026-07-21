@@ -577,6 +577,10 @@
   /* Logo adaptatif au theme (SVG noir charge en <img> : recolore via filtre) */
   img[src*="logo.svg"]{filter:invert(1);}
   [data-theme="light"] img[src*="logo.svg"]{filter:none;}
+  /* Placeholder du composer riche (message d'invitation prospect) — un
+     contenteditable n'a pas d'attribut placeholder natif comme <textarea>. */
+  #prospect-invite-msg:empty:before { content: attr(data-empty-text); color: #666; }
+  #prospect-invite-msg a { color: var(--accent, #ccEB3C); text-decoration: underline; }
 </style>
 <script>
 (function() {
@@ -800,7 +804,16 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
           <button class="btn btn-primary btn-sm" onclick="sendProspectInvite()" data-t="dash_send_invite">📨 Envoyer l'invitation</button>
         </div>
-        <textarea id="prospect-invite-msg" rows="2" data-tp="dash_invite_msg_placeholder" placeholder="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit;margin-bottom:8px"></textarea>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="inviteMsgExec('bold')" title="Gras" style="padding:4px 11px;font-weight:700">G</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="inviteMsgExec('italic')" title="Italique" style="padding:4px 11px;font-style:italic">I</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="inviteMsgLink()" title="Sélectionner un texte puis cliquer ici pour en faire un lien" style="padding:4px 11px" data-t="dash_invite_msg_link_btn">🔗 Lien</button>
+        </div>
+        <div id="prospect-invite-link-pop" style="display:none;gap:6px;margin-bottom:8px">
+          <input type="text" id="prospect-invite-link-url" placeholder="https://…" style="flex:1;min-width:0;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:6px 8px;font-size:12px;font-family:inherit">
+          <button type="button" class="btn btn-primary btn-sm" onclick="inviteMsgApplyLink()" data-t="dash_invite_msg_link_apply">Appliquer</button>
+        </div>
+        <div id="prospect-invite-msg" contenteditable="true" data-tp="dash_invite_msg_placeholder" data-empty-text="Message personnalisé (optionnel — sinon message d'invitation standard)…" style="width:100%;box-sizing:border-box;background:var(--dark);border:1px solid var(--border);color:var(--white);border-radius:0;padding:8px 10px;font-size:12px;font-family:inherit;margin-bottom:8px;min-height:52px;line-height:1.6"></div>
         <div style="display:flex;gap:8px;max-width:280px">
           <button type="button" id="prospect-invite-lang-fr" class="btn btn-sm" onclick="setProspectInviteLang('fr')" style="flex:1;border-radius:0">🇫🇷 Français</button>
           <button type="button" id="prospect-invite-lang-en" class="btn btn-sm" onclick="setProspectInviteLang('en')" style="flex:1;border-radius:0">🇬🇧 English</button>
@@ -2488,6 +2501,7 @@ const TRANSLATIONS = {
     dash_invite_placeholder: 'email@prospect.com — un ou plusieurs emails, un par ligne ou séparés par virgule',
     dash_send_invite: "📨 Envoyer l'invitation",
     dash_invite_msg_placeholder: "Message personnalisé (optionnel — sinon message d'invitation standard)…",
+    dash_invite_msg_link_btn: '🔗 Lien', dash_invite_msg_link_apply: 'Appliquer',
     dash_share_requests_title: 'Demandes de lien de partage',
     dash_analytics_title: 'Analytiques',
     dash_top_buyers_title: 'Top Acheteurs', dash_inactive_buyers_title: 'Acheteurs inactifs', dash_top_brands_title: 'Perf. Marques',
@@ -2675,6 +2689,7 @@ const TRANSLATIONS = {
     dash_invite_placeholder: 'email@prospect.com — one or more emails, one per line or comma-separated',
     dash_send_invite: '📨 Send invitation',
     dash_invite_msg_placeholder: 'Custom message (optional — otherwise standard invitation message)…',
+    dash_invite_msg_link_btn: '🔗 Link', dash_invite_msg_link_apply: 'Apply',
     dash_share_requests_title: 'Share link requests',
     dash_analytics_title: 'Analytics',
     dash_top_buyers_title: 'Top Buyers', dash_inactive_buyers_title: 'Inactive buyers', dash_top_brands_title: 'Brand Performance',
@@ -2712,7 +2727,13 @@ function t(key) {
 function applyLang() {
   document.documentElement.lang = currentLang;
   document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
-  document.querySelectorAll('[data-tp]').forEach(el => { el.placeholder = t(el.dataset.tp); });
+  document.querySelectorAll('[data-tp]').forEach(el => {
+    const val = t(el.dataset.tp);
+    // Un contenteditable n'a pas de propriété .placeholder native — le
+    // texte vide est piloté par data-empty-text + CSS :empty:before.
+    if (el.hasAttribute('contenteditable')) el.setAttribute('data-empty-text', val);
+    else el.placeholder = val;
+  });
   document.querySelectorAll('[data-tt]').forEach(el => { el.title = t(el.dataset.tt); });
   const btn = document.getElementById('lang-toggle');
   if (btn) btn.textContent = '🌐 ' + (currentLang === 'fr' ? 'EN' : 'FR');
@@ -4976,7 +4997,9 @@ async function sendProspectInvite() {
   const validEmails = tokens.filter(e => e.includes('@'));
   const invalidCount = tokens.length - validEmails.length;
   if (!validEmails.length) return toast('Aucun email valide détecté', true);
-  const message = document.getElementById('prospect-invite-msg').value.trim();
+  const msgEl = document.getElementById('prospect-invite-msg');
+  const msgHtml = msgEl.innerHTML.trim();
+  const message = (msgHtml === '<br>' || !msgEl.textContent.trim()) ? '' : msgHtml;
   const sel = document.getElementById('share-brand-select');
   const brand_id = sel ? sel.value : 'all'; // 'all' = toutes les marques
   const btn = document.querySelector('button[onclick="sendProspectInvite()"]');
@@ -4998,8 +5021,52 @@ async function sendProspectInvite() {
   if (failed && validEmails.length > 1) summary += ` (${failed} échec${failed>1?'s':''})`;
   if (invalidCount) summary += ` · ${invalidCount} entrée${invalidCount>1?'s':''} ignorée${invalidCount>1?'s':''} (pas d'email valide)`;
   toast(summary + (sent ? ' ✓' : ''), !sent);
-  if (sent) { emailEl.value = ''; document.getElementById('prospect-invite-msg').value = ''; }
+  if (sent) { emailEl.value = ''; msgEl.innerHTML = ''; }
 }
+
+// ── Composer riche du message d'invitation : gras/italique/lien ─────────
+// Le nettoyage de sécurité (balises/attributs autorisés, schémas de lien)
+// est fait CÔTÉ SERVEUR (sanitize-html sur /api/prospect-invite) — ce qui
+// suit n'est que confort d'édition, jamais la garantie de sécurité.
+function inviteMsgExec(cmd) {
+  document.getElementById('prospect-invite-msg').focus();
+  document.execCommand(cmd);
+}
+let _inviteMsgSavedRange = null;
+function inviteMsgLink() {
+  const el = document.getElementById('prospect-invite-msg');
+  const sel = window.getSelection();
+  if (sel.rangeCount && !sel.isCollapsed && el.contains(sel.anchorNode)) {
+    _inviteMsgSavedRange = sel.getRangeAt(0).cloneRange();
+  }
+  if (!_inviteMsgSavedRange) return toast('Sélectionnez d\'abord le texte à transformer en lien', true);
+  const pop = document.getElementById('prospect-invite-link-pop');
+  pop.style.display = 'flex';
+  document.getElementById('prospect-invite-link-url').focus();
+}
+function inviteMsgApplyLink() {
+  const input = document.getElementById('prospect-invite-link-url');
+  let url = input.value.trim();
+  if (!url || !_inviteMsgSavedRange) return;
+  if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url)) url = 'https://' + url;
+  const el = document.getElementById('prospect-invite-msg');
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(_inviteMsgSavedRange);
+  el.focus();
+  document.execCommand('createLink', false, url);
+  input.value = '';
+  document.getElementById('prospect-invite-link-pop').style.display = 'none';
+}
+// Collage : ne garde que le texte + les liens/mise en forme minimale déjà
+// présents dans le HTML source (Word/Gmail/Outlook…) — un filtrage complet
+// est de toute façon refait côté serveur avant l'envoi de l'email.
+document.getElementById('prospect-invite-msg')?.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const html = e.clipboardData?.getData('text/html');
+  const text = e.clipboardData?.getData('text/plain') || '';
+  document.execCommand('insertHTML', false, html ? html : text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'));
+});
 
 async function copyShareLink(type) {
   const sel = document.getElementById('share-brand-select');
