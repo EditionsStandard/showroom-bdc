@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Application de bon de commande Fashion Week - Showroom Durand",
   "main": "server.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "start": "node server.js",
     "install-deps": "npm install"
