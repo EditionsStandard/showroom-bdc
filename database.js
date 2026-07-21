@@ -476,6 +476,9 @@ async function init() {
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_url TEXT DEFAULT ''",
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_name TEXT DEFAULT ''",
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS attachment_type TEXT DEFAULT ''",
+    // Sujet optionnel (façon email) : repris dans la notification à l'agence pour
+    // trier les messages d'un coup d'œil sans ouvrir chaque conversation.
+    "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS subject TEXT DEFAULT ''",
     // Détail structuré (JSON) des événements de commande — utilisé pour l'instant
     // par 'lines_edited' : liste des lignes modifiées avec quantité avant/après,
     // pour afficher un vrai historique des quantités plutôt qu'une note générique.

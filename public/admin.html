@@ -5634,13 +5634,13 @@ function renderProductsTable(products) {
     let _thumbImgs = [];
     try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
-    const imgThumb = _thumbSrc ? `<img src="${cldTransform(_thumbSrc, 'w_100,c_limit,q_auto,f_auto')}" loading="lazy" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle">` : '—';
+    const imgThumb = _thumbSrc ? `<img src="${cldTransform(_thumbSrc, 'w_100,c_limit,q_auto,f_auto')}" loading="lazy" onclick="openImgLightbox('${cldTransform(_thumbSrc, 'w_1000,c_limit,q_auto,f_auto').replace(/'/g,"\\'")}')" title="Agrandir" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle;cursor:zoom-in">` : '—';
     const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
       <td><span class="drag-handle" draggable="true" data-drag-id="${p.id}" style="cursor:grab;padding:0 6px;color:#555;user-select:none">⠿</span><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateProductBulkBar()" style="width:auto"></td>
       <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
-      <td><strong>${p.reference}</strong>${p.featured ? ` <span title="Mis en avant (badge Best-seller)" style="color:var(--accent)">★</span>` : ''}</td>
+      <td><strong>${p.reference}</strong></td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.description||''}">${p.description||'—'}</td>
       <td>${p.color||'—'}</td>
       <td>${p.category||'—'}</td>
@@ -5658,6 +5658,7 @@ function renderProductsTable(products) {
       })()}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-sm prod-action" data-action="edit" data-id="${p.id}" title="Modifier" aria-label="Modifier">✏️</button>
+        <button class="btn btn-secondary btn-sm prod-action" data-action="feature" data-id="${p.id}" data-featured="${p.featured?1:0}" title="${p.featured ? 'Retirer la mise en avant' : 'Mettre en avant (badge Best-seller)'}" aria-label="Mettre en avant" style="color:${p.featured?'var(--accent)':'#888'}">★</button>
         <button class="btn btn-secondary btn-sm prod-action" data-action="dup" data-id="${p.id}" title="Dupliquer" aria-label="Dupliquer">⧉</button>
         <button class="btn btn-secondary btn-sm prod-action" data-action="toggle" data-id="${p.id}" data-inactive="${inactive?1:0}" data-brand="${p.brand_id}" title="${inactive?'Réactiver':'Désactiver'}" style="color:${inactive?'#2ecc71':'#888'}">${inactive?'▶':'⏸'}</button>
         <button class="btn btn-secondary btn-sm prod-action" data-action="qr" data-id="${p.id}" data-brand="${p.brand_id}" title="QR Code" aria-label="QR Code">📱</button>
@@ -5679,12 +5680,13 @@ function initProductDrag() {
       if (!btn) return;
       e.stopPropagation();
       e.preventDefault();
-      const { action, id, brand, inactive } = btn.dataset;
-      if (action === 'edit')   editProductById(id);
-      if (action === 'dup')    duplicateProduct(id);
-      if (action === 'toggle') toggleProductActive(id, parseInt(inactive));
-      if (action === 'qr')     showProductQR(brand, id);
-      if (action === 'del')    deleteProduct(id);
+      const { action, id, brand, inactive, featured } = btn.dataset;
+      if (action === 'edit')    editProductById(id);
+      if (action === 'feature') toggleProductFeatured(id, featured === '1', btn);
+      if (action === 'dup')     duplicateProduct(id);
+      if (action === 'toggle')  toggleProductActive(id, parseInt(inactive));
+      if (action === 'qr')      showProductQR(brand, id);
+      if (action === 'del')     deleteProduct(id);
     });
   }
 
@@ -5861,6 +5863,32 @@ async function toggleProductActive(id, newActive) {
   if (p) p.active = newActive;
   filterProducts();
   toast(newActive ? t('js_ref_activated') : t('js_ref_deactivated'));
+}
+
+async function toggleProductFeatured(id, wasFeatured, btn) {
+  const newFeatured = !wasFeatured;
+  const r = await fetch(`/api/products/${id}/featured`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ featured: newFeatured })
+  });
+  if (!r.ok) return toast(t('js_error'), true);
+  const p = productsCache.find(p => p.id === id);
+  if (p) p.featured = newFeatured;
+  if (btn) {
+    btn.dataset.featured = newFeatured ? '1' : '0';
+    btn.style.color = newFeatured ? 'var(--accent)' : '#888';
+    btn.title = newFeatured ? 'Retirer la mise en avant' : 'Mettre en avant (badge Best-seller)';
+  }
+  toast(newFeatured ? 'Mis en avant ✓' : 'Mise en avant retirée');
+}
+
+function openImgLightbox(url) {
+  if (!url) return;
+  document.getElementById('img-lightbox-img').src = url;
+  document.getElementById('img-lightbox').style.display = 'flex';
+}
+function closeImgLightbox() {
+  document.getElementById('img-lightbox').style.display = 'none';
+  document.getElementById('img-lightbox-img').src = '';
 }
 
 let currentImages = [];
@@ -8230,6 +8258,7 @@ function renderBuyerMessages(messages) {
     html += `<div style="display:flex;justify-content:${staff?'flex-end':'flex-start'};align-items:flex-end;gap:6px;margin-bottom:6px">
       ${avatar}
       <div style="max-width:78%;background:${staff?'var(--accent)':'#1c1c1c'};color:${staff?'#111':'#e0e0e0'};border-radius:0;padding:8px 12px;font-size:13px">
+        ${m.subject ? `<div style="font-weight:700;font-size:11.5px;margin-bottom:3px;text-transform:uppercase;letter-spacing:.03em;opacity:.85">${esc(m.subject)}</div>` : ''}
         ${bpMsgAttachmentHtml(m)}
         ${m.body ? `<div style="white-space:pre-wrap">${esc(m.body)}</div>` : ''}
         <div style="font-size:10px;margin-top:3px;opacity:.7">${staff?'Agence':'Acheteur'} · ${when}</div>
@@ -8542,5 +8571,10 @@ function clearBulkSelection() {
   document.getElementById('bulk-bar').style.display = 'none';
 }
 </script>
+
+<!-- Aperçu agrandi d'une vignette produit (tableau catalogue) -->
+<div id="img-lightbox" onclick="closeImgLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out;padding:24px">
+  <img id="img-lightbox-img" src="" alt="" style="max-width:90vw;max-height:90vh;object-fit:contain">
+</div>
 </body>
 </html>
