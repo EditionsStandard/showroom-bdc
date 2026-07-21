@@ -1668,24 +1668,26 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 // PUT/DELETE /api/brands/:id). Un agent est rattaché à UNE marque existante,
 // il n'a jamais besoin d'en créer une autre.
 app.post('/api/brands', requireRole('owner'), async (req, res) => {
-  const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, website, instagram, facebook, tiktok, linkedin, video_url, invite_bg_url } = req.body;
+  const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, website, instagram, facebook, tiktok, linkedin, video_url, invite_bg_url, retail_margin } = req.body;
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
+  if (retail_margin !== undefined && retail_margin !== null && retail_margin !== '' && !(Number.isFinite(parseFloat(retail_margin)) && parseFloat(retail_margin) > 0)) return res.status(400).json({ error: 'Marge retail invalide' });
   const id = uuidv4();
   const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(req.body.order_deadline || '') ? req.body.order_deadline : null;
   const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(req.body.early_access_until || '') ? req.body.early_access_until : null;
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until,invite_bg_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)',
-    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'']);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until,invite_bg_url,retail_margin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)',
+    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', (retail_margin !== undefined && retail_margin !== null && retail_margin !== '') ? parseFloat(retail_margin) : null]);
   res.json({ id, name });
 });
 
 app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
-    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until, invite_bg_url } = req.body;
+    const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until, invite_bg_url, retail_margin } = req.body;
     if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
+    if (retail_margin !== undefined && retail_margin !== null && retail_margin !== '' && !(Number.isFinite(parseFloat(retail_margin)) && parseFloat(retail_margin) > 0)) return res.status(400).json({ error: 'Marge retail invalide' });
     const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(order_deadline || '') ? order_deadline : null;
     const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(early_access_until || '') ? early_access_until : null;
-    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23, invite_bg_url=$24 WHERE id=$25',
-      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', req.params.id]);
+    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23, invite_bg_url=$24, retail_margin=$25 WHERE id=$26',
+      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', (retail_margin !== undefined && retail_margin !== null && retail_margin !== '') ? parseFloat(retail_margin) : null, req.params.id]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -1925,7 +1927,7 @@ function notifyNewCollections(req, brandId, newlySeenCollections) {
 }
 
 app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','designer'), async (req, res) => {
-  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
+  const { reference, description, color, sizes, price, price_retail, image_url, collection_name, category, composition, images, variants, season_id, video_url, featured } = req.body;
   if (!reference) return res.status(400).json({ error: 'Référence requise' });
   // Upsert: update existing product with same reference in this brand
   const existing = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2', [req.params.brandId, reference]);
@@ -1938,14 +1940,15 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
     set('image_url', image_url); set('collection_name', collection_name);
     set('category', category); set('composition', composition);
     if (video_url !== undefined) { fields.push(`video_url=$${vals.push(video_url)}`); } // permet aussi de vider
+    if (featured !== undefined) { fields.push(`featured=$${vals.push(!!featured)}`); }
     if (fields.length) { vals.push(eid); await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals); }
     return res.json({ id: eid, updated: true });
   }
   const isNewColl = await isNewCollection(req.params.brandId, collection_name);
   const id = uuidv4();
   await pool.query(
-    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id,video_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
-    [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'']
+    'INSERT INTO products (id,brand_id,reference,description,color,sizes,price,price_retail,image_url,collection_name,category,composition,images,variants,season_id,video_url,featured) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)',
+    [id, req.params.brandId, reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'', !!featured]
   );
   if (isNewColl) notifyBrandFollowers(req, req.params.brandId, collection_name).catch(e => console.error('[notify]', e.message));
   res.json({ id });
@@ -1996,7 +1999,7 @@ async function checkProductBrandScope(req, res) {
 app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req, res) => {
   try {
     if (!await checkProductBrandScope(req, res)) return;
-    const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id, video_url } = req.body;
+    const { reference, description, color, sizes, price, price_retail, image_url, active, collection_name, category, composition, images, variants, season_id, video_url, featured } = req.body;
     if (!reference || typeof reference !== 'string' || !reference.trim()) return res.status(400).json({ error: 'Référence requise' });
     if (price !== undefined && !Number.isFinite(parseFloat(price))) return res.status(400).json({ error: 'Prix invalide' });
     if (price_retail !== undefined && !Number.isFinite(parseFloat(price_retail))) return res.status(400).json({ error: 'Prix retail invalide' });
@@ -2009,8 +2012,8 @@ app.put('/api/products/:id', requireRole('owner','agent','designer'), async (req
     const dup = await pool.query('SELECT id FROM products WHERE brand_id=$1 AND reference=$2 AND id<>$3', [brandRow.rows[0].brand_id, reference.trim(), req.params.id]);
     if (dup.rows[0]) return res.status(409).json({ error: 'Cette référence est déjà utilisée par un autre produit de cette marque' });
     await pool.query(
-      'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14,video_url=$15 WHERE id=$16',
-      [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'', req.params.id]
+      'UPDATE products SET reference=$1,description=$2,color=$3,sizes=$4,price=$5,price_retail=$6,image_url=$7,active=$8,collection_name=$9,category=$10,composition=$11,images=$12,variants=$13,season_id=$14,video_url=$15,featured=$16 WHERE id=$17',
+      [reference, description||'', color||'', sizes||'', nonNeg(price), nonNeg(price_retail), image_url||'', active!==undefined?active:1, collection_name||'', category||'', composition||'', JSON.stringify(images||[]), JSON.stringify(variants||[]), season_id||null, video_url||'', !!featured, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
@@ -5106,7 +5109,7 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
   try {
     const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
-    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
+    const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url, featured FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load
     for (const prod of p.rows) {
       pool.query(
@@ -5129,6 +5132,8 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
       [req.params.brandId]
     );
     const bestSellerIds = new Set(bestSellers.rows.map(r => r.product_id));
+    // Mise en avant manuelle (featured) : s'ajoute au calcul automatique, ne le remplace pas.
+    p.rows.forEach(prod => { if (prod.featured) bestSellerIds.add(prod.id); });
     // Réassort suggéré : produits de la dernière commande de cet acheteur avec
     // cette marque encore actifs au catalogue, complétés par des nouveautés de
     // la même collection qu'il n'a pas encore commandées.

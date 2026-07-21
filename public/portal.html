@@ -57,7 +57,7 @@
   .shell { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
   .sidebar { border-right: 1px solid var(--border); padding: 26px 20px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
   .sidebar-logo-link { display: block; width: fit-content; margin-bottom: 40px; cursor: pointer; }
-  .sidebar-logo-link img { width: 42px; height: 42px; border-radius: 0; display: block; }
+  .sidebar-logo-link img { width: 64px; height: 64px; border-radius: 0; display: block; }
   .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
   .sidebar-nav a { color: var(--soft); text-decoration: none; cursor: pointer; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .18em; padding: 11px 12px; margin-left: -12px; border-left: 2px solid transparent; transition: color .15s, border-color .15s; }
   .sidebar-nav a.active { color: var(--white); border-left: 2px solid var(--accent); }
@@ -67,7 +67,7 @@
   .main-col { min-width: 0; }
   .topbar { background: var(--black); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: flex-end; align-items: center; position: sticky; top: 0; z-index: var(--z-bar); }
   .topbar-logo-link { display: none; margin-right: auto; cursor: pointer; }
-  .topbar-logo-link img { width: 28px; height: 28px; border-radius: 0; display: block; }
+  .topbar-logo-link img { width: 56px; height: 56px; border-radius: 0; display: block; }
   /* ── User dropdown ── */
   .user-menu { position: relative; flex-shrink: 0; }
   .user-btn { display: flex; align-items: center; gap: 9px; background: transparent; border: none; border-radius: 0; padding: 6px 14px 6px 6px; cursor: pointer; font-family: inherit; font-size: 11px; color: var(--white); letter-spacing: .06em; transition: border-color .15s; user-select: none; }
@@ -144,6 +144,31 @@
   .msg-attach-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .msg-attach-preview .remove { cursor: pointer; color: var(--muted); flex-shrink: 0; }
   .msg-attach-preview .remove:hover { color: var(--white); }
+  /* Messagerie : fenêtre de tchat flottante (bas gauche) au lieu d'une page dédiée.
+     Décalée à droite de la sidebar en desktop pour ne pas couvrir la déconnexion,
+     et remontée au-dessus de cart-bar/mobile-nav quand ils sont visibles. */
+  .chat-fab, .chat-panel { position: fixed; left: 16px; bottom: 24px; z-index: var(--z-toast); transition: bottom .15s; }
+  @media (min-width: 901px) { .chat-fab, .chat-panel { left: 226px; } }
+  body.cart-bar-open .chat-fab, body.cart-bar-open .chat-panel { bottom: 94px; }
+  @media (max-width: 640px) {
+    .chat-fab, .chat-panel { bottom: calc(66px + env(safe-area-inset-bottom)); }
+    body.cart-bar-open .chat-fab, body.cart-bar-open .chat-panel { bottom: calc(128px + env(safe-area-inset-bottom)); }
+  }
+  .chat-fab { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #111; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+  .chat-fab svg { width: 22px; height: 22px; }
+  .chat-fab .chat-fab-badge { position: absolute; top: -4px; right: -4px; background: #e0703a; color: #fff; font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid var(--black); }
+  .chat-panel { display: none; flex-direction: column; width: 320px; max-width: calc(100vw - 32px); height: 440px; max-height: calc(100vh - 100px); background: var(--dark); border: 1px solid var(--border); box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+  @media (max-width: 640px) { .chat-panel { width: calc(100vw - 32px); height: min(72vh, 520px); } }
+  .chat-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); font-family: 'Plex Mono', 'Space Mono', monospace; }
+  .chat-panel-head .t { font-size: 11px; color: var(--white); letter-spacing: .12em; text-transform: uppercase; }
+  .chat-panel-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .chat-panel-head .x { color: var(--soft); font-size: 18px; cursor: pointer; line-height: 1; background: none; border: none; padding: 0; }
+  .chat-panel-head .x:hover { color: var(--white); }
+  .chat-panel .msg-thread { flex: 1; max-height: none; margin: 0; border: none; }
+  .chat-panel .msg-attach-preview { margin: 0 12px 8px; }
+  .chat-panel-input { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .chat-panel-input input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--white); padding: 8px 2px; font-family: inherit; font-size: 13px; outline: none; }
+  .chat-panel-input .msg-attach-btn { width: 34px; height: 34px; font-size: 15px; }
   .save-status { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
   .save-status:empty { display: none; }
   .save-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--muted); }
@@ -613,7 +638,7 @@
     /* Topbar : masquer la nav texte (déjà fait dès 900px ci-dessus), garder
        uniquement logo + user-menu */
     .topbar { padding: 12px 16px; }
-    .topbar-logo-link img { width: 34px; height: 34px; }
+    .topbar-logo-link img { width: 56px; height: 56px; }
     /* Sélecteur devise compact visible sur mobile */
     #currency-select { display: block !important; font-size: 11px; padding: 4px 6px; }
     .wrap { padding: 16px 14px 100px; }
@@ -759,7 +784,7 @@ const TRANSLATIONS = {
   fr: {
     nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_favs: '♡ Mes favoris', dd_logout: '⏻ Déconnexion',
-    msg_send: 'Envoyer',
+    msg_send: 'Envoyer', chat_title: 'Messages', msg_placeholder: 'Votre message…',
     all_collections: 'Toutes collections', all_categories: 'Toutes catégories',
     cgv_section_title: 'Conditions générales de vente',
     prof_name_required: 'Nom requis.', prof_saved: 'Profil mis à jour ✓',
@@ -926,7 +951,7 @@ const TRANSLATIONS = {
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_favs: '♡ My favourites', dd_logout: '⏻ Log out',
-    msg_send: 'Send',
+    msg_send: 'Send', chat_title: 'Messages', msg_placeholder: 'Your message…',
     all_collections: 'All collections', all_categories: 'All categories',
     cgv_section_title: 'Terms & Conditions',
     prof_name_required: 'Name required.', prof_saved: 'Profile updated ✓',
@@ -1179,6 +1204,11 @@ function applyLang() {
   const _themeMode = typeof getThemeMode === 'function' ? getThemeMode() : 'auto';
   _sid('dd-theme', _themeMode === 'auto' ? T.theme_auto : _themeMode === 'light' ? T.theme_light : T.theme_dark);
   _sid('lang-btn', T.lang_btn);
+  document.querySelector('.chat-panel-head .t').textContent = T.chat_title;
+  const pmsgInput = document.getElementById('pmsg-input');
+  if (pmsgInput) pmsgInput.placeholder = T.msg_placeholder;
+  const pmsgSend = document.getElementById('pmsg-send');
+  if (pmsgSend) pmsgSend.textContent = T.msg_send;
   // Cart view static labels
   const backBtn = document.querySelector('#view-cart .back-btn');
   if (backBtn) backBtn.textContent = T.back_catalog;
@@ -1340,7 +1370,7 @@ function applyLang() {
           <button id="dd-dashboard" class="dropdown-item" onclick="closeUserMenu();showView('dashboard')">🏠 <span data-t="nav_dashboard">Accueil</span></button>
           <button id="dd-catalog" class="dropdown-item" onclick="closeUserMenu();showView('catalog')">🏷 Catalogue</button>
           <button id="dd-orders" class="dropdown-item" onclick="closeUserMenu();showView('orders')">📋 Mes commandes</button>
-          <button id="dd-messages" class="dropdown-item" onclick="closeUserMenu();showView('messages')">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
+          <button id="dd-messages" class="dropdown-item" onclick="openChatWidget()">💬 <span style="flex:1">Messages</span><span id="dd-msg-badge" style="display:none;background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:0;padding:1px 7px;min-width:16px;text-align:center"></span></button>
           <button id="dd-profile" class="dropdown-item" onclick="closeUserMenu();showView('account')">✏️ Mon profil</button>
           <div class="dropdown-sep"></div>
           <button id="dd-favs" class="dropdown-item" onclick="closeUserMenu();showView('favs')">♡ Mes favoris</button>
@@ -1477,20 +1507,6 @@ function applyLang() {
     <h2 class="section-title" id="shortlist-section-title" data-t="shortlist_title">Ma shortlist</h2>
     <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin:-16px 0 20px" data-t="shortlist_intro">Articles mis de côté pour en discuter en équipe avant de commander.</p>
     <div id="shortlist-list"></div>
-  </div>
-
-  <div id="view-messages" class="view-section" style="display:none;opacity:1;max-width:680px">
-    <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
-    <h2 class="section-title" id="msg-section-title">Messages</h2>
-    <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin:-6px 0 16px" id="msg-intro">Une question sur une collection, un délai, une commande ? Écrivez-nous, nous vous répondons par email.</p>
-    <div id="pmsg-thread" class="msg-thread"></div>
-    <div id="pmsg-attach-preview" class="msg-attach-preview" style="display:none"></div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button type="button" id="pmsg-attach-btn" class="msg-attach-btn" onclick="document.getElementById('pmsg-file').click()" title="Joindre une photo ou un PDF">📎</button>
-      <input type="file" id="pmsg-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" style="display:none" onchange="onPortalMsgFileChosen(this)">
-      <input id="pmsg-input" type="text" placeholder="Votre message…" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--white);border-radius:0;padding:10px 2px;font-family:inherit;font-size:14px;outline:none" onkeydown="if(event.key==='Enter')sendPortalMessage()">
-      <button class="btn-next" id="pmsg-send" onclick="sendPortalMessage()" style="padding:10px 20px" data-t="msg_send">Envoyer</button>
-    </div>
   </div>
 
   <div id="view-account" class="view-section" style="display:none;opacity:1;max-width:680px">
@@ -2323,7 +2339,7 @@ async function init() {
 }
 
 function showView(view, _fromPop) {
-  ['dashboard','catalog','cart','orders','account','favs','shortlist','messages'].forEach(v => {
+  ['dashboard','catalog','cart','orders','account','favs','shortlist'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (!el) return;
     if (v === view) {
@@ -2340,6 +2356,7 @@ function showView(view, _fromPop) {
   document.getElementById('nav-orders').classList.toggle('active', view === 'orders');
   document.getElementById('nav-profile').classList.toggle('active', view === 'account');
   document.getElementById('cart-bar').style.display = (view === 'catalog' && Object.keys(cart).some(k => cart[k].qty > 0)) ? 'flex' : 'none';
+  syncChatCartOffset();
   if (view === 'dashboard') loadDashboard();
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
@@ -2347,7 +2364,6 @@ function showView(view, _fromPop) {
   if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); }
   if (view === 'favs') renderFavs();
   if (view === 'shortlist') renderShortlist();
-  if (view === 'messages') { loadPortalMessages(); startPmsgPolling(); } else { stopPmsgPolling(); }
   if (!_fromPop) pushNav({ v: view, brand: null });
 }
 
@@ -2462,7 +2478,7 @@ async function sendPortalMessage() {
   finally { btn.disabled = false; }
 }
 function setMsgBadge(n) {
-  [document.getElementById('dd-msg-badge'), document.getElementById('mn-msg-badge')].forEach(badge => {
+  [document.getElementById('dd-msg-badge'), document.getElementById('mn-msg-badge'), document.getElementById('chat-fab-badge')].forEach(badge => {
     if (!badge) return;
     if (n > 0) { badge.textContent = n; badge.style.display = ''; } else { badge.style.display = 'none'; }
   });
@@ -2733,7 +2749,7 @@ async function openBrand(brandId, _fromPop) {
   // recherche globale, historique de commandes…) — s'assure que #view-catalog
   // est bien visible avant d'y injecter du contenu, sinon celui-ci se
   // construit dans un conteneur caché (ex. depuis le tableau de bord).
-  ['dashboard','cart','orders','account','favs','messages'].forEach(v => {
+  ['dashboard','cart','orders','account','favs'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) { el.style.display = 'none'; }
   });
@@ -3185,10 +3201,12 @@ function updateCartBar() {
   document.getElementById('cart-count').textContent = count;
   document.getElementById('cart-total').textContent = fmtPrice(total);
   document.getElementById('cart-bar').style.display = count > 0 && document.getElementById('view-catalog').style.display !== 'none' ? 'flex' : 'none';
+  syncChatCartOffset();
 }
 
 function renderCart() {
   document.getElementById('cart-bar').style.display = 'none';
+  syncChatCartOffset();
   const items = Object.values(cart);
   const byBrand = {};
   items.forEach(i => { (byBrand[i.brand_id] = byBrand[i.brand_id] || []).push(i); });
@@ -3564,12 +3582,12 @@ async function loadDashboard() {
     contactEl.innerHTML = `<div class="dash-card">
       <strong>${esc(me.agent_name)}</strong>${me.agent_title ? `<div style="color:var(--muted);font-size:12px">${esc(me.agent_title)}</div>` : ''}
       ${me.agent_phone ? `<div style="margin-top:6px"><a href="tel:${esc(me.agent_phone)}" style="color:var(--soft)">${esc(me.agent_phone)}</a></div>` : ''}
-      <a href="javascript:void(0)" onclick="showView('messages')" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
+      <a href="javascript:void(0)" onclick="openChatWidget()" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
     </div>`;
   } else {
     contactEl.innerHTML = `<div class="dash-card">
       <strong>${t('dash_contact_generic')}</strong>
-      <a href="javascript:void(0)" onclick="showView('messages')" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
+      <a href="javascript:void(0)" onclick="openChatWidget()" style="display:inline-block;margin-top:8px;color:var(--accent);text-decoration:underline;font-size:12px">${t('dash_contact_message')} →</a>
     </div>`;
   }
 
@@ -4692,7 +4710,47 @@ window.addEventListener('pageshow', (e) => {
     }).catch(() => window.location.replace('/editions-showroom-b2b-portail'));
   }
 });
+
+function openChatWidget() {
+  closeUserMenu();
+  document.getElementById('chat-fab').style.display = 'none';
+  document.getElementById('chat-panel').style.display = 'flex';
+  document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('mn-messages')?.classList.add('active');
+  loadPortalMessages();
+  startPmsgPolling();
+}
+function closeChatWidget() {
+  document.getElementById('chat-panel').style.display = 'none';
+  document.getElementById('chat-fab').style.display = 'flex';
+  document.getElementById('mn-messages')?.classList.remove('active');
+  stopPmsgPolling();
+}
+function syncChatCartOffset() {
+  const cartBar = document.getElementById('cart-bar');
+  document.body.classList.toggle('cart-bar-open', !!cartBar && cartBar.style.display === 'flex');
+}
 </script>
+
+<!-- Messagerie : fenêtre de tchat flottante (bas gauche), toujours accessible -->
+<button class="chat-fab" id="chat-fab" onclick="openChatWidget()" aria-label="Messages">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+  <span class="chat-fab-badge" id="chat-fab-badge" style="display:none"></span>
+</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-panel-head">
+    <div><div class="t">Messages</div><div class="sub" id="chat-panel-sub">Editions Standard B2B Showroom</div></div>
+    <button type="button" class="x" onclick="closeChatWidget()" aria-label="Fermer">✕</button>
+  </div>
+  <div id="pmsg-thread" class="msg-thread"></div>
+  <div id="pmsg-attach-preview" class="msg-attach-preview" style="display:none"></div>
+  <div class="chat-panel-input">
+    <button type="button" id="pmsg-attach-btn" class="msg-attach-btn" onclick="document.getElementById('pmsg-file').click()" title="Joindre une photo ou un PDF">📎</button>
+    <input type="file" id="pmsg-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" style="display:none" onchange="onPortalMsgFileChosen(this)">
+    <input id="pmsg-input" type="text" placeholder="Votre message…" onkeydown="if(event.key==='Enter')sendPortalMessage()">
+    <button class="btn-next" id="pmsg-send" onclick="sendPortalMessage()" style="padding:9px 16px" data-t="msg_send">Envoyer</button>
+  </div>
+</div>
 
 <!-- Barre de navigation fixe mobile -->
 <nav class="mobile-nav" aria-label="Navigation principale">
@@ -4705,7 +4763,7 @@ window.addEventListener('pageshow', (e) => {
   <button id="mn-favs" onclick="showView('favs')" aria-label="Mes favoris">
     <span class="mn-icon">♡</span>Favoris
   </button>
-  <button id="mn-messages" onclick="showView('messages')" aria-label="Messages" style="position:relative">
+  <button id="mn-messages" onclick="openChatWidget()" aria-label="Messages" style="position:relative">
     <span class="mn-icon">💬</span>Messages
     <span id="mn-msg-badge" style="display:none;position:absolute;top:4px;right:calc(50% - 20px);background:var(--accent);color:#111;font-size:9px;font-weight:700;border-radius:0;padding:1px 5px;min-width:14px;text-align:center;line-height:1.4"></span>
   </button>
@@ -4721,8 +4779,13 @@ window.addEventListener('pageshow', (e) => {
 const _origShowView = typeof showView === 'function' ? showView : null;
 function updateMobileNav(view) {
   document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
-  const map = { catalog: 'mn-catalog', orders: 'mn-orders', favs: 'mn-favs', messages: 'mn-messages', account: 'mn-profile' };
+  const map = { catalog: 'mn-catalog', orders: 'mn-orders', favs: 'mn-favs', account: 'mn-profile' };
   if (map[view]) document.getElementById(map[view])?.classList.add('active');
+  // Le tchat est une fenêtre flottante indépendante de la vue : si elle est
+  // ouverte, elle garde son état actif même quand on navigue en dessous.
+  if (document.getElementById('chat-panel')?.style.display === 'flex') {
+    document.getElementById('mn-messages')?.classList.add('active');
+  }
 }
 // Patch showView pour synchroniser la barre
 if (typeof showView === 'function') {

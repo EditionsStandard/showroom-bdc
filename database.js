@@ -517,6 +517,14 @@ async function init() {
     // coexister pour une même marque, d'où le suffixe numérique en cas de
     // collision géré par uniqueSlugFor().
     "ALTER TABLE commande_links ADD COLUMN IF NOT EXISTS slug TEXT",
+    // Marge retail (multiplicateur) par marque, pour calculer un prix retail
+    // suggéré (prix wholesale × marge) côté admin sans le ressaisir produit par
+    // produit — le champ price_retail existant reste la valeur manuelle prioritaire.
+    "ALTER TABLE brands ADD COLUMN IF NOT EXISTS retail_margin NUMERIC DEFAULT NULL",
+    // Mise en avant manuelle d'un produit (badge Best-seller forcé), en plus du
+    // calcul automatique par volume de ventes — permet à l'agence de pousser un
+    // produit stratégique même sans historique de commandes.
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
