@@ -636,7 +636,7 @@
 
 <div class="sidebar">
   <div class="sidebar-logo">
-    <img src="/logo.svg" style="width:42px;height:42px;border-radius:0;display:block">
+    <img src="/logo.svg" style="width:64px;height:64px;border-radius:0;display:block">
   </div>
   <nav>
     <a class="active" data-section="dashboard"><span class="icon">🏠</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span data-t="nav_dashboard">Tableau de bord</span></a>
@@ -1573,6 +1573,11 @@
         <label>MOQ — Montant min HT € <span style="color:#555;font-weight:400;font-size:11px">(0 = pas de minimum)</span></label>
         <input id="brand-moq-amount" type="number" min="0" step="0.01" placeholder="0">
       </div>
+      <div class="form-group" style="flex:1">
+        <label data-t="lbl_retail_margin">Marge retail (multiplicateur)</label>
+        <input id="brand-retail-margin" type="number" min="0" step="0.01" placeholder="ex. 2.5">
+        <span style="color:#555;font-weight:400;font-size:11px" data-t="hint_retail_margin">Prix retail suggéré = prix wholesale × cette valeur (vide = aucune suggestion)</span>
+      </div>
     </div>
     <div class="form-group" style="margin-top:4px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
@@ -1743,8 +1748,12 @@
       <div class="form-row">
         <div class="form-group"><label data-t="lbl_collection_name">Nom de collection</label><input id="p-collection" type="text" data-tp="ph_collection" placeholder="ex. SS27, FW27…"></div>
         <div class="form-group"><label data-t="lbl_ref_req">Référence *</label><input id="p-ref" type="text" placeholder="REF-001"></div>
-        <div class="form-group"><label data-t="lbl_price_ws">Prix wholesale HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00"></div>
-        <div class="form-group"><label data-t="lbl_price_retail">Prix retail conseillé (€)</label><input id="p-price-retail" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label data-t="lbl_price_ws">Prix wholesale HT (€)</label><input id="p-price" type="number" step="0.01" placeholder="0.00" oninput="updateRetailMarginHint()"></div>
+        <div class="form-group">
+          <label data-t="lbl_price_retail">Prix retail conseillé (€)</label>
+          <input id="p-price-retail" type="number" step="0.01" placeholder="0.00" oninput="updateRetailMarginHint()">
+          <span id="p-price-retail-hint" style="display:none;font-size:11px;color:#666;margin-top:3px"></span>
+        </div>
       </div>
       <div class="form-group"><label data-t="th_description">Désignation</label><textarea id="p-desc" rows="4" style="line-height:1.5;resize:vertical" data-tp="ph_description"></textarea></div>
       <div class="form-row">
@@ -1753,6 +1762,12 @@
         <div class="form-group"><label data-t="lbl_composition">Composition</label><input id="p-composition" type="text" data-tp="ph_composition"></div>
       </div>
       <div class="form-group"><label data-t="lbl_sizes">Tailles disponibles (séparées par virgule)</label><input id="p-sizes" type="text" data-tp="ph_sizes"></div>
+      <div class="form-group" style="margin-top:4px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="p-featured">
+          <span data-t="lbl_featured">Mettre en avant (badge Best-seller sur le portail acheteur)</span>
+        </label>
+      </div>
       <!-- Stock -->
       <div class="form-group" style="margin-top:12px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -2403,6 +2418,9 @@ const TRANSLATIONS = {
     lbl_new_password: 'Nouveau mot de passe', pw_leave_blank: '(laisser vide = inchangé)',
     lbl_collection_name: 'Nom de collection', lbl_season: 'Saison', lbl_ref_req: 'Référence *',
     lbl_price_ws: 'Prix wholesale HT (€)', lbl_price_retail: 'Prix retail conseillé (€)',
+    lbl_featured: 'Mettre en avant (badge Best-seller sur le portail acheteur)',
+    lbl_retail_margin: 'Marge retail (multiplicateur)',
+    hint_retail_margin: 'Prix retail suggéré = prix wholesale × cette valeur (vide = aucune suggestion)',
     lbl_category_hint: 'Catégorie', lbl_composition: 'Composition',
     lbl_sizes: 'Tailles disponibles (séparées par virgule)',
     lbl_product_photos: 'Photos du produit',
@@ -2596,6 +2614,9 @@ const TRANSLATIONS = {
     lbl_new_password: 'New password', pw_leave_blank: '(leave blank = unchanged)',
     lbl_collection_name: 'Collection name', lbl_season: 'Season', lbl_ref_req: 'Reference *',
     lbl_price_ws: 'Wholesale price (€)', lbl_price_retail: 'Suggested retail price (€)',
+    lbl_featured: 'Feature (forces the Best-seller badge on the buyer portal)',
+    lbl_retail_margin: 'Retail margin (multiplier)',
+    hint_retail_margin: 'Suggested retail price = wholesale price × this value (blank = no suggestion)',
     lbl_category_hint: 'Category', lbl_composition: 'Composition',
     lbl_sizes: 'Available sizes (comma-separated)',
     lbl_product_photos: 'Product photos',
@@ -2850,6 +2871,7 @@ function escJs(s) {
 
 let currentBrandId = null;
 let currentBrandName = '';
+let currentBrandRetailMargin = null;
 
 // Navigation — chaque section visitée est enregistrée dans l'historique du
 // navigateur pour que "retour" repasse par les sections précédentes au lieu
@@ -4578,7 +4600,7 @@ async function loadBrands() {
     const coverHtml = b.cover_image
       ? `<img src="${b.cover_image}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius: 0 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
-    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||'',invite_bg_url:b.invite_bg_url||''}).replace(/'/g,"&#39;");
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||'',invite_bg_url:b.invite_bg_url||'',retail_margin:b.retail_margin||''}).replace(/'/g,"&#39;");
     const subBadge = {
       active: `<span class="badge" style="background:#1f3d1f;color:#2ecc71">${t('status_active_label')}</span>`,
       trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
@@ -4681,6 +4703,7 @@ function resetBrandModal() {
   document.getElementById('brand-moq-qty').value = '';
   document.getElementById('brand-moq-amount').value = '';
   document.getElementById('brand-moq-strict').checked = false;
+  document.getElementById('brand-retail-margin').value = '';
   document.getElementById('brand-lookbook').value = '';
   document.getElementById('brand-lookbook-status').textContent = '';
   document.getElementById('brand-lookbook-clear').style.display = 'none';
@@ -4760,6 +4783,7 @@ function editBrand(b) {
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
   document.getElementById('brand-moq-strict').checked = b.moq_strict === true || b.moq_strict === 'true';
+  document.getElementById('brand-retail-margin').value = b.retail_margin || '';
   document.getElementById('brand-delivery-terms').value = b.delivery_terms || '';
   document.getElementById('brand-payment-terms').value = b.payment_terms || '';
   document.getElementById('brand-return-terms').value = b.return_terms || '';
@@ -4792,6 +4816,7 @@ async function saveBrand() {
     moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
     moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0,
     moq_strict: document.getElementById('brand-moq-strict').checked,
+    retail_margin: document.getElementById('brand-retail-margin').value,
     delivery_terms: document.getElementById('brand-delivery-terms').value.trim(),
     payment_terms: document.getElementById('brand-payment-terms').value.trim(),
     return_terms: document.getElementById('brand-return-terms').value.trim(),
@@ -5275,12 +5300,18 @@ async function printAllProductQR() {
 async function loadProducts(brandId, brandName) {
   currentBrandId = brandId;
   currentBrandName = brandName;
+  currentBrandRetailMargin = null;
   document.getElementById('modal-products-title').textContent = brandName;
   document.getElementById('add-product-form').style.display = 'none';
   document.getElementById('duplicates-result').style.display = 'none';
   openModal('modal-products');
   refreshProducts();
   loadCollectionLookbook();
+  fetch('/api/brands').then(r => r.json()).then(brands => {
+    const b = Array.isArray(brands) ? brands.find(x => x.id === currentBrandId) : null;
+    currentBrandRetailMargin = b && b.retail_margin > 0 ? parseFloat(b.retail_margin) : null;
+    refreshProducts();
+  }).catch(() => {});
 }
 
 // ── Lookbook par marque (depuis l'onglet Collection) ────────────────
@@ -5609,13 +5640,13 @@ function renderProductsTable(products) {
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
       <td><span class="drag-handle" draggable="true" data-drag-id="${p.id}" style="cursor:grab;padding:0 6px;color:#555;user-select:none">⠿</span><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateProductBulkBar()" style="width:auto"></td>
       <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
-      <td><strong>${p.reference}</strong></td>
+      <td><strong>${p.reference}</strong>${p.featured ? ` <span title="Mis en avant (badge Best-seller)" style="color:var(--accent)">★</span>` : ''}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.description||''}">${p.description||'—'}</td>
       <td>${p.color||'—'}</td>
       <td>${p.category||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap">${Number(p.price).toFixed(2)} €</td>
-      <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : '— (cliquer)'}</td>
+      <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="${p.price_retail > 0 ? 'Cliquer pour modifier' : (currentBrandRetailMargin ? `Suggéré : prix WS × marge ${currentBrandRetailMargin} — cliquer pour fixer une valeur` : 'Cliquer pour modifier')}" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : (currentBrandRetailMargin ? `≈ ${(Number(p.price) * currentBrandRetailMargin).toFixed(2)} €` : '— (cliquer)')}</td>
       <td>${imgThumb}</td>
       <td>${(() => {
         if (!p.stock_enabled) return '—';
@@ -5837,6 +5868,19 @@ let currentVariants = []; // [{color, images:[]}]
 let currentVideoUrl = '';
 let currentBrandVideoUrl = '';
 
+// Suggestion live (non contraignante) : prix wholesale × marge retail de la
+// marque, affichée seulement si le champ "prix retail" est encore vide —
+// l'admin garde la main, cette valeur n'est jamais écrite sans son geste.
+function updateRetailMarginHint() {
+  const hint = document.getElementById('p-price-retail-hint');
+  if (!hint) return;
+  const ws = parseFloat(document.getElementById('p-price').value);
+  const retailFilled = document.getElementById('p-price-retail').value !== '';
+  if (!currentBrandRetailMargin || !(ws > 0) || retailFilled) { hint.style.display = 'none'; return; }
+  hint.textContent = `Suggéré (× ${currentBrandRetailMargin}) : ${(ws * currentBrandRetailMargin).toFixed(2)} €`;
+  hint.style.display = 'block';
+}
+
 function resetProductForm() {
   currentImages = [];
   currentVariants = [];
@@ -5855,10 +5899,12 @@ function resetProductForm() {
   document.getElementById('p-sizes').value = '';
   document.getElementById('p-price').value = '';
   document.getElementById('p-price-retail').value = '';
+  document.getElementById('p-featured').checked = false;
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
   currentVideoUrl = '';
   renderVideoPreview();
+  updateRetailMarginHint();
   const stockEnabled = document.getElementById('edit-stock-enabled');
   if (stockEnabled) stockEnabled.checked = false;
   const stockQtyRow = document.getElementById('stock-qty-row');
@@ -5909,10 +5955,12 @@ function editProduct(p) {
   document.getElementById('p-sizes').value = p.sizes || '';
   document.getElementById('p-price').value = p.price || '';
   document.getElementById('p-price-retail').value = p.price_retail || '';
+  document.getElementById('p-featured').checked = !!p.featured;
   document.getElementById('p-img-file').value = '';
   document.getElementById('p-img-url-input').value = '';
   currentVideoUrl = p.video_url || '';
   renderVideoPreview();
+  updateRetailMarginHint();
   // Stock
   const _stockEnabled = document.getElementById('edit-stock-enabled');
   if (_stockEnabled) _stockEnabled.checked = !!p.stock_enabled;
@@ -6107,6 +6155,7 @@ async function saveProduct() {
     sizes: document.getElementById('p-sizes').value,
     price: document.getElementById('p-price').value,
     price_retail: document.getElementById('p-price-retail').value,
+    featured: document.getElementById('p-featured').checked,
     image_url: firstImg,
     images: currentImages,
     variants: currentVariants,
