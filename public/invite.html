@@ -196,7 +196,12 @@ const TRANSLATIONS = {
   }
 };
 
-let currentLang = localStorage.getItem('portal_lang') || 'fr';
+// ?lang= (posé par le serveur sur le lien envoyé par email, selon la langue
+// choisie par l'agent) prime sur localStorage — sinon un email en anglais
+// atterrit sur une page par défaut en français au tout premier clic.
+const _urlLang = new URLSearchParams(location.search).get('lang');
+let currentLang = (_urlLang === 'fr' || _urlLang === 'en') ? _urlLang : (localStorage.getItem('portal_lang') || 'fr');
+if (_urlLang === 'fr' || _urlLang === 'en') localStorage.setItem('portal_lang', _urlLang);
 
 function t(key) {
   return (TRANSLATIONS[currentLang] || TRANSLATIONS.fr)[key] || key;

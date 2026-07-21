@@ -427,7 +427,12 @@ fetch("/api/public/branding").then(r => r.json()).then(b => {
   }
 }).catch(() => {});
 
-let lang = localStorage.getItem('portal_lang') || 'fr';
+// ?lang= (posé par le serveur sur le lien envoyé par email, selon la langue
+// choisie par l'agent) prime sur localStorage — sinon un email en anglais
+// atterrit sur une page par défaut en français au tout premier clic.
+const _urlLang = new URLSearchParams(location.search).get('lang');
+let lang = (_urlLang && TR[_urlLang]) ? _urlLang : (localStorage.getItem('portal_lang') || 'fr');
+if (_urlLang && TR[_urlLang]) localStorage.setItem('portal_lang', _urlLang);
 
 function t(k) { return (TR[lang] || TR.fr)[k] || TR.fr[k] || k; }
 
