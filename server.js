@@ -687,6 +687,30 @@ function safeHttpUrl(url) {
   return /^https?:\/\//i.test(s) ? s : '';
 }
 
+function slugify(str) {
+  return String(str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accents
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+// Slug lisible pour un lien d'invitation (ex. /rejoindre/zara), dérivé du nom
+// de marque. Suffixe numérique en cas de collision (deux marques au nom proche) ;
+// repli sur un court identifiant aléatoire si le nom ne produit aucun caractère
+// latin/chiffre (ex. nom uniquement en emoji/idéogrammes).
+async function uniqueInviteSlug(brandName) {
+  const base = slugify(brandName) || crypto.randomBytes(3).toString('hex');
+  let candidate = base;
+  let n = 2;
+  while (true) {
+    const exists = await pool.query('SELECT 1 FROM brand_invite_links WHERE slug=$1', [candidate]);
+    if (!exists.rows.length) return candidate;
+    candidate = `${base}-${n++}`;
+  }
+}
+
 async function getSetting(key) {
   const r = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
   return r.rows[0]?.value || '';
@@ -1361,14 +1385,18 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
       if (isBrandScoped(req) && req.userBrandId !== br.id) return res.status(403).json({ error: 'Accès refusé' });
       brandName = br.name;
       // Récupère (ou crée) le lien d'invitation actif de la marque
-      let t = (await pool.query('SELECT token FROM brand_invite_links WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC LIMIT 1', [brandId])).rows[0];
+      let t = (await pool.query('SELECT token, slug FROM brand_invite_links WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC LIMIT 1', [brandId])).rows[0];
       if (!t) {
         const token = crypto.randomBytes(24).toString('hex');
+        // DELETE avant de calculer le slug : sinon l'ancienne ligne de CETTE marque
+        // (même nom) se compte comme une collision et le slug dérive à chaque
+        // régénération (zara → zara-2 → zara-3…) au lieu de rester stable.
         await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [brandId]);
-        await pool.query('INSERT INTO brand_invite_links (token, brand_id, active) VALUES ($1,$2,1)', [token, brandId]);
-        t = { token };
+        const slug = await uniqueInviteSlug(br.name);
+        await pool.query('INSERT INTO brand_invite_links (token, brand_id, active, slug) VALUES ($1,$2,1,$3)', [token, brandId, slug]);
+        t = { token, slug };
       }
-      link = `${getBaseUrl(req)}/rejoindre/${t.token}`;
+      link = `${getBaseUrl(req)}/rejoindre/${t.slug || t.token}`;
     }
     logAudit(req, 'invite_prospect', 'prospect', email, brandName || 'toutes marques');
     const resendKey = process.env.RESEND_API_KEY;
@@ -6874,10 +6902,15 @@ app.get('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'), 
 });
 
 app.post('/api/brands/:brandId/invite-link', requireBrandScope('owner','agent'), async (req, res) => {
+  const b = await pool.query('SELECT name FROM brands WHERE id=$1', [req.params.brandId]);
+  if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   const token = crypto.randomBytes(24).toString('hex');
+  // DELETE avant de calculer le slug : cf. commentaire équivalent plus haut
+  // (auto-création du lien) — évite de faire dériver le slug à chaque régénération.
   await pool.query('DELETE FROM brand_invite_links WHERE brand_id=$1', [req.params.brandId]);
-  await pool.query('INSERT INTO brand_invite_links (token, brand_id, active) VALUES ($1,$2,1)', [token, req.params.brandId]);
-  res.json({ token });
+  const slug = await uniqueInviteSlug(b.rows[0].name);
+  await pool.query('INSERT INTO brand_invite_links (token, brand_id, active, slug) VALUES ($1,$2,1,$3)', [token, req.params.brandId, slug]);
+  res.json({ token, slug });
 });
 
 app.put('/api/brands/:brandId/invite-link/toggle', requireBrandScope('owner','agent'), async (req, res) => {
@@ -7213,7 +7246,7 @@ app.get('/api/invite/:token', async (req, res) => {
     SELECT bil.*, b.name as brand_name, b.logo as brand_logo, b.invite_bg_url as brand_bg
     FROM brand_invite_links bil
     JOIN brands b ON b.id = bil.brand_id
-    WHERE bil.token=$1 AND bil.active != 0
+    WHERE (bil.token=$1 OR bil.slug=$1) AND bil.active != 0
   `, [req.params.token]);
   if (!r.rows[0]) return res.status(404).json({ error: 'Lien invalide ou désactivé.' });
   res.json({ brand_name: r.rows[0].brand_name, brand_logo: r.rows[0].brand_logo, brand_bg: r.rows[0].brand_bg || '' });
@@ -7227,7 +7260,7 @@ app.post('/api/invite/:token', emailLimiter, async (req, res) => {
     SELECT bil.brand_id, b.name as brand_name
     FROM brand_invite_links bil
     JOIN brands b ON b.id = bil.brand_id
-    WHERE bil.token=$1 AND bil.active != 0
+    WHERE (bil.token=$1 OR bil.slug=$1) AND bil.active != 0
   `, [req.params.token]);
   if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
 
