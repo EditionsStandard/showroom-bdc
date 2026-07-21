@@ -144,11 +144,10 @@
   .msg-attach-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .msg-attach-preview .remove { cursor: pointer; color: var(--muted); flex-shrink: 0; }
   .msg-attach-preview .remove:hover { color: var(--white); }
-  /* Messagerie : fenêtre de tchat flottante (bas gauche) au lieu d'une page dédiée.
-     Décalée à droite de la sidebar en desktop pour ne pas couvrir la déconnexion,
-     et remontée au-dessus de cart-bar/mobile-nav quand ils sont visibles. */
+  /* Messagerie : fenêtre de tchat flottante en bas à gauche de la fenêtre
+     (desktop et mobile), remontée au-dessus de cart-bar/mobile-nav quand
+     ils sont visibles. */
   .chat-fab, .chat-panel { position: fixed; left: 16px; bottom: 24px; z-index: var(--z-toast); transition: bottom .15s; }
-  @media (min-width: 901px) { .chat-fab, .chat-panel { left: 226px; } }
   body.cart-bar-open .chat-fab, body.cart-bar-open .chat-panel { bottom: 94px; }
   @media (max-width: 640px) {
     .chat-fab, .chat-panel { bottom: calc(66px + env(safe-area-inset-bottom)); }
@@ -166,7 +165,10 @@
   .chat-panel-head .x:hover { color: var(--white); }
   .chat-panel .msg-thread { flex: 1; max-height: none; margin: 0; border: none; }
   .chat-panel .msg-attach-preview { margin: 0 12px 8px; }
-  .chat-panel-input { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .chat-panel-subject { padding: 8px 12px 0; border-top: 1px solid var(--border); }
+  .chat-panel-subject input { width: 100%; background: transparent; border: none; color: var(--white); padding: 4px 2px; font-family: 'Plex Mono','Space Mono',monospace; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; outline: none; }
+  .chat-panel-subject input::placeholder { color: var(--muted); font-weight: 400; }
+  .chat-panel-input { display: flex; gap: 8px; align-items: center; padding: 8px 12px 10px; border-top: none; }
   .chat-panel-input input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--white); padding: 8px 2px; font-family: inherit; font-size: 13px; outline: none; }
   .chat-panel-input .msg-attach-btn { width: 34px; height: 34px; font-size: 15px; }
   .save-status { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px; }
@@ -784,7 +786,7 @@ const TRANSLATIONS = {
   fr: {
     nav_catalog: 'Catalogue', nav_orders: 'Mes commandes', nav_profile: 'Mon profil', nav_logout: 'Déconnexion',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 Mes commandes', dd_profile: '✏️ Mon profil', dd_favs: '♡ Mes favoris', dd_logout: '⏻ Déconnexion',
-    msg_send: 'Envoyer', chat_title: 'Messages', msg_placeholder: 'Votre message…',
+    msg_send: 'Envoyer', chat_title: 'Messages', msg_placeholder: 'Votre message…', msg_subject_placeholder: 'Sujet (optionnel)',
     all_collections: 'Toutes collections', all_categories: 'Toutes catégories',
     cgv_section_title: 'Conditions générales de vente',
     prof_name_required: 'Nom requis.', prof_saved: 'Profil mis à jour ✓',
@@ -951,7 +953,7 @@ const TRANSLATIONS = {
   en: {
     nav_catalog: 'Catalogue', nav_orders: 'My orders', nav_profile: 'My profile', nav_logout: 'Log out',
     dd_catalog: '🏷 Catalogue', dd_orders: '📋 My orders', dd_profile: '✏️ My profile', dd_favs: '♡ My favourites', dd_logout: '⏻ Log out',
-    msg_send: 'Send', chat_title: 'Messages', msg_placeholder: 'Your message…',
+    msg_send: 'Send', chat_title: 'Messages', msg_placeholder: 'Your message…', msg_subject_placeholder: 'Subject (optional)',
     all_collections: 'All collections', all_categories: 'All categories',
     cgv_section_title: 'Terms & Conditions',
     prof_name_required: 'Name required.', prof_saved: 'Profile updated ✓',
@@ -1207,6 +1209,8 @@ function applyLang() {
   document.querySelector('.chat-panel-head .t').textContent = T.chat_title;
   const pmsgInput = document.getElementById('pmsg-input');
   if (pmsgInput) pmsgInput.placeholder = T.msg_placeholder;
+  const pmsgSubject = document.getElementById('pmsg-subject');
+  if (pmsgSubject) pmsgSubject.placeholder = T.msg_subject_placeholder;
   const pmsgSend = document.getElementById('pmsg-send');
   if (pmsgSend) pmsgSend.textContent = T.msg_send;
   // Cart view static labels
@@ -1427,7 +1431,6 @@ function applyLang() {
       <div class="dash-block-title" data-t="dash_brands">Marques</div>
       <div id="dash-brands" class="brand-grid"></div>
     </div>
-    <a href="javascript:void(0)" onclick="showView('catalog')" style="display:inline-block;margin-top:28px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--accent);text-decoration:underline" data-t="dash_view_catalog">Parcourir le catalogue →</a>
   </div>
 
   <div id="view-catalog" class="view-section" style="display:none;opacity:1">
@@ -2402,6 +2405,7 @@ async function loadPortalMessages() {
         const when = dt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
         html += `<div class="msg-row" style="justify-content:${mine?'flex-end':'flex-start'}">
           <div class="msg-bubble${mine?' mine':''}" style="background:${mine?'var(--accent)':'var(--mid)'};color:${mine?'#111':'var(--white)'}">
+            ${m.subject ? `<div style="font-weight:700;font-size:11.5px;margin-bottom:3px;text-transform:uppercase;letter-spacing:.03em;opacity:.85">${esc(m.subject)}</div>` : ''}
             ${msgAttachmentHtml(m, mine)}
             ${m.body ? `<div style="white-space:pre-wrap">${esc(m.body)}</div>` : ''}
             <div style="font-size:10px;margin-top:3px;opacity:.7">${mine?'Vous':'Agence'} · ${when}</div>
@@ -2461,19 +2465,20 @@ function clearPmsgAttachment() { _pmsgPendingAttachment = null; renderPmsgAttach
 
 async function sendPortalMessage() {
   const input = document.getElementById('pmsg-input');
+  const subjectInput = document.getElementById('pmsg-subject');
   const body = input.value.trim();
   if (!body && !_pmsgPendingAttachment) return;
   const btn = document.getElementById('pmsg-send');
   btn.disabled = true;
   try {
-    const payload = { body };
+    const payload = { body, subject: subjectInput ? subjectInput.value.trim() : '' };
     if (_pmsgPendingAttachment) {
       payload.attachment_url = _pmsgPendingAttachment.url;
       payload.attachment_name = _pmsgPendingAttachment.name;
       payload.attachment_type = _pmsgPendingAttachment.type;
     }
     const r = await fetch('/api/portal/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    if (r.ok) { input.value = ''; clearPmsgAttachment(); loadPortalMessages(); }
+    if (r.ok) { input.value = ''; if (subjectInput) subjectInput.value = ''; clearPmsgAttachment(); loadPortalMessages(); }
   } catch(e) {}
   finally { btn.disabled = false; }
 }
@@ -4744,6 +4749,9 @@ function syncChatCartOffset() {
   </div>
   <div id="pmsg-thread" class="msg-thread"></div>
   <div id="pmsg-attach-preview" class="msg-attach-preview" style="display:none"></div>
+  <div class="chat-panel-subject">
+    <input id="pmsg-subject" type="text" placeholder="Sujet (optionnel)" maxlength="150">
+  </div>
   <div class="chat-panel-input">
     <button type="button" id="pmsg-attach-btn" class="msg-attach-btn" onclick="document.getElementById('pmsg-file').click()" title="Joindre une photo ou un PDF">📎</button>
     <input type="file" id="pmsg-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" style="display:none" onchange="onPortalMsgFileChosen(this)">

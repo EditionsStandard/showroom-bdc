@@ -2450,6 +2450,16 @@ app.put('/api/products/:id/active', requireRole('owner','agent','designer'), asy
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+// Bascule rapide "mise en avant" depuis la liste produits (icône ★), sans
+// passer par le formulaire complet — même logique que le PATCH stock ci-dessous.
+app.patch('/api/products/:id/featured', requireRole('owner','agent','designer'), async (req, res) => {
+  try {
+    if (!await checkProductBrandScope(req, res)) return;
+    await pool.query('UPDATE products SET featured=$1 WHERE id=$2', [!!req.body.featured, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, res) => {
   try {
     if (!await checkProductBrandScope(req, res)) return;
@@ -6026,7 +6036,7 @@ app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), a
 // Un message peut porter une pièce jointe (photo ou PDF) avec ou sans texte.
 
 const ALLOWED_MSG_ATTACH_MIMES = [...ALLOWED_IMAGE_MIMES, 'application/pdf'];
-const MSG_COLS = 'id, sender, body, attachment_url, attachment_name, attachment_type, created_at';
+const MSG_COLS = 'id, sender, body, subject, attachment_url, attachment_name, attachment_type, created_at';
 // Même vérification par octets magiques que looksLikeImage()/upload-pdf — le
 // mimetype déclaré par le client ne suffit pas.
 function looksLikeMsgAttachment(mimetype, buf) {
@@ -6093,6 +6103,7 @@ app.get('/api/portal/messages/unread', requireBuyerAuth, async (req, res) => {
 app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
   try {
     const body = (req.body.body || '').toString().trim();
+    const subject = (req.body.subject || '').toString().trim().slice(0, 150);
     const attachmentUrl = (req.body.attachment_url || '').toString().trim();
     const attachmentName = (req.body.attachment_name || '').toString().trim().slice(0, 200);
     const attachmentType = (req.body.attachment_type || '').toString().trim().slice(0, 100);
@@ -6100,10 +6111,10 @@ app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
     if (body.length > 4000) return res.status(400).json({ error: 'Message trop long' });
     if (attachmentUrl && !attachmentUrl.startsWith('https://res.cloudinary.com/')) return res.status(400).json({ error: 'Pièce jointe invalide' });
     const buyer = req.session.buyerPortal;
-    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, attachment_url, attachment_name, attachment_type, read_by_staff) VALUES ($1,$2,$3,$4,$5,$6,$7,false)',
-      [uuidv4(), buyer.id, 'buyer', body, attachmentUrl, attachmentName, attachmentType]);
-    notifyOwner(`Nouveau message de ${buyer.name || buyer.email}`,
-      `<p><strong>${escHtml(buyer.name || '')} (${escHtml(buyer.email)})</strong> vous a écrit :</p>
+    await pool.query('INSERT INTO buyer_messages (id, buyer_id, sender, body, subject, attachment_url, attachment_name, attachment_type, read_by_staff) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false)',
+      [uuidv4(), buyer.id, 'buyer', body, subject, attachmentUrl, attachmentName, attachmentType]);
+    notifyOwner(subject ? `${subject} — ${buyer.name || buyer.email}` : `Nouveau message de ${buyer.name || buyer.email}`,
+      `<p><strong>${escHtml(buyer.name || '')} (${escHtml(buyer.email)})</strong> vous a écrit${subject ? ` — <strong>${escHtml(subject)}</strong>` : ''} :</p>
        ${body ? `<blockquote style="border-left:3px solid rgba(17,17,17,.2);padding-left:12px;color:#444444">${escHtml(body)}</blockquote>` : ''}
        ${attachmentEmailNote(attachmentName)}
        <p style="font-size:12px;color:#888">Répondez depuis votre admin → fiche client.</p>`).catch(() => {});
