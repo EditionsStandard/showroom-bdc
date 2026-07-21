@@ -705,21 +705,23 @@ function slugify(str) {
     .slice(0, 60);
 }
 
-// Slug lisible pour un lien partagé (ex. /rejoindre/zara, /c/zara), dérivé du
-// nom de marque. Suffixe numérique en cas de collision — soit deux marques au
-// nom proche, soit (pour commande_links) plusieurs liens actifs simultanés
-// pour la MÊME marque. Repli sur un court identifiant aléatoire si le nom ne
-// produit aucun caractère latin/chiffre (ex. nom uniquement en emoji/idéogrammes).
+// Slug lisible pour un lien partagé (ex. /rejoindre/zara-4f9a2c1b, /c/zara-9e3d0a7c),
+// dérivé du nom de marque + un suffixe aléatoire TOUJOURS présent (pas
+// seulement en cas de collision). Le nom d'une marque n'est pas un secret —
+// n'importe qui le connaissant pourrait sinon deviner /c/zara ou
+// /rejoindre/zara sans jamais avoir reçu le lien, contournant entièrement le
+// token aléatoire censé être le seul rempart d'accès (le lien /c/:token donne
+// accès aux prix wholesale/conditions commerciales confidentielles sans
+// compte). Repli sur un court identifiant aléatoire si le nom ne produit
+// aucun caractère latin/chiffre (ex. nom uniquement en emoji/idéogrammes).
 // table ne provient jamais d'une entrée utilisateur (toujours un littéral codé
 // en dur aux points d'appel) — l'interpolation ici est sûre.
 async function uniqueSlugFor(table, brandName) {
   const base = slugify(brandName) || crypto.randomBytes(3).toString('hex');
-  let candidate = base;
-  let n = 2;
   while (true) {
+    const candidate = `${base}-${crypto.randomBytes(4).toString('hex')}`;
     const exists = await pool.query(`SELECT 1 FROM ${table} WHERE slug=$1`, [candidate]);
     if (!exists.rows.length) return candidate;
-    candidate = `${base}-${n++}`;
   }
 }
 
@@ -3947,12 +3949,14 @@ async function requireCommandeAccessParam(req, res, next) {
 // des prix wholesale/conditions commerciales confidentielles : renforcé au-delà
 // du Cache-Control par défaut de sendPage() (no-cache/revalidate) vers no-store,
 // pour qu'aucun proxy/cache intermédiaire ne conserve une version de la page.
-app.get('/commande/:brandId', requireCommandeAccess, (req, res) => sendPage(res, 'commande.html', 'no-store, private'));
+app.get('/commande/:brandId', publicLimiter, requireCommandeAccess, (req, res) => sendPage(res, 'commande.html', 'no-store, private'));
 
 // P0-04 — lien de commande privé & expirant : /c/:token → accorde l'accès (le
 // token est mémorisé en session, revérifié en base à chaque usage) puis
 // redirige vers la marque ; sinon page « lien expiré/invalide ».
-app.get('/c/:token', async (req, res) => {
+// publicLimiter en défense en profondeur contre le brute-force du slug/token
+// (jamais la seule protection : voir l'entropie du slug dans uniqueSlugFor()).
+app.get('/c/:token', publicLimiter, async (req, res) => {
   try {
     const r = await pool.query('SELECT token, brand_id, expires_at, active FROM commande_links WHERE token=$1 OR slug=$1', [req.params.token]);
     const link = r.rows[0];
@@ -7381,7 +7385,7 @@ app.post('/api/admin/security/revoke-all-pdf-tokens', requireRole('owner'), asyn
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/api/invite/:token', async (req, res) => {
+app.get('/api/invite/:token', publicLimiter, async (req, res) => {
   const r = await pool.query(`
     SELECT bil.*, b.name as brand_name, b.logo as brand_logo, b.invite_bg_url as brand_bg
     FROM brand_invite_links bil
