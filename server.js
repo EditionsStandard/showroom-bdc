@@ -1631,7 +1631,11 @@ app.get('/api/settings', requireRole('owner'), async (req, res) => {
 });
 
 app.post('/api/settings', requireRole('owner'), async (req, res) => {
-  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season','login_bg_url'];
+  const allowed = ['showroom_name','showroom_email','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','admin_password','agent_name','agent_title','agent_phone','cgv_text','currencies_json','current_season','login_bg_url','showroom_website','showroom_instagram','showroom_facebook','showroom_tiktok','showroom_linkedin','showroom_contact_email'];
+  // Liens affichés publiquement dans le footer de tous les emails (jamais
+  // javascript:/data: — mêmes contrôles que les liens de marque).
+  const urlKeys = ['showroom_website','showroom_instagram','showroom_facebook','showroom_tiktok','showroom_linkedin'];
+  let touchedShowroomLinks = false;
   for (let [key, value] of Object.entries(req.body)) {
     if (!allowed.includes(key)) continue;
     if (key === 'admin_password' && value && !value.startsWith('$2')) {
@@ -1641,8 +1645,12 @@ app.post('/api/settings', requireRole('owner'), async (req, res) => {
       if (value.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
       value = await bcrypt.hash(value, 10);
     }
+    if (urlKeys.includes(key)) value = safeHttpUrl(value);
+    if (key === 'showroom_contact_email' && value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) return res.status(400).json({ error: 'Email de contact invalide' });
+    if (urlKeys.includes(key) || key === 'showroom_contact_email') touchedShowroomLinks = true;
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]);
   }
+  if (touchedShowroomLinks) refreshShowroomLinksCache().catch(() => {});
   res.json({ ok: true });
 });
 
@@ -8264,6 +8272,33 @@ const LOGO_URL = 'https://showroom.editionsstandard.com/logo.svg';
 const EMAIL_LOGO_URL = () => `${getBaseUrl()}/logo-email.png`;   // blanc (sombre)
 const EMAIL_LOGO_BLACK = () => `${getBaseUrl()}/logo-pdf.png`;   // noir (clair)
 const EMAIL_MONO = "'Courier New', Courier, monospace";
+const EMAIL_ACCENT = '#CCEB3C';
+
+// Icônes réseaux sociaux du footer — mêmes tracés que brandSocialIcon() du
+// portail (public/portal.html), rendus en PNG statique (voir scripts de
+// génération) car un <svg> inline n'est pas fiable dans les clients mail
+// (notamment Outlook desktop). Deux variantes de couleur, comme le logo.
+const EMAIL_SOCIAL_ICON = (name, mode) => `${getBaseUrl()}/email-icon-${name}-${mode}.png`; // mode: 'black'|'white'
+
+// Liens du showroom (site + réseaux + email de contact public) affichés dans
+// le footer de TOUS les emails — mis en cache en mémoire pour qu'emailLayout()
+// reste une fonction synchrone (~20 points d'appel dans ce fichier, tous
+// n'attendent pas de Promise sur son retour). Rafraîchi au démarrage, toutes
+// les 5 minutes, et immédiatement après une sauvegarde de Paramètres qui les
+// concerne — un email envoyé avant le premier rafraîchissement affiche
+// simplement le footer sans cette ligne (dégradation silencieuse, jamais une
+// erreur), auto-corrigé au rafraîchissement suivant.
+let _showroomLinksCache = {};
+async function refreshShowroomLinksCache() {
+  try {
+    const [website, instagram, facebook, tiktok, linkedin, contactEmail] = await Promise.all([
+      getSetting('showroom_website'), getSetting('showroom_instagram'), getSetting('showroom_facebook'),
+      getSetting('showroom_tiktok'), getSetting('showroom_linkedin'), getSetting('showroom_contact_email')
+    ]);
+    _showroomLinksCache = { website, instagram, facebook, tiktok, linkedin, contactEmail };
+  } catch(e) { console.error('refreshShowroomLinksCache:', e.message); }
+  return _showroomLinksCache;
+}
 
 // Conservé pour compatibilité de signature aux ~20 points d'envoi d'email du
 // fichier (`const resend = newResendClient(resendKey)`) — plus de logo à
@@ -8271,11 +8306,46 @@ const EMAIL_MONO = "'Courier New', Courier, monospace";
 function newResendClient(apiKey) {
   return new Resend(apiKey);
 }
-function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor = '#CCEB3C', content, footer = '' }) {
+// Petit carré plein — marqueur de section signature du portail
+// (h2.section-title::before, badges, puces non lues), jamais en ::before
+// (non fiable en email) : un <span> inline-block direct dans le HTML.
+function dot(size, color) {
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;background:${color || EMAIL_ACCENT};margin-right:10px;vertical-align:1px;line-height:0">&nbsp;</span>`;
+}
+
+// Ligne d'icônes footer (site + réseaux du showroom) — n'affiche que les
+// liens réellement configurés (Admin > Paramètres > Showroom). Aucune
+// couleur de marque tierce (rose Instagram, bleu Facebook…) : icônes
+// monochromes, cohérentes avec le système accent + encre du showroom.
+function emailSocialRow(links) {
+  if (!links) return '';
+  const chip = (href, name, label) => `
+    <td style="padding:0 8px">
+      <a href="${escHtml(href)}" style="display:inline-block;text-decoration:none" title="${escHtml(label)}">
+        <img class="lg-l" src="${EMAIL_SOCIAL_ICON(name, 'black')}" width="18" height="18" alt="${escHtml(label)}" style="display:inline-block">
+        <img class="lg-d" src="${EMAIL_SOCIAL_ICON(name, 'white')}" width="18" height="18" alt="${escHtml(label)}" style="display:none">
+      </a>
+    </td>`;
+  const cells = [];
+  if (links.website) cells.push(`<td style="padding:0 8px"><a href="${escHtml(links.website)}" class="em-ink" style="display:inline-block;text-decoration:none;font-family:${EMAIL_MONO};font-size:16px">🌐</a></td>`);
+  if (links.instagram) cells.push(chip(links.instagram, 'instagram', 'Instagram'));
+  if (links.facebook) cells.push(chip(links.facebook, 'facebook', 'Facebook'));
+  if (links.tiktok) cells.push(chip(links.tiktok, 'tiktok', 'TikTok'));
+  if (links.linkedin) cells.push(chip(links.linkedin, 'linkedin', 'LinkedIn'));
+  if (!cells.length) return '';
+  return `<table cellpadding="0" cellspacing="0" style="margin:14px auto 0"><tr>${cells.join('')}</tr></table>`;
+}
+
+function emailLayout({ showroomName, brandName = '', brandLogo = '', eyebrow = '', content, footer = '' }) {
+  const links = _showroomLinksCache;
   const brandBlock = brandName ? `
   <tr><td style="padding:2px 0 22px;text-align:center">
     <div class="em-ink" style="font-family:${EMAIL_MONO};font-size:11px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:#111111">${escHtml(brandName.toUpperCase())}</div>
-    <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-top:6px">Collection</div>
+    <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:rgba(17,17,17,.4);margin-top:8px">${dot(6)}Collection</div>
+  </td></tr>` : '';
+  const eyebrowBlock = eyebrow ? `
+  <tr><td style="padding-bottom:16px">
+    <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(17,17,17,.55)">${dot(7)}${escHtml(eyebrow)}</div>
   </td></tr>` : '';
 
   const style = `
@@ -8291,49 +8361,71 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
       font-family: 'Courier New', Courier, monospace !important;
     }
     @media (prefers-color-scheme: dark) {
-      .em-main { background:#0a0a0a !important; }
+      .em-wash { background:#0a0a0a !important; }
+      .em-card { background:#111111 !important; border-color:rgba(255,255,255,.14) !important; }
       .em-ink { color:#f5f4f0 !important; }
-      .em-muted { color:rgba(255,255,255,.45) !important; }
-      .em-line { border-color:rgba(255,255,255,.16) !important; }
-      .em-btn { border-color:rgba(255,255,255,.5) !important; }
-      .em-btn a { color:#f5f4f0 !important; }
-      .em-box { border-color:rgba(255,255,255,.14) !important; }
+      .em-muted { color:rgba(255,255,255,.5) !important; }
+      .em-line { border-color:rgba(255,255,255,.14) !important; }
+      .em-box { border-color:rgba(255,255,255,.16) !important; }
       .lg-l { display:none !important; }
       .lg-d { display:inline-block !important; }
       .em-body p, .em-body td, .em-body h2, .em-body strong, .em-body div, .em-body li { color:#e6e6e6 !important; }
-      .em-body span[style*="rgba(17,17,17"] { color:rgba(255,255,255,.5) !important; }
-      .em-body a { color:#CCEB3C !important; }
+      .em-body span[style*="rgba(17,17,17"] { color:rgba(255,255,255,.55) !important; }
+      .em-body a { color:${EMAIL_ACCENT} !important; }
       .em-body td[style*="border-bottom"], .em-body td[style*="border-top"] { border-color:rgba(255,255,255,.12) !important; }
-      .em-body [style*="border-left"] { border-color:rgba(255,255,255,.3) !important; }
       .em-body [style*="rgba(224,176,58"] { color:#e6c15a !important; }
+      .em-btn-primary a, .em-btn-primary td { color:#111111 !important; }
     }
   </style>`;
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${style}</head>
-<body class="em-main" style="margin:0;padding:0;background:#f5f4f0">
-<table class="em-main" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4f0;padding:44px 16px">
+<body class="em-wash" style="margin:0;padding:0;background:#f5f4f0">
+<table class="em-wash" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4f0;padding:44px 16px">
 <tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px">
 
-  <!-- HEADER : logo (noir en clair / blanc en sombre) + nom showroom + kicker -->
-  <tr><td style="text-align:center;padding-bottom:26px">
-    <img class="lg-l" src="${EMAIL_LOGO_BLACK()}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:inline-block">
-    <img class="lg-d" src="${EMAIL_LOGO_URL()}" alt="${escHtml(showroomName)}" width="58" height="58" style="display:none">
-    <div class="em-ink" style="font-family:${EMAIL_MONO};font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#111111;margin-top:14px">${escHtml(showroomName)}</div>
-    <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;color:rgba(17,17,17,.45);margin-top:7px">B2B Showroom</div>
-  </td></tr>
-  <tr><td class="em-line" style="border-top:1px solid rgba(17,17,17,.14);font-size:0;line-height:0">&nbsp;</td></tr>
-  ${brandBlock ? `<tr><td style="height:22px;font-size:0;line-height:0">&nbsp;</td></tr>${brandBlock}` : `<tr><td style="height:26px;font-size:0;line-height:0">&nbsp;</td></tr>`}
+  <!-- Carte flottante — panneau distinct du fond, comme .card du portail -->
+  <tr><td class="em-card" style="background:#ffffff;border:1px solid rgba(17,17,17,.12)">
+  <table width="100%" cellpadding="0" cellspacing="0">
 
-  <!-- BODY -->
-  <tr><td class="em-body em-ink" style="font-family:${EMAIL_MONO};font-size:14px;color:#1a1a1a;line-height:1.75">
-    ${content}
-  </td></tr>
+    <!-- Filet d'accent en tête de carte : signature de marque, jamais absente -->
+    <tr><td style="height:3px;line-height:3px;font-size:0;background:${EMAIL_ACCENT}">&nbsp;</td></tr>
 
-  <!-- FOOTER -->
-  <tr><td style="height:30px;font-size:0;line-height:0">&nbsp;</td></tr>
-  <tr><td class="em-line em-muted" style="border-top:1px solid rgba(17,17,17,.12);padding-top:18px;text-align:center;font-family:${EMAIL_MONO};font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(17,17,17,.4)">
-    ${footer || `${escHtml(showroomName)} — Showroom`}
+    <tr><td style="padding:40px 40px 0">
+    <table width="100%" cellpadding="0" cellspacing="0">
+
+      <!-- HEADER : logo (noir en clair / blanc en sombre) + nom showroom + kicker -->
+      <tr><td style="text-align:center;padding-bottom:28px">
+        <img class="lg-l" src="${EMAIL_LOGO_BLACK()}" alt="${escHtml(showroomName)}" width="72" height="72" style="display:inline-block">
+        <img class="lg-d" src="${EMAIL_LOGO_URL()}" alt="${escHtml(showroomName)}" width="72" height="72" style="display:none">
+        <div class="em-ink" style="font-family:${EMAIL_MONO};font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#111111;margin-top:16px">${escHtml(showroomName)}</div>
+        <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:8.5px;letter-spacing:.24em;text-transform:uppercase;color:rgba(17,17,17,.4);margin-top:8px">B2B Showroom</div>
+      </td></tr>
+      <tr><td class="em-line" style="border-top:1px solid rgba(17,17,17,.12);font-size:0;line-height:0">&nbsp;</td></tr>
+      ${brandBlock ? `<tr><td style="height:24px;font-size:0;line-height:0">&nbsp;</td></tr>${brandBlock}` : `<tr><td style="height:28px;font-size:0;line-height:0">&nbsp;</td></tr>`}
+
+      ${eyebrowBlock}
+
+      <!-- BODY -->
+      <tr><td class="em-body em-ink" style="font-family:${EMAIL_MONO};font-size:14px;color:#1a1a1a;line-height:1.75;padding-bottom:36px">
+        ${content}
+      </td></tr>
+
+    </table>
+    </td></tr>
+
+    <!-- FOOTER — dans la carte, séparé par un filet -->
+    <tr><td class="em-line" style="border-top:1px solid rgba(17,17,17,.1);padding:20px 40px 22px;text-align:center">
+      <img class="lg-l" src="${EMAIL_LOGO_BLACK()}" alt="${escHtml(showroomName)}" width="68" height="68" style="display:inline-block;margin-bottom:12px">
+      <img class="lg-d" src="${EMAIL_LOGO_URL()}" alt="${escHtml(showroomName)}" width="68" height="68" style="display:none;margin-bottom:12px">
+      <div class="em-muted" style="font-family:${EMAIL_MONO};font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(17,17,17,.4)">
+        ${footer || `${escHtml(showroomName)} — Showroom`}
+      </div>
+      ${emailSocialRow(links)}
+      ${links.contactEmail ? `<div style="margin-top:14px"><a href="mailto:${escHtml(links.contactEmail)}" class="em-muted" style="font-family:${EMAIL_MONO};font-size:8px;letter-spacing:.04em;color:rgba(17,17,17,.4);text-decoration:underline">${escHtml(links.contactEmail)}</a></div>` : ''}
+    </td></tr>
+
+  </table>
   </td></tr>
 
 </table>
@@ -8342,12 +8434,22 @@ function emailLayout({ showroomName, brandName = '', brandLogo = '', accentColor
 </body></html>`;
 }
 
-// Bouton filaire (comme .btn du site) : transparent + hairline, majuscules interlettrées.
-// Défaut CLAIR (bordure/texte foncés) ; le mode sombre est géré par emailLayout.
+// Bouton principal plein accent — comme .btn-compare-go / #modal-share-copy-btn
+// du portail : un seul par email, l'action qu'on veut voir cliquée.
 function emailBtn(url, label) {
-  return `<table cellpadding="0" cellspacing="0" style="margin:30px auto">
-    <tr><td class="em-btn" style="border:1px solid rgba(17,17,17,.5);padding:14px 30px;text-align:center">
-      <a href="${url}" class="em-ink" style="color:#111111;font-family:${EMAIL_MONO};font-size:11px;font-weight:400;text-decoration:none;letter-spacing:.28em;text-transform:uppercase">${label}</a>
+  return `<table cellpadding="0" cellspacing="0" style="margin:30px auto" class="em-btn-primary">
+    <tr><td style="background:${EMAIL_ACCENT};padding:15px 32px;text-align:center">
+      <a href="${url}" style="color:#111111;font-family:${EMAIL_MONO};font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.28em;text-transform:uppercase">${label}</a>
+    </td></tr>
+  </table>`;
+}
+
+// Bouton secondaire filaire (ex-emailBtn) : pour une action de moindre
+// priorité, quand un email a déjà son bouton principal plein accent.
+function emailBtnGhost(url, label) {
+  return `<table cellpadding="0" cellspacing="0" style="margin:16px auto">
+    <tr><td class="em-btn" style="border:1px solid rgba(17,17,17,.35);padding:13px 28px;text-align:center">
+      <a href="${url}" class="em-ink" style="color:#111111;font-family:${EMAIL_MONO};font-size:10.5px;font-weight:400;text-decoration:none;letter-spacing:.24em;text-transform:uppercase">${label}</a>
     </td></tr>
   </table>`;
 }
@@ -8443,10 +8545,10 @@ async function getEmailTemplate(key, lang) {
 
 // Encadré d'infos : hairline, labels majuscules muets, valeurs foncées (défaut clair).
 function emailInfoBox(rows) {
-  return `<table class="em-box" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid rgba(17,17,17,.14);margin:20px 0">
-    <tr><td style="padding:16px 20px">
+  return `<table class="em-box" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid rgba(17,17,17,.12);border-left:3px solid ${EMAIL_ACCENT};margin:22px 0">
+    <tr><td style="padding:18px 22px">
       ${rows.map(([label, value, raw]) => `
-        <p style="margin:0 0 10px;font-size:13px;font-family:${EMAIL_MONO}"><span class="em-muted" style="color:rgba(17,17,17,.5);display:inline-block;min-width:120px;font-size:10px;letter-spacing:.12em;text-transform:uppercase">${escHtml(label)}</span><strong class="em-ink" style="color:#111111">${raw ? String(value||'') : escHtml(String(value||''))}</strong></p>
+        <p style="margin:0 0 11px;font-size:13px;font-family:${EMAIL_MONO}"><span class="em-muted" style="color:rgba(17,17,17,.5);display:inline-block;min-width:120px;font-size:10px;letter-spacing:.12em;text-transform:uppercase">${escHtml(label)}</span><strong class="em-ink" style="color:#111111">${raw ? String(value||'') : escHtml(String(value||''))}</strong></p>
       `).join('')}
     </td></tr>
   </table>`;
@@ -8483,11 +8585,15 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const fromFormatted = `${showroomName} <${fromField}>`;
   const attachment = { filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' };
 
-  // Miniatures produits pour le corps de l'email (jusqu'à 4, images distantes).
+  // Vignettes produit pour le corps de l'email (jusqu'à 4, images distantes) —
+  // grille 2 colonnes cadrée (ratio 3:4, comme les cartes du catalogue
+  // portail) plutôt que 4 minuscules images en bande : nettement plus
+  // vendeur, cohérent avec le reste du gabarit (marqueur de section carré,
+  // cadre em-box).
   let thumbsHtml = '';
   try {
     const lImgs = await pool.query(
-      `SELECT DISTINCT ON (p.id) p.reference, p.image_url, p.images
+      `SELECT DISTINCT ON (p.id) p.reference, p.color, p.image_url, p.images
        FROM order_lines ol JOIN products p ON p.id = ol.product_id
        WHERE ol.order_id = $1`, [orderId]);
     const pickImg = (row) => {
@@ -8495,15 +8601,29 @@ async function sendOrderEmails(orderId, pdfBuffer) {
       if (!img && row.images) { try { const a = JSON.parse(row.images); img = Array.isArray(a) ? a[0] : null; } catch(e) {} }
       if (img && typeof img === 'object') img = img.url || img.src || img.secure_url || null;
       if (typeof img !== 'string' || !/^https?:\/\//i.test(img)) return null;
-      return img.includes('res.cloudinary.com') ? img.replace('/upload/', '/upload/w_160,h_200,c_fill,f_auto,q_auto/') : img;
+      return img.includes('res.cloudinary.com') ? img.replace('/upload/', '/upload/w_400,h_533,c_fill,f_auto,q_auto/') : img;
     };
-    const thumbs = lImgs.rows.map(r => ({ ref: r.reference, src: pickImg(r) })).filter(t => t.src).slice(0, 4);
+    const thumbs = lImgs.rows.map(r => ({ ref: r.reference, color: r.color, src: pickImg(r) })).filter(t => t.src).slice(0, 4);
     if (thumbs.length) {
-      thumbsHtml = `<table cellpadding="0" cellspacing="0" style="width:100%;margin:22px 0"><tr>${
-        thumbs.map(t => `<td style="width:25%;padding:4px;text-align:center;vertical-align:top">
-          <img src="${escHtml(t.src)}" alt="${escHtml(t.ref || '')}" width="72" style="width:72px;height:92px;object-fit:cover;border:1px solid rgba(17,17,17,.12);display:block;margin:0 auto">
-          <div style="font-size:10px;color:#999;margin-top:5px;font-family:'Courier New',Courier,monospace">${escHtml(t.ref || '')}</div>
-        </td>`).join('')}</tr></table>`;
+      const card = (t) => `
+        <td style="width:50%;padding:0 8px 12px 0;vertical-align:top">
+          <table cellpadding="0" cellspacing="0" class="em-box" style="width:100%;border:1px solid rgba(17,17,17,.12)">
+            <tr><td><img src="${escHtml(t.src)}" alt="${escHtml(t.ref || '')}" width="100%" style="width:100%;height:auto;display:block"></td></tr>
+            <tr><td style="padding:10px 12px">
+              <div class="em-ink" style="font-family:'Courier New',Courier,monospace;font-size:11.5px;font-weight:700;color:#111111">${escHtml(t.ref || '')}</div>
+              ${t.color ? `<div class="em-muted" style="font-family:'Courier New',Courier,monospace;font-size:10px;letter-spacing:.06em;color:rgba(17,17,17,.5);margin-top:3px">${escHtml(t.color)}</div>` : ''}
+            </td></tr>
+          </table>
+        </td>`;
+      const rows = [];
+      for (let i = 0; i < thumbs.length; i += 2) rows.push(thumbs.slice(i, i + 2));
+      thumbsHtml = `
+        <table cellpadding="0" cellspacing="0" style="width:100%;margin:6px 0 8px">
+          <tr><td class="em-muted" style="font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(17,17,17,.5);padding-bottom:12px">${dot(6)}${isEn ? 'Items ordered' : 'Articles commandés'}</td></tr>
+        </table>
+        <table cellpadding="0" cellspacing="0" style="width:100%">
+          ${rows.map(r => `<tr>${r.map(card).join('')}${r.length === 1 ? '<td style="width:50%"></td>' : ''}</tr>`).join('')}
+        </table>`;
     }
   } catch(e) { console.error('[order-email-thumbs]', e.message); }
 
@@ -8519,6 +8639,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
       showroomName,
       brandName: order.brand_name,
       brandLogo: order.brand_logo || '',
+      eyebrow: isEn ? 'Order proposal' : 'Proposition de commande',
       content: isEn ? `
         <p>Hello <strong>${escHtml(order.client_name)}</strong>,</p>
         <p>We have received your order proposal for <strong>${order.brand_name}</strong> dated ${dateStr}.</p>
@@ -8587,8 +8708,8 @@ async function sendOrderEmails(orderId, pdfBuffer) {
       showroomName,
       brandName: order.brand_name,
       brandLogo: order.brand_logo || '',
+      eyebrow: 'Nouvelle proposition de commande',
       content: `
-        <p style="font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:#111111;text-transform:uppercase;margin-bottom:20px">Nouvelle proposition de commande</p>
         ${emailInfoBox([
           ['Client', order.client_name],
           ...(order.client_company ? [['Société', order.client_company]] : []),
@@ -9198,6 +9319,13 @@ process.on('uncaughtException', (err) => {
 
 // Start
 init().then(() => {
+  // Préchauffe le cache des liens showroom (footer email) au démarrage, puis
+  // rafraîchit périodiquement en filet de sécurité (POST /api/settings le
+  // fait déjà immédiatement à la sauvegarde — ceci couvre un cache resté
+  // stale après un redémarrage sans passer par cette route, cas rare).
+  refreshShowroomLinksCache().catch(() => {});
+  setInterval(() => refreshShowroomLinksCache().catch(() => {}), 5 * 60 * 1000);
+
   // Nettoyage périodique des tokens expirés (toutes les 6h)
   setInterval(async () => {
     try {

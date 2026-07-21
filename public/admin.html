@@ -1169,6 +1169,19 @@
       <p style="font-size:12px;color:#888;margin:-4px 0 12px">Les emails sont envoyés via Resend (configuré côté serveur). Indique simplement l'adresse expéditeur affichée aux destinataires.</p>
       <div class="form-group"><label data-t="s_smtp_from_label">Adresse expéditeur (From)</label><input id="s-smtp-from" type="email" data-tp="s_smtp_from_placeholder"></div>
       <div class="sep"></div>
+      <h3 data-t="settings_email_footer">Pied de page des emails</h3>
+      <p style="font-size:12px;color:#888;margin:-4px 0 12px" data-t="settings_email_footer_hint">Affichés en bas de tous les emails envoyés par la plateforme (commande, invitation, mot de passe oublié…). Laisser vide pour ne pas afficher l'icône correspondante.</p>
+      <div class="form-group"><label data-t="s_contact_email_label">Email de contact (affiché aux destinataires)</label><input id="s-contact-email" type="email" placeholder="sales@exemple.com"></div>
+      <div class="form-row">
+        <div class="form-group"><label data-t="s_website_label">Site web</label><input id="s-website" type="url" placeholder="https://…"></div>
+        <div class="form-group"><label data-t="s_instagram_label">Instagram</label><input id="s-instagram" type="url" placeholder="https://instagram.com/…"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label data-t="s_facebook_label">Facebook</label><input id="s-facebook" type="url" placeholder="https://facebook.com/…"></div>
+        <div class="form-group"><label data-t="s_tiktok_label">TikTok</label><input id="s-tiktok" type="url" placeholder="https://tiktok.com/@…"></div>
+      </div>
+      <div class="form-group" style="max-width:calc(50% - 8px)"><label data-t="s_linkedin_label">LinkedIn</label><input id="s-linkedin" type="url" placeholder="https://linkedin.com/company/…"></div>
+      <div class="sep"></div>
       <h3 data-t="settings_agent">Agent / Showroom (signature)</h3>
       <div class="form-row">
         <div class="form-group"><label data-t="s_agent_name_label">Nom de l'agent</label><input id="s-agent-name" type="text" data-tp="s_agent_name_placeholder"></div>
@@ -2404,6 +2417,11 @@ const TRANSLATIONS = {
     settings_showroom: 'Showroom', settings_smtp: 'Configuration SMTP (envoi emails)', settings_email: 'Envoi des emails',
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Conditions Générales de Vente',
     settings_currencies: 'Devises', settings_security: 'Mot de passe admin',
+    settings_email_footer: 'Pied de page des emails',
+    settings_email_footer_hint: "Affichés en bas de tous les emails envoyés par la plateforme (commande, invitation, mot de passe oublié…). Laisser vide pour ne pas afficher l'icône correspondante.",
+    s_contact_email_label: 'Email de contact (affiché aux destinataires)',
+    s_website_label: 'Site web', s_instagram_label: 'Instagram', s_facebook_label: 'Facebook',
+    s_tiktok_label: 'TikTok', s_linkedin_label: 'LinkedIn',
     s_name_label: 'Nom du showroom', s_email_label: 'Email showroom (copie BDC)',
     s_season_label: 'Saison en cours (pastille sur les cartes marque, ex. SS27)',
     s_smtp_host_label: 'Serveur SMTP', s_smtp_port_label: 'Port',
@@ -2592,6 +2610,11 @@ const TRANSLATIONS = {
     settings_showroom: 'Showroom', settings_smtp: 'SMTP configuration (email sending)', settings_email: 'Email sending',
     settings_agent: 'Agent / Showroom (signature)', settings_cgv: 'Terms & Conditions',
     settings_currencies: 'Currencies', settings_security: 'Admin password',
+    settings_email_footer: 'Email footer',
+    settings_email_footer_hint: 'Shown at the bottom of every email sent by the platform (order, invitation, forgot password…). Leave blank to hide the matching icon.',
+    s_contact_email_label: 'Contact email (shown to recipients)',
+    s_website_label: 'Website', s_instagram_label: 'Instagram', s_facebook_label: 'Facebook',
+    s_tiktok_label: 'TikTok', s_linkedin_label: 'LinkedIn',
     s_name_label: 'Showroom name', s_email_label: 'Showroom email (BDC copy)',
     s_season_label: 'Current season (badge on brand cards, e.g. SS27)',
     s_smtp_host_label: 'SMTP server', s_smtp_port_label: 'Port',
@@ -7596,6 +7619,12 @@ async function loadSettings() {
   document.getElementById('s-season').value = s.current_season || '';
   document.getElementById('s-email').value = s.showroom_email || '';
   document.getElementById('s-smtp-from').value = s.smtp_from || '';
+  document.getElementById('s-contact-email').value = s.showroom_contact_email || '';
+  document.getElementById('s-website').value = s.showroom_website || '';
+  document.getElementById('s-instagram').value = s.showroom_instagram || '';
+  document.getElementById('s-facebook').value = s.showroom_facebook || '';
+  document.getElementById('s-tiktok').value = s.showroom_tiktok || '';
+  document.getElementById('s-linkedin').value = s.showroom_linkedin || '';
   document.getElementById('s-agent-name').value = s.agent_name || '';
   document.getElementById('s-agent-title').value = s.agent_title || '';
   document.getElementById('s-agent-phone').value = s.agent_phone || '';
@@ -7764,6 +7793,12 @@ async function saveSettings() {
     current_season: document.getElementById('s-season').value,
     showroom_email: document.getElementById('s-email').value,
     smtp_from: document.getElementById('s-smtp-from').value,
+    showroom_contact_email: document.getElementById('s-contact-email').value,
+    showroom_website: document.getElementById('s-website').value,
+    showroom_instagram: document.getElementById('s-instagram').value,
+    showroom_facebook: document.getElementById('s-facebook').value,
+    showroom_tiktok: document.getElementById('s-tiktok').value,
+    showroom_linkedin: document.getElementById('s-linkedin').value,
     agent_name: document.getElementById('s-agent-name').value,
     agent_title: document.getElementById('s-agent-title').value,
     agent_phone: document.getElementById('s-agent-phone').value,
