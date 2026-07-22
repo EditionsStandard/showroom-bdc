@@ -1610,17 +1610,19 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
     const buttonHtml = emailBtn(link, isEn ? 'DISCOVER →' : 'DÉCOUVRIR →');
     // Bloc visuel : une photo de couverture pleine largeur pour une marque
     // ciblée, une mosaïque de 2 à 4 marques (photo + nom) pour une invitation
-    // générale. Rendu en <table> (compatibilité Outlook), absent si aucune
-    // marque n'a de visuel renseigné plutôt que de laisser un espace vide.
+    // générale. Rendu en <table> (compatibilité Outlook). Repli sur la photo
+    // de fond du portail acheteur (même réglage que portal-login.html) en
+    // hero plein format si aucune marque concernée n'a de visuel renseigné —
+    // plutôt qu'un mail sans image du tout.
+    const loginBg = await getSetting('login_bg_url');
     const pickImg = b => b.cover_image || b.logo_url || b.logo || '';
+    const heroBlock = (img, alt) => `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px"><tr><td>
+      <img src="${escHtml(emailImg(img, 500, 260))}" alt="${escHtml(alt)}" width="500" style="width:100%;height:auto;display:block;object-fit:cover;border:1px solid rgba(17,17,17,.12)">
+    </td></tr></table>`;
     let visualHtml = '';
     if (showcaseBrands.length === 1) {
-      const img = pickImg(showcaseBrands[0]);
-      if (img) {
-        visualHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px"><tr><td>
-          <img src="${escHtml(emailImg(img, 500, 260))}" alt="${escHtml(showcaseBrands[0].name)}" width="500" style="width:100%;height:auto;display:block;object-fit:cover;border:1px solid rgba(17,17,17,.12)">
-        </td></tr></table>`;
-      }
+      const img = pickImg(showcaseBrands[0]) || loginBg;
+      if (img) visualHtml = heroBlock(img, showcaseBrands[0].name);
     } else if (showcaseBrands.length > 1) {
       const cells = showcaseBrands.map(b => {
         const img = pickImg(b);
@@ -1634,7 +1636,11 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
         const rows = [];
         for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>${cells[i]}${cells[i + 1] || '<td width="50%">&nbsp;</td>'}</tr>`);
         visualHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px">${rows.join('')}</table>`;
+      } else if (loginBg) {
+        visualHtml = heroBlock(loginBg, showroomName || 'Showroom');
       }
+    } else if (loginBg) {
+      visualHtml = heroBlock(loginBg, showroomName || 'Showroom');
     }
     const tpl = await getEmailTemplate('prospect_invite', lang);
     const subject = applyTemplateVars(tpl.subject, { marque_txt: escHtml(marqueTxt), showroom: escHtml(showroomName || '') });
