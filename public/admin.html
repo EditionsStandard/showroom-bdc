@@ -1945,6 +1945,7 @@
     <div id="agent-sel-result" style="margin:10px 0;font-size:13px"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-agent-selection')" data-t="btn_close">Fermer</button>
+      <a id="agent-sel-pdf" href="#" target="_blank" class="btn btn-secondary" style="display:none">⬇ Export PDF</a>
       <button class="btn btn-primary" id="agent-sel-send" onclick="sendAgentSelection()">📨 Envoyer à l'acheteur</button>
     </div>
   </div>
@@ -5378,10 +5379,11 @@ let agentSelBrandId = null, agentSelProducts = [], agentSelEditToken = null;
 // Création comme édition : on raisonne en RÉFÉRENCES (l'acheteur fixe les quantités de son côté).
 let agentSelRefs = new Set();      // product_ids présents dans la sélection
 let agentSelOrigItems = [];        // items d'origine (préserve d'éventuelles quantités pré-remplies, mode édition)
+let agentSelNotes = {};            // product_id -> note (visible par l'acheteur sur /selection/)
 async function openAgentSelection(brandId, brandName) {
   agentSelBrandId = brandId;
   agentSelEditToken = null;
-  agentSelRefs = new Set(); agentSelOrigItems = [];
+  agentSelRefs = new Set(); agentSelOrigItems = []; agentSelNotes = {};
   document.getElementById('agent-sel-title').textContent = 'Sélection — ' + brandName;
   ['agent-sel-email','agent-sel-company','agent-sel-name','agent-sel-notes','agent-sel-search'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('agent-sel-result').innerHTML = '';
@@ -5389,6 +5391,7 @@ async function openAgentSelection(brandId, brandName) {
   document.getElementById('agent-sel-client-fields').style.display = '';
   document.getElementById('agent-sel-edit-info').style.display = 'none';
   document.getElementById('agent-sel-send').textContent = '📨 Envoyer à l\'acheteur';
+  document.getElementById('agent-sel-pdf').style.display = 'none';
   openModal('modal-agent-selection');
   const data = await fetch(`/api/brands/${brandId}/products`).then(r => r.json()).catch(() => []);
   agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0 || p.is_sample);
@@ -5404,13 +5407,18 @@ async function editSelectionItems(token) {
   agentSelEditToken = token;
   try { agentSelOrigItems = JSON.parse(s.items_json || '[]'); } catch(e) { agentSelOrigItems = []; }
   agentSelRefs = new Set(agentSelOrigItems.map(i => i.product_id));
+  agentSelNotes = {};
+  agentSelOrigItems.forEach(i => { if (i.note) agentSelNotes[i.product_id] = i.note; });
   document.getElementById('agent-sel-title').textContent = 'Ajouter des références — ' + (s.brand_name || '');
   document.getElementById('agent-sel-search').value = '';
-  document.getElementById('agent-sel-result').innerHTML = `<span style="color:#888">Sélection ${esc(s.selection_number||'')} — ${esc(s.client_name||s.client_email||'')}. Cochez les références à ajouter : l'acheteur indiquera lui-même les quantités.</span>`;
+  document.getElementById('agent-sel-result').innerHTML = `<span style="color:#888">Sélection ${esc(s.selection_number||'')} — ${esc(s.client_name||s.client_email||'')}. Cochez les références à ajouter et laissez une note si besoin (visible par l'acheteur) : il indiquera lui-même les quantités.</span>`;
   document.getElementById('agent-sel-client-fields').style.display = 'none';
   document.getElementById('agent-sel-edit-info').style.display = 'block';
   document.getElementById('agent-sel-notify').checked = false;
   document.getElementById('agent-sel-send').textContent = '💾 Enregistrer la sélection';
+  const pdfLink = document.getElementById('agent-sel-pdf');
+  pdfLink.href = '/api/agent-selections/' + encodeURIComponent(token) + '/pdf';
+  pdfLink.style.display = '';
   openModal('modal-agent-selection');
   const data = await fetch(`/api/brands/${s.brand_id}/products`).then(r => r.json()).catch(() => []);
   agentSelProducts = (Array.isArray(data) ? data : []).filter(p => p.active != 0 || p.is_sample);
@@ -5421,9 +5429,15 @@ function renderAgentSelProducts() {
   const list = agentSelProducts.filter(p => !q || (p.reference||'').toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q));
   document.getElementById('agent-sel-body').innerHTML = list.map(p => {
     // Simple toggle référence, pas de quantité : l'acheteur les fixe lui-même
-    // (identique en création et en édition d'une sélection existante).
+    // (identique en création et en édition d'une sélection existante). Une note
+    // optionnelle par référence (visible par l'acheteur sur /selection/) permet
+    // de préciser une demande particulière — ex. une modification en cours.
     const on = agentSelRefs.has(p.id);
-    const qtyCell = `<button type="button" class="btn ${on ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toggleSelRef('${escJs(p.id)}')" style="white-space:nowrap">${on ? '✓ Dans la sélection' : '+ Ajouter'}</button>`;
+    const toggleBtn = `<button type="button" class="btn ${on ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toggleSelRef('${escJs(p.id)}')" style="white-space:nowrap">${on ? '✓ Dans la sélection' : '+ Ajouter'}</button>`;
+    const noteField = on
+      ? `<input type="text" placeholder="Note pour l'acheteur (optionnel)" value="${esc(agentSelNotes[p.id]||'')}" oninput="agentSelNotes['${escJs(p.id)}']=this.value" style="width:160px;margin-top:4px;font-size:11px;padding:5px 8px">`
+      : '';
+    const qtyCell = `<div style="display:flex;flex-direction:column;align-items:flex-start">${toggleBtn}${noteField}</div>`;
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const thumb = src
@@ -5509,9 +5523,10 @@ async function sendAgentSelection() {
     if (!agentSelRefs.size) { res.innerHTML = '<span style="color:#e07a7a">Ajoutez au moins une référence.</span>'; return; }
     const items = [];
     agentSelRefs.forEach(pid => {
+      const note = agentSelNotes[pid] || '';
       const orig = agentSelOrigItems.filter(i => i.product_id === pid);
-      if (orig.length) items.push(...orig);                       // conserve les quantités déjà présentes
-      else items.push({ product_id: pid, size: '', quantity: 0 }); // nouvelle référence, sans quantité
+      if (orig.length) items.push(...orig.map(i => ({ ...i, note })));  // conserve les quantités déjà présentes, applique la note courante
+      else items.push({ product_id: pid, size: '', quantity: 0, note }); // nouvelle référence, sans quantité
     });
     btn.disabled = true; btn.textContent = 'Enregistrement…';
     const notify = document.getElementById('agent-sel-notify').checked;
@@ -5530,7 +5545,7 @@ async function sendAgentSelection() {
 
   // Mode création : mêmes références sans quantité, l'acheteur les fixera lui-même.
   if (!agentSelRefs.size) { res.innerHTML = '<span style="color:#e07a7a">Sélectionnez au moins une référence.</span>'; return; }
-  const items = [...agentSelRefs].map(pid => ({ product_id: pid, size: '', quantity: 0 }));
+  const items = [...agentSelRefs].map(pid => ({ product_id: pid, size: '', quantity: 0, note: agentSelNotes[pid] || '' }));
   const email = document.getElementById('agent-sel-email').value.trim();
   if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email acheteur valide requis.</span>'; return; }
   btn.disabled = true; btn.textContent = 'Envoi…';
@@ -6966,6 +6981,7 @@ function filterSelections() {
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="openEditSelectionClient('${escJs(s.token)}')" title="Corriger nom / email / société">✎ Infos</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="remindSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Relancer l'acheteur par email avec le lien">↻ Relancer</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="openSelectionHistory('${escJs(s.token)}','${escJs(s.selection_number||'')}')" title="Historique des actions">🕘</button>
+        <a href="/api/agent-selections/${escJs(s.token)}/pdf" class="btn btn-secondary btn-sm" title="Exporter en PDF">⬇ PDF</a>
         <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${location.origin}${selUrl}')" title="Copier le lien de la sélection">📋</button>
         ${s.is_template ? `<span class="badge badge-validated" style="font-size:10px;padding:3px 7px">⭐ Template</span>` : `<button class="btn btn-secondary btn-sm" onclick="openSaveTemplateModal('${s.token}')">⭐</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Supprimer la sélection">🗑</button>

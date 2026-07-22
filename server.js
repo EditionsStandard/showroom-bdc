@@ -3163,7 +3163,8 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
       const key = pid + '|' + size;
       if (seen.has(key)) continue;
       seen.add(key);
-      cleanItems.push({ product_id: pid, size, quantity: Math.max(0, parseInt(i.quantity) || 0) });
+      const note = typeof i.note === 'string' ? i.note.trim().slice(0, 300) : '';
+      cleanItems.push({ product_id: pid, size, quantity: Math.max(0, parseInt(i.quantity) || 0), note });
     }
     if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins une référence' });
     const refCount = new Set(cleanItems.map(i => i.product_id)).size;
@@ -3174,6 +3175,36 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
       sendAgentSelectionEmail({ email: sel.rows[0].client_email, name: sel.rows[0].client_name, brandName: sel.rows[0].brand_name, selectionNumber: sel.rows[0].selection_number, url, req }).catch(e => console.error('agent-selection edit email:', e.message));
     }
     res.json({ ok: true, count: refCount });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Export PDF d'une sélection (référence + prix, quantités "à déf." tant que
+// l'acheteur ne les a pas fixées sur /selection/) — réutilise le même
+// générateur que le PDF téléchargeable depuis /commande/:brandId.
+app.get('/api/agent-selections/:token/pdf', requireRole('owner','agent'), async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT a.*, b.name AS brand_name, b.logo AS brand_logo, b.logo_url AS brand_logo_url FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
+      [req.params.token]);
+    const s = r.rows[0];
+    if (!s) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (isBrandScoped(req) && s.brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
+    const items = JSON.parse(s.items_json || '[]');
+    const ids = [...new Set(items.map(i => i.product_id))];
+    const prods = ids.length ? await pool.query('SELECT * FROM products WHERE id = ANY($1)', [ids]) : { rows: [] };
+    const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
+    const lines = items.filter(i => pmap[i.product_id]).map(i => ({ ...i, product: pmap[i.product_id] }));
+    const [showroomName, agentName] = await Promise.all([getSetting('showroom_name'), getSetting('agent_name')]);
+    const pdf = await generateSelectionPDF({
+      brand: { name: s.brand_name, logo: s.brand_logo, logo_url: s.brand_logo_url },
+      client_name: s.client_name, client_email: s.client_email, client_company: s.client_company, client_country: '',
+      notes: s.notes, lines, showroomName, agentName
+    });
+    logAudit(req, 'download_selection_pdf', 'agent_selection', req.params.token, '');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.setHeader('Content-Disposition', `attachment; filename="Selection-${(s.selection_number || req.params.token.slice(0,8)).replace(/\s/g,'-')}.pdf"`);
+    res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -4378,7 +4409,7 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
       ? await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, brandId])
       : { rows: [] };
     const ownProductIds = new Set(ownProducts.rows.map(r => r.id));
-    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: Math.max(0, parseInt(i.quantity) || 0) }));
+    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: Math.max(0, parseInt(i.quantity) || 0), note: typeof i.note === 'string' ? i.note.trim().slice(0, 300) : '' }));
     if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const token = crypto.randomBytes(24).toString('hex');
     const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
@@ -4530,9 +4561,10 @@ app.get('/api/selection/:token', async (req, res) => {
     const byProduct = {};
     for (const it of items) {
       const p = pmap[it.product_id]; if (!p) continue;
-      if (!byProduct[it.product_id]) byProduct[it.product_id] = { product: p, preset: {} };
+      if (!byProduct[it.product_id]) byProduct[it.product_id] = { product: p, preset: {}, note: '' };
       const sz = (it.size || '').toString();
       byProduct[it.product_id].preset[sz] = (byProduct[it.product_id].preset[sz] || 0) + (parseInt(it.quantity) || 0);
+      if (it.note && !byProduct[it.product_id].note) byProduct[it.product_id].note = it.note;
     }
     const references = ids.map(id => byProduct[id]).filter(Boolean);
     const lines = items.map(i => ({ ...i, product: pmap[i.product_id] })).filter(l => l.product); // compat
@@ -7721,9 +7753,14 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
       // compte, sinon la ligne suivante (et in fine le total/CGV/signature)
       // chevauche visuellement le texte de couleur encore en cours de rendu.
       const colorH = doc.font(F.reg).fontSize(8.5).heightOfString(colorText, { width: colW.color });
-      const rowH = Math.max(refH, nameH + compoH, colorH, 12) + 7;
-      if (rowY + rowH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
-      if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH).fillColor(ZEBRA).fill();
+      let rowH = Math.max(refH, nameH + compoH, colorH, 12) + 7;
+      // Note propre à cette référence (ex : demande de modification du client) —
+      // laissée par l'agent en préparant/éditant la sélection, visible par
+      // l'acheteur sur /selection/ ET reprise ici pour garder le PDF fidèle.
+      const noteTxt = l.note ? `Note : ${l.note}` : '';
+      const noteH = noteTxt ? doc.font(F.reg).fontSize(7.5).heightOfString(noteTxt, { width: WIDTH - 4 }) + 3 : 0;
+      if (rowY + rowH + noteH > BOTTOM) { doc.addPage(); rowY = TOP; drawTableHead(); }
+      if (i % 2 === 0) doc.rect(LEFT, rowY - 2, WIDTH, rowH + noteH).fillColor(ZEBRA).fill();
       doc.font(F.bold).fontSize(8.5).fillColor(INK).text(p.reference || '', col.ref, rowY, { width: colW.ref });
       doc.font(F.reg).fillColor('#333').text(nameText, col.name, rowY, { width: colW.name });
       // Couleur SOFT (plus foncée que MUTE) : à 6.5pt/MUTE, une composition longue
@@ -7733,12 +7770,16 @@ async function generateSelectionPDF({ brand, client_name, client_email, client_c
       doc.fillColor(SOFT).fontSize(8.5)
         .text(colorText, col.color, rowY, { width: colW.color })
         .text(l.size || '—', col.size, rowY, { width: colW.size });
-      doc.font(F.bold).fillColor(INK).text(String(l.quantity), col.qty, rowY, { width: colW.qty, align: 'right' });
+      // Quantité 0 = pas encore fixée par l'acheteur (référence proposée, pas
+      // encore commandée) — plus clair qu'un "0" qui pourrait passer pour une
+      // erreur de saisie.
+      doc.font(F.bold).fillColor(INK).text(l.quantity > 0 ? String(l.quantity) : 'à déf.', col.qty, rowY, { width: colW.qty, align: 'right' });
       doc.font(F.reg).fillColor('#333')
         .text(`${parseFloat(p.price||0).toFixed(2)} €`, col.pw, rowY, { width: colW.pw, align: 'right' })
         .text(p.price_retail > 0 ? `${parseFloat(p.price_retail).toFixed(2)} €` : '—', col.pr, rowY, { width: colW.pr, align: 'right' });
       doc.font(F.bold).fillColor(INK).text(`${(l.quantity * parseFloat(p.price||0)).toFixed(2)} €`, col.total, rowY, { width: colW.total, align: 'right' });
       rowY += rowH;
+      if (noteTxt) { doc.font(F.reg).fontSize(7.5).fillColor(MUTE).text(noteTxt, col.ref + 4, rowY, { width: WIDTH - 4 }); rowY += noteH; }
     });
 
     // ── Total ──

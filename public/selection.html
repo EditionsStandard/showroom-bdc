@@ -66,6 +66,7 @@
     .ref-info .ref { font-weight:700; font-size:14px; letter-spacing:.02em; }
     .ref-info .desc { font-size:12px; color:var(--soft); margin-top:2px; }
     .ref-info .price { font-size:12px; color:var(--accent); margin-top:4px; }
+    .ref-note { font-size:11px; color:var(--soft); margin-top:6px; padding:6px 8px; background:var(--input-bg); border-left:2px solid var(--accent); line-height:1.4; }
     .ref-info .see { font-size:10px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:.12em; }
     .sz-grid { border-top:1px solid var(--border); padding:6px 12px 12px; }
     .sz-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); }
@@ -370,6 +371,7 @@ function refCard(r) {
   const p = r.product;
   const src = productImgs(p)[0] || '';
   const img = src ? `<img src="${esc(src)}" alt="">` : `<div class="ph"></div>`;
+  const noteHtml = r.note ? `<div class="ref-note">💬 ${esc(r.note)}</div>` : '';
   return `<div class="ref-card">
     <div class="ref-head" onclick="openFiche('${escJs(p.id)}')">
       ${img}
@@ -377,6 +379,7 @@ function refCard(r) {
         <div class="ref">${esc(p.reference)}</div>
         <div class="desc">${esc(p.description||'')}</div>
         <div class="price">${Number(p.price).toFixed(2)} € HT</div>
+        ${noteHtml}
         <div class="see">${t('see_product')} →</div>
       </div>
     </div>
