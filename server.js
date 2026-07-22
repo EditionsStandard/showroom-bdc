@@ -740,6 +740,15 @@ function cloudinaryOpt(url) {
   return url.replace('/upload/', '/upload/q_auto,f_auto/');
 }
 
+// Redimensionne une image Cloudinary pour un usage email (poids maîtrisé,
+// contrairement à cloudinaryOpt() qui ne touche qu'à la qualité/format).
+// Les clients mail ne supportent pas srcset/CSS avancé, donc une taille
+// fixe raisonnable ici plutôt qu'une image pleine résolution.
+function emailImg(url, w, h) {
+  if (!url || typeof url !== 'string' || !url.includes('res.cloudinary.com')) return url;
+  return url.replace('/upload/', `/upload/w_${w},h_${h},c_fill,g_auto,q_auto,f_auto/`);
+}
+
 // Nombre fini, négatif ramené à 0 (prix, MOQ, stock — jamais de valeur négative).
 function nonNeg(v) {
   const n = parseFloat(v);
@@ -1547,11 +1556,17 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
     // Cible : marque précise (lien /rejoindre) ou toutes les marques (/demande-acces)
     let brandName = '';
     let link = `${getBaseUrl(req)}/demande-acces`;
+    // Visuel(s) affichés en tête d'email — cf. emailImg() plus haut : une seule
+    // photo de couverture pour une marque ciblée, ou une mosaïque des marques
+    // actives pour une invitation générale ("toutes les marques"), pour que le
+    // mail ne soit plus uniquement typographique.
+    let showcaseBrands = [];
     if (brandId && brandId !== 'all') {
-      const br = (await pool.query('SELECT id, name FROM brands WHERE id=$1', [brandId])).rows[0];
+      const br = (await pool.query('SELECT id, name, cover_image, logo_url, logo FROM brands WHERE id=$1', [brandId])).rows[0];
       if (!br) return res.status(404).json({ error: 'Marque introuvable' });
       if (isBrandScoped(req) && req.userBrandId !== br.id) return res.status(403).json({ error: 'Accès refusé' });
       brandName = br.name;
+      showcaseBrands = [br];
       // Récupère (ou crée) le lien d'invitation actif de la marque
       let t = (await pool.query('SELECT token, slug FROM brand_invite_links WHERE brand_id=$1 AND active=1 ORDER BY created_at DESC LIMIT 1', [brandId])).rows[0];
       if (!t) {
@@ -1565,6 +1580,12 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
         t = { token, slug };
       }
       link = `${getBaseUrl(req)}/rejoindre/${t.slug || t.token}`;
+    } else {
+      showcaseBrands = (await pool.query(
+        `SELECT name, cover_image, logo_url, logo FROM brands
+         WHERE subscription_status != 'inactive' AND (cover_image != '' OR logo_url != '' OR logo != '')
+         ORDER BY created_at DESC LIMIT 4`
+      )).rows;
     }
     logAudit(req, 'invite_prospect', 'prospect', email, brandName || 'toutes marques');
     const resendKey = process.env.RESEND_API_KEY;
@@ -1587,6 +1608,34 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
       : (isEn ? 'our curated brands' : 'notre sélection de marques');
     const marqueTxt = brandName || (isEn ? 'our brands' : 'nos marques');
     const buttonHtml = emailBtn(link, isEn ? 'DISCOVER →' : 'DÉCOUVRIR →');
+    // Bloc visuel : une photo de couverture pleine largeur pour une marque
+    // ciblée, une mosaïque de 2 à 4 marques (photo + nom) pour une invitation
+    // générale. Rendu en <table> (compatibilité Outlook), absent si aucune
+    // marque n'a de visuel renseigné plutôt que de laisser un espace vide.
+    const pickImg = b => b.cover_image || b.logo_url || b.logo || '';
+    let visualHtml = '';
+    if (showcaseBrands.length === 1) {
+      const img = pickImg(showcaseBrands[0]);
+      if (img) {
+        visualHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px"><tr><td>
+          <img src="${escHtml(emailImg(img, 500, 260))}" alt="${escHtml(showcaseBrands[0].name)}" width="500" style="width:100%;height:auto;display:block;object-fit:cover;border:1px solid rgba(17,17,17,.12)">
+        </td></tr></table>`;
+      }
+    } else if (showcaseBrands.length > 1) {
+      const cells = showcaseBrands.map(b => {
+        const img = pickImg(b);
+        if (!img) return '';
+        return `<td width="50%" style="padding:0 6px 12px" valign="top">
+          <img src="${escHtml(emailImg(img, 240, 170))}" alt="${escHtml(b.name)}" width="240" style="width:100%;height:auto;display:block;object-fit:cover;border:1px solid rgba(17,17,17,.12)">
+          <div style="font-family:${EMAIL_MONO};font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(17,17,17,.55);margin-top:6px;text-align:center">${escHtml(b.name)}</div>
+        </td>`;
+      }).filter(Boolean);
+      if (cells.length) {
+        const rows = [];
+        for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>${cells[i]}${cells[i + 1] || '<td width="50%">&nbsp;</td>'}</tr>`);
+        visualHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px">${rows.join('')}</table>`;
+      }
+    }
     const tpl = await getEmailTemplate('prospect_invite', lang);
     const subject = applyTemplateVars(tpl.subject, { marque_txt: escHtml(marqueTxt), showroom: escHtml(showroomName || '') });
     // Un message personnalisé (saisi pour cet envoi précis) remplace le corps
@@ -1604,7 +1653,7 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
       ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
       subject,
       html: emailLayout({ showroomName, content:
-        `<h2 style="font-size:18px;margin:0 0 16px">${isEn ? 'Discover' : 'Découvrez'} ${brandName ? escHtml(brandName) : (isEn ? 'our showroom' : 'notre showroom')}</h2>
+        `${visualHtml}<h2 style="font-size:18px;margin:0 0 16px">${isEn ? 'Discover' : 'Découvrez'} ${brandName ? escHtml(brandName) : (isEn ? 'our showroom' : 'notre showroom')}</h2>
          ${bodyHtml}` })
     });
     // Le SDK Resend résout avec {data:null,error} sur un échec API au lieu de
