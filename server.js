@@ -459,12 +459,44 @@ app.use(session({
   saveUninitialized: false,
   name: 'sid',
   cookie: {
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    // Borne haute côté cookie/store — l'expiration réelle, plus courte et
+    // différenciée admin/acheteur, est appliquée au niveau applicatif via
+    // isSessionFresh() (voir plus bas) : le cookie doit juste survivre au
+    // moins aussi longtemps que la politique la plus permissive (acheteur).
+    maxAge: 30 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
   }
 }));
+
+// ── Politique d'expiration de session (OWASP Session Management / NIST 800-63B AAL2) ──
+// Deux bornes combinées, appliquées par isSessionFresh() : un délai d'inactivité
+// (la session expire si rien ne se passe pendant ce temps) et une durée absolue
+// (la session expire même avec activité continue, forçant une reconnexion
+// périodique). L'admin manipule des données plus sensibles (coordonnées
+// acheteurs, prix négociés) et a déjà la MFA — on peut donc se permettre une
+// fenêtre courte sans trop pénaliser l'usage. Le portail acheteur reste plus
+// permissif pour éviter de reconnecter un client à chaque visite.
+const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;              // 30 min
+const ADMIN_ABSOLUTE_TIMEOUT_MS = 12 * 60 * 60 * 1000;     // 12 h
+const BUYER_IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000;          // 2 h
+const BUYER_ABSOLUTE_TIMEOUT_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours
+
+// Initialise (à la première requête authentifiée suivant regenerate()) puis
+// vérifie les deux bornes ; renouvelle lastActive à chaque appel réussi.
+// Ne pas confondre avec le cookie lui-même : session.destroy() (appelé par
+// les middlewares requireAdmin/requireRole/requireBuyerAuth quand ceci
+// renvoie false) est ce qui invalide réellement l'accès, pas cette fonction.
+function isSessionFresh(req, idleMs, absoluteMs) {
+  const now = Date.now();
+  if (!req.session.authAt) req.session.authAt = now;
+  if (!req.session.lastActive) req.session.lastActive = now;
+  if (now - req.session.authAt > absoluteMs) return false;
+  if (now - req.session.lastActive > idleMs) return false;
+  req.session.lastActive = now;
+  return true;
+}
 
 // MFA obligatoire côté admin (comptes admin_users individuels ET compte owner
 // legacy à mot de passe partagé) : une session admin/staff sans MFA enrôlée
@@ -781,14 +813,18 @@ function getRole(req) {
 }
 
 function requireAdmin(req, res, next) {
-  if (getRole(req)) return next();
-  res.redirect('/admin/login');
+  if (!getRole(req)) return res.redirect('/admin/login');
+  if (isSessionFresh(req, ADMIN_IDLE_TIMEOUT_MS, ADMIN_ABSOLUTE_TIMEOUT_MS)) return next();
+  return req.session.destroy(() => res.redirect('/admin/login?error=session_expired'));
 }
 
 function requireRole(...allowed) {
   return (req, res, next) => {
     const role = getRole(req);
     if (!role || !allowed.includes(role)) return res.status(403).json({ error: 'Accès refusé pour ce rôle' });
+    if (!isSessionFresh(req, ADMIN_IDLE_TIMEOUT_MS, ADMIN_ABSOLUTE_TIMEOUT_MS)) {
+      return req.session.destroy(() => res.status(401).json({ error: 'Session expirée, reconnectez-vous.' }));
+    }
     req.userRole = role;
     req.userBrandId = req.session.staffUser?.brand_id || null;
     next();
@@ -4649,8 +4685,9 @@ app.post('/api/agent-selections/:token/use-template', requireRole('owner','agent
 // ==================== BUYER PORTAL (email + password, multi-brand) ====================
 
 function requireBuyerAuth(req, res, next) {
-  if (req.session?.buyerPortal) return next();
-  res.status(401).json({ error: 'Non connecté' });
+  if (!req.session?.buyerPortal) return res.status(401).json({ error: 'Non connecté' });
+  if (isSessionFresh(req, BUYER_IDLE_TIMEOUT_MS, BUYER_ABSOLUTE_TIMEOUT_MS)) return next();
+  return req.session.destroy(() => res.status(401).json({ error: 'Session expirée, reconnectez-vous.' }));
 }
 
 // Ancien lien conservé pour compatibilité
