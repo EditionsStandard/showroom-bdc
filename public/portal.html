@@ -4279,8 +4279,11 @@ function renderCarousel() {
   if (fb) fb.style.display = 'none';
   zoomReset(mImg);            // réinitialise zoom/translation à chaque image
   const base = carouselImgs[carouselIdx];
-  // Plein écran : version nette bornée. Zoom : version haute résolution chargée à la demande.
-  mImg.dataset.hi = cldTransform(base, 'w_2400,c_limit,q_auto:good,f_auto');
+  // Plein écran : version nette bornée. Zoom : version haute résolution chargée à la demande,
+  // avec upscale IA (c_scale au lieu de c_limit pour autoriser l'agrandissement) + netteté +
+  // qualité max — sert surtout à limiter le flou/pixelisation sur les photos sources les plus
+  // basses résolutions, qu'un simple redimensionnement ne peut pas améliorer.
+  mImg.dataset.hi = cldTransform(base, 'w_2400,c_scale,e_upscale,e_sharpen:60,q_auto:best,f_auto');
   mImg.dataset.hiLoaded = '';
   mImg.src = cldTransform(base, 'w_1600,c_limit,q_auto:good,f_auto');
   initImageZoom();
@@ -4328,7 +4331,12 @@ function _touchMid(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].
 function _ensureHiRes(img) {
   if (zoomState.scale > 1.2 && img.dataset.hi && !img.dataset.hiLoaded) {
     img.dataset.hiLoaded = '1';
-    img.src = img.dataset.hi; // version haute résolution pour voir les détails
+    // Précharge en arrière-plan avant de basculer : si l'upscale IA n'est pas
+    // disponible sur le compte Cloudinary (effet payant selon le forfait),
+    // on garde silencieusement l'image déjà affichée plutôt que de casser le zoom.
+    const preload = new Image();
+    preload.onload = () => { img.src = img.dataset.hi; };
+    preload.src = img.dataset.hi;
   }
 }
 // Zoom en gardant le point (cx,cy) fixe sous le curseur/doigt
