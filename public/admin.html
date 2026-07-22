@@ -1897,7 +1897,7 @@
 <div class="modal-overlay" id="modal-agent-selection">
   <div class="modal" style="max-width:760px">
     <h3 id="agent-sel-title">Préparer une sélection</h3>
-    <p style="font-size:12px;color:#888;margin:-4px 0 14px">Renseignez les quantités, puis envoyez le lien à l'acheteur : il créera son accès et validera la commande.</p>
+    <p style="font-size:12px;color:#888;margin:-4px 0 14px">Cochez les références à proposer, puis envoyez le lien à l'acheteur : il créera son accès et indiquera lui-même les quantités.</p>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <input id="agent-sel-search" type="text" placeholder="🔍 Filtrer une référence…" style="flex:1" oninput="renderAgentSelProducts()">
       <button class="btn btn-secondary btn-sm" onclick="toggleSampleForm()" title="Ajouter une pièce hors-catalogue (échantillon) avec une photo">📸 Échantillon</button>
@@ -1925,7 +1925,7 @@
       </div>
     </div>
     <div class="table-wrap" style="max-height:340px;overflow:auto"><table>
-      <thead><tr><th style="width:56px">Photo</th><th>Réf.</th><th>Désignation</th><th>Prix HT</th><th style="width:120px" id="agent-sel-qty-th">Quantité</th></tr></thead>
+      <thead><tr><th style="width:56px">Photo</th><th>Réf.</th><th>Désignation</th><th>Prix HT</th><th style="width:140px" id="agent-sel-qty-th">Sélection</th></tr></thead>
       <tbody id="agent-sel-body"></tbody>
     </table></div>
     <div class="sep"></div>
@@ -5374,13 +5374,12 @@ async function clearCollectionLookbook() {
 }
 
 // ── Sélection agent (préparée en RDV) ───────────────────────────────
-let agentSelBrandId = null, agentSelProducts = [], agentSelQty = {}, agentSelEditToken = null;
-// Mode édition : on raisonne en RÉFÉRENCES (l'acheteur fixe les quantités de son côté).
+let agentSelBrandId = null, agentSelProducts = [], agentSelEditToken = null;
+// Création comme édition : on raisonne en RÉFÉRENCES (l'acheteur fixe les quantités de son côté).
 let agentSelRefs = new Set();      // product_ids présents dans la sélection
-let agentSelOrigItems = [];        // items d'origine (préserve d'éventuelles quantités pré-remplies)
+let agentSelOrigItems = [];        // items d'origine (préserve d'éventuelles quantités pré-remplies, mode édition)
 async function openAgentSelection(brandId, brandName) {
   agentSelBrandId = brandId;
-  agentSelQty = {};
   agentSelEditToken = null;
   agentSelRefs = new Set(); agentSelOrigItems = [];
   document.getElementById('agent-sel-title').textContent = 'Sélection — ' + brandName;
@@ -5403,7 +5402,6 @@ async function editSelectionItems(token) {
   if (!s) return toast('Sélection introuvable', true);
   agentSelBrandId = s.brand_id;
   agentSelEditToken = token;
-  agentSelQty = {};
   try { agentSelOrigItems = JSON.parse(s.items_json || '[]'); } catch(e) { agentSelOrigItems = []; }
   agentSelRefs = new Set(agentSelOrigItems.map(i => i.product_id));
   document.getElementById('agent-sel-title').textContent = 'Ajouter des références — ' + (s.brand_name || '');
@@ -5421,24 +5419,11 @@ async function editSelectionItems(token) {
 function renderAgentSelProducts() {
   const q = (document.getElementById('agent-sel-search').value || '').toLowerCase();
   const list = agentSelProducts.filter(p => !q || (p.reference||'').toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q));
-  const editMode = !!agentSelEditToken;
-  const th = document.getElementById('agent-sel-qty-th'); if (th) th.textContent = editMode ? 'Dans la sélection' : 'Quantité';
   document.getElementById('agent-sel-body').innerHTML = list.map(p => {
-    const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
-    let qtyCell;
-    if (editMode) {
-      // Mode ajout de références : simple toggle, pas de quantité (l'acheteur les fixe)
-      const on = agentSelRefs.has(p.id);
-      qtyCell = `<button type="button" class="btn ${on ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toggleSelRef('${escJs(p.id)}')" style="white-space:nowrap">${on ? '✓ Dans la sélection' : '+ Ajouter'}</button>`;
-    } else if (sizes.length) {
-      qtyCell = sizes.map(sz => {
-        const k = p.id + '|' + sz;
-        return `<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="font-size:11px;min-width:28px;color:#888">${esc(sz)}</span><input type="number" min="0" value="${agentSelQty[k]||0}" oninput="agentSelQty['${k}']=parseInt(this.value)||0" style="width:54px"></div>`;
-      }).join('');
-    } else {
-      const k = p.id + '|';
-      qtyCell = `<input type="number" min="0" value="${agentSelQty[k]||0}" oninput="agentSelQty['${k}']=parseInt(this.value)||0" style="width:60px">`;
-    }
+    // Simple toggle référence, pas de quantité : l'acheteur les fixe lui-même
+    // (identique en création et en édition d'une sélection existante).
+    const on = agentSelRefs.has(p.id);
+    const qtyCell = `<button type="button" class="btn ${on ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toggleSelRef('${escJs(p.id)}')" style="white-space:nowrap">${on ? '✓ Dans la sélection' : '+ Ajouter'}</button>`;
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const thumb = src
@@ -5504,8 +5489,7 @@ async function addSampleToSelection() {
     // Injecte le produit créé dans la liste + le sélectionne
     const prod = { id: d.id, reference: d.reference || reference, description: document.getElementById('sample-desc').value.trim(), color: document.getElementById('sample-color').value.trim(), price: parseFloat(document.getElementById('sample-price').value) || 0, sizes: '', images: JSON.stringify(_samplePhotoData ? [_samplePhotoData] : []), image_url: _samplePhotoData || '', active: 0 };
     if (!agentSelProducts.find(p => p.id === prod.id)) agentSelProducts.unshift(prod);
-    if (agentSelEditToken) { agentSelRefs.add(prod.id); }         // mode édition : référence, sans quantité
-    else { agentSelQty[prod.id + '|'] = Math.max(1, agentSelQty[prod.id + '|'] || 0); }
+    agentSelRefs.add(prod.id);
     document.getElementById('agent-sel-search').value = '';
     renderAgentSelProducts();
     toggleSampleForm();
@@ -5544,9 +5528,9 @@ async function sendAgentSelection() {
     return;
   }
 
-  // Mode création : l'agent peut pré-remplir des quantités (valeurs de départ).
-  const items = Object.entries(agentSelQty).filter(([k,v]) => v > 0).map(([k,v]) => { const [product_id, size] = k.split('|'); return { product_id, size, quantity: v }; });
-  if (!items.length) { res.innerHTML = '<span style="color:#e07a7a">Sélectionnez au moins un article.</span>'; return; }
+  // Mode création : mêmes références sans quantité, l'acheteur les fixera lui-même.
+  if (!agentSelRefs.size) { res.innerHTML = '<span style="color:#e07a7a">Sélectionnez au moins une référence.</span>'; return; }
+  const items = [...agentSelRefs].map(pid => ({ product_id: pid, size: '', quantity: 0 }));
   const email = document.getElementById('agent-sel-email').value.trim();
   if (!email || !email.includes('@')) { res.innerHTML = '<span style="color:#e07a7a">Email acheteur valide requis.</span>'; return; }
   btn.disabled = true; btn.textContent = 'Envoi…';
