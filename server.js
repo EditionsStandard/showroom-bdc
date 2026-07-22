@@ -4363,7 +4363,10 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
     const { client_name, client_email, client_company, notes, items } = req.body;
     if (!client_email || typeof client_email !== 'string' || !client_email.includes('@')) return res.status(400).json({ error: 'Email acheteur valide requis' });
     if (!Array.isArray(items)) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
-    const validItems = items.filter(i => i && typeof i === 'object' && i.quantity > 0);
+    // Une sélection = une liste de RÉFÉRENCES ; l'acheteur fixe les quantités lui-même sur
+    // /selection/, donc on accepte des lignes sans quantité (quantity 0) — même règle que
+    // PUT /api/agent-selections/:token/items pour l'édition d'une sélection existante.
+    const validItems = items.filter(i => i && typeof i === 'object' && i.product_id);
     if (!validItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const brandId = req.params.brandId;
     const b = await pool.query('SELECT name FROM brands WHERE id=$1', [brandId]);
@@ -4375,7 +4378,7 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
       ? await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, brandId])
       : { rows: [] };
     const ownProductIds = new Set(ownProducts.rows.map(r => r.id));
-    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: parseInt(i.quantity) || 0 }));
+    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: Math.max(0, parseInt(i.quantity) || 0) }));
     if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const token = crypto.randomBytes(24).toString('hex');
     const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
