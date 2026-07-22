@@ -1581,10 +1581,14 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
       }
       link = `${getBaseUrl(req)}/rejoindre/${t.slug || t.token}`;
     } else {
+      // Toutes les marques actives avec un visuel (pas seulement les plus
+      // récentes) — un tri par date créait un plafond arbitraire de 4 qui
+      // pouvait exclure silencieusement une marque ayant pourtant une photo.
+      // LIMIT 12 reste un garde-fou anti-abus, pas une contrainte voulue.
       showcaseBrands = (await pool.query(
         `SELECT name, cover_image, logo_url, logo FROM brands
          WHERE subscription_status != 'inactive' AND (cover_image != '' OR logo_url != '' OR logo != '')
-         ORDER BY created_at DESC LIMIT 4`
+         ORDER BY name ASC LIMIT 12`
       )).rows;
     }
     logAudit(req, 'invite_prospect', 'prospect', email, brandName || 'toutes marques');
