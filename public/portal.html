@@ -4076,7 +4076,7 @@ async function renderFavs() {
           let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
           if (!imgs.length && p.image_url) imgs = [p.image_url];
           return `<div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
-            ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_400,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
+            ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_700,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
               ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Plex Mono','Space Mono',monospace;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
@@ -4125,7 +4125,7 @@ async function renderShortlist() {
           let imgs = []; try { imgs = JSON.parse(p.images||'[]'); } catch(e) {}
           if (!imgs.length && p.image_url) imgs = [p.image_url];
           return `<div style="background:var(--dark);border:1px solid var(--border);border-radius: 0;overflow:hidden;cursor:pointer" onclick="openBrand('${brandId}').then(()=>openProductDrawer('${p.id}'))">
-            ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_400,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
+            ${imgs[0] ? `<img src="${esc(cldTransform(imgs[0], 'w_700,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference||p.description||'Produit')}" loading="lazy" onerror="imgFail(this)" style="width:100%;height:160px;object-fit:contain;background:#fff;display:block">` : '<div style="height:160px;background:var(--mid)"></div>'}
             <div style="padding:12px 14px">
               <div style="font-family:var(--dot),monospace;font-size:14px">${esc(p.reference)}</div>
               ${p.description ? `<div style="font-size:11px;color:var(--soft);font-family:'Plex Mono','Space Mono',monospace;margin-top:3px;line-height:1.4">${esc(sentenceCase(p.description))}</div>` : ''}
