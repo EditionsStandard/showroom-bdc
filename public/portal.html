@@ -2740,7 +2740,7 @@ function renderBrandPicker() {
 // catalogue (renderBrandPicker) et le tableau de bord (loadDashboard).
 function brandCardHtml(b, i) {
   const coverSrc = b.thumbnail || b.cover_image || '';
-  const cover = coverSrc ? `<img class="brand-cover" src="${esc(coverSrc)}" alt="${esc(b.name)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div class=\\'brand-cover-ph\\'>🏷️</div>'">` : `<div class="brand-cover-ph">🏷️</div>`;
+  const cover = coverSrc ? `<img class="brand-cover" src="${esc(cldTransform(coverSrc, 'w_900,c_limit,q_auto,f_auto'))}" alt="${esc(b.name)}" loading="lazy" onerror="this.onerror=null;this.outerHTML='<div class=\\'brand-cover-ph\\'>🏷️</div>'">` : `<div class="brand-cover-ph">🏷️</div>`;
   const isNew = b.created_at && (Date.now() - new Date(b.created_at).getTime()) < 30 * 24 * 3600 * 1000;
   const newBadge = isNew ? `<span class="badge-new">NEW</span>` : '';
   const idx = String(i + 1).padStart(2, '0');
@@ -2916,7 +2916,7 @@ async function openBrand(brandId, _fromPop) {
     </div>`;
   } else if (hasCover) {
     heroHtml = `<div class="brand-hero">
-      <img class="brand-hero-img" src="${esc(currentBrand.cover_image)}" alt="${esc(currentBrand.name)}">
+      <img class="brand-hero-img" src="${esc(cldTransform(currentBrand.cover_image, 'w_1600,c_limit,q_auto,f_auto'))}" alt="${esc(currentBrand.name)}">
       <div class="brand-hero-scrim"></div>
       <div class="brand-hero-bottom">
         <h2 class="brand-hero-name">${esc(currentBrand.name)}</h2>
@@ -3167,8 +3167,8 @@ function renderProductsPage() {
     const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="${t('shortlist_add_title')}">🔖</button>`;
     const img = imgs[0]
       ? `<div class="product-img-wrap"${earlyAccessLocked ? '' : ` onclick="openCarousel(${imgsJson},0)"`}>
-          <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_500,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
-          ${imgs[1] ? `<img class="product-img-2" src="${esc(cldTransform(imgs[1], 'w_500,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_900,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
+          ${imgs[1] ? `<img class="product-img-2" src="${esc(cldTransform(imgs[1], 'w_900,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
           ${earlyAccessLocked ? lockedOverlayHtml : `${imgBadge}${videoBadge}${badgeNew}${stockOverlay}${favBtn}${shortBtn}`}
          </div>`
       : `<div class="product-img-wrap" style="background:var(--mid);min-height:80px;position:relative">${earlyAccessLocked ? lockedOverlayHtml : `${videoBadge}${badgeNew}${stockOverlay}${favBtn}${shortBtn}`}</div>`;
