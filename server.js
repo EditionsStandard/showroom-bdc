@@ -1594,7 +1594,7 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
     logAudit(req, 'invite_prospect', 'prospect', email, brandName || 'toutes marques');
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.json({ ok: true, emailed: false, brand: brandName || null });
-    const [showroomName, fromAddress, ownerEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
+    const [showroomName, fromAddress, ownerEmail, currentSeason] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email'), getSetting('current_season')]);
     const resend = newResendClient(resendKey);
     // Langue explicitement choisie par l'agent dans le sélecteur du formulaire
     // d'invitation — pas de langue enregistrée à défaut ici (contrairement au
@@ -1662,7 +1662,11 @@ app.post('/api/prospect-invite', requireRole('owner', 'agent'), prospectInviteLi
       replyTo: ownerEmail || undefined,
       ...(ownerEmail && ownerEmail.toLowerCase() !== email.toLowerCase() ? { bcc: [ownerEmail] } : {}),
       subject,
-      html: emailLayout({ showroomName, content:
+      // La saison en cours (réglage current_season, ex. "SS27" — même source que
+      // la pastille affichée sur les cartes marque du portail) apparaît en kicker
+      // au-dessus du visuel, pour que le prospect sache tout de suite quelle
+      // collection lui est présentée.
+      html: emailLayout({ showroomName, eyebrow: currentSeason ? (isEn ? `${currentSeason} Collection` : `Collection ${currentSeason}`) : '', content:
         `${visualHtml}<h2 style="font-size:18px;margin:0 0 16px">${isEn ? 'Discover' : 'Découvrez'} ${brandName ? escHtml(brandName) : (isEn ? 'our showroom' : 'notre showroom')}</h2>
          ${bodyHtml}` })
     });
