@@ -2040,6 +2040,12 @@ app.post('/api/brands/:brandId/products', requireBrandScope('owner','agent','des
     set('category', category); set('composition', composition);
     if (video_url !== undefined) { fields.push(`video_url=$${vals.push(video_url)}`); } // permet aussi de vider
     if (featured !== undefined) { fields.push(`featured=$${vals.push(!!featured)}`); }
+    // Comme video_url ci-dessus : toujours pris en compte si fourni (même vide,
+    // ex. suppression de la dernière photo/variante), sinon ces champs restaient
+    // muets sur ce chemin d'upsert (référence déjà existante) alors que le
+    // formulaire produit les envoie systématiquement.
+    if (Array.isArray(images)) { fields.push(`images=$${vals.push(JSON.stringify(images))}`); }
+    if (Array.isArray(variants)) { fields.push(`variants=$${vals.push(JSON.stringify(variants))}`); }
     if (fields.length) { vals.push(eid); await pool.query(`UPDATE products SET ${fields.join(',')} WHERE id=$${vals.length}`, vals); }
     return res.json({ id: eid, updated: true });
   }

@@ -619,6 +619,10 @@
   .drawer-ref { font-family: var(--dot), monospace; font-size: 20px; margin-bottom: 6px; }
   .drawer-price { font-size: 18px; color: var(--accent); font-family: var(--dot), monospace; font-weight: 700; margin-bottom: 14px; }
   .drawer-meta { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .drawer-color-variants { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .color-swatch-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; letter-spacing: .03em; padding: 5px 10px; border-radius: 0; cursor: pointer; transition: border-color .15s, color .15s; }
+  .color-swatch-btn:hover { color: var(--soft); }
+  .color-swatch-btn.active { border-color: var(--white); color: var(--white); }
   .drawer-desc { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 13px; color: var(--soft); line-height: 1.7; margin: 12px 0; }
   .drawer-sep { height: 1px; background: var(--border); margin: 16px 0; }
   .drawer-sizes-title { font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
@@ -1761,6 +1765,7 @@ function applyLang() {
       <div id="drawer-price"></div>
       <div id="drawer-collection" class="drawer-meta" style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)"></div>
       <div id="drawer-color" class="drawer-meta"></div>
+      <div id="drawer-color-variants" class="drawer-color-variants" style="display:none"></div>
       <div id="drawer-composition" class="drawer-meta"></div>
       <div class="drawer-desc" id="drawer-desc"></div>
       <div id="drawer-video" style="margin:12px 0"></div>
@@ -4431,6 +4436,7 @@ function initImageZoom() {
 let drawerProduct = null;
 let drawerImgs = [];
 let drawerImgIdx = 0;
+let drawerVariants = [];
 
 function openProductDrawer(productId, _fromPop) {
   const p = currentProducts.find(x => x.id === productId);
@@ -4443,13 +4449,24 @@ function openProductDrawer(productId, _fromPop) {
   let imgs = [];
   try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
   if (!imgs.length && p.image_url) imgs = [p.image_url];
-  drawerImgs = imgs;
+
+  // Variantes de couleur (référence unique, plusieurs coloris/photos) : purement
+  // visuel côté acheteur — change la galerie affichée, n'affecte pas le panier
+  // (une seule ligne de commande par taille pour cette référence, comme avant).
+  let variants = [];
+  try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
+  variants = variants.filter(v => v && (v.color || (Array.isArray(v.images) && v.images.length)));
+  drawerVariants = variants;
+
+  const firstVariantImgs = variants.length && Array.isArray(variants[0].images) ? variants[0].images : [];
+  drawerImgs = firstVariantImgs.length ? firstVariantImgs : imgs;
 
   document.getElementById('drawer-brand-name').textContent = currentBrand?.name || '';
   document.getElementById('drawer-ref').textContent = p.reference || '';
   document.getElementById('drawer-price').innerHTML = priceBlockHtml(p.price, p.price_retail, false);
   document.getElementById('drawer-collection').textContent = p.collection_name || '';
-  document.getElementById('drawer-color').textContent = p.color ? t('coloris_label', p.color) : '';
+  document.getElementById('drawer-color').textContent = (!variants.length && p.color) ? t('coloris_label', p.color) : '';
+  renderDrawerColorVariants(variants, imgs, 0);
   document.getElementById('drawer-composition').textContent = p.composition ? t('composition_label', p.composition) : '';
   const _dDesc = document.getElementById('drawer-desc');
   _dDesc.textContent = sentenceCase(p.description || '');
@@ -4479,14 +4496,14 @@ function openProductDrawer(productId, _fromPop) {
   // Gallery
   const prev = document.getElementById('drawer-prev');
   const next = document.getElementById('drawer-next');
-  prev.style.display = imgs.length > 1 ? '' : 'none';
-  next.style.display = imgs.length > 1 ? '' : 'none';
+  prev.style.display = drawerImgs.length > 1 ? '' : 'none';
+  next.style.display = drawerImgs.length > 1 ? '' : 'none';
   drawerSetImg(0);
 
   // Thumbs
   const thumbsEl = document.getElementById('drawer-thumbs');
-  thumbsEl.style.display = imgs.length > 1 ? 'flex' : 'none';
-  thumbsEl.innerHTML = imgs.map((src, i) =>
+  thumbsEl.style.display = drawerImgs.length > 1 ? 'flex' : 'none';
+  thumbsEl.innerHTML = drawerImgs.map((src, i) =>
     `<img class="drawer-thumb${i===0?' active':''}" src="${esc(cldTransform(src, 'w_500,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})" onerror="this.style.display='none'">`
   ).join('');
 
@@ -4525,6 +4542,38 @@ function openProductDrawer(productId, _fromPop) {
   document.getElementById('product-drawer').classList.add('open');
   document.body.style.overflow = 'hidden';
   initDrawerSwipe();
+}
+
+// Puce par coloris — clique pour changer les photos affichées (galerie +
+// vignettes) sans toucher au panier : une référence garde une seule ligne de
+// commande par taille, quel que soit le coloris consulté.
+function renderDrawerColorVariants(variants, fallbackImgs, activeIdx) {
+  const wrap = document.getElementById('drawer-color-variants');
+  if (!variants.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = variants.map((v, i) =>
+    `<button class="color-swatch-btn${i===activeIdx?' active':''}" onclick="selectDrawerVariant(${i})">${esc(v.color || t('coloris_label', i + 1))}</button>`
+  ).join('');
+  wrap.dataset.fallbackImgs = JSON.stringify(fallbackImgs);
+}
+function selectDrawerVariant(vi) {
+  const v = drawerVariants[vi];
+  if (!v) return;
+  const wrap = document.getElementById('drawer-color-variants');
+  let fallbackImgs = [];
+  try { fallbackImgs = JSON.parse(wrap.dataset.fallbackImgs || '[]'); } catch(e) {}
+  const vImgs = Array.isArray(v.images) && v.images.length ? v.images : fallbackImgs;
+  drawerImgs = vImgs;
+  drawerImgIdx = 0;
+  drawerSetImg(0);
+  document.getElementById('drawer-prev').style.display = drawerImgs.length > 1 ? '' : 'none';
+  document.getElementById('drawer-next').style.display = drawerImgs.length > 1 ? '' : 'none';
+  const thumbsEl = document.getElementById('drawer-thumbs');
+  thumbsEl.style.display = drawerImgs.length > 1 ? 'flex' : 'none';
+  thumbsEl.innerHTML = drawerImgs.map((src, i) =>
+    `<img class="drawer-thumb${i===0?' active':''}" src="${esc(cldTransform(src, 'w_500,c_limit,q_auto,f_auto'))}" alt="" loading="lazy" data-i="${i}" onclick="drawerSetImg(${i})" onerror="this.style.display='none'">`
+  ).join('');
+  wrap.querySelectorAll('.color-swatch-btn').forEach((b, i) => b.classList.toggle('active', i === vi));
 }
 
 function closeProductDrawer(_fromPop) {

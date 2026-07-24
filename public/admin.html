@@ -6256,7 +6256,10 @@ async function saveProduct() {
     await refreshProducts();
     document.getElementById('modal-products').querySelector('.modal').scrollTop = scrollPos;
     toast(id ? t('js_ref_updated') : t('js_ref_added'));
-  } else toast(t('js_error'), true);
+  } else {
+    const d = await r.json().catch(() => ({}));
+    toast(d.error || t('js_error'), true);
+  }
 }
 
 // ── Vidéo produit : upload direct signé vers Cloudinary (gros fichiers, hors serveur) ──
