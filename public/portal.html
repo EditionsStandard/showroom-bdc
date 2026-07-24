@@ -933,6 +933,7 @@ const TRANSLATIONS = {
     notif_title: 'Notifications', notif_mark_all: 'Tout marquer lu', notif_empty: 'Aucune notification',
     follow_brand: 'Suivre', following_brand: 'Suivi ✓',
     fav_add_title: 'Ajouter aux favoris', shortlist_add_title: 'Ajouter à la shortlist',
+    fav_remove_title: 'Retirer des favoris', shortlist_remove_title: 'Retirer de la shortlist',
     compare_add_title: 'Comparer ce produit', compare_btn: '⊕ Comparer', compare_compared_btn: '✓ Comparé',
     view_product_title: 'Voir la fiche produit',
     qty_decrease_label: 'Diminuer la quantité', qty_increase_label: 'Augmenter la quantité',
@@ -1094,6 +1095,7 @@ const TRANSLATIONS = {
     notif_title: 'Notifications', notif_mark_all: 'Mark all read', notif_empty: 'No notifications',
     follow_brand: 'Follow', following_brand: 'Following ✓',
     fav_add_title: 'Add to favorites', shortlist_add_title: 'Add to shortlist',
+    fav_remove_title: 'Remove from favorites', shortlist_remove_title: 'Remove from shortlist',
     compare_add_title: 'Compare this product', compare_btn: '⊕ Compare', compare_compared_btn: '✓ Compared',
     view_product_title: 'View product page',
     qty_decrease_label: 'Decrease quantity', qty_increase_label: 'Increase quantity',
@@ -3176,9 +3178,9 @@ function renderProductsPage() {
     // cumule les deux ; sinon NEW.
     const badgeNew = p.best_seller ? `<span class="badge-new badge-best">${t('best_seller_badge')}</span>` : (isNew ? `<span class="badge-new">NEW</span>` : '');
     const stockOverlay = stockOverlayBadgeHtml(p);
-    const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="${t('fav_add_title')}">${isFav?'♥':'♡'}</button>`;
+    const favBtn = `<button class="fav-btn${isFav?' active':''}" onclick="event.stopPropagation();toggleFav('${p.id}')" title="${isFav?t('fav_remove_title'):t('fav_add_title')}">${isFav?'♥':'♡'}</button>`;
     const isShort = shortlist.has(p.id);
-    const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="${t('shortlist_add_title')}">🔖</button>`;
+    const shortBtn = `<button class="shortlist-btn${isShort?' active':''}" onclick="event.stopPropagation();toggleShortlist('${p.id}')" title="${isShort?t('shortlist_remove_title'):t('shortlist_add_title')}">🔖</button>`;
     const img = imgs[0]
       ? `<div class="product-img-wrap"${earlyAccessLocked ? '' : ` onclick="openCarousel(${imgsJson},0)"`}>
           <img class="product-img product-img-1" src="${esc(cldTransform(imgs[0], 'w_900,c_limit,q_auto,f_auto'))}" alt="${esc(p.reference)}" loading="lazy" onerror="imgFail(this)">
@@ -3964,7 +3966,12 @@ function toggleFav(productId) {
   saveFavs();
   // Refresh the heart button on the card without full re-render
   const card = document.querySelector(`.product-card[data-pid="${productId}"] .fav-btn`);
-  if (card) { card.textContent = favorites.has(productId) ? '♥' : '♡'; card.classList.toggle('active', favorites.has(productId)); }
+  if (card) {
+    const isFav = favorites.has(productId);
+    card.textContent = isFav ? '♥' : '♡';
+    card.classList.toggle('active', isFav);
+    card.title = isFav ? t('fav_remove_title') : t('fav_add_title');
+  }
   // If favs view open, refresh
   if (document.getElementById('view-favs').style.display !== 'none') renderFavs();
   // Sync to server (non-blocking)
@@ -3994,7 +4001,11 @@ function toggleShortlist(productId) {
   }
   saveShortlist();
   const btn = document.querySelector(`.product-card[data-pid="${productId}"] .shortlist-btn`);
-  if (btn) { btn.classList.toggle('active', shortlist.has(productId)); }
+  if (btn) {
+    const isShort = shortlist.has(productId);
+    btn.classList.toggle('active', isShort);
+    btn.title = isShort ? t('shortlist_remove_title') : t('shortlist_add_title');
+  }
   if (document.getElementById('view-shortlist').style.display !== 'none') renderShortlist();
   fetch(`/api/portal/shortlist/${productId}`, { method: 'POST' }).catch(() => {});
 }
@@ -4076,7 +4087,10 @@ async function renderFavs() {
   const favIds = [...favorites];
   let found = [];
   if (currentProducts.length) {
-    found = currentProducts.filter(p => favorites.has(p.id));
+    // currentProducts ne porte pas brand_id/brand_name (implicite : la marque
+    // ouverte) — on les rattache ici à la marque courante, sinon le groupement
+    // par marque plus bas échoue silencieusement pour ces produits.
+    found = currentProducts.filter(p => favorites.has(p.id)).map(p => ({ ...p, brand_id: p.brand_id || currentBrand?.id, brand_name: p.brand_name || currentBrand?.name }));
   }
   const loadedIds = new Set(found.map(p => p.id));
   const missing = favIds.filter(id => !loadedIds.has(id));
@@ -4090,7 +4104,14 @@ async function renderFavs() {
       if (r.ok) { const extra = await r.json(); found = found.concat(extra); }
     } catch(e) {}
   }
-  found.forEach(p => { if (byBrand[p.brand_id]) byBrand[p.brand_id].products.push(p); });
+  // Ne jamais faire disparaître silencieusement un produit valide : byBrand n'est
+  // préchargé qu'à partir d'allBrands, qui peut ne pas encore être chargé (ex.
+  // navigation très rapide vers Favoris/Shortlist juste après connexion) — on
+  // crée alors le groupe à la volée avec le meilleur nom de marque disponible.
+  found.forEach(p => {
+    if (!byBrand[p.brand_id]) byBrand[p.brand_id] = { name: p.brand_name || (currentBrand?.id === p.brand_id ? currentBrand.name : '') || '—', products: [] };
+    byBrand[p.brand_id].products.push(p);
+  });
   const html = Object.entries(byBrand).filter(([,b]) => b.products.length).map(([brandId, b]) =>
     `<div style="margin-bottom:28px">
       <div style="font-family:var(--dot),monospace;font-size:14px;color:var(--accent);margin-bottom:12px;letter-spacing:.04em">${esc(b.name)}</div>
@@ -4124,7 +4145,10 @@ async function renderShortlist() {
   const shortIds = [...shortlist];
   let found = [];
   if (currentProducts.length) {
-    found = currentProducts.filter(p => shortlist.has(p.id));
+    // currentProducts ne porte pas brand_id/brand_name (implicite : la marque
+    // ouverte) — on les rattache ici à la marque courante, sinon le groupement
+    // par marque plus bas échoue silencieusement pour ces produits.
+    found = currentProducts.filter(p => shortlist.has(p.id)).map(p => ({ ...p, brand_id: p.brand_id || currentBrand?.id, brand_name: p.brand_name || currentBrand?.name }));
   }
   const loadedIds = new Set(found.map(p => p.id));
   const missing = shortIds.filter(id => !loadedIds.has(id));
@@ -4139,7 +4163,14 @@ async function renderShortlist() {
       if (r.ok) { const extra = await r.json(); found = found.concat(extra); }
     } catch(e) {}
   }
-  found.forEach(p => { if (byBrand[p.brand_id]) byBrand[p.brand_id].products.push(p); });
+  // Ne jamais faire disparaître silencieusement un produit valide : byBrand n'est
+  // préchargé qu'à partir d'allBrands, qui peut ne pas encore être chargé (ex.
+  // navigation très rapide vers Favoris/Shortlist juste après connexion) — on
+  // crée alors le groupe à la volée avec le meilleur nom de marque disponible.
+  found.forEach(p => {
+    if (!byBrand[p.brand_id]) byBrand[p.brand_id] = { name: p.brand_name || (currentBrand?.id === p.brand_id ? currentBrand.name : '') || '—', products: [] };
+    byBrand[p.brand_id].products.push(p);
+  });
   const html = Object.entries(byBrand).filter(([,b]) => b.products.length).map(([brandId, b]) =>
     `<div style="margin-bottom:28px">
       <div style="font-family:var(--dot),monospace;font-size:14px;color:var(--accent);margin-bottom:12px;letter-spacing:.04em">${esc(b.name)}</div>
