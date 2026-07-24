@@ -1053,40 +1053,51 @@
   <div id="mfa" class="section">
     <h1>Ma sécurité</h1>
     <div class="card">
-      <h3>Double authentification (MFA)</h3>
-      <p style="font-size:12px;color:#888;margin-bottom:14px">Ajoute une vérification par code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe. Recommandé pour tous les comptes ayant accès à l'administration.</p>
+      <h3 data-t="mfa_title">Double authentification (MFA)</h3>
+      <p style="font-size:12px;color:#888;margin-bottom:14px" data-t="mfa_desc">Ajoute une vérification par code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe. Recommandé pour tous les comptes ayant accès à l'administration.</p>
+
+      <div id="mfa-help-block" style="background:#161616;border:1px solid #252525;border-radius:0;padding:12px 14px;margin-bottom:16px;max-width:480px">
+        <p style="font-size:12px;font-weight:700;color:#ccc;margin-bottom:6px" data-t="mfa_help_title">Pas encore d'application d'authentification ?</p>
+        <p style="font-size:12px;color:#888;margin-bottom:10px" data-t="mfa_help_desc">Installez-en une gratuitement sur votre téléphone avant de commencer : Google Authenticator, Authy ou 1Password fonctionnent tous.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Google Authenticator (iOS)</a>
+          <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Google Authenticator (Android)</a>
+          <a href="https://authy.com/download/" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Authy</a>
+        </div>
+        <p style="font-size:11px;color:#666" data-t="mfa_help_troubleshoot">Le code est refusé ? Vérifiez que l'heure de votre téléphone est réglée automatiquement — le code dépend de l'heure exacte.</p>
+      </div>
 
       <div id="mfa-status-off">
-        <p style="font-size:13px;margin-bottom:14px"><span style="color:#e74c3c">●</span> MFA désactivée sur ce compte.</p>
-        <button class="btn btn-primary" onclick="startMfaSetup()">Activer la MFA</button>
+        <p style="font-size:13px;margin-bottom:14px"><span style="color:#e74c3c">●</span> <span data-t="mfa_status_off">MFA désactivée sur ce compte.</span></p>
+        <button class="btn btn-primary" onclick="startMfaSetup()" data-t="mfa_enable_btn">Activer la MFA</button>
       </div>
 
       <div id="mfa-status-on" style="display:none">
-        <p style="font-size:13px;margin-bottom:14px"><span style="color:#2ecc71">●</span> MFA activée sur ce compte.</p>
-        <button class="btn btn-danger" onclick="showMfaDisableForm()">Désactiver la MFA</button>
+        <p style="font-size:13px;margin-bottom:14px"><span style="color:#2ecc71">●</span> <span data-t="mfa_status_on">MFA activée sur ce compte.</span></p>
+        <button class="btn btn-danger" onclick="showMfaDisableForm()" data-t="mfa_disable_btn">Désactiver la MFA</button>
         <div id="mfa-disable-form" style="display:none;margin-top:14px;max-width:320px">
-          <div class="form-group"><label>Confirmez avec votre mot de passe</label><input type="password" id="mfa-disable-password"></div>
-          <button class="btn btn-danger btn-sm" onclick="disableMfa()">Confirmer la désactivation</button>
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('mfa-disable-form').style.display='none'">Annuler</button>
+          <div class="form-group"><label data-t="mfa_disable_confirm_label">Confirmez avec votre mot de passe</label><input type="password" id="mfa-disable-password"></div>
+          <button class="btn btn-danger btn-sm" onclick="disableMfa()" data-t="mfa_disable_confirm_btn">Confirmer la désactivation</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('mfa-disable-form').style.display='none'" data-t="mfa_cancel_btn">Annuler</button>
         </div>
       </div>
 
       <div id="mfa-setup-flow" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid #252525">
-        <p style="font-size:12px;color:#888;margin-bottom:12px">1. Scannez ce QR code avec votre application d'authentification :</p>
+        <p style="font-size:12px;color:#888;margin-bottom:12px" data-t="mfa_step1">1. Scannez ce QR code avec votre application d'authentification :</p>
         <img id="mfa-qr" style="width:180px;height:180px;background:#fff;padding:8px" alt="QR code MFA">
-        <p style="font-size:11px;color:#666;margin:10px 0">Ou entrez la clé manuellement : <code id="mfa-secret-text" style="user-select:all"></code></p>
-        <p style="font-size:12px;color:#888;margin:14px 0 8px">2. Entrez le code affiché par l'application pour confirmer :</p>
+        <p style="font-size:11px;color:#666;margin:10px 0"><span data-t="mfa_manual_key">Ou entrez la clé manuellement :</span> <code id="mfa-secret-text" style="user-select:all"></code></p>
+        <p style="font-size:12px;color:#888;margin:14px 0 8px" data-t="mfa_step2">2. Entrez le code affiché par l'application pour confirmer :</p>
         <div style="display:flex;gap:10px;align-items:center;max-width:320px">
           <input type="text" id="mfa-confirm-code" inputmode="numeric" maxlength="6" placeholder="000000" style="flex:1">
-          <button class="btn btn-primary btn-sm" onclick="confirmMfaSetup()">Confirmer</button>
+          <button class="btn btn-primary btn-sm" onclick="confirmMfaSetup()" data-t="mfa_confirm_btn">Confirmer</button>
         </div>
       </div>
 
       <div id="mfa-backup-codes-flow" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid #252525">
-        <p style="font-size:13px;color:#e74c3c;font-weight:700;margin-bottom:10px">⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.</p>
-        <p style="font-size:12px;color:#888;margin-bottom:12px">Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.</p>
+        <p style="font-size:13px;color:#e74c3c;font-weight:700;margin-bottom:10px" data-t="mfa_backup_warning">⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.</p>
+        <p style="font-size:12px;color:#888;margin-bottom:12px" data-t="mfa_backup_desc">Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.</p>
         <div id="mfa-backup-codes-list" style="font-family:monospace;font-size:14px;line-height:2;background:#0a0a0a;padding:14px;border:1px solid #252525"></div>
-        <button class="btn btn-primary" style="margin-top:14px" onclick="document.getElementById('mfa-backup-codes-flow').style.display='none';loadMfaSection()">J'ai noté mes codes</button>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="document.getElementById('mfa-backup-codes-flow').style.display='none';loadMfaSection()" data-t="mfa_backup_done_btn">J'ai noté mes codes</button>
       </div>
     </div>
   </div>
@@ -2606,6 +2617,26 @@ const TRANSLATIONS = {
     js_never: 'Jamais',
     js_map_unavailable: 'Carte indisponible',
     js_map_tooltip: (c,b,o,r) => `${c} — ${b} client(s) · ${o} commande(s) · ${r} €`,
+    // MFA
+    mfa_title: 'Double authentification (MFA)',
+    mfa_desc: "Ajoute une vérification par code à 6 chiffres (Google Authenticator, 1Password, Authy…) en plus de votre mot de passe. Recommandé pour tous les comptes ayant accès à l'administration.",
+    mfa_status_off: 'MFA désactivée sur ce compte.',
+    mfa_status_on: 'MFA activée sur ce compte.',
+    mfa_enable_btn: 'Activer la MFA',
+    mfa_disable_btn: 'Désactiver la MFA',
+    mfa_disable_confirm_label: 'Confirmez avec votre mot de passe',
+    mfa_disable_confirm_btn: 'Confirmer la désactivation',
+    mfa_cancel_btn: 'Annuler',
+    mfa_help_title: "Pas encore d'application d'authentification ?",
+    mfa_help_desc: "Installez-en une gratuitement sur votre téléphone avant de commencer : Google Authenticator, Authy ou 1Password fonctionnent tous.",
+    mfa_help_troubleshoot: "Le code est refusé ? Vérifiez que l'heure de votre téléphone est réglée automatiquement — le code dépend de l'heure exacte.",
+    mfa_step1: '1. Scannez ce QR code avec votre application d\'authentification :',
+    mfa_manual_key: 'Ou entrez la clé manuellement :',
+    mfa_step2: '2. Entrez le code affiché par l\'application pour confirmer :',
+    mfa_confirm_btn: 'Confirmer',
+    mfa_backup_warning: '⚠ Notez ces codes de secours maintenant — ils ne seront plus jamais affichés.',
+    mfa_backup_desc: "Chacun permet une connexion unique si vous perdez l'accès à votre application d'authentification.",
+    mfa_backup_done_btn: "J'ai noté mes codes",
   },
   en: {
     // Nav
@@ -2802,6 +2833,26 @@ const TRANSLATIONS = {
     js_never: 'Never',
     js_map_unavailable: 'Map unavailable',
     js_map_tooltip: (c,b,o,r) => `${c} — ${b} client(s) · ${o} order(s) · ${r} €`,
+    // MFA
+    mfa_title: 'Two-factor authentication (2FA)',
+    mfa_desc: 'Adds a 6-digit code check (Google Authenticator, 1Password, Authy…) on top of your password. Recommended for every account with admin access.',
+    mfa_status_off: '2FA is disabled on this account.',
+    mfa_status_on: '2FA is enabled on this account.',
+    mfa_enable_btn: 'Enable 2FA',
+    mfa_disable_btn: 'Disable 2FA',
+    mfa_disable_confirm_label: 'Confirm with your password',
+    mfa_disable_confirm_btn: 'Confirm disabling',
+    mfa_cancel_btn: 'Cancel',
+    mfa_help_title: "Don't have an authenticator app yet?",
+    mfa_help_desc: 'Install one for free on your phone before starting — Google Authenticator, Authy, and 1Password all work.',
+    mfa_help_troubleshoot: "Code rejected? Check that your phone's time is set automatically — the code depends on the exact time.",
+    mfa_step1: '1. Scan this QR code with your authenticator app:',
+    mfa_manual_key: 'Or enter the key manually:',
+    mfa_step2: '2. Enter the code shown by the app to confirm:',
+    mfa_confirm_btn: 'Confirm',
+    mfa_backup_warning: '⚠ Write down these backup codes now — they will never be shown again.',
+    mfa_backup_desc: 'Each one lets you log in once if you lose access to your authenticator app.',
+    mfa_backup_done_btn: "I've saved my codes",
   }
 };
 
@@ -7625,6 +7676,7 @@ async function loadMfaSection() {
   mfaEnabledCache = st.enabled;
   document.getElementById('mfa-status-off').style.display = st.enabled ? 'none' : 'block';
   document.getElementById('mfa-status-on').style.display = st.enabled ? 'block' : 'none';
+  document.getElementById('mfa-help-block').style.display = st.enabled ? 'none' : 'block';
   document.getElementById('mfa-setup-flow').style.display = 'none';
   document.getElementById('mfa-backup-codes-flow').style.display = 'none';
   const badge = document.getElementById('mfa-nav-badge');
