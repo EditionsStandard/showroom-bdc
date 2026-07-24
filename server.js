@@ -4706,6 +4706,35 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// 3ter) Export PDF de la sélection depuis la page publique /selection/ — même
+// accès token-only que le GET et le /save ci-dessus, pas de session requise
+// (variante publique de GET /api/agent-selections/:token/pdf, réservée aux
+// admins). Reflète les quantités telles qu'enregistrées à l'instant T.
+app.get('/api/selection/:token/pdf', publicLimiter, async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT a.*, b.name AS brand_name, b.logo AS brand_logo, b.logo_url AS brand_logo_url FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
+      [req.params.token]);
+    const s = r.rows[0];
+    if (!s) return res.status(404).json({ error: 'Sélection introuvable' });
+    const items = JSON.parse(s.items_json || '[]');
+    const ids = [...new Set(items.map(i => i.product_id))];
+    const prods = ids.length ? await pool.query('SELECT * FROM products WHERE id = ANY($1)', [ids]) : { rows: [] };
+    const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
+    const lines = items.filter(i => pmap[i.product_id]).map(i => ({ ...i, product: pmap[i.product_id] }));
+    const [showroomName, agentName] = await Promise.all([getSetting('showroom_name'), getSetting('agent_name')]);
+    const pdf = await generateSelectionPDF({
+      brand: { name: s.brand_name, logo: s.brand_logo, logo_url: s.brand_logo_url },
+      client_name: s.client_name, client_email: s.client_email, client_company: s.client_company, client_country: '',
+      notes: s.notes, lines, showroomName, agentName
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.setHeader('Content-Disposition', `attachment; filename="Selection-${(s.selection_number || req.params.token.slice(0,8)).replace(/\s/g,'-')}.pdf"`);
+    res.send(pdf);
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // 4) L'acheteur crée son compte (ou se connecte) et valide la commande
 app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
   try {
