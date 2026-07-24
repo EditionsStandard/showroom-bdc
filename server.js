@@ -5276,8 +5276,8 @@ app.post('/api/portal/favorites/products', requireBuyerAuth, async (req, res) =>
   if (!ids.length) return res.json([]);
   try {
     const r = await pool.query(
-      `SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id
-       FROM products p WHERE p.id = ANY($1) AND p.active != 0`,
+      `SELECT p.id, p.reference, p.description, p.color, p.price, p.price_retail, p.images, p.image_url, p.brand_id, b.name AS brand_name
+       FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = ANY($1) AND p.active != 0`,
       [ids]
     );
     const locked = await getLockedBrandIds(req.session.buyerPortal.id, r.rows.map(p => p.brand_id));
