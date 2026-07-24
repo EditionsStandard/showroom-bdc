@@ -2367,6 +2367,42 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// Import de variantes de couleur (sans photo) sur des références EXISTANTES
+// d'une marque — n'écrit que la colonne `variants`, ne touche à rien d'autre
+// sur la fiche produit. Les couleurs déjà présentes (comparaison insensible
+// à la casse) ne sont pas dupliquées ; les autres sont ajoutées à la suite.
+app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('owner','agent'), async (req, res) => {
+  try {
+    const brandId = req.params.brandId;
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : null;
+    if (!rows || !rows.length) return res.status(400).json({ error: 'Aucune ligne à importer' });
+    if (rows.length > MAX_CSV_IMPORT_ROWS) return res.status(400).json({ error: `Trop de lignes (${rows.length}), maximum ${MAX_CSV_IMPORT_ROWS}.` });
+
+    let updated = 0;
+    const notFound = [];
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      const reference = (row.reference || '').toString().trim();
+      const colors = Array.isArray(row.colors) ? row.colors.map(c => (c || '').toString().trim()).filter(Boolean).slice(0, 30) : [];
+      if (!reference || !colors.length) continue;
+      const p = await pool.query('SELECT id, variants FROM products WHERE brand_id=$1 AND reference=$2', [brandId, reference]);
+      if (!p.rows[0]) { notFound.push(reference); continue; }
+      let existing = [];
+      try { const _v = typeof p.rows[0].variants === 'string' ? JSON.parse(p.rows[0].variants || '[]') : (p.rows[0].variants || []); existing = Array.isArray(_v) ? _v : []; } catch(e) {}
+      const seen = new Set(existing.map(v => (v.color || '').toString().trim().toLowerCase()));
+      const merged = existing.slice();
+      for (const c of colors) {
+        const key = c.toLowerCase();
+        if (!seen.has(key)) { merged.push({ color: c, images: [] }); seen.add(key); }
+      }
+      await pool.query('UPDATE products SET variants=$1 WHERE id=$2', [JSON.stringify(merged), p.rows[0].id]);
+      updated++;
+    }
+    logAudit(req, 'import_product_variants', 'brand', brandId, `${updated} référence(s)`);
+    res.json({ updated, notFound });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // ── Import CSV produits (JSON rows) ─────────────────────────────────
 app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 'designer'), uploadLimiter, async (req, res) => {
   try {

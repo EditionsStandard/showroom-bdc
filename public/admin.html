@@ -1745,6 +1745,7 @@
       <button class="btn btn-secondary btn-sm" onclick="repairProductFields()" title="Extrait category/color/composition depuis la description si ces champs sont vides">🔧 Réparer les champs</button>
       <button class="btn btn-secondary btn-sm" onclick="detectDuplicateProducts()" title="Repère les références qui partagent la même désignation + couleur, alors qu'il s'agit de produits différents (à renommer)">🔍 Détecter les doublons</button>
       <button class="btn btn-secondary btn-sm" onclick="openSmartMergeModal()" title="Pour un fichier marque dont la colonne référence est inutilisable (ex. identique sur toutes les lignes) : retrouve chaque produit existant par nom+couleur et ne met à jour que les champs qui ont changé — aucune création automatique">🔀 Fusion intelligente (par nom/couleur)</button>
+      <button class="btn btn-secondary btn-sm" onclick="openVariantsImportModal()" title="Ajoute des variantes de couleur (sans photo) à des références existantes, à partir d'une liste collée">🎨 Importer variantes couleur</button>
     </div>
     <div id="duplicates-result" style="display:none;margin-bottom:16px"></div>
     <div style="margin-bottom:16px">
@@ -2266,6 +2267,31 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-csv-import')">Annuler</button>
       <button class="btn btn-primary" id="btn-csv-import-submit" onclick="submitCsvImport()" disabled style="opacity:.5">Importer</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-variants-import">
+  <div class="modal" style="max-width:640px">
+    <h3>🎨 Importer des variantes de couleur</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:16px">Une ligne par référence, sous la forme <code>RÉFÉRENCE : couleur1, couleur2, couleur3</code> (le texte entre la référence et le ":" est ignoré, pratique pour coller directement une liste avec désignation). Ajoute les couleurs aux références <strong>existantes</strong> de cette marque — sans photo, sans toucher au reste de la fiche. Les couleurs déjà présentes ne sont pas dupliquées.</p>
+    <div class="form-group">
+      <label>Liste à coller</label>
+      <textarea id="variants-import-text" rows="10" style="font-family:monospace;font-size:12px" placeholder="C93-2250C644 – Matching Shorts With Cut-Out Panels : Military, Ginger, Dust
+C93-2252C648 – Ripstop Utility Shorts : Green, Blue Navy, Dark Grey" oninput="document.getElementById('btn-variants-import-preview').disabled = !this.value.trim()"></textarea>
+    </div>
+    <div id="variants-import-preview" style="display:none;margin-bottom:12px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Aperçu</div>
+      <div class="table-wrap" style="max-height:220px;overflow-y:auto"><table>
+        <thead><tr><th>Référence</th><th>Couleurs</th></tr></thead>
+        <tbody id="variants-import-preview-body"></tbody>
+      </table></div>
+    </div>
+    <div id="variants-import-status" style="display:none;padding:10px 14px;border-radius:0;font-size:13px;margin-bottom:12px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-variants-import')">Annuler</button>
+      <button class="btn btn-secondary" id="btn-variants-import-preview" onclick="previewVariantsImport()" disabled style="opacity:.5">Prévisualiser</button>
+      <button class="btn btn-primary" id="btn-variants-import-submit" onclick="submitVariantsImport()" disabled style="opacity:.5">Importer</button>
     </div>
   </div>
 </div>
@@ -8055,6 +8081,89 @@ async function submitCsvImport() {
     status.textContent = 'Erreur réseau : ' + e.message;
     submitBtn.disabled = false;
     submitBtn.style.opacity = '1';
+  }
+}
+
+// ── Import variantes de couleur (sans photo) sur des références existantes ─
+let _variantsImportRows = null;
+function openVariantsImportModal() {
+  document.getElementById('variants-import-text').value = '';
+  document.getElementById('variants-import-preview').style.display = 'none';
+  document.getElementById('variants-import-preview-body').innerHTML = '';
+  const status = document.getElementById('variants-import-status');
+  status.style.display = 'none'; status.textContent = '';
+  const previewBtn = document.getElementById('btn-variants-import-preview');
+  previewBtn.disabled = true; previewBtn.style.opacity = '.5';
+  const submitBtn = document.getElementById('btn-variants-import-submit');
+  submitBtn.disabled = true; submitBtn.style.opacity = '.5';
+  _variantsImportRows = null;
+  openModal('modal-variants-import');
+}
+// Une ligne = "RÉFÉRENCE <texte libre ignoré> : couleur1, couleur2, …" — la
+// référence est le premier mot, les couleurs sont tout ce qui suit le DERNIER
+// ":" de la ligne (permet de coller une liste avec désignation entre les deux).
+function parseVariantsImportText(text) {
+  return text.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+    const colonIdx = line.lastIndexOf(':');
+    if (colonIdx === -1) return null;
+    const reference = line.slice(0, colonIdx).trim().split(/\s/)[0].replace(/[–—-]+$/, '').trim();
+    const colors = line.slice(colonIdx + 1).split(',').map(c => c.trim()).filter(Boolean);
+    if (!reference || !colors.length) return null;
+    return { reference, colors };
+  }).filter(Boolean);
+}
+function previewVariantsImport() {
+  const text = document.getElementById('variants-import-text').value;
+  const rows = parseVariantsImportText(text);
+  const body = document.getElementById('variants-import-preview-body');
+  const submitBtn = document.getElementById('btn-variants-import-submit');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="2" style="color:#e74c3c;text-align:center;padding:12px">Aucune ligne reconnue — format attendu : RÉFÉRENCE : couleur1, couleur2</td></tr>';
+    document.getElementById('variants-import-preview').style.display = 'block';
+    submitBtn.disabled = true; submitBtn.style.opacity = '.5';
+    _variantsImportRows = null;
+    return;
+  }
+  body.innerHTML = rows.map(r => `<tr><td><strong>${esc(r.reference)}</strong></td><td>${esc(r.colors.join(', '))}</td></tr>`).join('');
+  document.getElementById('variants-import-preview').style.display = 'block';
+  submitBtn.disabled = false; submitBtn.style.opacity = '1';
+  _variantsImportRows = rows;
+}
+async function submitVariantsImport() {
+  if (!_variantsImportRows || !_variantsImportRows.length) return;
+  const status = document.getElementById('variants-import-status');
+  status.style.display = 'block';
+  status.style.background = '#1a1a2a';
+  status.style.color = '#aaa';
+  status.textContent = 'Import en cours…';
+  const submitBtn = document.getElementById('btn-variants-import-submit');
+  submitBtn.disabled = true; submitBtn.style.opacity = '.5';
+  try {
+    const r = await fetch(`/api/brands/${currentBrandId}/products/import-variants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: _variantsImportRows })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      status.style.background = '#3a1a1a';
+      status.style.color = '#e74c3c';
+      status.textContent = data.error || `Erreur ${r.status}`;
+      submitBtn.disabled = false; submitBtn.style.opacity = '1';
+      return;
+    }
+    const { updated = 0, notFound = [] } = data;
+    status.style.background = '#1a3a1a';
+    status.style.color = '#2ecc71';
+    status.textContent = `✅ ${updated} référence${updated !== 1 ? 's' : ''} mise${updated !== 1 ? 's' : ''} à jour` +
+      (notFound.length ? ` — ${notFound.length} introuvable${notFound.length !== 1 ? 's' : ''} : ${notFound.join(', ')}` : '');
+    refreshProducts();
+    if (!notFound.length) setTimeout(() => closeModal('modal-variants-import'), 2500);
+  } catch(e) {
+    status.style.background = '#3a1a1a';
+    status.style.color = '#e74c3c';
+    status.textContent = 'Erreur réseau : ' + e.message;
+    submitBtn.disabled = false; submitBtn.style.opacity = '1';
   }
 }
 
