@@ -4650,6 +4650,62 @@ app.get('/api/selection/:token', async (req, res) => {
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
+// 3bis) Enregistre les quantités en cours de saisie SANS valider la commande —
+// même accès token-only que le GET ci-dessus (page publique /selection/, pas
+// de session requise) : utile quand l'agent saisit les quantités en direct
+// avec l'acheteur (au showroom, au téléphone) et veut que l'acheteur les
+// retrouve telles quelles en se connectant plus tard, sans devoir signer
+// dans la foulée. N'exige ni signature, ni CGV, ni mot de passe, et ne
+// marque jamais la sélection comme "used".
+app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
+  try {
+    const { lines } = req.body;
+    const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
+    const sel = r.rows[0];
+    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
+    if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+
+    const stored = JSON.parse(sel.items_json || '[]');
+    const selectedIds = new Set(stored.map(i => i.product_id));
+    // Le panier envoyé par la page ne transporte pas les notes agent (elles ne
+    // sont pas éditables depuis /selection/) — on les préserve depuis les
+    // items déjà stockés, une par produit (même règle que GET ci-dessus).
+    const notesByProduct = {};
+    stored.forEach(i => { if (i.note && !notesByProduct[i.product_id]) notesByProduct[i.product_id] = i.note; });
+
+    const prodRows = selectedIds.size
+      ? (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1)', [[...selectedIds]])).rows
+      : [];
+    const sizeMap = Object.fromEntries(prodRows.map(p => [p.id, (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean)]));
+
+    const submitted = Array.isArray(lines) ? lines : [];
+    const agg = {};
+    for (const l of submitted) {
+      if (!l || typeof l !== 'object') continue;
+      const pid = l.product_id;
+      if (!selectedIds.has(pid)) continue; // uniquement les références déjà dans la sélection
+      const sz = (l.size || '').toString();
+      const validSizes = sizeMap[pid] || [];
+      if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
+      agg[pid + '|' + sz] = Math.max(0, parseInt(l.quantity) || 0);
+    }
+    // Conserve toute référence de la sélection absente du panier envoyé (à 0)
+    // plutôt que de la faire disparaître — un envoi partiel ne doit pas
+    // effacer les autres lignes déjà enregistrées.
+    selectedIds.forEach(pid => {
+      if (![...Object.keys(agg)].some(k => k.startsWith(pid + '|'))) agg[pid + '|'] = 0;
+    });
+    const newItems = Object.entries(agg).map(([k, quantity]) => {
+      const idx = k.lastIndexOf('|');
+      const product_id = k.slice(0, idx), size = k.slice(idx + 1);
+      return { product_id, size, quantity, note: notesByProduct[product_id] || '' };
+    });
+    await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2', [JSON.stringify(newItems), req.params.token]);
+    res.json({ ok: true });
+  } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
 // 4) L'acheteur crée son compte (ou se connecte) et valide la commande
 app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
   try {
