@@ -4292,6 +4292,7 @@ app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, 
 });
 
 const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
+const MAX_LINE_PRICE = 100000; // garde-fou contre les prix absurdes (édition P.U. d'une ligne de commande)
 async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
   // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées).
   // Filtre d'abord les lignes non-objet (null, tableau, primitive) — sinon le spread/accès
@@ -6823,11 +6824,19 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   const updates = Array.isArray(req.body.lines) ? req.body.lines : null;
   if (!updates) return res.status(400).json({ error: 'Lignes invalides' });
   // Map line_id -> nouvelle quantité (entier borné). Quantité 0 / ligne absente = suppression.
+  // Map line_id -> nouveau prix unitaire (optionnel) : override propre à CETTE commande,
+  // ne touche jamais le prix catalogue du produit (ex. façon plus simple à produire,
+  // variante manches longues avec plus de tissu…).
   const wanted = {};
+  const wantedPrice = {};
   for (const u of updates) {
     if (!u || !u.id) continue;
     const q = Math.floor(Number(u.quantity));
     wanted[u.id] = Number.isFinite(q) && q > 0 && q <= MAX_LINE_QTY ? q : 0;
+    if (u.unit_price !== undefined && u.unit_price !== null && u.unit_price !== '') {
+      const p = Math.round(Number(u.unit_price) * 100) / 100;
+      if (Number.isFinite(p) && p >= 0 && p <= MAX_LINE_PRICE) wantedPrice[u.id] = p;
+    }
   }
 
   const dbClient = await pool.connect();
@@ -6844,14 +6853,14 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
     }
     // Lignes actuelles + état stock du produit (verrou ligne produit via FOR UPDATE indirect)
     const cur = await dbClient.query(
-      `SELECT ol.id, ol.product_id, ol.quantity, ol.size, p.stock_enabled, p.stock_qty, p.reference
+      `SELECT ol.id, ol.product_id, ol.quantity, ol.unit_price, ol.size, p.stock_enabled, p.stock_qty, p.reference
        FROM order_lines ol JOIN products p ON p.id = ol.product_id WHERE ol.order_id=$1`,
       [req.params.id]
     );
     if (!cur.rows.length) { await dbClient.query('ROLLBACK'); return res.status(404).json({ error: 'Commande sans ligne' }); }
 
     let remaining = 0;
-    const changes = []; // { reference, size, old_qty, new_qty } — pour l'historique
+    const changes = []; // { reference, size, old_qty, new_qty, old_price?, new_price? } — pour l'historique
     for (const line of cur.rows) {
       const newQty = (line.id in wanted) ? wanted[line.id] : line.quantity; // non fourni = inchangé
       const tracked = line.stock_enabled && line.stock_qty !== null;
@@ -6871,9 +6880,16 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
       } else if (tracked && delta < 0) {
         await dbClient.query('UPDATE products SET stock_qty = stock_qty + $1 WHERE id=$2', [-delta, line.product_id]);
       }
-      if (delta !== 0) {
-        await dbClient.query('UPDATE order_lines SET quantity=$1 WHERE id=$2', [newQty, line.id]);
-        changes.push({ reference: line.reference, size: line.size, old_qty: line.quantity, new_qty: newQty });
+      // Prix unitaire propre à cette commande (ex. façon de production différente) —
+      // ne modifie jamais products.price, seulement cette ligne de ce bon de commande.
+      const oldPrice = parseFloat(line.unit_price);
+      const newPrice = (line.id in wantedPrice) ? wantedPrice[line.id] : oldPrice;
+      const priceChanged = Math.abs(newPrice - oldPrice) >= 0.01;
+      if (delta !== 0 || priceChanged) {
+        await dbClient.query('UPDATE order_lines SET quantity=$1, unit_price=$2 WHERE id=$3', [newQty, newPrice, line.id]);
+        const change = { reference: line.reference, size: line.size, old_qty: line.quantity, new_qty: newQty };
+        if (priceChanged) { change.old_price = oldPrice; change.new_price = newPrice; }
+        changes.push(change);
       }
       remaining++;
     }
@@ -6883,7 +6899,8 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
     logAudit(req, 'edit_order_lines', 'order', req.params.id, '');
     const changedBy = req.session?.staffUser?.email || (req.session?.admin ? 'admin' : 'system');
     const note = changes.length === 1
-      ? `${changes[0].reference} (${changes[0].size || '—'}) : ${changes[0].old_qty} → ${changes[0].new_qty === 0 ? 'supprimée' : changes[0].new_qty}`
+      ? `${changes[0].reference} (${changes[0].size || '—'}) : ${changes[0].old_qty} → ${changes[0].new_qty === 0 ? 'supprimée' : changes[0].new_qty}` +
+        (changes[0].new_price !== undefined ? `, P.U. ${changes[0].old_price.toFixed(2)} € → ${changes[0].new_price.toFixed(2)} €` : '')
       : `${changes.length} ligne(s) modifiée(s)`;
     await addOrderEvent(req.params.id, 'lines_edited', note, changedBy, changes);
   } catch(e) {

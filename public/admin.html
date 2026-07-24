@@ -7137,15 +7137,21 @@ async function viewOrder(id) {
     const qty = Number(l.quantity) || 0;
     const price = parseFloat(l.unit_price || 0);
     const qtyCell = canEditLines
-      ? `<input type="number" min="0" step="1" value="${qty}" class="mo-line-qty" data-line="${l.id}" data-price="${price}" style="width:60px;padding:4px;text-align:center" oninput="recomputeOrderTotal()">
+      ? `<input type="number" min="0" step="1" value="${qty}" class="mo-line-qty" data-line="${l.id}" style="width:60px;padding:4px;text-align:center" oninput="recomputeOrderTotal()">
          <button onclick="zeroLine(this)" title="Retirer l'article" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 4px">✕</button>`
       : `${qty}`;
+    // Le P.U. est éditable ici sans jamais toucher au prix catalogue du produit — un
+    // override propre à ce bon de commande (ex. façon de production différente, plus/
+    // moins de tissu sur une variante) tant que la commande n'est pas figée.
+    const priceCell = canEditLines
+      ? `<input type="number" min="0" step="0.01" value="${price.toFixed(2)}" class="mo-line-price" data-line="${l.id}" data-orig="${price}" style="width:72px;padding:4px;text-align:right" oninput="recomputeOrderTotal()"> €`
+      : `${price.toFixed(2)} €`;
     return `<tr>
       <td>${esc(l.reference || '')}</td>
       <td>${esc(l.product_color || '-')}</td>
       <td>${esc(l.size || '-')}</td>
       <td style="text-align:center;white-space:nowrap">${qtyCell}</td>
-      <td>${price.toFixed(2)} €</td>
+      <td style="white-space:nowrap">${priceCell}</td>
       <td><strong class="mo-line-total">${(qty * price).toFixed(2)} €</strong></td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="color:#666;text-align:center;padding:12px">Aucun article</td></tr>';
@@ -7177,14 +7183,16 @@ function recomputeOrderTotal() {
   let total = 0, changed = false, kept = 0;
   inputs.forEach(inp => {
     const qty = Math.max(0, Math.floor(Number(inp.value) || 0));
-    const price = parseFloat(inp.dataset.price || 0);
     const row = inp.closest('tr');
+    const priceInp = row && row.querySelector('.mo-line-price');
+    const price = priceInp ? Math.max(0, parseFloat(priceInp.value) || 0) : 0;
     const cell = row && row.querySelector('.mo-line-total');
     if (cell) cell.textContent = (qty * price).toFixed(2) + ' €';
     if (row) row.style.opacity = qty === 0 ? '.4' : '';
     total += qty * price;
     if (qty > 0) kept++;
     if (qty !== Number(inp.defaultValue)) changed = true;
+    if (priceInp && Math.abs(price - parseFloat(priceInp.dataset.orig || 0)) >= 0.01) changed = true;
   });
   const totalEl = document.getElementById('mo-total');
   if (totalEl) totalEl.textContent = 'Total HT : ' + total.toFixed(2) + ' €';
@@ -7205,13 +7213,22 @@ function cancelOrderLinesEdit() {
     inp.value = inp.defaultValue;
     inp.closest('tr').style.opacity = '';
   });
+  document.querySelectorAll('#mo-lines .mo-line-price').forEach(inp => { inp.value = parseFloat(inp.dataset.orig || 0).toFixed(2); });
   recomputeOrderTotal();
 }
 
 async function saveOrderLines() {
   if (!_currentOrderId) return;
   const inputs = [...document.querySelectorAll('#mo-lines .mo-line-qty')];
-  const lines = inputs.map(inp => ({ id: inp.dataset.line, quantity: Math.max(0, Math.floor(Number(inp.value) || 0)) }));
+  const lines = inputs.map(inp => {
+    const row = inp.closest('tr');
+    const priceInp = row && row.querySelector('.mo-line-price');
+    return {
+      id: inp.dataset.line,
+      quantity: Math.max(0, Math.floor(Number(inp.value) || 0)),
+      unit_price: priceInp ? Math.max(0, parseFloat(priceInp.value) || 0) : undefined
+    };
+  });
   if (!lines.some(l => l.quantity > 0)) { toast('Une commande doit garder au moins un article. Annulez-la plutôt.', true); return; }
   try {
     const r = await fetch('/api/orders/' + _currentOrderId + '/lines', {
