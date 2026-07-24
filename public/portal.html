@@ -416,7 +416,11 @@
   .img-modal-main img.zoomed { cursor: grab; transition: none; }
   .img-modal-main img.zoomed:active { cursor: grabbing; }
   .img-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: #aaa; letter-spacing: .03em; pointer-events: none; white-space: nowrap; }
-  .img-close { position: absolute; top: 16px; right: 16px; color: #111; font-size: 28px; background: rgba(255,255,255,.7); border-radius: 50%; border: none; cursor: pointer; line-height: 1; padding: 8px 12px; z-index: var(--z-card); font-family: 'Plex Mono', 'Space Mono', monospace; font-weight: 300; }
+  /* z-index élevé et dédié (pas --z-card, valeur générique de carte) : sur
+     certaines combinaisons mobile/photo HD, l'image plein écran (will-change:
+     transform, souvent promue sur son propre calque GPU) peut visuellement
+     passer devant un z-index trop proche du sien. */
+  .img-close { position: absolute; top: 16px; right: 16px; color: #111; font-size: 28px; background: rgba(255,255,255,.85); border-radius: 50%; border: none; cursor: pointer; line-height: 1; padding: 8px 12px; z-index: 999; font-family: 'Plex Mono', 'Space Mono', monospace; font-weight: 300; }
   .img-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.65); border-radius: 50%; border: none; color: #111; font-size: 34px; width: 48px; height: 48px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 200; }
   .img-nav:active { background: #eee; }
   .img-nav-prev { left: 10px; }
@@ -1728,7 +1732,6 @@ function applyLang() {
 
 <!-- Carousel lightbox -->
 <div class="img-modal" id="img-modal">
-  <button class="img-close" id="img-close" aria-label="Fermer">✕</button>
   <div class="img-modal-main">
     <button class="img-nav img-nav-prev" id="img-prev" aria-label="Image précédente">‹</button>
     <img id="img-modal-src" alt="" onerror="imgModalFail(this)">
@@ -1738,6 +1741,10 @@ function applyLang() {
     </div>
     <button class="img-nav img-nav-next" id="img-next" aria-label="Image suivante">›</button>
   </div>
+  <!-- Après .img-modal-main dans le DOM : garantit que le bouton peint
+       au-dessus de l'image même si un moteur mobile gère mal le z-index
+       d'un calque GPU (will-change: transform) promu sur une grande photo. -->
+  <button class="img-close" id="img-close" aria-label="Fermer">✕</button>
   <div class="img-dots" id="img-dots"></div>
   <div class="img-counter" id="img-counter"></div>
   <div class="img-hint" id="img-hint"></div>
