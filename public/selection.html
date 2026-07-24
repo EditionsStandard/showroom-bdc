@@ -43,6 +43,7 @@
     .bar strong { font-size:17px; }
     .bar button { background:#111; color:#fff; border:none; padding:13px 22px; border-radius:0; font-weight:700; cursor:pointer; font-size:14px; font-family:'Plex Mono','Space Mono',monospace; }
     .bar button:disabled { opacity:.5; cursor:not-allowed; }
+    .bar button.btn-ghost-bar { background:none; border:1.5px solid #111; color:#111; padding:11.5px 18px; }
     .msg { padding:40px 16px; text-align:center; color:var(--soft); }
     .err { color:#e07a7a; }
     #lang-btn { position:fixed; top:12px; right:12px; background:var(--black); border:1px solid var(--border); border-radius:0; padding:4px 10px; font-size:10px; color:var(--soft); cursor:pointer; font-family:'Plex Mono','Space Mono',monospace; letter-spacing:.05em; z-index:100; appearance:none; -webkit-appearance:none; }
@@ -130,7 +131,10 @@
   <div class="wrap" id="wrap"><div class="msg" id="loading-msg">Chargement…</div></div>
   <div class="bar" id="bar" style="display:none">
     <div><span id="total-label" style="font-size:11px;display:block">Total HT</span><strong id="total">0 €</strong></div>
-    <button id="confirm-btn" onclick="confirmSelection()">Valider ma commande</button>
+    <div style="display:flex;gap:10px">
+      <button id="save-progress-btn" class="btn-ghost-bar" onclick="saveProgress()">Enregistrer</button>
+      <button id="confirm-btn" onclick="confirmSelection()">Valider ma commande</button>
+    </div>
   </div>
 
 <script>
@@ -167,6 +171,7 @@ const TRANSLATIONS = {
     success_title: 'Sélection confirmée',
     success_msg: 'Votre sélection a été transmise à la marque. Vous recevrez la confirmation définitive après validation.',
     success_cta: 'Accéder à mon espace →',
+    save_btn: 'Enregistrer', saving: 'Enregistrement…', saved_ok: '✓ Enregistré',
   },
   en: {
     loading: 'Loading…',
@@ -200,6 +205,7 @@ const TRANSLATIONS = {
     success_title: 'Selection confirmed',
     success_msg: 'Your selection has been submitted to the brand. You will receive final confirmation once validated.',
     success_cta: 'Go to my account →',
+    save_btn: 'Save', saving: 'Saving…', saved_ok: '✓ Saved',
   },
   it: {
     loading: 'Caricamento…', err_network: 'Errore di rete. Riprova.', err_unavailable: 'Selezione non disponibile.',
@@ -214,6 +220,7 @@ const TRANSLATIONS = {
     clear_all: 'Azzera tutto', confirm_clear_all: 'Azzerare tutte le quantità?', fiche_done: 'Aggiungi alla selezione',
     lbl_color: 'Colore', validating: 'Elaborazione…', err_network_confirm: 'Errore di rete.', err_generic: 'Errore',
     success_title: 'Selezione confermata', success_msg: 'La tua selezione è stata inviata al marchio. Riceverai la conferma definitiva dopo la convalida.', success_cta: 'Vai al mio account →',
+    save_btn: 'Salva', saving: 'Salvataggio…', saved_ok: '✓ Salvato',
   },
   es: {
     loading: 'Cargando…', err_network: 'Error de red. Inténtalo de nuevo.', err_unavailable: 'Selección no disponible.',
@@ -228,6 +235,7 @@ const TRANSLATIONS = {
     clear_all: 'Restablecer todo', confirm_clear_all: '¿Restablecer todas las cantidades a cero?', fiche_done: 'Añadir a mi selección',
     lbl_color: 'Color', validating: 'Procesando…', err_network_confirm: 'Error de red.', err_generic: 'Error',
     success_title: 'Selección confirmada', success_msg: 'Tu selección ha sido enviada a la marca. Recibirás la confirmación definitiva tras la validación.', success_cta: 'Ir a mi cuenta →',
+    save_btn: 'Guardar', saving: 'Guardando…', saved_ok: '✓ Guardado',
   },
   de: {
     loading: 'Wird geladen…', err_network: 'Netzwerkfehler. Bitte erneut versuchen.', err_unavailable: 'Auswahl nicht verfügbar.',
@@ -242,6 +250,7 @@ const TRANSLATIONS = {
     clear_all: 'Alles zurücksetzen', confirm_clear_all: 'Alle Mengen auf null setzen?', fiche_done: 'Zur Auswahl hinzufügen',
     lbl_color: 'Farbe', validating: 'Wird verarbeitet…', err_network_confirm: 'Netzwerkfehler.', err_generic: 'Fehler',
     success_title: 'Auswahl bestätigt', success_msg: 'Ihre Auswahl wurde an die Marke übermittelt. Die endgültige Bestätigung erhalten Sie nach Freigabe.', success_cta: 'Zu meinem Konto →',
+    save_btn: 'Speichern', saving: 'Wird gespeichert…', saved_ok: '✓ Gespeichert',
   },
   zh: {
     loading: '加载中…', err_network: '网络错误，请重试。', err_unavailable: '选品不可用。',
@@ -256,6 +265,7 @@ const TRANSLATIONS = {
     clear_all: '全部清零', confirm_clear_all: '将所有数量重置为零？', fiche_done: '加入我的选品',
     lbl_color: '颜色', validating: '处理中…', err_network_confirm: '网络错误。', err_generic: '错误',
     success_title: '选品已提交', success_msg: '您的选品已发送给品牌方，品牌验证后您将收到最终确认。', success_cta: '进入我的账户 →',
+    save_btn: '保存', saving: '保存中…', saved_ok: '✓ 已保存',
   },
   ja: {
     loading: '読み込み中…', err_network: 'ネットワークエラー。もう一度お試しください。', err_unavailable: 'セレクションは利用できません。',
@@ -270,6 +280,7 @@ const TRANSLATIONS = {
     clear_all: 'すべてリセット', confirm_clear_all: 'すべての数量をゼロにしますか？', fiche_done: 'セレクションに追加',
     lbl_color: 'カラー', validating: '処理中…', err_network_confirm: 'ネットワークエラー。', err_generic: 'エラー',
     success_title: 'セレクションを送信しました', success_msg: 'ブランドへ送信しました。承認後、最終確認をお知らせします。', success_cta: 'マイページへ →',
+    save_btn: '保存', saving: '保存中…', saved_ok: '✓ 保存しました',
   },
   ko: {
     loading: '불러오는 중…', err_network: '네트워크 오류입니다. 다시 시도해 주세요.', err_unavailable: '셀렉션을 사용할 수 없습니다.',
@@ -284,6 +295,7 @@ const TRANSLATIONS = {
     clear_all: '모두 초기화', confirm_clear_all: '모든 수량을 0으로 재설정할까요?', fiche_done: '내 셀렉션에 추가',
     lbl_color: '색상', validating: '처리 중…', err_network_confirm: '네트워크 오류.', err_generic: '오류',
     success_title: '선택 사항이 제출되었습니다', success_msg: '브랜드로 전송되었습니다. 승인 후 최종 확인을 보내드립니다.', success_cta: '내 계정으로 →',
+    save_btn: '저장', saving: '저장 중…', saved_ok: '✓ 저장됨',
   },
   th: {
     loading: 'กำลังโหลด…', err_network: 'เกิดข้อผิดพลาดเครือข่าย โปรดลองอีกครั้ง', err_unavailable: 'ไม่สามารถใช้การเลือกนี้ได้',
@@ -298,6 +310,7 @@ const TRANSLATIONS = {
     clear_all: 'รีเซ็ตทั้งหมด', confirm_clear_all: 'รีเซ็ตจำนวนทั้งหมดเป็นศูนย์?', fiche_done: 'เพิ่มลงในรายการเลือก',
     lbl_color: 'สี', validating: 'กำลังดำเนินการ…', err_network_confirm: 'เกิดข้อผิดพลาดเครือข่าย', err_generic: 'ข้อผิดพลาด',
     success_title: 'ส่งการเลือกของคุณแล้ว', success_msg: 'การเลือกของคุณถูกส่งให้แบรนด์แล้ว คุณจะได้รับการยืนยันขั้นสุดท้ายหลังจากได้รับการอนุมัติ', success_cta: 'ไปที่บัญชีของฉัน →',
+    save_btn: 'บันทึก', saving: 'กำลังบันทึก…', saved_ok: '✓ บันทึกแล้ว',
   }
 };
 
@@ -432,6 +445,7 @@ function render() {
   document.getElementById('bar').style.display = 'flex';
   document.getElementById('total-label').textContent = t('total_ht');
   document.getElementById('confirm-btn').textContent = t('confirm_btn');
+  document.getElementById('save-progress-btn').textContent = t('save_btn');
   initSig();
   recalc();
 }
@@ -550,6 +564,22 @@ async function confirmSelection() {
   if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
   document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
+}
+
+async function saveProgress() {
+  const msg = document.getElementById('form-msg');
+  msg.innerHTML = '';
+  const lines = Object.entries(cart).map(([k,q]) => { const i = k.lastIndexOf('|'); return { product_id: k.slice(0,i), size: k.slice(i+1), quantity: q }; });
+  const btn = document.getElementById('save-progress-btn');
+  const original = t('save_btn');
+  btn.disabled = true; btn.textContent = t('saving');
+  let r;
+  try { r = await fetch('/api/selection/' + TOKEN + '/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ lines }) }); }
+  catch(e) { btn.disabled = false; btn.textContent = original; msg.className = 'err'; msg.textContent = t('err_network_confirm'); return; }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { btn.disabled = false; btn.textContent = original; msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
+  btn.textContent = t('saved_ok');
+  setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2000);
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
