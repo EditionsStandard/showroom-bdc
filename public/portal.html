@@ -412,7 +412,11 @@
   .img-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: var(--z-top); flex-direction: column; align-items: center; justify-content: center; }
   .img-modal.open { display: flex; }
   .img-modal-main { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; flex: 1; overflow: hidden; }
-  .img-modal-main img { max-width: 100vw; max-height: 84vh; object-fit: contain; user-select: none; background: #fff; -webkit-user-drag: none; touch-action: none; cursor: zoom-in; transition: transform .1s ease-out; will-change: transform; }
+  /* dvh (déclaré après vh, écrase seulement si supporté) : sur mobile, vh se
+     base sur la hauteur de viewport "étendue" (barre d'adresse masquée),
+     laissant un espace blanc sous l'image quand la barre est encore visible
+     au moment du calcul — dvh suit la hauteur réellement visible. */
+  .img-modal-main img { max-width: 100vw; max-height: 84vh; max-height: 84dvh; object-fit: contain; user-select: none; background: #fff; -webkit-user-drag: none; touch-action: none; cursor: zoom-in; transition: transform .1s ease-out; will-change: transform; }
   .img-modal-main img.zoomed { cursor: grab; transition: none; }
   .img-modal-main img.zoomed:active { cursor: grabbing; }
   .img-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-family: 'Plex Mono', 'Space Mono', monospace; font-size: 11px; color: #aaa; letter-spacing: .03em; pointer-events: none; white-space: nowrap; }
@@ -4318,6 +4322,14 @@ function openCarousel(imgs, idx) {
   carouselImgs = imgs;
   carouselIdx = idx;
   document.getElementById('img-modal').classList.add('open');
+  // Sans ce verrou, la page derrière (souvent déjà scrollée — on ouvre le
+  // zoom depuis une fiche produit consultée en scrollant) reste défilable :
+  // sur iOS Safari/Chrome, un position:fixed plein écran ouvert pendant que
+  // le body est encore scrollable peut se retrouver visuellement décalé de
+  // la position de scroll au moment de l'ouverture, obligeant à scroller
+  // pour le retrouver (voire à traverser une zone blanche). Même fix que
+  // openProductDrawer() ci-dessous.
+  document.body.style.overflow = 'hidden';
   renderCarousel();
 }
 
@@ -4365,6 +4377,12 @@ function closeCarousel() {
   zoomReset(mImg);
   document.getElementById('img-modal').classList.remove('open');
   mImg.src = '';
+  // Le zoom peut avoir été ouvert depuis une fiche produit encore ouverte
+  // derrière (bouton ⤢ du tiroir) — ne débloque le scroll que si aucun
+  // autre plein écran ne le nécessite encore.
+  if (!document.getElementById('product-drawer')?.classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
 }
 
 // ── Zoom du visionneur plein écran (pincer/molette + glisser) ──────────
@@ -4640,7 +4658,9 @@ function closeProductDrawer(_fromPop) {
   }
   document.getElementById('drawer-overlay').classList.remove('open');
   document.getElementById('product-drawer').classList.remove('open');
-  document.body.style.overflow = '';
+  if (!document.getElementById('img-modal')?.classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
 }
 
 function drawerSetImg(idx) {
