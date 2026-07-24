@@ -1914,6 +1914,10 @@
         <div class="form-group"><label>Coloris</label><input id="sample-color" type="text" placeholder="Ex : Écaille"></div>
       </div>
       <div class="form-group">
+        <label>Tailles (optionnel, séparées par des virgules)</label>
+        <input id="sample-sizes" type="text" placeholder="Ex : S,M,L,XL">
+      </div>
+      <div class="form-group">
         <label>Photo (prise par l'acheteur)</label>
         <input id="sample-photo" type="file" accept="image/*" onchange="onSamplePhoto(this)">
         <div id="sample-photo-preview" style="margin-top:8px"></div>
@@ -5458,7 +5462,7 @@ function toggleSampleForm() {
   const f = document.getElementById('agent-sel-sample-form');
   const show = f.style.display === 'none';
   f.style.display = show ? 'block' : 'none';
-  if (show) { ['sample-ref','sample-price','sample-desc','sample-color'].forEach(id => document.getElementById(id).value = ''); document.getElementById('sample-photo').value = ''; document.getElementById('sample-photo-preview').innerHTML = ''; document.getElementById('sample-result').innerHTML = ''; _samplePhotoData = ''; }
+  if (show) { ['sample-ref','sample-price','sample-desc','sample-color','sample-sizes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('sample-photo').value = ''; document.getElementById('sample-photo-preview').innerHTML = ''; document.getElementById('sample-result').innerHTML = ''; _samplePhotoData = ''; }
 }
 // Lit la photo et la redimensionne (max 1400px, JPEG ~0.82) pour un data-URL léger
 function onSamplePhoto(input) {
@@ -5495,13 +5499,14 @@ async function addSampleToSelection() {
         price: parseFloat(document.getElementById('sample-price').value) || 0,
         description: document.getElementById('sample-desc').value.trim(),
         color: document.getElementById('sample-color').value.trim(),
+        sizes: document.getElementById('sample-sizes').value.trim(),
         image: _samplePhotoData || ''
       })
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { res.innerHTML = `<span style="color:#e07a7a">${esc(d.error || 'Erreur')}</span>`; return; }
     // Injecte le produit créé dans la liste + le sélectionne
-    const prod = { id: d.id, reference: d.reference || reference, description: document.getElementById('sample-desc').value.trim(), color: document.getElementById('sample-color').value.trim(), price: parseFloat(document.getElementById('sample-price').value) || 0, sizes: '', images: JSON.stringify(_samplePhotoData ? [_samplePhotoData] : []), image_url: _samplePhotoData || '', active: 0 };
+    const prod = { id: d.id, reference: d.reference || reference, description: document.getElementById('sample-desc').value.trim(), color: document.getElementById('sample-color').value.trim(), price: parseFloat(document.getElementById('sample-price').value) || 0, sizes: d.sizes || '', images: JSON.stringify(_samplePhotoData ? [_samplePhotoData] : []), image_url: _samplePhotoData || '', active: 0 };
     if (!agentSelProducts.find(p => p.id === prod.id)) agentSelProducts.unshift(prod);
     agentSelRefs.add(prod.id);
     document.getElementById('agent-sel-search').value = '';
