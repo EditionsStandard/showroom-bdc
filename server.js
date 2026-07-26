@@ -958,6 +958,19 @@ const translateLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+// Variante ANONYME (page /commande, sans session) : appelle le même LLM payant
+// que translateLimiter mais ne peut être keyée que par IP (pas de compte), et
+// publicLimiter (200/h, partagé avec tous les autres endpoints publics) est
+// bien trop permissif pour un appel qui facture par caractère — un texte
+// légèrement modifié à chaque requête contourne le cache et force un appel
+// API réel à chaque fois. Plafond nettement plus bas que translateLimiter.
+const publicTranslateLimiter = rateLimit({
+  windowMs: 3600000, // 1 heure
+  max: 20,
+  message: { error: 'Trop de requêtes de traduction. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // Mot de passe oublié / lien magique acheteur : plusieurs acheteurs partagent
 // souvent la même IP (WiFi showroom) — 5/h (emailLimiter) les bloquerait
 // mutuellement, comme le bug de validation déjà corrigé (confirmLimiter). Les
@@ -975,6 +988,22 @@ const buyerAuthLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+
+// Réservation de RDV publique : déclenche un email de "confirmation" vers
+// client_email tel que soumis, sans vérification de propriété de l'adresse —
+// publicLimiter (200/h/IP) laisse largement de quoi harceler une boîte mail
+// tierce en réservant de nombreux créneaux avec son adresse. Keyé par email
+// (comme buyerAuthLimiter) en plus du plafond par IP.
+const appointmentEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 5,
+  keyGenerator: (req) => {
+    const email = (req.body?.client_email || '').toString().trim().toLowerCase();
+    return email ? 'appt-email:' + email : rateLimit.ipKeyGenerator(req.ip);
+  },
+  message: { error: 'Trop de réservations pour cet email. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
 
 const cartLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -2878,7 +2907,7 @@ function isValidAppointmentSlot(slot_date, slot_time) {
   return true;
 }
 
-app.post('/api/public/appointments', publicLimiter, async (req, res) => {
+app.post('/api/public/appointments', publicLimiter, appointmentEmailLimiter, async (req, res) => {
   try {
     const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
     if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
@@ -4656,7 +4685,7 @@ async function notifyOwnerOrder(orderId, actionLabel, extraNote) {
 app.get('/selection/:token', (req, res) => sendPage(res, 'selection.html'));
 
 // 3) Données de la sélection (publique, via token)
-app.get('/api/selection/:token', async (req, res) => {
+app.get('/api/selection/:token', publicLimiter, async (req, res) => {
   try {
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
@@ -6547,12 +6576,14 @@ app.post('/api/portal/translate', requireBuyerAuth, translateLimiter, async (req
   } catch(e) { console.error('translate endpoint:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-// Version publique (page /commande, sans session acheteur) — mêmes limites, rate-limitée.
-app.post('/api/public/translate', publicLimiter, async (req, res) => {
+// Version publique (page /commande, sans session acheteur) — anonyme, donc
+// plafond de débit ET de volume par appel nettement plus stricts que la
+// version authentifiée (voir publicTranslateLimiter).
+app.post('/api/public/translate', publicTranslateLimiter, async (req, res) => {
   try {
     const { texts, lang } = req.body;
     if (!Array.isArray(texts) || !lang || !TRANSLATE_LANGS[lang]) return res.status(400).json({ error: 'Requête invalide' });
-    const clipped = texts.slice(0, 300).map(t => String(t == null ? '' : t).slice(0, 4000));
+    const clipped = texts.slice(0, 100).map(t => String(t == null ? '' : t).slice(0, 2000));
     res.json({ translations: await translateBatch(clipped, lang) });
   } catch(e) { console.error('public translate:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
