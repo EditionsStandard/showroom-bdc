@@ -3913,7 +3913,7 @@ app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res
 // serveur vers une cible interne. Les navigateurs ne génèrent jamais de
 // subscription en dehors des services push connus des fournisseurs — on
 // n'autorise que ces hôtes.
-const ALLOWED_PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com'];
+const ALLOWED_PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com', 'notify.windows.com'];
 function isSafePushEndpoint(endpoint) {
   let parsed;
   try { parsed = new URL(endpoint); } catch(e) { return false; }
@@ -4485,7 +4485,7 @@ app.post('/api/public/orders', publicLimiter, requireCommandeAccessBody, async (
     return res.status(400).json({ error: 'Données incomplètes' });
   }
   if (typeof client_name !== 'string' || client_name.length > 200) return res.status(400).json({ error: 'Nom invalide' });
-  if (typeof client_email !== 'string' || client_email.length > 200 || !client_email.includes('@')) return res.status(400).json({ error: 'Email invalide' });
+  if (typeof client_email !== 'string' || client_email.length > 200 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(client_email.trim())) return res.status(400).json({ error: 'Email invalide' });
   if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Commande invalide' });
   try {
     const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
