@@ -2566,6 +2566,7 @@ function pushNav(state) {
 window.addEventListener('popstate', async (e) => {
   window._navRestoring = true;
   const s = e.state || { v: 'catalog', brand: null };
+  if (document.getElementById('img-modal')?.classList.contains('open')) closeCarousel();
   closeProductDrawer(true);
   if (s.v && s.v !== 'catalog') {
     showView(s.v, true);

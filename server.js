@@ -2377,7 +2377,7 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
 // d'une marque — n'écrit que la colonne `variants`, ne touche à rien d'autre
 // sur la fiche produit. Les couleurs déjà présentes (comparaison insensible
 // à la casse) ne sont pas dupliquées ; les autres sont ajoutées à la suite.
-app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('owner','agent'), async (req, res) => {
+app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('owner','agent'), uploadLimiter, async (req, res) => {
   try {
     const brandId = req.params.brandId;
     const rows = Array.isArray(req.body.rows) ? req.body.rows : null;
@@ -2389,7 +2389,7 @@ app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('own
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue;
       const reference = (row.reference || '').toString().trim();
-      const colors = Array.isArray(row.colors) ? row.colors.map(c => (c || '').toString().trim()).filter(Boolean).slice(0, 30) : [];
+      const colors = Array.isArray(row.colors) ? row.colors.map(c => (c || '').toString().trim().slice(0, 60)).filter(Boolean).slice(0, 30) : [];
       if (!reference || !colors.length) continue;
       const p = await pool.query('SELECT id, variants FROM products WHERE brand_id=$1 AND reference=$2', [brandId, reference]);
       if (!p.rows[0]) { notFound.push(reference); continue; }
@@ -6873,8 +6873,11 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   const wantedPrice = {};
   for (const u of updates) {
     if (!u || !u.id) continue;
-    const q = Math.floor(Number(u.quantity));
-    wanted[u.id] = Number.isFinite(q) && q > 0 && q <= MAX_LINE_QTY ? q : 0;
+    if (u.quantity !== undefined && u.quantity !== null && u.quantity !== '') {
+      const q = Math.floor(Number(u.quantity));
+      if (!Number.isFinite(q) || q < 0 || q > MAX_LINE_QTY) return res.status(400).json({ error: 'Quantité invalide' });
+      wanted[u.id] = q;
+    }
     if (u.unit_price !== undefined && u.unit_price !== null && u.unit_price !== '') {
       const p = Math.round(Number(u.unit_price) * 100) / 100;
       if (Number.isFinite(p) && p >= 0 && p <= MAX_LINE_PRICE) wantedPrice[u.id] = p;
@@ -6888,10 +6891,12 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
     // 'cancelled' : le stock a déjà été recrédité en totalité par restoreOrderStock()
     // au moment de l'annulation — modifier les lignes ensuite recréditerait le stock
     // une seconde fois (delta<0) ou en réserverait à tort (delta>0). 'archived' est
-    // un état terminal, comme sur /status et /sign.
-    if (['cancelled','archived'].includes(ord.rows[0]?.status)) {
+    // un état terminal, comme sur /status et /sign. 'shipped' : la commande est déjà
+    // physiquement partie — le bon de livraison/PDF déjà transmis ne doit plus diverger
+    // des lignes en base, et un delta positif re-décrémenterait à tort du stock déjà expédié.
+    if (['shipped','cancelled','archived'].includes(ord.rows[0]?.status)) {
       await dbClient.query('ROLLBACK');
-      return res.status(409).json({ error: 'Commande annulée ou archivée : lignes non modifiables.' });
+      return res.status(409).json({ error: 'Commande expédiée, annulée ou archivée : lignes non modifiables.' });
     }
     // Lignes actuelles + état stock du produit (verrou ligne produit via FOR UPDATE indirect)
     const cur = await dbClient.query(
