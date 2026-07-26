@@ -452,6 +452,13 @@ function resolveSessionSecret() {
   console.warn('⚠️  SESSION_SECRET non défini — fallback de développement utilisé (ne pas utiliser en production).');
   return 'showroom-dev-fallback-not-for-production';
 }
+// Le flag Secure du cookie de session dépend uniquement de NODE_ENV=production
+// (voir cookie.secure ci-dessous) — une DB Postgres distante configurée (signe
+// probable d'un déploiement réel) sans NODE_ENV positionné passerait alors des
+// cookies de session en clair sur HTTP sans qu'aucun avertissement ne le signale.
+if (process.env.DATABASE_URL && process.env.NODE_ENV !== 'production') {
+  console.warn('⚠️  NODE_ENV n\'est pas "production" alors qu\'une base de données distante est configurée — le cookie de session ne sera PAS marqué Secure. Définissez NODE_ENV=production en déploiement réel.');
+}
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
   secret: resolveSessionSecret(),
@@ -2522,7 +2529,7 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
           if (fields.collection_name && !existingCollections.has(fields.collection_name)) newlySeenCollections.add(fields.collection_name);
           created++;
         }
-      } catch(e) { errors.push(`${ref}: ${e.message}`); }
+      } catch(e) { console.error('[import-csv]', ref, e.message); errors.push(`${ref}: Erreur d'enregistrement`); }
     }
     notifyNewCollections(req, req.params.brandId, newlySeenCollections);
     res.json({ created, updated, errors });
@@ -2723,10 +2730,12 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), uploadLim
     });
     res.json({ url: result.secure_url });
   } catch(e) {
-    // Les utilisateurs de cette route sont internes (owner/agent/designer) : on remonte
-    // le motif réel (ex. « Invalid api_key », « disabled account ») pour diagnostic.
+    // Contrairement au diagnostic Cloudinary dédié (owner uniquement, ci-dessous),
+    // cette route est accessible au rôle designer (le moins privilégié) — le motif
+    // d'erreur brut (ex. détails de config/infra) ne doit pas remonter au client,
+    // seulement au log serveur.
     console.error('[upload-image] Cloudinary:', e.message);
-    res.status(502).json({ error: "Échec de l'envoi de l'image", detail: e.message || String(e) });
+    res.status(502).json({ error: "Échec de l'envoi de l'image" });
   }
 });
 
