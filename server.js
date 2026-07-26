@@ -983,12 +983,18 @@ const publicTranslateLimiter = rateLimit({
 // mutuellement, comme le bug de validation déjà corrigé (confirmLimiter). Les
 // tokens sont générés en crypto.randomBytes(32) (256 bits) : la sécurité ne
 // repose pas sur ce rate-limit, qui n'est là que pour éviter le spam d'envois.
+// Réutilisé tel quel sur 5 routes de récupération de compte distinctes
+// (staff, portail acheteur, lien magique legacy) — la clé inclut le chemin
+// de la route : sans ça, épuiser le quota sur UNE surface (ex.
+// /api/staff/forgot-password) bloquait aussi les 4 autres pour le même
+// email (déni de service ciblé sur la récupération de compte d'une
+// victime, sans même avoir besoin d'usurper son IP).
 const buyerAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 30,
   keyGenerator: (req) => {
     const email = (req.body?.email || '').toString().trim().toLowerCase();
-    return email ? 'email:' + email : rateLimit.ipKeyGenerator(req.ip);
+    return email ? `email:${req.path}:${email}` : rateLimit.ipKeyGenerator(req.ip);
   },
   message: { error: 'Trop de demandes. Réessayez dans quelques minutes.' },
   handler: rateLimitExceededHandler({ error: 'Trop de demandes. Réessayez dans quelques minutes.' }),
@@ -9095,7 +9101,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         ${cgvText ? `
         <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(17,17,17,.1)">
           <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#bbb">Terms & Conditions — ${order.brand_name}</p>
-          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${escHtml(cgvText)}</p>
         </div>` : ''}
       ` : `
         <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
@@ -9121,7 +9127,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         ${cgvText ? `
         <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(17,17,17,.1)">
           <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#bbb">Conditions générales — ${order.brand_name}</p>
-          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${escHtml(cgvText)}</p>
         </div>` : ''}
       `
     }),
