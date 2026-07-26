@@ -4341,7 +4341,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   // à .quantity plante avant même la validation de quantité qui suit.
   const validLines = (lines || [])
     .filter(l => l && typeof l === 'object' && !Array.isArray(l))
-    .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)) }))
+    .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)), variant_color: (l.variant_color || '').toString().trim().slice(0, 60) }))
     .filter(l => Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= MAX_LINE_QTY);
   if (!validLines.length) return { error: 'Aucune quantité saisie' };
   if (!buyer_signature) return { error: 'Signature requise' };
@@ -4445,8 +4445,8 @@ async function createOrder({ brand_id, client_name, client_email, client_company
         }
       }
       await dbClient.query(
-        'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-        [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
+        'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note,variant_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'', line.variant_color||'']
       );
     }
     await dbClient.query('COMMIT');
@@ -5654,7 +5654,7 @@ app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
   const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
   const lines = await pool.query(
-    'SELECT ol.product_id, ol.quantity, ol.unit_price, ol.size, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
+    'SELECT ol.product_id, ol.quantity, ol.unit_price, ol.size, ol.variant_color, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
     [req.params.id]
   );
   res.json(lines.rows);
@@ -8332,17 +8332,22 @@ async function generateOrderPDF(orderId) {
     };
     drawTableHead();
 
-    // Regroupe les lignes par produit (référence+couleur partagent le même
-    // product_id, une taille = une ligne order_lines) pour afficher toutes les
-    // tailles commandées et leur quantité sur une seule ligne PDF, au lieu
-    // d'une ligne par taille comme auparavant.
+    // Regroupe les lignes par produit + coloris réellement choisi (référence
+    // partage le même product_id, une taille = une ligne order_lines) pour
+    // afficher toutes les tailles commandées et leur quantité sur une seule
+    // ligne PDF, au lieu d'une ligne par taille comme auparavant. Le regroupement
+    // inclut le coloris (variant_color si l'acheteur en a choisi un dans le
+    // tiroir produit, sinon la couleur de base de la fiche) pour ne jamais
+    // fusionner deux coloris différents d'une même référence sur une seule ligne.
     const grouped = [];
     const byProduct = new Map();
     lines.forEach(l => {
-      let g = byProduct.get(l.product_id);
+      const lineColor = l.variant_color || l.color;
+      const groupKey = l.product_id + '|' + (lineColor || '');
+      let g = byProduct.get(groupKey);
       if (!g) {
-        g = { reference: l.reference, product_name: l.product_name, color: l.color, composition: l.composition, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
-        byProduct.set(l.product_id, g);
+        g = { reference: l.reference, product_name: l.product_name, color: lineColor, composition: l.composition, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
+        byProduct.set(groupKey, g);
         grouped.push(g);
       }
       g.sizes.push({ size: l.size || '—', quantity: l.quantity });
@@ -8495,7 +8500,7 @@ async function generateOrderPDF(orderId) {
     lines.forEach(l => {
       if (!lineImages[l.product_id]) return;
       if (!visualProducts[l.product_id]) {
-        visualProducts[l.product_id] = { reference: l.reference, color: l.color, composition: l.composition, sizes: [], totalQty: 0 };
+        visualProducts[l.product_id] = { reference: l.reference, color: l.variant_color || l.color, composition: l.composition, sizes: [], totalQty: 0 };
         visualProductIds.push(l.product_id);
       }
       visualProducts[l.product_id].sizes.push({ size: l.size || '—', qty: l.quantity });
@@ -9416,7 +9421,7 @@ app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, r
     if (!src.rows.length) return res.status(404).json({ error: 'Commande introuvable' });
     const o = src.rows[0];
     const lines = await pool.query(
-      'SELECT product_id, size, quantity, unit_price, price_retail, note FROM order_lines WHERE order_id=$1',
+      'SELECT product_id, size, quantity, unit_price, price_retail, note, variant_color FROM order_lines WHERE order_id=$1',
       [req.params.id]
     );
     const newId = uuidv4();
@@ -9432,8 +9437,8 @@ app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, r
       );
       for (const l of lines.rows) {
         await dbClient.query(
-          'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-          [uuidv4(), newId, l.product_id, l.size, l.quantity, l.unit_price, l.price_retail, l.note]
+          'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note,variant_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+          [uuidv4(), newId, l.product_id, l.size, l.quantity, l.unit_price, l.price_retail, l.note, l.variant_color]
         );
       }
       await dbClient.query('COMMIT');

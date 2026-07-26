@@ -528,6 +528,12 @@ async function init() {
     // calcul automatique par volume de ventes — permet à l'agence de pousser un
     // produit stratégique même sans historique de commandes.
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false",
+    // Coloris réellement regardé/choisi par l'acheteur au moment d'ajouter la
+    // ligne au panier (tiroir produit → puce de variante), propre à CETTE ligne
+    // de commande — distinct de products.color (couleur "de base" de la fiche
+    // produit) qui ne reflète pas forcément ce que l'acheteur a commandé dès
+    // qu'un produit a plusieurs variantes de coloris.
+    "ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS variant_color TEXT DEFAULT ''",
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));

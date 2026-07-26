@@ -7228,7 +7228,7 @@ async function viewOrder(id) {
       : `${price.toFixed(2)} €`;
     return `<tr>
       <td>${esc(l.reference || '')}</td>
-      <td>${esc(l.product_color || '-')}</td>
+      <td>${esc(l.variant_color || l.product_color || '-')}</td>
       <td>${esc(l.size || '-')}</td>
       <td style="text-align:center;white-space:nowrap">${qtyCell}</td>
       <td style="white-space:nowrap">${priceCell}</td>

@@ -3260,14 +3260,20 @@ function renderProductsPage() {
   }
 }
 
-function changeQty(productId, size, delta) {
+function changeQty(productId, size, delta, variantColor) {
   const p = currentProducts.find(x => x.id === productId);
   const key = currentBrand.id + '|' + productId + '|' + size;
   if (!p && !cart[key]) return; // référence introuvable (liste rafraîchie entre-temps) et rien à retirer : rien à faire
   if (!cart[key]) {
     let pImgs = []; try { pImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!pImgs.length && p.image_url) pImgs = [p.image_url];
-    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: p.color, size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: pImgs[0] || '' };
+    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: (variantColor !== undefined ? variantColor : p.color) || '', size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: pImgs[0] || '' };
+  } else if (variantColor !== undefined) {
+    // Appelé depuis le tiroir produit (puce de coloris active) : le coloris de
+    // la ligne suit le dernier coloris regardé au moment d'ajuster la quantité
+    // — une référence garde une seule ligne par taille, mais celle-ci reflète
+    // désormais fidèlement ce que l'acheteur a réellement choisi.
+    cart[key].color = variantColor || p?.color || '';
   }
   const wasZero = cart[key].qty === 0;
   cart[key].qty = Math.max(0, cart[key].qty + delta);
@@ -3505,7 +3511,7 @@ async function submitCheckout() {
   btnConfirm.disabled = true;
   const origBtnText = btnConfirm.textContent;
   btnConfirm.textContent = t('sending');
-  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
+  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '', variant_color: l.color || '' }));
   let buyer_signature;
   if (sigMode === 'type') {
     // Signature tapée : rendue en police manuscrite sur un canvas temporaire,
@@ -3928,7 +3934,7 @@ async function reorderOrder(orderId) {
   lines.forEach(l => {
     const key = brandId + '|' + l.product_id + '|' + (l.size || '');
     if (!cart[key]) {
-      cart[key] = { brand_id: brandId, brand_name: brandName, product_id: l.product_id, reference: l.reference, description: '', color: l.product_color || '', size: l.size || '', qty: 0, price: l.unit_price, image_url: '' };
+      cart[key] = { brand_id: brandId, brand_name: brandName, product_id: l.product_id, reference: l.reference, description: '', color: l.variant_color || l.product_color || '', size: l.size || '', qty: 0, price: l.unit_price, image_url: '' };
     }
     cart[key].qty += l.quantity;
     added++;
@@ -4505,6 +4511,11 @@ let drawerProduct = null;
 let drawerImgs = [];
 let drawerImgIdx = 0;
 let drawerVariants = [];
+// Coloris actuellement affiché dans le tiroir (puce active) — capturé sur la
+// ligne de commande au moment où l'acheteur ajuste une quantité depuis CE
+// tiroir, pour que la commande reflète le coloris qu'il regardait réellement
+// (voir changeQty). null si le produit n'a pas de variantes de couleur.
+let drawerActiveColor = null;
 
 function openProductDrawer(productId, _fromPop) {
   const p = currentProducts.find(x => x.id === productId);
@@ -4518,13 +4529,16 @@ function openProductDrawer(productId, _fromPop) {
   try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
   if (!imgs.length && p.image_url) imgs = [p.image_url];
 
-  // Variantes de couleur (référence unique, plusieurs coloris/photos) : purement
-  // visuel côté acheteur — change la galerie affichée, n'affecte pas le panier
-  // (une seule ligne de commande par taille pour cette référence, comme avant).
+  // Variantes de couleur (référence unique, plusieurs coloris/photos) : change
+  // la galerie affichée ET le coloris capturé sur la ligne de commande pour
+  // cette taille (drawerActiveColor, voir changeQty) — toujours une seule
+  // ligne par taille pour cette référence, mais elle porte désormais le
+  // coloris réellement regardé par l'acheteur au moment de la commande.
   let variants = [];
   try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
   variants = variants.filter(v => v && (v.color || (Array.isArray(v.images) && v.images.length)));
   drawerVariants = variants;
+  drawerActiveColor = variants.length ? (variants[0].color || null) : null;
 
   const firstVariantImgs = variants.length && Array.isArray(variants[0].images) ? variants[0].images : [];
   drawerImgs = firstVariantImgs.length ? firstVariantImgs : imgs;
@@ -4591,17 +4605,17 @@ function openProductDrawer(productId, _fromPop) {
       const q = cart[k]?.qty || 0;
       return `<div class="drawer-qty-row">
         <span class="drawer-size-label">${esc(sz)}</span>
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1);drawerRefreshQty()">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1,drawerActiveColor);drawerRefreshQty()">−</button>
         <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1);drawerRefreshQty()">+</button>
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1,drawerActiveColor);drawerRefreshQty()">+</button>
       </div>`;
     }).join('') : (() => {
       const k = currentBrand.id + '|' + p.id + '|';
       const q = cart[k]?.qty || 0;
       return `<div class="drawer-qty-row">
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1);drawerRefreshQty()">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1,drawerActiveColor);drawerRefreshQty()">−</button>
         <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1);drawerRefreshQty()">+</button>
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1,drawerActiveColor);drawerRefreshQty()">+</button>
       </div>`;
     })();
   document.getElementById('drawer-qty-rows').innerHTML = rows;
@@ -4613,8 +4627,9 @@ function openProductDrawer(productId, _fromPop) {
 }
 
 // Puce par coloris — clique pour changer les photos affichées (galerie +
-// vignettes) sans toucher au panier : une référence garde une seule ligne de
-// commande par taille, quel que soit le coloris consulté.
+// vignettes) et le coloris actif (drawerActiveColor, capturé sur la ligne de
+// commande à la prochaine quantité ajustée) : une référence garde une seule
+// ligne de commande par taille, mais celle-ci porte le dernier coloris regardé.
 function renderDrawerColorVariants(variants, fallbackImgs, activeIdx) {
   const wrap = document.getElementById('drawer-color-variants');
   if (!variants.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
@@ -4627,6 +4642,7 @@ function renderDrawerColorVariants(variants, fallbackImgs, activeIdx) {
 function selectDrawerVariant(vi) {
   const v = drawerVariants[vi];
   if (!v) return;
+  drawerActiveColor = v.color || null;
   const wrap = document.getElementById('drawer-color-variants');
   let fallbackImgs = [];
   try { fallbackImgs = JSON.parse(wrap.dataset.fallbackImgs || '[]'); } catch(e) {}
