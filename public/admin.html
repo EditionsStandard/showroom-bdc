@@ -3823,8 +3823,8 @@ function filterProductStats() {
     const barCart = p.cart_adds > 0 ? `<div style="display:inline-block;width:${Math.min(p.cart_adds,50)*2}px;height:4px;background:#60a5fa;border-radius: 0;margin-left:6px;vertical-align:middle"></div>` : '';
     return `<tr>
       <td style="text-align:center;color:#555;font-size:11px">${i+1}</td>
-      <td><strong style="font-size:12px">${p.reference}</strong><br><span style="font-size:11px;color:#666">${p.description||''} · ${p.color||''}</span></td>
-      <td style="font-size:12px;color:#888">${p.brand_name}</td>
+      <td><strong style="font-size:12px">${esc(p.reference)}</strong><br><span style="font-size:11px;color:#666">${esc(p.description)} · ${esc(p.color)}</span></td>
+      <td style="font-size:12px;color:#888">${esc(p.brand_name)}</td>
       <td style="text-align:center">${p.views > 0 ? `<strong style="color:#CCEB3C">${p.views}</strong>${barViews}` : '<span style="color:#444">—</span>'}</td>
       <td style="text-align:center">${p.favorite_adds > 0 ? `<strong style="color:#e74c3c">${p.favorite_adds}</strong>` : '<span style="color:#444">—</span>'}</td>
       <td style="text-align:center">${p.shortlist_adds > 0 ? `<strong style="color:#a78bfa">${p.shortlist_adds}</strong>` : '<span style="color:#444">—</span>'}</td>
@@ -5732,11 +5732,11 @@ function renderProductsTable(products) {
     const inactive = p.active === 0;
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
       <td><span class="drag-handle" draggable="true" data-drag-id="${p.id}" style="cursor:grab;padding:0 6px;color:#555;user-select:none">⠿</span><input type="checkbox" class="product-checkbox" data-id="${p.id}" onchange="updateProductBulkBar()" style="width:auto"></td>
-      <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${p.collection_name}</span>` : '—'}</td>
-      <td><strong>${p.reference}</strong></td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.description||''}">${p.description||'—'}</td>
-      <td>${p.color||'—'}</td>
-      <td>${p.category||'—'}</td>
+      <td>${p.collection_name ? `<span class="tag" style="background:#252525;color:#aaa">${esc(p.collection_name)}</span>` : '—'}</td>
+      <td><strong>${esc(p.reference)}</strong></td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description||'')}">${esc(p.description)||'—'}</td>
+      <td>${esc(p.color)||'—'}</td>
+      <td>${esc(p.category)||'—'}</td>
       <td>${(p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</td>
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price',this)" title="Cliquer pour modifier" style="cursor:pointer;white-space:nowrap">${Number(p.price).toFixed(2)} €</td>
       <td class="price-cell" onclick="inlineEditPrice('${p.id}','price_retail',this)" title="${p.price_retail > 0 ? 'Cliquer pour modifier' : (currentBrandRetailMargin ? `Suggéré : prix WS × marge ${currentBrandRetailMargin} — cliquer pour fixer une valeur` : 'Cliquer pour modifier')}" style="cursor:pointer;white-space:nowrap;color:${p.price_retail > 0 ? 'inherit' : '#555'}">${p.price_retail > 0 ? Number(p.price_retail).toFixed(2) + ' €' : (currentBrandRetailMargin ? `≈ ${(Number(p.price) * currentBrandRetailMargin).toFixed(2)} €` : '— (cliquer)')}</td>
@@ -5888,7 +5888,7 @@ async function repairProductFields() {
     refreshProducts();
     setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
   } catch(e) {
-    resultDiv.innerHTML = `<span style="color:#e74c3c;font-size:13px">❌ ${e.message}</span>`;
+    resultDiv.innerHTML = `<span style="color:#e74c3c;font-size:13px">❌ ${esc(e.message)}</span>`;
   }
 }
 
@@ -6575,7 +6575,7 @@ async function importCSV(input) {
     </div>`;
     setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
   } catch(e) {
-    resultDiv.innerHTML = `<div style="color:#e74c3c;font-size:13px;background:#3a1a1a;padding:10px 14px;border-radius: 0">❌ Erreur : ${e.message}</div>`;
+    resultDiv.innerHTML = `<div style="color:#e74c3c;font-size:13px;background:#3a1a1a;padding:10px 14px;border-radius: 0">❌ Erreur : ${esc(e.message)}</div>`;
     input.value = '';
   }
 }
