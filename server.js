@@ -2312,6 +2312,27 @@ app.post('/api/brands/:brandId/products/collection-bulk', requireBrandScope('own
 // ── Import CSV produits ──────────────────────────────────────────────
 const uploadCsv = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// Découpe le texte CSV en lignes en ignorant les \n à l'intérieur d'un champ
+// quoté (ex. une description multi-lignes) — un simple text.split('\n') coupe
+// un tel champ en deux lignes indépendantes, corrompant silencieusement
+// l'import (déjà vu : le mot suivant la coupure devient une "référence" à
+// part entière). Bascule d'état à chaque guillemet rencontré (y compris les
+// doublés "" d'échappement, qui se neutralisent en deux bascules — équivalent
+// standard "nombre de guillemets impair = à l'intérieur d'un champ quoté").
+function splitCSVLines(text) {
+  const lines = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') inQuote = !inQuote;
+    if (ch === '\n' && !inQuote) { lines.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 function parseCSVRow(line) {
   const fields = [];
   let cur = '';
@@ -2356,7 +2377,9 @@ function parsePrice(v) {
   if (!s) return 0;
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(s);
-  return Number.isFinite(n) ? n : 0;
+  // Même plancher que nonNeg() (upsert produit unique) : un prix négatif
+  // n'a pas de sens ici et n'était auparavant filtré que sur ce second chemin.
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','agent'), uploadLimiter, uploadCsv.single('file'), async (req, res) => {
@@ -2364,7 +2387,7 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
     if (!req.file) return res.status(400).json({ error: 'Fichier CSV requis' });
     const brandId = req.params.brandId;
     const text = req.file.buffer.toString('utf-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    const lines = text.split('\n').filter(l => l.trim());
+    const lines = splitCSVLines(text).filter(l => l.trim());
     if (lines.length < 2) return res.status(400).json({ error: 'Fichier vide ou sans données' });
     // Plafond de lignes : chaque ligne déclenche 1-2 aller-retours DB séquentiels
     // (SELECT + INSERT/UPDATE) dans la même requête HTTP, sans traitement par
@@ -7332,6 +7355,11 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   try {
     const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]);
     if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
+    // Même verrou "accès anticipé" que le catalogue/checkout — sans ça un
+    // acheteur non privilégié pouvait prendre RDV avec une marque dont il ne
+    // peut pas encore voir la collection.
+    const locked = await getLockedBrandIds(buyer.id, [brand_id]);
+    if (locked.has(brand_id)) return res.status(403).json({ error: 'Collection encore en accès anticipé, pas encore ouverte.' });
     await pool.query(
       'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, brand_id, buyer.name, buyer.email, buyer.phone||'', slot_date, slot_time, notes||'']
@@ -9812,8 +9840,16 @@ init().then(() => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
+      // Réclame les lignes de façon atomique AVANT l'envoi (UPDATE...RETURNING,
+      // verrouillage ligne géré par Postgres) plutôt qu'un SELECT suivi d'un
+      // UPDATE différé après coup : sinon un crash/redémarrage entre l'envoi et
+      // l'UPDATE (fréquent sur une plateforme à redéploiement continu), ou
+      // plusieurs instances de l'app tournant en parallèle, peuvent envoyer le
+      // même rappel deux fois au même client.
       const rdvs = await pool.query(
-        `SELECT * FROM appointments WHERE slot_date = $1 AND (reminder_sent IS NULL OR reminder_sent = false)`,
+        `UPDATE appointments SET reminder_sent = true
+         WHERE slot_date = $1 AND (reminder_sent IS NULL OR reminder_sent = false)
+         RETURNING *`,
         [tomorrowStr]
       ).catch(() => ({ rows: [] }));
 
@@ -9836,8 +9872,6 @@ init().then(() => {
           })
         }).catch(e => { console.error('[rdv-email-error]', e.message); return null; });
         if (r && !r.ok) console.error('[rdv-email-error] Resend a répondu', r.status);
-
-        await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(e => console.error('[rdv-reminder-update-error]', e.message));
       }
       if (rdvs.rows.length) log.info('[rdv-reminders] rappels envoyés', { count: rdvs.rows.length });
     } catch(e) { log.error('[rdv-reminders]', { err: e.message }); }
