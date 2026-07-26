@@ -1005,6 +1005,18 @@ const appointmentEmailLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+// Messagerie acheteur → agence : chaque envoi déclenche une notification push
+// ET un email Resend à l'owner (notifyOwner) — sans limite, un compte acheteur
+// auto-inscrit (faible confiance, cf. buyerAuthLimiter) peut spammer l'agence
+// en boucle. Par compte (comme translateLimiter), pas par IP.
+const messageLimiter = rateLimit({
+  windowMs: 3600000, // 1 heure
+  max: 40,
+  keyGenerator: authedUserRateLimitKey,
+  message: { error: 'Trop de messages envoyés. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 const cartLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -5168,20 +5180,26 @@ app.post('/api/portal/mfa/disable', requireBuyerAuth, passwordLimiter, async (re
 app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
   try {
     const buyerId = req.session.buyerPortal.id;
-    const [profile, orders, carts] = await Promise.all([
-      pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang FROM buyers WHERE id=$1', [buyerId]),
+    const [profile, orders, carts, messages, notifications, follows] = await Promise.all([
+      pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang, favorites_json, shortlist_json FROM buyers WHERE id=$1', [buyerId]),
       pool.query(`SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
                          o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
                          b.name as brand_name
                   FROM orders o JOIN brands b ON o.brand_id=b.id
                   WHERE o.buyer_id=$1 ORDER BY o.created_at DESC`, [buyerId]),
-      pool.query('SELECT cart_json, updated_at FROM buyer_carts WHERE buyer_id=$1', [buyerId])
+      pool.query('SELECT cart_json, updated_at FROM buyer_carts WHERE buyer_id=$1', [buyerId]),
+      pool.query('SELECT id, sender, subject, body, created_at, attachment_name FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at', [buyerId]),
+      pool.query('SELECT id, brand_id, type, title, body, created_at FROM buyer_notifications WHERE buyer_id=$1 ORDER BY created_at DESC', [buyerId]),
+      pool.query(`SELECT bf.brand_id, b.name as brand_name, bf.created_at FROM brand_follows bf JOIN brands b ON b.id=bf.brand_id WHERE bf.buyer_id=$1`, [buyerId])
     ]);
     const export_data = {
       generated_at: new Date().toISOString(),
       profile: profile.rows[0] || null,
       orders: orders.rows,
-      cart: carts.rows[0] || null
+      cart: carts.rows[0] || null,
+      messages: messages.rows,
+      notifications: notifications.rows,
+      followed_brands: follows.rows
     };
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="mes-donnees-showroom.json"');
@@ -5199,6 +5217,22 @@ async function anonymizeAndDeleteBuyer(buyerId) {
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
+    // Le journal d'audit garde l'email (user_email) et l'IP (details) de chaque
+    // connexion/action de ce compte (logAuditRaw sur login/logout/MFA — voir
+    // target_type='buyer') — sans ce nettoyage, ces PII survivraient
+    // indéfiniment à une suppression RGPD, consultables par tout owner.
+    const buyerRow = await dbClient.query('SELECT email FROM buyers WHERE id=$1', [buyerId]);
+    const buyerEmail = buyerRow.rows[0]?.email;
+    await dbClient.query(
+      `UPDATE admin_audit_log SET user_email='[supprimé]', details='' WHERE target_type='buyer' AND target_id=$1`,
+      [buyerId]
+    );
+    if (buyerEmail) {
+      await dbClient.query(
+        `UPDATE admin_audit_log SET user_email='[supprimé]', details='' WHERE user_email=$1`,
+        [buyerEmail]
+      );
+    }
     await dbClient.query(
       `UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='',
          client_company='', client_country='', notes='', buyer_signature='', agent_signature=NULL, buyer_id=NULL
@@ -6410,7 +6444,7 @@ app.get('/api/portal/messages/unread', requireBuyerAuth, async (req, res) => {
 });
 
 // Portail : l'acheteur envoie un message (texte et/ou pièce jointe) → notifie l'agence
-app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/messages', requireBuyerAuth, messageLimiter, async (req, res) => {
   try {
     const body = (req.body.body || '').toString().trim();
     const subject = (req.body.subject || '').toString().trim().slice(0, 150);
