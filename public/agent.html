@@ -271,6 +271,10 @@ async function checkSession() {
 
 async function doLogout() {
   await fetch('/api/agent/logout', { method: 'POST' }).catch(() => {});
+  // Tablette de vente partagée entre agents — purge le Cache Storage du SW en
+  // plus de l'exclusion réseau-only (défense en profondeur si un ancien SW
+  // moins récent est encore actif), même principe que portalLogout().
+  try { navigator.serviceWorker?.controller?.postMessage('CLEAR_CACHE'); } catch(e) {}
   document.getElementById('screen-brands').style.display = 'none';
   document.getElementById('screen-login').style.display = 'block';
   document.getElementById('login-btn').disabled = false;
