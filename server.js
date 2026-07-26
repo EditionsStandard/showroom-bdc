@@ -4923,6 +4923,17 @@ function requireBuyerAuth(req, res, next) {
   return req.session.destroy(() => res.status(401).json({ error: 'Session expirée, reconnectez-vous.' }));
 }
 
+// Même politique d'expiration que requireBuyerAuth, pour les 3 routes /api/buyer/*
+// héritées (session ouverte via lien magique — champs buyerEmail/buyerBrandId,
+// pas buyerPortal) : sans ceci, une session ouverte par ce chemin ne vérifiait
+// jamais isSessionFresh() et ne pouvait donc jamais expirer par inactivité ni
+// durée absolue, contrairement au reste du portail acheteur.
+function requireLegacyBuyerSession(req, res, next) {
+  if (!req.session?.buyerEmail || !req.session?.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+  if (isSessionFresh(req, BUYER_IDLE_TIMEOUT_MS, BUYER_ABSOLUTE_TIMEOUT_MS)) return next();
+  return req.session.destroy(() => res.status(401).json({ error: 'Session expirée, reconnectez-vous.' }));
+}
+
 // Ancien lien conservé pour compatibilité
 app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-portail'));
 
@@ -7854,15 +7865,13 @@ app.get('/api/buyer/verify', async (req, res) => {
   });
 });
 
-app.get('/api/buyer/brand', async (req, res) => {
-  if (!req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+app.get('/api/buyer/brand', requireLegacyBuyerSession, async (req, res) => {
   const b = await pool.query('SELECT id, name, logo_url, logo, about_text, lookbook_url FROM brands WHERE id=$1', [req.session.buyerBrandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   res.json(b.rows[0]);
 });
 
-app.get('/api/buyer/orders', async (req, res) => {
-  if (!req.session.buyerEmail || !req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+app.get('/api/buyer/orders', requireLegacyBuyerSession, async (req, res) => {
   const r = await pool.query(`
     SELECT o.*, SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
@@ -7873,8 +7882,7 @@ app.get('/api/buyer/orders', async (req, res) => {
   res.json({ email: req.session.buyerEmail, orders: r.rows });
 });
 
-app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
-  if (!req.session.buyerEmail || !req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+app.get('/api/buyer/orders/:id/pdf', requireLegacyBuyerSession, async (req, res) => {
   try {
     const r = await pool.query(
       'SELECT id FROM orders WHERE id=$1 AND brand_id=$2 AND client_email=$3',
