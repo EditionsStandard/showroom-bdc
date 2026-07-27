@@ -1066,6 +1066,18 @@ const uploadLimiter = rateLimit({
   message: { error: 'Trop d\'imports. Réessayez dans 1 heure.' },
   standardHeaders: true, legacyHeaders: false,
 });
+// /api/upload-image est appelé UNE FOIS PAR PHOTO (contrairement aux imports
+// ci-dessus qui restent un seul appel HTTP quel que soit le volume) — une
+// séance photo légitime sur plusieurs références (fiche produit + variantes
+// de couleur) dépasse vite 60 appels/heure avec le uploadLimiter partagé.
+// Plafond dédié, nettement plus large, pour ce seul endpoint.
+const imageUploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 400,
+  keyGenerator: authedUserRateLimitKey,
+  message: { error: 'Trop de photos envoyées. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false,
+});
 // ==================== ADMIN ROUTES ====================
 
 // Un admin déjà connecté qui revient sur /admin/login (ex. bouton Précédent
@@ -2717,7 +2729,7 @@ function looksLikeImage(buf) {
   if (buf.slice(0,4).toString('latin1') === 'RIFF' && buf.slice(8,12).toString('latin1') === 'WEBP') return true; // WebP
   return false;
 }
-app.post('/api/upload-image', requireRole('owner','agent','designer'), uploadLimiter, upload.single('image'), async (req, res) => {
+app.post('/api/upload-image', requireRole('owner','agent','designer'), imageUploadLimiter, upload.single('image'), async (req, res) => {
   if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !looksLikeImage(req.file.buffer)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
