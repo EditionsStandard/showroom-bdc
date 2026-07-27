@@ -885,6 +885,7 @@ const TRANSLATIONS = {
     brand_video_mute: 'Couper le son', brand_video_unmute: 'Activer le son',
     book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
     appt_err_datetime: 'Veuillez choisir une date et une heure.',
+    my_appts_title: 'Mes rendez-vous', my_appts_cancel: 'Annuler', my_appts_cancel_confirm: 'Annuler ce rendez-vous ?', my_appts_cancelled: 'Rendez-vous annulé', my_appts_video: 'Rejoindre la visio',
     img_unavailable: 'Image indisponible', compare_limit: 'Maximum 3 produits à comparer.',
     moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
     moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
@@ -1053,6 +1054,7 @@ const TRANSLATIONS = {
     brand_video_mute: 'Mute', brand_video_unmute: 'Unmute',
     book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
     appt_err_datetime: 'Please select a date and time.',
+    my_appts_title: 'My appointments', my_appts_cancel: 'Cancel', my_appts_cancel_confirm: 'Cancel this appointment?', my_appts_cancelled: 'Appointment cancelled', my_appts_video: 'Join video call',
     img_unavailable: 'Image unavailable', compare_limit: 'Maximum 3 products to compare.',
     moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
     moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
@@ -1542,6 +1544,7 @@ function applyLang() {
       </select>
     </div>
     <div id="pending-selections"></div>
+    <div id="my-appointments"></div>
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 
@@ -3725,6 +3728,7 @@ async function loadPendingSelections() {
 
 async function loadOrders() {
   loadPendingSelections();
+  loadMyAppointments();
   const list = document.getElementById('orders-list');
   list.innerHTML = `<p class="msg" style="color:var(--muted)">${t('orders_loading_msg')}</p>`;
   let data;
@@ -3733,6 +3737,32 @@ async function loadOrders() {
   if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('orders_browse')}</button></div>`; return; }
   ordersData = data;
   applySortOrders();
+}
+
+async function loadMyAppointments() {
+  const wrap = document.getElementById('my-appointments');
+  let data;
+  try { data = await fetch('/api/portal/appointments').then(r => r.json()); }
+  catch(e) { return; } // section discrète — une erreur réseau ici n'empêche pas de voir ses commandes
+  if (!Array.isArray(data) || !data.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;font-weight:600;color:var(--white);letter-spacing:.04em;text-transform:uppercase;margin-bottom:12px">${t('my_appts_title')}</h3>
+    <div style="margin-bottom:28px">${data.map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border:1px solid var(--border);border-radius:0;margin-bottom:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px">
+        <div>
+          <strong style="color:var(--white)">${esc(a.brand_name)}</strong>
+          <span style="color:var(--soft)"> — ${esc(a.slot_date)} ${esc(a.slot_time)}</span>
+          ${a.video_link ? `<br><a href="${esc(a.video_link)}" target="_blank" rel="noopener" style="color:var(--accent)">${t('my_appts_video')} →</a>` : ''}
+        </div>
+        <button class="btn-secondary" style="font-size:12px;padding:6px 14px;white-space:nowrap" onclick="cancelMyAppointment('${a.id}')">${t('my_appts_cancel')}</button>
+      </div>`).join('')}</div>`;
+}
+
+async function cancelMyAppointment(id) {
+  if (!confirm(t('my_appts_cancel_confirm'))) return;
+  const r = await fetch('/api/portal/appointments/' + id, { method: 'DELETE' });
+  if (r.ok) { showPortalToast(t('my_appts_cancelled')); loadMyAppointments(); }
+  else { const e = await r.json().catch(()=>({})); showPortalToast(e?.error || t('err_generic'), true); }
 }
 
 async function toggleOrderLines(orderId) {

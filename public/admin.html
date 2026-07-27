@@ -8272,10 +8272,17 @@ function renderSmartMergePreview(data) {
   let html = `<div style="font-size:12px;color:#888;margin-bottom:10px">${data.totalRows} lignes dans le fichier · <strong style="color:#2ecc71">${withChanges.length} avec modifications</strong> · ${noChanges.length} déjà à jour · <strong style="color:${data.unmatched.length ? '#e0703a' : '#888'}">${data.unmatched.length} sans correspondance</strong>${data.ambiguous.length ? ` · ${data.ambiguous.length} ambigu(s)` : ''}</div>`;
 
   if (withChanges.length) {
-    html += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#2ecc71;margin-bottom:6px">✓ À mettre à jour (${withChanges.length})</div>`;
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#2ecc71">✓ À mettre à jour (${withChanges.length})</div>
+      <button type="button" onclick="toggleAllSmartMergeChecks()" style="background:none;border:none;color:#888;font-size:11px;text-decoration:underline;cursor:pointer;padding:0">Tout sélectionner / désélectionner</button>
+    </div>`;
+    // Non pré-cochées par défaut : la correspondance se fait sur désignation+
+    // couleur (pas la référence), un faux positif reste possible sur un style
+    // reconduit d'une saison à l'autre — mieux vaut forcer une relecture ligne
+    // par ligne que risquer d'écraser silencieusement le mauvais produit.
     html += withChanges.map(m => `
       <div style="border:1px solid #2a2a2a;padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:flex-start">
-        <input type="checkbox" class="smart-merge-check" data-idx="${data.matched.indexOf(m)}" checked style="margin-top:3px">
+        <input type="checkbox" class="smart-merge-check" data-idx="${data.matched.indexOf(m)}" style="margin-top:3px">
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600">${esc(m.reference)} — ${esc(m.description)} ${esc(m.color)}</div>
           ${Object.entries(m.changes).map(([f, c]) => `<div style="font-size:11px;color:#aaa;margin-top:2px">${FIELD_LABELS[f] || f} : <span style="color:#888;text-decoration:line-through">${esc(String(c.old ?? '—'))}</span> → <span style="color:#2ecc71">${esc(String(c.new))}</span></div>`).join('')}
@@ -8293,6 +8300,12 @@ function renderSmartMergePreview(data) {
   resultDiv.innerHTML = html;
   resultDiv.style.display = 'block';
   if (withChanges.length) { applyBtn.disabled = false; applyBtn.style.opacity = '1'; }
+}
+
+function toggleAllSmartMergeChecks() {
+  const checks = [...document.querySelectorAll('.smart-merge-check')];
+  const allChecked = checks.length && checks.every(c => c.checked);
+  checks.forEach(c => { c.checked = !allChecked; });
 }
 
 async function applySmartMerge() {

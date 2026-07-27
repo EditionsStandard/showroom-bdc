@@ -7390,6 +7390,29 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   }
 });
 
+// appointments n'a pas de buyer_id (créés aussi via /api/public/appointments,
+// sans compte) — on scope par email, comme le reste du portail pour les
+// enregistrements sans lien direct (ex. /api/portal/orders legacy).
+app.get('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query(
+    `SELECT a.id, a.brand_id, a.slot_date, a.slot_time, a.notes, a.video_link, b.name AS brand_name
+     FROM appointments a JOIN brands b ON b.id = a.brand_id
+     WHERE lower(a.client_email) = lower($1)
+     ORDER BY a.slot_date DESC, a.slot_time DESC`,
+    [req.session.buyerPortal.email]
+  );
+  res.json(r.rows);
+});
+
+app.delete('/api/portal/appointments/:id', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query(
+    'DELETE FROM appointments WHERE id=$1 AND lower(client_email)=lower($2) RETURNING id',
+    [req.params.id, req.session.buyerPortal.email]
+  );
+  if (!r.rows.length) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+  res.json({ ok: true });
+});
+
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
   const { email, password, name, company, phone, country } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
@@ -8336,27 +8359,44 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.description as product_name, p.color, p.composition, p.image_url, p.images, ol.note
+    SELECT ol.*, p.reference, p.description as product_name, p.color, p.composition, p.image_url, p.images, p.variants, ol.note
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
   const lines = lRes.rows;
 
-  // Pré-chargement des vignettes produit (PNG borné → compatible PDFKit) pour le
-  // récapitulatif visuel. Dédupliqué par produit. Échec d'une image = simplement omise.
+  // Pré-chargement des vignettes pour le récapitulatif visuel, une par groupe
+  // produit+coloris (voir "grouped" plus bas) — sinon une commande avec le même
+  // produit dans 2 coloris différents affichait deux fois la même photo (celle
+  // du coloris de base), quel que soit le coloris réellement commandé pour
+  // chaque taille. Dédoublonné par clé produit+coloris. Échec d'une image =
+  // simplement omise.
   const lineImages = {};
-  await Promise.all([...new Set(lines.map(l => l.product_id))].map(async (pid) => {
+  const imgGroupKeys = [...new Set(lines.map(l => l.product_id + '|' + (l.variant_color || l.color || '')))];
+  await Promise.all(imgGroupKeys.map(async (key) => {
+    const [pid, variantColor] = [key.slice(0, key.indexOf('|')), key.slice(key.indexOf('|') + 1)];
     const l = lines.find(x => x.product_id === pid);
-    let img = l.image_url;
+    let img = null;
+    // Priorité à la photo du coloris réellement commandé (products.variants),
+    // repli sur la photo par défaut de la fiche produit si ce coloris n'a pas
+    // de photo propre ou si le produit n'a pas de variantes.
+    if (variantColor) {
+      try {
+        const variants = JSON.parse(l.variants || '[]');
+        const v = Array.isArray(variants) ? variants.find(x => (x.color || '').toLowerCase() === variantColor.toLowerCase()) : null;
+        if (v && Array.isArray(v.images) && v.images[0]) img = v.images[0];
+      } catch(e) {}
+    }
+    if (!img) img = l.image_url;
     if (!img && l.images) { try { const arr = JSON.parse(l.images); img = Array.isArray(arr) ? arr[0] : null; } catch(e) {} }
     if (img && typeof img === 'object') img = img.url || img.src || img.secure_url || null;
     if (!img || typeof img !== 'string') return;
     try {
       if (img.startsWith('data:image')) {
-        lineImages[pid] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        lineImages[key] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
       } else if (/^https?:\/\//i.test(img)) {
         const buf = await fetchCloudinaryImage(img, 'w_300,h_300,c_limit,f_png', 10000);
-        if (buf) lineImages[pid] = buf;
+        if (buf) lineImages[key] = buf;
       }
     } catch(e) { console.error('[order-pdf-img]', l.reference || pid, e.message); }
   }));
@@ -8611,16 +8651,20 @@ async function generateOrderPDF(orderId) {
     // Une carte par PRODUIT (grille tailles/quantités), pas par taille — sinon
     // une commande multi-tailles répète la même photo une fois par ligne et le
     // PDF explose en pages pour une commande qui tient sur quelques références.
+    // Clé composite produit+coloris (comme lineImages ci-dessus) : une carte par
+    // coloris réellement commandé, pas seulement par produit — sinon deux
+    // coloris d'une même référence partageaient à tort la même carte/photo.
     const visualProductIds = [];
     const visualProducts = {};
     lines.forEach(l => {
-      if (!lineImages[l.product_id]) return;
-      if (!visualProducts[l.product_id]) {
-        visualProducts[l.product_id] = { reference: l.reference, color: l.variant_color || l.color, composition: l.composition, sizes: [], totalQty: 0 };
-        visualProductIds.push(l.product_id);
+      const key = l.product_id + '|' + (l.variant_color || l.color || '');
+      if (!lineImages[key]) return;
+      if (!visualProducts[key]) {
+        visualProducts[key] = { reference: l.reference, color: l.variant_color || l.color, composition: l.composition, sizes: [], totalQty: 0 };
+        visualProductIds.push(key);
       }
-      visualProducts[l.product_id].sizes.push({ size: l.size || '—', qty: l.quantity });
-      visualProducts[l.product_id].totalQty += l.quantity;
+      visualProducts[key].sizes.push({ size: l.size || '—', qty: l.quantity });
+      visualProducts[key].totalQty += l.quantity;
     });
 
     if (visualProductIds.length) {
