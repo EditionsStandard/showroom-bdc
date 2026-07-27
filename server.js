@@ -452,6 +452,13 @@ function resolveSessionSecret() {
   console.warn('⚠️  SESSION_SECRET non défini — fallback de développement utilisé (ne pas utiliser en production).');
   return 'showroom-dev-fallback-not-for-production';
 }
+// Le flag Secure du cookie de session dépend uniquement de NODE_ENV=production
+// (voir cookie.secure ci-dessous) — une DB Postgres distante configurée (signe
+// probable d'un déploiement réel) sans NODE_ENV positionné passerait alors des
+// cookies de session en clair sur HTTP sans qu'aucun avertissement ne le signale.
+if (process.env.DATABASE_URL && process.env.NODE_ENV !== 'production') {
+  console.warn('⚠️  NODE_ENV n\'est pas "production" alors qu\'une base de données distante est configurée — le cookie de session ne sera PAS marqué Secure. Définissez NODE_ENV=production en déploiement réel.');
+}
 app.use(session({
   store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }) : undefined,
   secret: resolveSessionSecret(),
@@ -958,23 +965,70 @@ const translateLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 
+// Variante ANONYME (page /commande, sans session) : appelle le même LLM payant
+// que translateLimiter mais ne peut être keyée que par IP (pas de compte), et
+// publicLimiter (200/h, partagé avec tous les autres endpoints publics) est
+// bien trop permissif pour un appel qui facture par caractère — un texte
+// légèrement modifié à chaque requête contourne le cache et force un appel
+// API réel à chaque fois. Plafond nettement plus bas que translateLimiter.
+const publicTranslateLimiter = rateLimit({
+  windowMs: 3600000, // 1 heure
+  max: 20,
+  message: { error: 'Trop de requêtes de traduction. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
 // Mot de passe oublié / lien magique acheteur : plusieurs acheteurs partagent
 // souvent la même IP (WiFi showroom) — 5/h (emailLimiter) les bloquerait
 // mutuellement, comme le bug de validation déjà corrigé (confirmLimiter). Les
 // tokens sont générés en crypto.randomBytes(32) (256 bits) : la sécurité ne
 // repose pas sur ce rate-limit, qui n'est là que pour éviter le spam d'envois.
+// Réutilisé tel quel sur 5 routes de récupération de compte distinctes
+// (staff, portail acheteur, lien magique legacy) — la clé inclut le chemin
+// de la route : sans ça, épuiser le quota sur UNE surface (ex.
+// /api/staff/forgot-password) bloquait aussi les 4 autres pour le même
+// email (déni de service ciblé sur la récupération de compte d'une
+// victime, sans même avoir besoin d'usurper son IP).
 const buyerAuthLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 30,
   keyGenerator: (req) => {
     const email = (req.body?.email || '').toString().trim().toLowerCase();
-    return email ? 'email:' + email : rateLimit.ipKeyGenerator(req.ip);
+    return email ? `email:${req.path}:${email}` : rateLimit.ipKeyGenerator(req.ip);
   },
   message: { error: 'Trop de demandes. Réessayez dans quelques minutes.' },
   handler: rateLimitExceededHandler({ error: 'Trop de demandes. Réessayez dans quelques minutes.' }),
   standardHeaders: true, legacyHeaders: false
 });
 
+
+// Réservation de RDV publique : déclenche un email de "confirmation" vers
+// client_email tel que soumis, sans vérification de propriété de l'adresse —
+// publicLimiter (200/h/IP) laisse largement de quoi harceler une boîte mail
+// tierce en réservant de nombreux créneaux avec son adresse. Keyé par email
+// (comme buyerAuthLimiter) en plus du plafond par IP.
+const appointmentEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 5,
+  keyGenerator: (req) => {
+    const email = (req.body?.client_email || '').toString().trim().toLowerCase();
+    return email ? 'appt-email:' + email : rateLimit.ipKeyGenerator(req.ip);
+  },
+  message: { error: 'Trop de réservations pour cet email. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
+
+// Messagerie acheteur → agence : chaque envoi déclenche une notification push
+// ET un email Resend à l'owner (notifyOwner) — sans limite, un compte acheteur
+// auto-inscrit (faible confiance, cf. buyerAuthLimiter) peut spammer l'agence
+// en boucle. Par compte (comme translateLimiter), pas par IP.
+const messageLimiter = rateLimit({
+  windowMs: 3600000, // 1 heure
+  max: 40,
+  keyGenerator: authedUserRateLimitKey,
+  message: { error: 'Trop de messages envoyés. Réessayez dans quelques minutes.' },
+  standardHeaders: true, legacyHeaders: false
+});
 
 const cartLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -2271,6 +2325,27 @@ app.post('/api/brands/:brandId/products/collection-bulk', requireBrandScope('own
 // ── Import CSV produits ──────────────────────────────────────────────
 const uploadCsv = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// Découpe le texte CSV en lignes en ignorant les \n à l'intérieur d'un champ
+// quoté (ex. une description multi-lignes) — un simple text.split('\n') coupe
+// un tel champ en deux lignes indépendantes, corrompant silencieusement
+// l'import (déjà vu : le mot suivant la coupure devient une "référence" à
+// part entière). Bascule d'état à chaque guillemet rencontré (y compris les
+// doublés "" d'échappement, qui se neutralisent en deux bascules — équivalent
+// standard "nombre de guillemets impair = à l'intérieur d'un champ quoté").
+function splitCSVLines(text) {
+  const lines = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') inQuote = !inQuote;
+    if (ch === '\n' && !inQuote) { lines.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 function parseCSVRow(line) {
   const fields = [];
   let cur = '';
@@ -2315,7 +2390,9 @@ function parsePrice(v) {
   if (!s) return 0;
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(s);
-  return Number.isFinite(n) ? n : 0;
+  // Même plancher que nonNeg() (upsert produit unique) : un prix négatif
+  // n'a pas de sens ici et n'était auparavant filtré que sur ce second chemin.
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','agent'), uploadLimiter, uploadCsv.single('file'), async (req, res) => {
@@ -2323,7 +2400,7 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
     if (!req.file) return res.status(400).json({ error: 'Fichier CSV requis' });
     const brandId = req.params.brandId;
     const text = req.file.buffer.toString('utf-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    const lines = text.split('\n').filter(l => l.trim());
+    const lines = splitCSVLines(text).filter(l => l.trim());
     if (lines.length < 2) return res.status(400).json({ error: 'Fichier vide ou sans données' });
     // Plafond de lignes : chaque ligne déclenche 1-2 aller-retours DB séquentiels
     // (SELECT + INSERT/UPDATE) dans la même requête HTTP, sans traitement par
@@ -2377,7 +2454,7 @@ app.post('/api/brands/:brandId/products/import-csv', requireBrandScope('owner','
 // d'une marque — n'écrit que la colonne `variants`, ne touche à rien d'autre
 // sur la fiche produit. Les couleurs déjà présentes (comparaison insensible
 // à la casse) ne sont pas dupliquées ; les autres sont ajoutées à la suite.
-app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('owner','agent'), async (req, res) => {
+app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('owner','agent'), uploadLimiter, async (req, res) => {
   try {
     const brandId = req.params.brandId;
     const rows = Array.isArray(req.body.rows) ? req.body.rows : null;
@@ -2389,7 +2466,7 @@ app.post('/api/brands/:brandId/products/import-variants', requireBrandScope('own
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue;
       const reference = (row.reference || '').toString().trim();
-      const colors = Array.isArray(row.colors) ? row.colors.map(c => (c || '').toString().trim()).filter(Boolean).slice(0, 30) : [];
+      const colors = Array.isArray(row.colors) ? row.colors.map(c => (c || '').toString().trim().slice(0, 60)).filter(Boolean).slice(0, 30) : [];
       if (!reference || !colors.length) continue;
       const p = await pool.query('SELECT id, variants FROM products WHERE brand_id=$1 AND reference=$2', [brandId, reference]);
       if (!p.rows[0]) { notFound.push(reference); continue; }
@@ -2458,7 +2535,7 @@ app.post('/api/brands/:brandId/import-csv', requireBrandScope('owner', 'agent', 
           if (fields.collection_name && !existingCollections.has(fields.collection_name)) newlySeenCollections.add(fields.collection_name);
           created++;
         }
-      } catch(e) { errors.push(`${ref}: ${e.message}`); }
+      } catch(e) { console.error('[import-csv]', ref, e.message); errors.push(`${ref}: Erreur d'enregistrement`); }
     }
     notifyNewCollections(req, req.params.brandId, newlySeenCollections);
     res.json({ created, updated, errors });
@@ -2659,10 +2736,12 @@ app.post('/api/upload-image', requireRole('owner','agent','designer'), uploadLim
     });
     res.json({ url: result.secure_url });
   } catch(e) {
-    // Les utilisateurs de cette route sont internes (owner/agent/designer) : on remonte
-    // le motif réel (ex. « Invalid api_key », « disabled account ») pour diagnostic.
+    // Contrairement au diagnostic Cloudinary dédié (owner uniquement, ci-dessous),
+    // cette route est accessible au rôle designer (le moins privilégié) — le motif
+    // d'erreur brut (ex. détails de config/infra) ne doit pas remonter au client,
+    // seulement au log serveur.
     console.error('[upload-image] Cloudinary:', e.message);
-    res.status(502).json({ error: "Échec de l'envoi de l'image", detail: e.message || String(e) });
+    res.status(502).json({ error: "Échec de l'envoi de l'image" });
   }
 });
 
@@ -2878,7 +2957,7 @@ function isValidAppointmentSlot(slot_date, slot_time) {
   return true;
 }
 
-app.post('/api/public/appointments', publicLimiter, async (req, res) => {
+app.post('/api/public/appointments', publicLimiter, appointmentEmailLimiter, async (req, res) => {
   try {
     const { brand_id, client_name, client_email, client_phone, slot_date, slot_time, notes } = req.body;
     if (!brand_id || !client_name || !client_email || !slot_date || !slot_time) {
@@ -3913,7 +3992,7 @@ app.get('/api/admin/appointments', requireRole('owner','agent'), async (req, res
 // serveur vers une cible interne. Les navigateurs ne génèrent jamais de
 // subscription en dehors des services push connus des fournisseurs — on
 // n'autorise que ces hôtes.
-const ALLOWED_PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com'];
+const ALLOWED_PUSH_HOSTS = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com', 'notify.windows.com'];
 function isSafePushEndpoint(endpoint) {
   let parsed;
   try { parsed = new URL(endpoint); } catch(e) { return false; }
@@ -4341,7 +4420,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   // à .quantity plante avant même la validation de quantité qui suit.
   const validLines = (lines || [])
     .filter(l => l && typeof l === 'object' && !Array.isArray(l))
-    .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)) }))
+    .map(l => ({ ...l, quantity: Math.floor(Number(l.quantity)), variant_color: (l.variant_color || '').toString().trim().slice(0, 60) }))
     .filter(l => Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= MAX_LINE_QTY);
   if (!validLines.length) return { error: 'Aucune quantité saisie' };
   if (!buyer_signature) return { error: 'Signature requise' };
@@ -4445,8 +4524,8 @@ async function createOrder({ brand_id, client_name, client_email, client_company
         }
       }
       await dbClient.query(
-        'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-        [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'']
+        'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note,variant_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'', line.variant_color||'']
       );
     }
     await dbClient.query('COMMIT');
@@ -4485,7 +4564,7 @@ app.post('/api/public/orders', publicLimiter, requireCommandeAccessBody, async (
     return res.status(400).json({ error: 'Données incomplètes' });
   }
   if (typeof client_name !== 'string' || client_name.length > 200) return res.status(400).json({ error: 'Nom invalide' });
-  if (typeof client_email !== 'string' || client_email.length > 200 || !client_email.includes('@')) return res.status(400).json({ error: 'Email invalide' });
+  if (typeof client_email !== 'string' || client_email.length > 200 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(client_email.trim())) return res.status(400).json({ error: 'Email invalide' });
   if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Commande invalide' });
   try {
     const result = await createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted });
@@ -4656,7 +4735,7 @@ async function notifyOwnerOrder(orderId, actionLabel, extraNote) {
 app.get('/selection/:token', (req, res) => sendPage(res, 'selection.html'));
 
 // 3) Données de la sélection (publique, via token)
-app.get('/api/selection/:token', async (req, res) => {
+app.get('/api/selection/:token', publicLimiter, async (req, res) => {
   try {
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
@@ -4923,6 +5002,17 @@ function requireBuyerAuth(req, res, next) {
   return req.session.destroy(() => res.status(401).json({ error: 'Session expirée, reconnectez-vous.' }));
 }
 
+// Même politique d'expiration que requireBuyerAuth, pour les 3 routes /api/buyer/*
+// héritées (session ouverte via lien magique — champs buyerEmail/buyerBrandId,
+// pas buyerPortal) : sans ceci, une session ouverte par ce chemin ne vérifiait
+// jamais isSessionFresh() et ne pouvait donc jamais expirer par inactivité ni
+// durée absolue, contrairement au reste du portail acheteur.
+function requireLegacyBuyerSession(req, res, next) {
+  if (!req.session?.buyerEmail || !req.session?.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+  if (isSessionFresh(req, BUYER_IDLE_TIMEOUT_MS, BUYER_ABSOLUTE_TIMEOUT_MS)) return next();
+  return req.session.destroy(() => res.status(401).json({ error: 'Session expirée, reconnectez-vous.' }));
+}
+
 // Ancien lien conservé pour compatibilité
 app.get('/portal-login', (req, res) => res.redirect('/editions-showroom-b2b-portail'));
 
@@ -5128,20 +5218,26 @@ app.post('/api/portal/mfa/disable', requireBuyerAuth, passwordLimiter, async (re
 app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
   try {
     const buyerId = req.session.buyerPortal.id;
-    const [profile, orders, carts] = await Promise.all([
-      pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang FROM buyers WHERE id=$1', [buyerId]),
+    const [profile, orders, carts, messages, notifications, follows] = await Promise.all([
+      pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang, favorites_json, shortlist_json FROM buyers WHERE id=$1', [buyerId]),
       pool.query(`SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
                          o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
                          b.name as brand_name
                   FROM orders o JOIN brands b ON o.brand_id=b.id
                   WHERE o.buyer_id=$1 ORDER BY o.created_at DESC`, [buyerId]),
-      pool.query('SELECT cart_json, updated_at FROM buyer_carts WHERE buyer_id=$1', [buyerId])
+      pool.query('SELECT cart_json, updated_at FROM buyer_carts WHERE buyer_id=$1', [buyerId]),
+      pool.query('SELECT id, sender, subject, body, created_at, attachment_name FROM buyer_messages WHERE buyer_id=$1 ORDER BY created_at', [buyerId]),
+      pool.query('SELECT id, brand_id, type, title, body, created_at FROM buyer_notifications WHERE buyer_id=$1 ORDER BY created_at DESC', [buyerId]),
+      pool.query(`SELECT bf.brand_id, b.name as brand_name, bf.created_at FROM brand_follows bf JOIN brands b ON b.id=bf.brand_id WHERE bf.buyer_id=$1`, [buyerId])
     ]);
     const export_data = {
       generated_at: new Date().toISOString(),
       profile: profile.rows[0] || null,
       orders: orders.rows,
-      cart: carts.rows[0] || null
+      cart: carts.rows[0] || null,
+      messages: messages.rows,
+      notifications: notifications.rows,
+      followed_brands: follows.rows
     };
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="mes-donnees-showroom.json"');
@@ -5159,6 +5255,22 @@ async function anonymizeAndDeleteBuyer(buyerId) {
   const dbClient = await pool.connect();
   try {
     await dbClient.query('BEGIN');
+    // Le journal d'audit garde l'email (user_email) et l'IP (details) de chaque
+    // connexion/action de ce compte (logAuditRaw sur login/logout/MFA — voir
+    // target_type='buyer') — sans ce nettoyage, ces PII survivraient
+    // indéfiniment à une suppression RGPD, consultables par tout owner.
+    const buyerRow = await dbClient.query('SELECT email FROM buyers WHERE id=$1', [buyerId]);
+    const buyerEmail = buyerRow.rows[0]?.email;
+    await dbClient.query(
+      `UPDATE admin_audit_log SET user_email='[supprimé]', details='' WHERE target_type='buyer' AND target_id=$1`,
+      [buyerId]
+    );
+    if (buyerEmail) {
+      await dbClient.query(
+        `UPDATE admin_audit_log SET user_email='[supprimé]', details='' WHERE user_email=$1`,
+        [buyerEmail]
+      );
+    }
     await dbClient.query(
       `UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='',
          client_company='', client_country='', notes='', buyer_signature='', agent_signature=NULL, buyer_id=NULL
@@ -5654,7 +5766,7 @@ app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
   const o = await pool.query('SELECT id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id, req.session.buyerPortal.id]);
   if (!o.rows[0]) return res.status(404).json({ error: 'Non disponible' });
   const lines = await pool.query(
-    'SELECT ol.product_id, ol.quantity, ol.unit_price, ol.size, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
+    'SELECT ol.product_id, ol.quantity, ol.unit_price, ol.size, ol.variant_color, p.reference, p.color as product_color FROM order_lines ol JOIN products p ON ol.product_id=p.id WHERE ol.order_id=$1 ORDER BY p.reference',
     [req.params.id]
   );
   res.json(lines.rows);
@@ -6370,7 +6482,7 @@ app.get('/api/portal/messages/unread', requireBuyerAuth, async (req, res) => {
 });
 
 // Portail : l'acheteur envoie un message (texte et/ou pièce jointe) → notifie l'agence
-app.post('/api/portal/messages', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/messages', requireBuyerAuth, messageLimiter, async (req, res) => {
   try {
     const body = (req.body.body || '').toString().trim();
     const subject = (req.body.subject || '').toString().trim().slice(0, 150);
@@ -6458,7 +6570,7 @@ async function claudeTranslate(texts, langName) {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 8000,
       messages: [{ role: 'user', content:
-        `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
+        `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Some strings contain placeholder tokens like {0}, {1}, {2} or HTML tags like <strong> — preserve these EXACTLY as they appear (same token/tag text, may be reordered to fit natural word order in the target language, but never translated, altered, or dropped). Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
     }),
     signal: AbortSignal.timeout(30000)
   });
@@ -6536,12 +6648,14 @@ app.post('/api/portal/translate', requireBuyerAuth, translateLimiter, async (req
   } catch(e) { console.error('translate endpoint:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-// Version publique (page /commande, sans session acheteur) — mêmes limites, rate-limitée.
-app.post('/api/public/translate', publicLimiter, async (req, res) => {
+// Version publique (page /commande, sans session acheteur) — anonyme, donc
+// plafond de débit ET de volume par appel nettement plus stricts que la
+// version authentifiée (voir publicTranslateLimiter).
+app.post('/api/public/translate', publicTranslateLimiter, async (req, res) => {
   try {
     const { texts, lang } = req.body;
     if (!Array.isArray(texts) || !lang || !TRANSLATE_LANGS[lang]) return res.status(400).json({ error: 'Requête invalide' });
-    const clipped = texts.slice(0, 300).map(t => String(t == null ? '' : t).slice(0, 4000));
+    const clipped = texts.slice(0, 100).map(t => String(t == null ? '' : t).slice(0, 2000));
     res.json({ translations: await translateBatch(clipped, lang) });
   } catch(e) { console.error('public translate:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -6873,8 +6987,11 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
   const wantedPrice = {};
   for (const u of updates) {
     if (!u || !u.id) continue;
-    const q = Math.floor(Number(u.quantity));
-    wanted[u.id] = Number.isFinite(q) && q > 0 && q <= MAX_LINE_QTY ? q : 0;
+    if (u.quantity !== undefined && u.quantity !== null && u.quantity !== '') {
+      const q = Math.floor(Number(u.quantity));
+      if (!Number.isFinite(q) || q < 0 || q > MAX_LINE_QTY) return res.status(400).json({ error: 'Quantité invalide' });
+      wanted[u.id] = q;
+    }
     if (u.unit_price !== undefined && u.unit_price !== null && u.unit_price !== '') {
       const p = Math.round(Number(u.unit_price) * 100) / 100;
       if (Number.isFinite(p) && p >= 0 && p <= MAX_LINE_PRICE) wantedPrice[u.id] = p;
@@ -6888,10 +7005,12 @@ app.put('/api/orders/:id/lines', requireRole('owner','agent'), async (req, res) 
     // 'cancelled' : le stock a déjà été recrédité en totalité par restoreOrderStock()
     // au moment de l'annulation — modifier les lignes ensuite recréditerait le stock
     // une seconde fois (delta<0) ou en réserverait à tort (delta>0). 'archived' est
-    // un état terminal, comme sur /status et /sign.
-    if (['cancelled','archived'].includes(ord.rows[0]?.status)) {
+    // un état terminal, comme sur /status et /sign. 'shipped' : la commande est déjà
+    // physiquement partie — le bon de livraison/PDF déjà transmis ne doit plus diverger
+    // des lignes en base, et un delta positif re-décrémenterait à tort du stock déjà expédié.
+    if (['shipped','cancelled','archived'].includes(ord.rows[0]?.status)) {
       await dbClient.query('ROLLBACK');
-      return res.status(409).json({ error: 'Commande annulée ou archivée : lignes non modifiables.' });
+      return res.status(409).json({ error: 'Commande expédiée, annulée ou archivée : lignes non modifiables.' });
     }
     // Lignes actuelles + état stock du produit (verrou ligne produit via FOR UPDATE indirect)
     const cur = await dbClient.query(
@@ -7251,6 +7370,11 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
   try {
     const brand = await pool.query('SELECT name FROM brands WHERE id=$1', [brand_id]);
     if (!brand.rows.length) return res.status(404).json({ error: 'Marque introuvable' });
+    // Même verrou "accès anticipé" que le catalogue/checkout — sans ça un
+    // acheteur non privilégié pouvait prendre RDV avec une marque dont il ne
+    // peut pas encore voir la collection.
+    const locked = await getLockedBrandIds(buyer.id, [brand_id]);
+    if (locked.has(brand_id)) return res.status(403).json({ error: 'Collection encore en accès anticipé, pas encore ouverte.' });
     await pool.query(
       'INSERT INTO appointments (id,brand_id,client_name,client_email,client_phone,slot_date,slot_time,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, brand_id, buyer.name, buyer.email, buyer.phone||'', slot_date, slot_time, notes||'']
@@ -7264,6 +7388,29 @@ app.post('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
     if (e.code === '23505') return res.status(409).json({ error: 'Ce créneau est déjà réservé' });
     console.error(e); res.status(500).json({ error: "Erreur serveur" });
   }
+});
+
+// appointments n'a pas de buyer_id (créés aussi via /api/public/appointments,
+// sans compte) — on scope par email, comme le reste du portail pour les
+// enregistrements sans lien direct (ex. /api/portal/orders legacy).
+app.get('/api/portal/appointments', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query(
+    `SELECT a.id, a.brand_id, a.slot_date, a.slot_time, a.notes, a.video_link, b.name AS brand_name
+     FROM appointments a JOIN brands b ON b.id = a.brand_id
+     WHERE lower(a.client_email) = lower($1)
+     ORDER BY a.slot_date DESC, a.slot_time DESC`,
+    [req.session.buyerPortal.email]
+  );
+  res.json(r.rows);
+});
+
+app.delete('/api/portal/appointments/:id', requireBuyerAuth, async (req, res) => {
+  const r = await pool.query(
+    'DELETE FROM appointments WHERE id=$1 AND lower(client_email)=lower($2) RETURNING id',
+    [req.params.id, req.session.buyerPortal.email]
+  );
+  if (!r.rows.length) return res.status(404).json({ error: 'Rendez-vous introuvable' });
+  res.json({ ok: true });
 });
 
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
@@ -7849,15 +7996,13 @@ app.get('/api/buyer/verify', async (req, res) => {
   });
 });
 
-app.get('/api/buyer/brand', async (req, res) => {
-  if (!req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+app.get('/api/buyer/brand', requireLegacyBuyerSession, async (req, res) => {
   const b = await pool.query('SELECT id, name, logo_url, logo, about_text, lookbook_url FROM brands WHERE id=$1', [req.session.buyerBrandId]);
   if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
   res.json(b.rows[0]);
 });
 
-app.get('/api/buyer/orders', async (req, res) => {
-  if (!req.session.buyerEmail || !req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+app.get('/api/buyer/orders', requireLegacyBuyerSession, async (req, res) => {
   const r = await pool.query(`
     SELECT o.*, SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
@@ -7868,8 +8013,7 @@ app.get('/api/buyer/orders', async (req, res) => {
   res.json({ email: req.session.buyerEmail, orders: r.rows });
 });
 
-app.get('/api/buyer/orders/:id/pdf', async (req, res) => {
-  if (!req.session.buyerEmail || !req.session.buyerBrandId) return res.status(401).json({ error: 'Non connecté' });
+app.get('/api/buyer/orders/:id/pdf', requireLegacyBuyerSession, async (req, res) => {
   try {
     const r = await pool.query(
       'SELECT id FROM orders WHERE id=$1 AND brand_id=$2 AND client_email=$3',
@@ -8215,27 +8359,44 @@ async function generateOrderPDF(orderId) {
   if (!order) throw new Error('Commande introuvable');
 
   const lRes = await pool.query(`
-    SELECT ol.*, p.reference, p.description as product_name, p.color, p.composition, p.image_url, p.images, ol.note
+    SELECT ol.*, p.reference, p.description as product_name, p.color, p.composition, p.image_url, p.images, p.variants, ol.note
     FROM order_lines ol JOIN products p ON ol.product_id=p.id
     WHERE ol.order_id=$1
   `, [orderId]);
   const lines = lRes.rows;
 
-  // Pré-chargement des vignettes produit (PNG borné → compatible PDFKit) pour le
-  // récapitulatif visuel. Dédupliqué par produit. Échec d'une image = simplement omise.
+  // Pré-chargement des vignettes pour le récapitulatif visuel, une par groupe
+  // produit+coloris (voir "grouped" plus bas) — sinon une commande avec le même
+  // produit dans 2 coloris différents affichait deux fois la même photo (celle
+  // du coloris de base), quel que soit le coloris réellement commandé pour
+  // chaque taille. Dédoublonné par clé produit+coloris. Échec d'une image =
+  // simplement omise.
   const lineImages = {};
-  await Promise.all([...new Set(lines.map(l => l.product_id))].map(async (pid) => {
+  const imgGroupKeys = [...new Set(lines.map(l => l.product_id + '|' + (l.variant_color || l.color || '')))];
+  await Promise.all(imgGroupKeys.map(async (key) => {
+    const [pid, variantColor] = [key.slice(0, key.indexOf('|')), key.slice(key.indexOf('|') + 1)];
     const l = lines.find(x => x.product_id === pid);
-    let img = l.image_url;
+    let img = null;
+    // Priorité à la photo du coloris réellement commandé (products.variants),
+    // repli sur la photo par défaut de la fiche produit si ce coloris n'a pas
+    // de photo propre ou si le produit n'a pas de variantes.
+    if (variantColor) {
+      try {
+        const variants = JSON.parse(l.variants || '[]');
+        const v = Array.isArray(variants) ? variants.find(x => (x.color || '').toLowerCase() === variantColor.toLowerCase()) : null;
+        if (v && Array.isArray(v.images) && v.images[0]) img = v.images[0];
+      } catch(e) {}
+    }
+    if (!img) img = l.image_url;
     if (!img && l.images) { try { const arr = JSON.parse(l.images); img = Array.isArray(arr) ? arr[0] : null; } catch(e) {} }
     if (img && typeof img === 'object') img = img.url || img.src || img.secure_url || null;
     if (!img || typeof img !== 'string') return;
     try {
       if (img.startsWith('data:image')) {
-        lineImages[pid] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        lineImages[key] = Buffer.from(img.replace(/^data:image\/\w+;base64,/, ''), 'base64');
       } else if (/^https?:\/\//i.test(img)) {
         const buf = await fetchCloudinaryImage(img, 'w_300,h_300,c_limit,f_png', 10000);
-        if (buf) lineImages[pid] = buf;
+        if (buf) lineImages[key] = buf;
       }
     } catch(e) { console.error('[order-pdf-img]', l.reference || pid, e.message); }
   }));
@@ -8327,17 +8488,22 @@ async function generateOrderPDF(orderId) {
     };
     drawTableHead();
 
-    // Regroupe les lignes par produit (référence+couleur partagent le même
-    // product_id, une taille = une ligne order_lines) pour afficher toutes les
-    // tailles commandées et leur quantité sur une seule ligne PDF, au lieu
-    // d'une ligne par taille comme auparavant.
+    // Regroupe les lignes par produit + coloris réellement choisi (référence
+    // partage le même product_id, une taille = une ligne order_lines) pour
+    // afficher toutes les tailles commandées et leur quantité sur une seule
+    // ligne PDF, au lieu d'une ligne par taille comme auparavant. Le regroupement
+    // inclut le coloris (variant_color si l'acheteur en a choisi un dans le
+    // tiroir produit, sinon la couleur de base de la fiche) pour ne jamais
+    // fusionner deux coloris différents d'une même référence sur une seule ligne.
     const grouped = [];
     const byProduct = new Map();
     lines.forEach(l => {
-      let g = byProduct.get(l.product_id);
+      const lineColor = l.variant_color || l.color;
+      const groupKey = l.product_id + '|' + (lineColor || '');
+      let g = byProduct.get(groupKey);
       if (!g) {
-        g = { reference: l.reference, product_name: l.product_name, color: l.color, composition: l.composition, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
-        byProduct.set(l.product_id, g);
+        g = { reference: l.reference, product_name: l.product_name, color: lineColor, composition: l.composition, unit_price: l.unit_price, price_retail: l.price_retail, sizes: [], lineTotal: 0, notes: [] };
+        byProduct.set(groupKey, g);
         grouped.push(g);
       }
       g.sizes.push({ size: l.size || '—', quantity: l.quantity });
@@ -8485,16 +8651,20 @@ async function generateOrderPDF(orderId) {
     // Une carte par PRODUIT (grille tailles/quantités), pas par taille — sinon
     // une commande multi-tailles répète la même photo une fois par ligne et le
     // PDF explose en pages pour une commande qui tient sur quelques références.
+    // Clé composite produit+coloris (comme lineImages ci-dessus) : une carte par
+    // coloris réellement commandé, pas seulement par produit — sinon deux
+    // coloris d'une même référence partageaient à tort la même carte/photo.
     const visualProductIds = [];
     const visualProducts = {};
     lines.forEach(l => {
-      if (!lineImages[l.product_id]) return;
-      if (!visualProducts[l.product_id]) {
-        visualProducts[l.product_id] = { reference: l.reference, color: l.color, composition: l.composition, sizes: [], totalQty: 0 };
-        visualProductIds.push(l.product_id);
+      const key = l.product_id + '|' + (l.variant_color || l.color || '');
+      if (!lineImages[key]) return;
+      if (!visualProducts[key]) {
+        visualProducts[key] = { reference: l.reference, color: l.variant_color || l.color, composition: l.composition, sizes: [], totalQty: 0 };
+        visualProductIds.push(key);
       }
-      visualProducts[l.product_id].sizes.push({ size: l.size || '—', qty: l.quantity });
-      visualProducts[l.product_id].totalQty += l.quantity;
+      visualProducts[key].sizes.push({ size: l.size || '—', qty: l.quantity });
+      visualProducts[key].totalQty += l.quantity;
     });
 
     if (visualProductIds.length) {
@@ -8975,7 +9145,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         ${cgvText ? `
         <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(17,17,17,.1)">
           <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#bbb">Terms & Conditions — ${order.brand_name}</p>
-          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${escHtml(cgvText)}</p>
         </div>` : ''}
       ` : `
         <p>Bonjour <strong>${escHtml(order.client_name)}</strong>,</p>
@@ -9001,7 +9171,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
         ${cgvText ? `
         <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(17,17,17,.1)">
           <p style="margin:0 0 8px;font-family:'Courier New',Courier,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#bbb">Conditions générales — ${order.brand_name}</p>
-          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${cgvText}</p>
+          <p style="margin:0;font-size:11px;color:#aaa;line-height:1.7;white-space:pre-wrap">${escHtml(cgvText)}</p>
         </div>` : ''}
       `
     }),
@@ -9411,7 +9581,7 @@ app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, r
     if (!src.rows.length) return res.status(404).json({ error: 'Commande introuvable' });
     const o = src.rows[0];
     const lines = await pool.query(
-      'SELECT product_id, size, quantity, unit_price, price_retail, note FROM order_lines WHERE order_id=$1',
+      'SELECT product_id, size, quantity, unit_price, price_retail, note, variant_color FROM order_lines WHERE order_id=$1',
       [req.params.id]
     );
     const newId = uuidv4();
@@ -9427,8 +9597,8 @@ app.post('/api/orders/:id/reorder', requireRole('owner', 'agent'), async (req, r
       );
       for (const l of lines.rows) {
         await dbClient.query(
-          'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-          [uuidv4(), newId, l.product_id, l.size, l.quantity, l.unit_price, l.price_retail, l.note]
+          'INSERT INTO order_lines (id,order_id,product_id,size,quantity,unit_price,price_retail,note,variant_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+          [uuidv4(), newId, l.product_id, l.size, l.quantity, l.unit_price, l.price_retail, l.note, l.variant_color]
         );
       }
       await dbClient.query('COMMIT');
@@ -9729,8 +9899,16 @@ init().then(() => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
+      // Réclame les lignes de façon atomique AVANT l'envoi (UPDATE...RETURNING,
+      // verrouillage ligne géré par Postgres) plutôt qu'un SELECT suivi d'un
+      // UPDATE différé après coup : sinon un crash/redémarrage entre l'envoi et
+      // l'UPDATE (fréquent sur une plateforme à redéploiement continu), ou
+      // plusieurs instances de l'app tournant en parallèle, peuvent envoyer le
+      // même rappel deux fois au même client.
       const rdvs = await pool.query(
-        `SELECT * FROM appointments WHERE slot_date = $1 AND (reminder_sent IS NULL OR reminder_sent = false)`,
+        `UPDATE appointments SET reminder_sent = true
+         WHERE slot_date = $1 AND (reminder_sent IS NULL OR reminder_sent = false)
+         RETURNING *`,
         [tomorrowStr]
       ).catch(() => ({ rows: [] }));
 
@@ -9753,8 +9931,6 @@ init().then(() => {
           })
         }).catch(e => { console.error('[rdv-email-error]', e.message); return null; });
         if (r && !r.ok) console.error('[rdv-email-error] Resend a répondu', r.status);
-
-        await pool.query('UPDATE appointments SET reminder_sent = true WHERE id = $1', [rdv.id]).catch(e => console.error('[rdv-reminder-update-error]', e.message));
       }
       if (rdvs.rows.length) log.info('[rdv-reminders] rappels envoyés', { count: rdvs.rows.length });
     } catch(e) { log.error('[rdv-reminders]', { err: e.message }); }

@@ -58,7 +58,12 @@ self.addEventListener('fetch', e => {
   // hasCommandeAccess ci-dessus côté serveur). Une révocation de lien ne doit
   // pas pouvoir être contournée par une coupure réseau qui re-sert la version
   // mise en cache avant révocation.
-  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff') || url.pathname === '/api/me' || url.pathname.startsWith('/api/public/brands') || url.pathname.startsWith('/commande') || url.pathname.startsWith('/api/selection') || url.pathname.startsWith('/selection')) {
+  // /api/agent, /agent : même risque que /api/me — identité (nom/email/rôle/
+  // marques) de l'agent connecté sur la tablette de vente partagée, servie par
+  // /api/agent/me (agent.html). Sans cette exclusion, une coupure réseau juste
+  // après un changement d'agent sur le même appareil pouvait resservir
+  // l'identité de l'agent précédent depuis le cache générique.
+  if (url.pathname.startsWith('/api/portal') || url.pathname === '/portal' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin') || url.pathname.startsWith('/api/staff') || url.pathname === '/api/me' || url.pathname.startsWith('/api/agent') || url.pathname === '/agent' || url.pathname.startsWith('/api/public/brands') || url.pathname.startsWith('/commande') || url.pathname.startsWith('/api/selection') || url.pathname.startsWith('/selection')) {
     e.respondWith(fetch(e.request));
     return;
   }

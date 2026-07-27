@@ -885,6 +885,7 @@ const TRANSLATIONS = {
     brand_video_mute: 'Couper le son', brand_video_unmute: 'Activer le son',
     book_appointment: 'Prendre RDV', appt_title: 'Prendre rendez-vous', appt_date: 'Date souhaitée', appt_time: 'Heure', appt_phone: 'Téléphone', appt_notes: 'Message (optionnel)', appt_send: 'Confirmer le RDV', appt_success: 'Rendez-vous demandé ✓',
     appt_err_datetime: 'Veuillez choisir une date et une heure.',
+    my_appts_title: 'Mes rendez-vous', my_appts_cancel: 'Annuler', my_appts_cancel_confirm: 'Annuler ce rendez-vous ?', my_appts_cancelled: 'Rendez-vous annulé', my_appts_video: 'Rejoindre la visio',
     img_unavailable: 'Image indisponible', compare_limit: 'Maximum 3 produits à comparer.',
     moq_pieces: (n) => `Minimum ${n} pièces`, moq_amount: (n) => `Minimum ${n} € HT`,
     moq_warn_qty: (min, cur) => `minimum ${min} pièces (actuellement ${cur})`,
@@ -1053,6 +1054,7 @@ const TRANSLATIONS = {
     brand_video_mute: 'Mute', brand_video_unmute: 'Unmute',
     book_appointment: 'Book appointment', appt_title: 'Book an appointment', appt_date: 'Preferred date', appt_time: 'Time', appt_phone: 'Phone', appt_notes: 'Message (optional)', appt_send: 'Confirm appointment', appt_success: 'Appointment requested ✓',
     appt_err_datetime: 'Please select a date and time.',
+    my_appts_title: 'My appointments', my_appts_cancel: 'Cancel', my_appts_cancel_confirm: 'Cancel this appointment?', my_appts_cancelled: 'Appointment cancelled', my_appts_video: 'Join video call',
     img_unavailable: 'Image unavailable', compare_limit: 'Maximum 3 products to compare.',
     moq_pieces: (n) => `Minimum ${n} pieces`, moq_amount: (n) => `Minimum ${n} € excl. tax`,
     moq_warn_qty: (min, cur) => `minimum ${min} pieces (currently ${cur})`,
@@ -1192,15 +1194,39 @@ function t(key, ...args) {
 }
 // Charge (une fois) le dictionnaire d'interface pour une langue non native, en
 // traduisant les libellés anglais via Claude puis en cachant dans localStorage.
+// Les clés "fonction" (pluriels/compteurs : moq_pieces, stock_low, reorder_added…)
+// restaient auparavant TOUJOURS en anglais, même une fois la langue traduite —
+// un texte anglais isolé au milieu d'une interface en japonais/thaï, par ex.
+// "Minimum 5 pieces" dans un panneau autrement en 日本語. On les traduit
+// désormais aussi : on appelle la fonction EN avec des jetons {0}/{1}/{2} en
+// guise d'arguments pour obtenir un GABARIT (« Minimum {0} pieces »), on
+// traduit ce gabarit comme un texte normal (le prompt de traduction est
+// instruit de préserver ces jetons tels quels), puis on reconstruit une
+// fonction qui substitue les vrais arguments dans le gabarit traduit. Le
+// pluriel anglais ("piece" vs "pieces") ne s'applique pas partout ailleurs
+// (le chinois/japonais/coréen/thaï n'inflige pas les noms) — le gabarit fige
+// donc une forme neutre plutôt que d'essayer de reproduire une règle de
+// pluriel qui n'a pas de sens dans la langue cible.
+const UI_PLACEHOLDER = (i) => `{${i}}`;
 async function ensureUiLang(lang) {
   if (lang === 'fr' || lang === 'en' || TRANSLATIONS[lang]) return;
   if (!CONTENT_TRANSLATE_LANGS.includes(lang)) return;
   const en = TRANSLATIONS.en;
   const strKeys = Object.keys(en).filter(k => typeof en[k] === 'string');
+  const fnKeys = Object.keys(en).filter(k => typeof en[k] === 'function');
+  const fnTemplates = fnKeys.map(k => {
+    try { return String(en[k](UI_PLACEHOLDER(0), UI_PLACEHOLDER(1), UI_PLACEHOLDER(2))); }
+    catch(e) { return null; } // fonction incompatible avec des jetons texte (aucune ici en pratique) → repli EN
+  });
+  const makeFn = (template) => (...args) => {
+    let out = template;
+    args.forEach((a, i) => { out = out.split(UI_PLACEHOLDER(i)).join(a ?? ''); });
+    return out;
+  };
   const buildDict = (map) => {
     const dict = {};
     strKeys.forEach(k => { dict[k] = map[k] || en[k]; });
-    Object.keys(en).forEach(k => { if (typeof en[k] === 'function') dict[k] = en[k]; }); // pluriels : version EN
+    fnKeys.forEach((k, i) => { dict[k] = map[k] ? makeFn(map[k]) : en[k]; });
     return dict;
   };
   try {
@@ -1208,11 +1234,21 @@ async function ensureUiLang(lang) {
     if (cached && typeof cached === 'object') { TRANSLATIONS[lang] = buildDict(cached); return; }
   } catch(e) {}
   try {
-    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: strKeys.map(k => en[k]), lang }) });
+    const texts = [...strKeys.map(k => en[k]), ...fnTemplates];
+    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang }) });
     const d = await r.json();
     if (d && Array.isArray(d.translations)) {
       const store = {};
       strKeys.forEach((k, i) => { store[k] = d.translations[i] || en[k]; });
+      fnKeys.forEach((k, i) => {
+        const translated = d.translations[strKeys.length + i];
+        const template = fnTemplates[i];
+        // Filet de sécurité : si la traduction a perdu un jeton {n} présent
+        // dans le gabarit (mauvaise reformulation par le modèle), on retombe
+        // sur le gabarit anglais plutôt que d'afficher un texte tronqué/faux.
+        store[k] = (translated && template && [0,1,2].every(i => !template.includes(UI_PLACEHOLDER(i)) || translated.includes(UI_PLACEHOLDER(i))))
+          ? translated : template;
+      });
       TRANSLATIONS[lang] = buildDict(store);
       try { localStorage.setItem('ui_i18n_' + lang, JSON.stringify(store)); } catch(e) {}
     }
@@ -1542,6 +1578,7 @@ function applyLang() {
       </select>
     </div>
     <div id="pending-selections"></div>
+    <div id="my-appointments"></div>
     <div id="orders-list" class="loader">Chargement…</div>
   </div>
 
@@ -2566,6 +2603,7 @@ function pushNav(state) {
 window.addEventListener('popstate', async (e) => {
   window._navRestoring = true;
   const s = e.state || { v: 'catalog', brand: null };
+  if (document.getElementById('img-modal')?.classList.contains('open')) closeCarousel();
   closeProductDrawer(true);
   if (s.v && s.v !== 'catalog') {
     showView(s.v, true);
@@ -3259,14 +3297,20 @@ function renderProductsPage() {
   }
 }
 
-function changeQty(productId, size, delta) {
+function changeQty(productId, size, delta, variantColor) {
   const p = currentProducts.find(x => x.id === productId);
   const key = currentBrand.id + '|' + productId + '|' + size;
   if (!p && !cart[key]) return; // référence introuvable (liste rafraîchie entre-temps) et rien à retirer : rien à faire
   if (!cart[key]) {
     let pImgs = []; try { pImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     if (!pImgs.length && p.image_url) pImgs = [p.image_url];
-    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: p.color, size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: pImgs[0] || '' };
+    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: (variantColor !== undefined ? variantColor : p.color) || '', size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: pImgs[0] || '' };
+  } else if (variantColor !== undefined) {
+    // Appelé depuis le tiroir produit (puce de coloris active) : le coloris de
+    // la ligne suit le dernier coloris regardé au moment d'ajuster la quantité
+    // — une référence garde une seule ligne par taille, mais celle-ci reflète
+    // désormais fidèlement ce que l'acheteur a réellement choisi.
+    cart[key].color = variantColor || p?.color || '';
   }
   const wasZero = cart[key].qty === 0;
   cart[key].qty = Math.max(0, cart[key].qty + delta);
@@ -3504,7 +3548,7 @@ async function submitCheckout() {
   btnConfirm.disabled = true;
   const origBtnText = btnConfirm.textContent;
   btnConfirm.textContent = t('sending');
-  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '' }));
+  const lines = Object.values(cart).map(l => ({ brand_id: l.brand_id, product_id: l.product_id, size: l.size, quantity: l.qty, note: l.note || '', variant_color: l.color || '' }));
   let buyer_signature;
   if (sigMode === 'type') {
     // Signature tapée : rendue en police manuscrite sur un canvas temporaire,
@@ -3718,6 +3762,7 @@ async function loadPendingSelections() {
 
 async function loadOrders() {
   loadPendingSelections();
+  loadMyAppointments();
   const list = document.getElementById('orders-list');
   list.innerHTML = `<p class="msg" style="color:var(--muted)">${t('orders_loading_msg')}</p>`;
   let data;
@@ -3726,6 +3771,32 @@ async function loadOrders() {
   if (!data.length) { list.innerHTML = `<div style="text-align:center;padding:48px 20px"><div style="font-size:40px;margin-bottom:16px;opacity:.4">📋</div><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:20px">${t('orders_empty')}</p><button onclick="showView('catalog')" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('orders_browse')}</button></div>`; return; }
   ordersData = data;
   applySortOrders();
+}
+
+async function loadMyAppointments() {
+  const wrap = document.getElementById('my-appointments');
+  let data;
+  try { data = await fetch('/api/portal/appointments').then(r => r.json()); }
+  catch(e) { return; } // section discrète — une erreur réseau ici n'empêche pas de voir ses commandes
+  if (!Array.isArray(data) || !data.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <h3 style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;font-weight:600;color:var(--white);letter-spacing:.04em;text-transform:uppercase;margin-bottom:12px">${t('my_appts_title')}</h3>
+    <div style="margin-bottom:28px">${data.map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border:1px solid var(--border);border-radius:0;margin-bottom:8px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px">
+        <div>
+          <strong style="color:var(--white)">${esc(a.brand_name)}</strong>
+          <span style="color:var(--soft)"> — ${esc(a.slot_date)} ${esc(a.slot_time)}</span>
+          ${a.video_link ? `<br><a href="${esc(a.video_link)}" target="_blank" rel="noopener" style="color:var(--accent)">${t('my_appts_video')} →</a>` : ''}
+        </div>
+        <button class="btn-secondary" style="font-size:12px;padding:6px 14px;white-space:nowrap" onclick="cancelMyAppointment('${a.id}')">${t('my_appts_cancel')}</button>
+      </div>`).join('')}</div>`;
+}
+
+async function cancelMyAppointment(id) {
+  if (!confirm(t('my_appts_cancel_confirm'))) return;
+  const r = await fetch('/api/portal/appointments/' + id, { method: 'DELETE' });
+  if (r.ok) { showPortalToast(t('my_appts_cancelled')); loadMyAppointments(); }
+  else { const e = await r.json().catch(()=>({})); showPortalToast(e?.error || t('err_generic'), true); }
 }
 
 async function toggleOrderLines(orderId) {
@@ -3927,7 +3998,7 @@ async function reorderOrder(orderId) {
   lines.forEach(l => {
     const key = brandId + '|' + l.product_id + '|' + (l.size || '');
     if (!cart[key]) {
-      cart[key] = { brand_id: brandId, brand_name: brandName, product_id: l.product_id, reference: l.reference, description: '', color: l.product_color || '', size: l.size || '', qty: 0, price: l.unit_price, image_url: '' };
+      cart[key] = { brand_id: brandId, brand_name: brandName, product_id: l.product_id, reference: l.reference, description: '', color: l.variant_color || l.product_color || '', size: l.size || '', qty: 0, price: l.unit_price, image_url: '' };
     }
     cart[key].qty += l.quantity;
     added++;
@@ -4504,6 +4575,11 @@ let drawerProduct = null;
 let drawerImgs = [];
 let drawerImgIdx = 0;
 let drawerVariants = [];
+// Coloris actuellement affiché dans le tiroir (puce active) — capturé sur la
+// ligne de commande au moment où l'acheteur ajuste une quantité depuis CE
+// tiroir, pour que la commande reflète le coloris qu'il regardait réellement
+// (voir changeQty). null si le produit n'a pas de variantes de couleur.
+let drawerActiveColor = null;
 
 function openProductDrawer(productId, _fromPop) {
   const p = currentProducts.find(x => x.id === productId);
@@ -4517,13 +4593,16 @@ function openProductDrawer(productId, _fromPop) {
   try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
   if (!imgs.length && p.image_url) imgs = [p.image_url];
 
-  // Variantes de couleur (référence unique, plusieurs coloris/photos) : purement
-  // visuel côté acheteur — change la galerie affichée, n'affecte pas le panier
-  // (une seule ligne de commande par taille pour cette référence, comme avant).
+  // Variantes de couleur (référence unique, plusieurs coloris/photos) : change
+  // la galerie affichée ET le coloris capturé sur la ligne de commande pour
+  // cette taille (drawerActiveColor, voir changeQty) — toujours une seule
+  // ligne par taille pour cette référence, mais elle porte désormais le
+  // coloris réellement regardé par l'acheteur au moment de la commande.
   let variants = [];
   try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
   variants = variants.filter(v => v && (v.color || (Array.isArray(v.images) && v.images.length)));
   drawerVariants = variants;
+  drawerActiveColor = variants.length ? (variants[0].color || null) : null;
 
   const firstVariantImgs = variants.length && Array.isArray(variants[0].images) ? variants[0].images : [];
   drawerImgs = firstVariantImgs.length ? firstVariantImgs : imgs;
@@ -4590,17 +4669,17 @@ function openProductDrawer(productId, _fromPop) {
       const q = cart[k]?.qty || 0;
       return `<div class="drawer-qty-row">
         <span class="drawer-size-label">${esc(sz)}</span>
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1);drawerRefreshQty()">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1,drawerActiveColor);drawerRefreshQty()">−</button>
         <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1);drawerRefreshQty()">+</button>
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1,drawerActiveColor);drawerRefreshQty()">+</button>
       </div>`;
     }).join('') : (() => {
       const k = currentBrand.id + '|' + p.id + '|';
       const q = cart[k]?.qty || 0;
       return `<div class="drawer-qty-row">
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1);drawerRefreshQty()">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1,drawerActiveColor);drawerRefreshQty()">−</button>
         <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1);drawerRefreshQty()">+</button>
+        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1,drawerActiveColor);drawerRefreshQty()">+</button>
       </div>`;
     })();
   document.getElementById('drawer-qty-rows').innerHTML = rows;
@@ -4612,8 +4691,9 @@ function openProductDrawer(productId, _fromPop) {
 }
 
 // Puce par coloris — clique pour changer les photos affichées (galerie +
-// vignettes) sans toucher au panier : une référence garde une seule ligne de
-// commande par taille, quel que soit le coloris consulté.
+// vignettes) et le coloris actif (drawerActiveColor, capturé sur la ligne de
+// commande à la prochaine quantité ajustée) : une référence garde une seule
+// ligne de commande par taille, mais celle-ci porte le dernier coloris regardé.
 function renderDrawerColorVariants(variants, fallbackImgs, activeIdx) {
   const wrap = document.getElementById('drawer-color-variants');
   if (!variants.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
@@ -4626,6 +4706,7 @@ function renderDrawerColorVariants(variants, fallbackImgs, activeIdx) {
 function selectDrawerVariant(vi) {
   const v = drawerVariants[vi];
   if (!v) return;
+  drawerActiveColor = v.color || null;
   const wrap = document.getElementById('drawer-color-variants');
   let fallbackImgs = [];
   try { fallbackImgs = JSON.parse(wrap.dataset.fallbackImgs || '[]'); } catch(e) {}
