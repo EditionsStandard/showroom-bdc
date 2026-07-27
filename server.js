@@ -6570,7 +6570,7 @@ async function claudeTranslate(texts, langName) {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 8000,
       messages: [{ role: 'user', content:
-        `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
+        `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Some strings contain placeholder tokens like {0}, {1}, {2} or HTML tags like <strong> — preserve these EXACTLY as they appear (same token/tag text, may be reordered to fit natural word order in the target language, but never translated, altered, or dropped). Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
     }),
     signal: AbortSignal.timeout(30000)
   });

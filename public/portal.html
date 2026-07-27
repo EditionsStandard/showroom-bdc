@@ -1194,15 +1194,39 @@ function t(key, ...args) {
 }
 // Charge (une fois) le dictionnaire d'interface pour une langue non native, en
 // traduisant les libellés anglais via Claude puis en cachant dans localStorage.
+// Les clés "fonction" (pluriels/compteurs : moq_pieces, stock_low, reorder_added…)
+// restaient auparavant TOUJOURS en anglais, même une fois la langue traduite —
+// un texte anglais isolé au milieu d'une interface en japonais/thaï, par ex.
+// "Minimum 5 pieces" dans un panneau autrement en 日本語. On les traduit
+// désormais aussi : on appelle la fonction EN avec des jetons {0}/{1}/{2} en
+// guise d'arguments pour obtenir un GABARIT (« Minimum {0} pieces »), on
+// traduit ce gabarit comme un texte normal (le prompt de traduction est
+// instruit de préserver ces jetons tels quels), puis on reconstruit une
+// fonction qui substitue les vrais arguments dans le gabarit traduit. Le
+// pluriel anglais ("piece" vs "pieces") ne s'applique pas partout ailleurs
+// (le chinois/japonais/coréen/thaï n'inflige pas les noms) — le gabarit fige
+// donc une forme neutre plutôt que d'essayer de reproduire une règle de
+// pluriel qui n'a pas de sens dans la langue cible.
+const UI_PLACEHOLDER = (i) => `{${i}}`;
 async function ensureUiLang(lang) {
   if (lang === 'fr' || lang === 'en' || TRANSLATIONS[lang]) return;
   if (!CONTENT_TRANSLATE_LANGS.includes(lang)) return;
   const en = TRANSLATIONS.en;
   const strKeys = Object.keys(en).filter(k => typeof en[k] === 'string');
+  const fnKeys = Object.keys(en).filter(k => typeof en[k] === 'function');
+  const fnTemplates = fnKeys.map(k => {
+    try { return String(en[k](UI_PLACEHOLDER(0), UI_PLACEHOLDER(1), UI_PLACEHOLDER(2))); }
+    catch(e) { return null; } // fonction incompatible avec des jetons texte (aucune ici en pratique) → repli EN
+  });
+  const makeFn = (template) => (...args) => {
+    let out = template;
+    args.forEach((a, i) => { out = out.split(UI_PLACEHOLDER(i)).join(a ?? ''); });
+    return out;
+  };
   const buildDict = (map) => {
     const dict = {};
     strKeys.forEach(k => { dict[k] = map[k] || en[k]; });
-    Object.keys(en).forEach(k => { if (typeof en[k] === 'function') dict[k] = en[k]; }); // pluriels : version EN
+    fnKeys.forEach((k, i) => { dict[k] = map[k] ? makeFn(map[k]) : en[k]; });
     return dict;
   };
   try {
@@ -1210,11 +1234,21 @@ async function ensureUiLang(lang) {
     if (cached && typeof cached === 'object') { TRANSLATIONS[lang] = buildDict(cached); return; }
   } catch(e) {}
   try {
-    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: strKeys.map(k => en[k]), lang }) });
+    const texts = [...strKeys.map(k => en[k]), ...fnTemplates];
+    const r = await fetch('/api/portal/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang }) });
     const d = await r.json();
     if (d && Array.isArray(d.translations)) {
       const store = {};
       strKeys.forEach((k, i) => { store[k] = d.translations[i] || en[k]; });
+      fnKeys.forEach((k, i) => {
+        const translated = d.translations[strKeys.length + i];
+        const template = fnTemplates[i];
+        // Filet de sécurité : si la traduction a perdu un jeton {n} présent
+        // dans le gabarit (mauvaise reformulation par le modèle), on retombe
+        // sur le gabarit anglais plutôt que d'afficher un texte tronqué/faux.
+        store[k] = (translated && template && [0,1,2].every(i => !template.includes(UI_PLACEHOLDER(i)) || translated.includes(UI_PLACEHOLDER(i))))
+          ? translated : template;
+      });
       TRANSLATIONS[lang] = buildDict(store);
       try { localStorage.setItem('ui_i18n_' + lang, JSON.stringify(store)); } catch(e) {}
     }
