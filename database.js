@@ -392,7 +392,14 @@ async function init() {
     // buyer_brand_terms (déjà la table des surcharges par couple acheteur×marque)
     // plutôt que dans une nouvelle table.
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS early_access_until TIMESTAMPTZ DEFAULT NULL",
-    "ALTER TABLE buyer_brand_terms ADD COLUMN IF NOT EXISTS is_privileged BOOLEAN DEFAULT false",
+    // is_privileged sur buyer_brand_terms : voir la définition de la table plus
+    // bas (CREATE TABLE IF NOT EXISTS buyer_brand_terms) — la colonne y est
+    // désormais déclarée directement, plutôt que par un ALTER ici qui échouait
+    // silencieusement (table pas encore créée) sur toute toute première
+    // installation, laissant la colonne durablement absente jusqu'à un
+    // redémarrage ultérieur du serveur (les migrations tournent dans le même
+    // ordre à chaque démarrage : le CREATE TABLE plus bas n'incluait pas la
+    // colonne, donc rien ne la rattrapait avant un 2e passage).
     // Fond personnalisé de la page de création de compte (/rejoindre/:token) —
     // par marque, pour que chaque démarche d'invitation ait son ambiance propre.
     // À défaut, la page retombe sur le fond global (settings.login_bg_url).
@@ -461,8 +468,14 @@ async function init() {
       return_terms TEXT DEFAULT '',
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       updated_by TEXT DEFAULT '',
+      is_privileged BOOLEAN DEFAULT false,
       PRIMARY KEY (buyer_id, brand_id)
     )`,
+    // Filet de sécurité pour les bases où la table existait déjà avant ce fix
+    // (colonne déjà rattrapée par un redémarrage précédent — no-op) et pour
+    // toute base qui, par un ordre de migration différent, créerait la table
+    // sans cette colonne.
+    "ALTER TABLE buyer_brand_terms ADD COLUMN IF NOT EXISTS is_privileged BOOLEAN DEFAULT false",
     // Anti-rejeu TOTP : mémorise le pas de temps (30s) du dernier code MFA
     // accepté, pour refuser la réutilisation d'un même code intercepté.
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mfa_last_step BIGINT DEFAULT 0",
@@ -479,10 +492,13 @@ async function init() {
     // Sujet optionnel (façon email) : repris dans la notification à l'agence pour
     // trier les messages d'un coup d'œil sans ouvrir chaque conversation.
     "ALTER TABLE buyer_messages ADD COLUMN IF NOT EXISTS subject TEXT DEFAULT ''",
-    // Détail structuré (JSON) des événements de commande — utilisé pour l'instant
-    // par 'lines_edited' : liste des lignes modifiées avec quantité avant/après,
-    // pour afficher un vrai historique des quantités plutôt qu'une note générique.
-    "ALTER TABLE order_events ADD COLUMN IF NOT EXISTS detail TEXT DEFAULT ''",
+    // order_events.detail (JSON optionnel, ex. 'lines_edited' : quantité avant/
+    // après par ligne) : déclarée directement dans le CREATE TABLE order_events
+    // plus bas plutôt que par un ALTER ici (même raison que
+    // buyer_brand_terms.is_privileged ci-dessus : à cet endroit de
+    // l'initialisation la table n'existe pas encore sur une toute première
+    // installation, l'ALTER échouait donc silencieusement à chaque démarrage
+    // et la colonne restait manquante en permanence).
     // Surcharges de texte des emails sortants (invitation, relance, accès direct) —
     // une ligne par (template, langue) ; absence de ligne = texte par défaut du code.
     `CREATE TABLE IF NOT EXISTS email_templates (
@@ -579,7 +595,8 @@ async function init() {
       event_type TEXT NOT NULL,
       note TEXT,
       created_by TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      detail TEXT DEFAULT ''
     )
   `).catch(() => {});
 
