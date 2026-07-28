@@ -3113,7 +3113,7 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
 // (une séance photo complète dépasse rarement 80 références à la fois).
 app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, upload.array('photos', 80), async (req, res) => {
   const { brandId } = req.params;
-  const prods = await pool.query('SELECT id, reference, color, images FROM products WHERE brand_id=$1', [brandId]);
+  const prods = await pool.query('SELECT id, reference, color, description, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
 
   // View ordering: front first, back second, others after
@@ -3150,6 +3150,31 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
       const byColor = matches.find(p => p.color && colorHint.includes(p.color.toLowerCase()));
       product = byColor || matches[0];
       break;
+    }
+
+    // Repli : aucune référence (code SKU) ne correspond — cas réel d'un
+    // photographe qui nomme ses fichiers par le NOM du produit plutôt que sa
+    // référence interne (ex. "777 Cut Jeans_Faded Indigo_01.jpg"). On cherche
+    // alors par nom (description), mais UNIQUEMENT si un seul produit
+    // correspond sans ambiguïté (au besoin désambiguïsé par le coloris, comme
+    // ci-dessus) : mieux vaut renvoyer "introuvable" que risquer d'assigner la
+    // photo au mauvais produit. Un préfixe plus court n'aiderait jamais à
+    // lever une ambiguïté (il ne fait qu'élargir les correspondances) — on
+    // s'arrête donc dès qu'un niveau de préfixe trouve au moins un candidat.
+    if (!product) {
+      for (let len = parts.length; len >= 1; len--) {
+        const nameHint = parts.slice(0, len).join(' ').trim().toLowerCase();
+        if (nameHint.length < 4) continue; // hint trop court = trop de faux positifs possibles
+        const nameMatches = prods.rows.filter(p => p.description && p.description.toLowerCase().includes(nameHint));
+        if (!nameMatches.length) continue;
+        const hintColor = parts.slice(len).join('_').trim().toLowerCase();
+        if (nameMatches.length === 1) { product = nameMatches[0]; colorHint = hintColor; }
+        else {
+          const byColor = nameMatches.find(p => p.color && hintColor.includes(p.color.toLowerCase()));
+          if (byColor) { product = byColor; colorHint = hintColor; }
+        }
+        break;
+      }
     }
 
     if (!product) {
