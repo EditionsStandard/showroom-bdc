@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
@@ -232,6 +233,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
 
 const app = express();
+// Compresse toutes les réponses (HTML/JS/CSS/JSON) en gzip — admin.html et
+// portal.html dépassent 300-500 Ko non compressés, servis en clair jusqu'ici.
+app.use(compression());
 // CSP : l'app utilise des scripts/handlers/styles inline → script-src/style-src
 // gardent 'unsafe-inline' (et script-src-attr pour les onclick). Mais on verrouille
 // le reste : connect-src 'self' (anti-exfiltration), object-src 'none',
@@ -5364,17 +5368,25 @@ app.get('/api/portal/my-orders', requireBuyerAuth, async (req, res) => {
       ORDER BY o.created_at DESC
     `, [buyerId]);
 
-    const orders = await Promise.all(ordersRes.rows.map(async o => {
+    // Une seule requête groupée pour les lignes de toutes les commandes, au lieu
+    // d'un aller-retour DB par commande (l'historique acheteur peut vite en compter des dizaines).
+    const orderIds = ordersRes.rows.map(o => o.id);
+    const linesByOrder = new Map();
+    if (orderIds.length) {
       const linesRes = await pool.query(`
-        SELECT ol.size, ol.quantity, ol.unit_price, ol.price_retail,
+        SELECT ol.order_id, ol.size, ol.quantity, ol.unit_price, ol.price_retail,
                p.reference, p.color, p.description
         FROM order_lines ol
         JOIN products p ON ol.product_id = p.id
-        WHERE ol.order_id = $1
+        WHERE ol.order_id = ANY($1)
         ORDER BY p.reference
-      `, [o.id]);
-      return { ...o, lines: linesRes.rows };
-    }));
+      `, [orderIds]);
+      for (const { order_id, ...line } of linesRes.rows) {
+        if (!linesByOrder.has(order_id)) linesByOrder.set(order_id, []);
+        linesByOrder.get(order_id).push(line);
+      }
+    }
+    const orders = ordersRes.rows.map(o => ({ ...o, lines: linesByOrder.get(o.id) || [] }));
 
     res.json(orders);
   } catch(e) { console.error('my-orders:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -5539,11 +5551,15 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
     const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url, featured FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
-    // Track views for all products in this brand page load
-    for (const prod of p.rows) {
+    // Track views for all products in this brand page load — une seule requête
+    // groupée (unnest) au lieu d'une par produit, pour ne pas envoyer 50-200
+    // INSERT simultanés au pool à chaque chargement de catalogue.
+    if (p.rows.length) {
       pool.query(
-        'INSERT INTO product_stats (product_id, views) VALUES ($1, 1) ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()',
-        [prod.id]
+        `INSERT INTO product_stats (product_id, views)
+         SELECT id, 1 FROM unnest($1::text[]) AS id
+         ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()`,
+        [p.rows.map(prod => prod.id)]
       ).catch(e => console.error('[product-stats-error]', e.message));
     }
     // Best-sellers : top 3 produits de la marque par quantité réellement commandée
