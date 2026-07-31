@@ -8,9 +8,11 @@
   },
   "scripts": {
     "start": "node server.js",
-    "install-deps": "npm install"
+    "install-deps": "npm install",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@sentry/node": "^10.69.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",

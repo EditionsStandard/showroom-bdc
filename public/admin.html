@@ -636,7 +636,7 @@
 
 <div class="sidebar">
   <div class="sidebar-logo">
-    <img src="/logo.svg" style="width:64px;height:64px;border-radius:0;display:block">
+    <img src="/logo.svg" alt="Editions Standard" style="width:64px;height:64px;border-radius:0;display:block">
   </div>
   <nav>
     <a class="active" data-section="dashboard"><span class="icon">🏠</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> <span data-t="nav_dashboard">Tableau de bord</span></a>
@@ -3384,7 +3384,7 @@ function renderCalendar(appointments) {
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = today.getFullYear() === _calYear && today.getMonth() === _calMonth && today.getDate() === d;
     const hasAppts = !!apptDays[d];
-    html += `<div onclick="showCalDay(${d})" style="min-height:44px;padding:4px;border-radius: 0;cursor:pointer;border:1px solid ${isToday ? '#CCEB3C' : '#252525'};background:${isToday ? '#1e2a0a' : '#111'};display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='${isToday ? '#1e2a0a' : '#111'}'">
+    html += `<div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="showCalDay(${d})" style="min-height:44px;padding:4px;border-radius: 0;cursor:pointer;border:1px solid ${isToday ? '#CCEB3C' : '#252525'};background:${isToday ? '#1e2a0a' : '#111'};display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='${isToday ? '#1e2a0a' : '#111'}'">
       <span style="font-size:12px;font-weight:${isToday ? '700' : '400'};color:${isToday ? '#CCEB3C' : '#ccc'}">${d}</span>
       ${hasAppts ? `<span style="width:6px;height:6px;border-radius:50%;background:#CCEB3C;display:block"></span>` : ''}
     </div>`;
@@ -3953,21 +3953,21 @@ function globalSearch(q) {
     let html = '';
     if (orders.length) {
       html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Commandes</div>`;
-      html += orders.map(o => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>viewOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+      html += orders.map(o => `<div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('orders');setTimeout(()=>viewOrder('${o.id}'),300)" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
         <span style="font-size:18px">📋</span>
         <div><div style="font-size:13px;color:#eee"><strong>${esc(o.order_number||o.id.slice(0,8).toUpperCase())}</strong> — ${esc(o.client_name||'')} <span style="color:#555">${esc(o.brand_name||'')}</span></div><div style="font-size:11px;color:#666">${esc(o.client_email||'')} · <span class="badge badge-${o.status}">${o.status}</span></div></div>
       </div>`).join('');
     }
     if (buyers.length) {
       html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Acheteurs</div>`;
-      html += buyers.map(b => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('buyers')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+      html += buyers.map(b => `<div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('buyers')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
         <span style="font-size:18px">👤</span>
         <div><div style="font-size:13px;color:#eee">${esc(b.name||b.email)}</div><div style="font-size:11px;color:#666">${esc(b.company||'')} · ${esc(b.email)}</div></div>
       </div>`).join('');
     }
     if (selections.length) {
       html += `<div style="padding:8px 12px;font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Sélections</div>`;
-      html += selections.map(s => `<div onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('selections')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
+      html += selections.map(s => `<div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="document.getElementById('global-search-input').value='';document.getElementById('global-search-dropdown').style.display='none';showSection('selections')" style="padding:9px 14px;cursor:pointer;border-top:1px solid #1a1a1a;display:flex;gap:10px;align-items:center" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background=''">
         <span style="font-size:18px">📂</span>
         <div><div style="font-size:13px;color:#eee"><strong>${esc(s.selection_number||'')}</strong> — ${esc(s.client_name||'')}</div><div style="font-size:11px;color:#666">${esc(s.client_email||'')}</div></div>
       </div>`).join('');
@@ -5522,7 +5522,7 @@ function renderAgentSelProducts() {
     let imgs = []; try { imgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const src = imgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
     const thumb = src
-      ? `<img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" loading="lazy" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius: 0;background:#fff;cursor:zoom-in">`
+      ? `<img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" alt="${esc(p.reference)}" loading="lazy" onclick="window.open('${src}','_blank')" title="Agrandir" style="width:48px;height:62px;object-fit:cover;border-radius: 0;background:#fff;cursor:zoom-in">`
       : `<div style="width:48px;height:62px;background:#222;border-radius: 0;display:flex;align-items:center;justify-content:center;color:#555;font-size:18px">🏷️</div>`;
     return `<tr><td>${thumb}</td><td><strong>${esc(p.reference)}</strong></td><td style="font-size:12px;color:#aaa">${esc(p.description||'')}</td><td style="white-space:nowrap">${Number(p.price).toFixed(2)} €</td><td>${qtyCell}</td></tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:#555;padding:20px">Aucun produit</td></tr>`;
@@ -5555,7 +5555,7 @@ function onSamplePhoto(input) {
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
       _samplePhotoData = c.toDataURL('image/jpeg', 0.82);
-      document.getElementById('sample-photo-preview').innerHTML = `<img src="${_samplePhotoData}" style="width:70px;height:90px;object-fit:cover;border-radius:0;background:#fff">`;
+      document.getElementById('sample-photo-preview').innerHTML = `<img src="${_samplePhotoData}" alt="Aperçu de la photo importée" style="width:70px;height:90px;object-fit:cover;border-radius:0;background:#fff">`;
     };
     img.onerror = () => { _samplePhotoData = ''; };
     img.src = e.target.result;
@@ -5727,7 +5727,7 @@ function renderProductsTable(products) {
     let _thumbImgs = [];
     try { _thumbImgs = JSON.parse(p.images || '[]'); } catch(e) {}
     const _thumbSrc = _thumbImgs[0] || (p.image_url && /^(https?:|data:)/.test(p.image_url) ? p.image_url : '');
-    const imgThumb = _thumbSrc ? `<img src="${cldTransform(_thumbSrc, 'w_100,c_limit,q_auto,f_auto')}" loading="lazy" onclick="openImgLightbox('${cldTransform(_thumbSrc, 'w_1000,c_limit,q_auto,f_auto').replace(/'/g,"\\'")}')" title="Agrandir" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle;cursor:zoom-in">` : '—';
+    const imgThumb = _thumbSrc ? `<img src="${cldTransform(_thumbSrc, 'w_100,c_limit,q_auto,f_auto')}" alt="${esc(p.reference)}" loading="lazy" onclick="openImgLightbox('${cldTransform(_thumbSrc, 'w_1000,c_limit,q_auto,f_auto').replace(/'/g,"\\'")}')" title="Agrandir" style="height:36px;border-radius: 0;object-fit:cover;vertical-align:middle;cursor:zoom-in">` : '—';
     const pJson = null; // unused — editProduct uses productsCache
     const inactive = p.active === 0;
     return `<tr class="product-row" data-id="${p.id}" style="${inactive ? 'opacity:0.45' : ''}">
@@ -5868,7 +5868,7 @@ function detectDuplicateProducts() {
         <div style="display:flex;flex-wrap:wrap;gap:8px">
           ${g.map(p => `
             <span onclick="editProductById('${p.id}')" style="cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--dark);border-radius: 0;padding:4px 10px;font-size:12px;color:var(--accent);border:1px solid #333">
-              ${p.image_url ? `<img src="${esc(p.image_url)}" style="width:20px;height:20px;object-fit:cover">` : ''}
+              ${p.image_url ? `<img src="${esc(p.image_url)}" alt="" style="width:20px;height:20px;object-fit:cover">` : ''}
               ${esc(p.reference || p.id)}
             </span>`).join('')}
         </div>
@@ -6138,8 +6138,8 @@ function renderVariantsList() {
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${v.images.map((src, j) => `
           <div style="position:relative">
-            <img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" loading="lazy" style="height:60px;width:60px;object-fit:cover;border-radius: 0;border:1px solid #333">
-            <button onclick="removeVariantImage(${i},${j})" style="position:absolute;top:-5px;right:-5px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0">✕</button>
+            <img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" alt="Photo ${j + 1} du coloris ${esc(v.color || '')}" loading="lazy" style="height:60px;width:60px;object-fit:cover;border-radius: 0;border:1px solid #333">
+            <button onclick="removeVariantImage(${i},${j})" aria-label="Supprimer cette photo" style="position:absolute;top:-5px;right:-5px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0">✕</button>
           </div>`).join('')}
         ${!v.images.length ? '<span style="color:#444;font-size:11px">Aucune photo</span>' : ''}
       </div>
@@ -6182,9 +6182,9 @@ function renderImagesGrid() {
   const grid = document.getElementById('p-images-grid');
   grid.innerHTML = currentImages.map((src, i) => `
     <div style="position:relative;display:inline-block">
-      <img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" loading="lazy" style="height:72px;width:72px;object-fit:cover;border-radius: 0;border:1px solid #333">
+      <img src="${cldTransform(src, 'w_150,c_limit,q_auto,f_auto')}" alt="Photo produit ${i + 1}" loading="lazy" style="height:72px;width:72px;object-fit:cover;border-radius: 0;border:1px solid #333">
       ${i === 0 ? '<span style="position:absolute;bottom:2px;left:2px;background:#CCEB3C;color:#111;font-size:9px;padding:1px 4px;border-radius: 0;font-weight:600">1ère</span>' : ''}
-      <button onclick="removeImage(${i})" style="position:absolute;top:-6px;right:-6px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;padding:0">✕</button>
+      <button onclick="removeImage(${i})" aria-label="Supprimer cette photo" style="position:absolute;top:-6px;right:-6px;background:#c0392b;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;padding:0">✕</button>
     </div>
   `).join('');
   if (!currentImages.length) grid.innerHTML = '<span style="color:#555;font-size:12px">Aucune photo ajoutée</span>';
@@ -8533,7 +8533,7 @@ function renderBpMsgAttachPreview() {
   const a = _bpMsgPendingAttachment;
   const isImg = (a.type || '').startsWith('image/');
   preview.style.display = 'flex';
-  preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}" style="width:32px;height:32px;object-fit:cover;flex-shrink:0">` : '<span style="font-size:16px">📄</span>'}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(a.name)}</span><span style="cursor:pointer;color:#888" onclick="clearBpMsgAttachment()">✕</span>`;
+  preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}" alt="" style="width:32px;height:32px;object-fit:cover;flex-shrink:0">` : '<span style="font-size:16px">📄</span>'}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(a.name)}</span><span style="cursor:pointer;color:#888" onclick="clearBpMsgAttachment()" role="button" tabindex="0" aria-label="Retirer la pièce jointe" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clearBpMsgAttachment();}">✕</span>`;
 }
 function clearBpMsgAttachment() { _bpMsgPendingAttachment = null; renderBpMsgAttachPreview(); }
 

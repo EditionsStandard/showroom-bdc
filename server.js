@@ -1,3 +1,11 @@
+// Sentry doit être initialisé avant tout autre require pour instrumenter
+// correctement les modules chargés ensuite. No-op tant que SENTRY_DSN n'est
+// pas défini (pas de compte Sentry créé pour ce projet à ce jour) — à définir
+// dans les variables d'environnement Railway pour l'activer.
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1, environment: process.env.NODE_ENV || 'development' });
+}
 const express = require('express');
 const compression = require('compression');
 const helmet = require('helmet');
@@ -9824,6 +9832,11 @@ app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
+// Sentry doit être branché après toutes les routes mais avant le handler
+// d'erreur applicatif ci-dessous, pour capturer l'exception sans changer la
+// réponse renvoyée au client.
+if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
+
 // Gestionnaire d'erreur global Express — capture les exceptions des routes
 // (placé après toutes les routes) pour renvoyer une 500 propre au lieu de planter.
 app.use((err, req, res, next) => {
@@ -9846,9 +9859,11 @@ app.use((err, req, res, next) => {
 // ne doit PAS faire planter tout le serveur (sinon site down jusqu'au redémarrage).
 process.on('unhandledRejection', (reason) => {
   log.error('[unhandledRejection]', { reason: String(reason) });
+  if (process.env.SENTRY_DSN) Sentry.captureException(reason);
 });
 process.on('uncaughtException', (err) => {
   log.error('[uncaughtException]', { err: err.message, stack: err.stack });
+  if (process.env.SENTRY_DSN) Sentry.captureException(err);
 });
 
 // Start
