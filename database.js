@@ -1,9 +1,17 @@
 const { Pool } = require('pg');
 const crypto = require('crypto');
 
+// Le SSL n'est nécessaire que pour une DB distante (Railway l'exige) — le
+// forcer aussi en local/CI casse la connexion contre un Postgres de dev qui
+// ne l'accepte pas ("The server does not support SSL connections").
+function isLocalDbHost(connStr) {
+  try { return ['localhost', '127.0.0.1', '::1'].includes(new URL(connStr).hostname); }
+  catch (e) { return false; }
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  ssl: (process.env.DATABASE_URL && !isLocalDbHost(process.env.DATABASE_URL)) ? { rejectUnauthorized: false } : false
 });
 
 // Sans ce handler, une erreur sur un client idle du pool (reset réseau, etc.)
