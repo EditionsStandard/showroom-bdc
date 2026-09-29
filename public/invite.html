@@ -300,7 +300,7 @@ async function submitForm() {
       body: JSON.stringify({ name, company, email, password })
     });
     const data = await r.json();
-    if (!r.ok) { showErr(data.error || t('err_server')); return; }
+    if (!r.ok) { if (data.request_url === '/demande-acces') { location.href = data.request_url; return; } showErr(data.error || t('err_server')); return; }
     document.getElementById('form-section').style.display = 'none';
     document.getElementById('success-section').style.display = 'block';
     setTimeout(() => location.href = '/portal', 3000);

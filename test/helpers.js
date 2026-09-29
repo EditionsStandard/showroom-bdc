@@ -39,7 +39,7 @@ async function waitForServer(baseUrl, timeoutMs = 20000) {
   throw new Error('Le serveur de test n\'a pas démarré à temps: ' + baseUrl);
 }
 
-async function startServer({ dbNameSuffix, port }) {
+async function startServer({ dbNameSuffix, port, env = {} }) {
   const dbName = 'showroom_test_' + dbNameSuffix;
   await ensureDb(dbName);
   const databaseUrl = dbUrlFor(dbName);
@@ -51,6 +51,7 @@ async function startServer({ dbNameSuffix, port }) {
       PORT: String(port),
       SESSION_SECRET: 'test-secret-not-for-production',
       ADMIN_PASSWORD: 'TestAdmin123!',
+      ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

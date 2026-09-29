@@ -42,10 +42,10 @@
     .intro { font-size: 9px; color: var(--muted); line-height: 1.9; margin-bottom: 38px; text-align: center;
       text-transform: uppercase; letter-spacing: .14em; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
-    .field { margin-bottom: 28px; }
+    .field { min-width:0; margin-bottom: 28px; }
     label { display: block; font-size: 8.5px; font-weight: 400; color: var(--muted); margin-bottom: 9px;
       text-transform: uppercase; letter-spacing: .26em; }
-    input, select, textarea { width: 100%; background: transparent; border: none;
+    input, select, textarea { min-width:0; width: 100%; background: transparent; border: none;
       border-bottom: 1px solid var(--line); border-radius: 0; padding: 6px 1px 9px; font-size: 13px;
       color: var(--ink); font-family: inherit; letter-spacing: .04em; outline: none; transition: border-color .25s; }
     input:focus, select:focus, textarea:focus { border-bottom-color: var(--ink); }
@@ -111,32 +111,30 @@
       Remplissez ce formulaire pour demander l'accès au showroom. Votre demande sera examinée et vous recevrez vos identifiants par email après validation.
     </div>
 
-    <div id="error-msg" class="error"></div>
-
-    <div class="row">
-      <div class="field">
-        <label id="t-label-name">Nom <span class="required">*</span></label>
-        <input id="f-name" type="text" autocomplete="family-name">
-      </div>
-      <div class="field">
-        <label id="t-label-firstname">Prénom <span class="required">*</span></label>
-        <input id="f-firstname" type="text" autocomplete="given-name">
-      </div>
-    </div>
+    <div id="error-msg" class="error" role="alert" tabindex="-1"></div>
+    <form id="access-form" novalidate>
 
     <div class="field">
+      <label id="t-label-name" for="f-name">Full name <span class="required">*</span></label>
+      <input id="f-name" type="text" autocomplete="name" required maxlength="200">
+    </div>
+    <div class="field">
       <label id="t-label-company">Boutique / Société <span class="required">*</span></label>
-      <input id="f-company" type="text" autocomplete="organization">
+      <input id="f-company" required type="text" autocomplete="organization">
     </div>
 
     <div class="field">
       <label id="t-label-email">Email professionnel <span class="required">*</span></label>
-      <input id="f-email" type="email" autocomplete="email">
+      <input id="f-email" required type="email" autocomplete="email">
     </div>
 
-    <button type="button" class="toggle-link" id="t-extra-toggle" onclick="toggleExtraFields()">+ Informations complémentaires (optionnel)</button>
+    <div class="row">
+      <div class="field"><label id="t-label-job_title" for="f-job_title"></label><input id="f-job_title" required maxlength="160" autocomplete="organization-title"></div>
+      <div class="field"><label id="t-label-business_type" for="f-business_type"></label><select id="f-business_type" required></select></div>
+    </div>
+    <div class="field"><label id="t-label-city" for="f-city"></label><input id="f-city" required maxlength="160" autocomplete="address-level2"></div>
 
-    <div id="extra-fields" style="display:none">
+    <div id="extra-fields">
       <div class="row">
         <div class="field">
           <label id="t-label-phone">Téléphone</label>
@@ -144,25 +142,11 @@
         </div>
         <div class="field">
           <label id="t-label-country">Pays</label>
-          <select id="f-country">
-            <option value="" id="t-country-choose">— Choisir —</option>
-            <option value="France" data-c="France">France</option>
-            <option value="Belgique" data-c="Belgium">Belgique</option>
-            <option value="Suisse" data-c="Switzerland">Suisse</option>
-            <option value="Luxembourg" data-c="Luxembourg">Luxembourg</option>
-            <option value="Allemagne" data-c="Germany">Allemagne</option>
-            <option value="Italie" data-c="Italy">Italie</option>
-            <option value="Espagne" data-c="Spain">Espagne</option>
-            <option value="Royaume-Uni" data-c="UnitedKingdom">Royaume-Uni</option>
-            <option value="États-Unis" data-c="UnitedStates">États-Unis</option>
-            <option value="Canada" data-c="Canada">Canada</option>
-            <option value="Japon" data-c="Japan">Japon</option>
-            <option value="Corée du Sud" data-c="SouthKorea">Corée du Sud</option>
-            <option value="Autre" data-c="Other" id="t-country-other">Autre</option>
-          </select>
+          <input id="f-country" required maxlength="100" autocomplete="country-name">
         </div>
       </div>
 
+      <p class="intro" id="t-presence-help"></p>
       <div class="row">
         <div class="field">
           <label id="t-label-instagram">Instagram</label>
@@ -182,7 +166,7 @@
 
     <div class="field" style="margin-top:4px">
       <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400">
-        <input id="f-privacy" type="checkbox" style="width:auto;margin-top:3px;flex-shrink:0">
+        <input id="f-privacy" required type="checkbox" style="width:auto;margin-top:3px;flex-shrink:0">
         <span id="t-consent-privacy">J'ai lu et j'accepte la <a href="/confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>. <span class="required">*</span></span>
       </label>
     </div>
@@ -193,8 +177,9 @@
       </label>
     </div>
 
-    <button class="btn" id="submit-btn" onclick="submitForm()">ENVOYER MA DEMANDE</button>
+    <button class="btn" id="submit-btn" type="submit">ENVOYER MA DEMANDE</button>
 
+    </form>
     <div class="login-link" id="t-login-link">Déjà un compte ? <a href="/editions-showroom-b2b-portail">Se connecter</a></div>
   </div>
 
@@ -216,6 +201,7 @@
   </div>
 </div>
 
+<script src="/access-validation.js"></script>
 <script>
 const TR = {
   fr: {
@@ -436,18 +422,32 @@ if (_urlLang && TR[_urlLang]) localStorage.setItem('portal_lang', _urlLang);
 
 function t(k) { return (TR[lang] || TR.fr)[k] || TR.fr[k] || k; }
 
-// Noms de pays traduits (clé stable = data-c ; la valeur soumise reste en français)
-const COUNTRIES = {
-  fr: { France:'France', Belgium:'Belgique', Switzerland:'Suisse', Luxembourg:'Luxembourg', Germany:'Allemagne', Italy:'Italie', Spain:'Espagne', UnitedKingdom:'Royaume-Uni', UnitedStates:'États-Unis', Canada:'Canada', Japan:'Japon', SouthKorea:'Corée du Sud', Other:'Autre' },
-  en: { France:'France', Belgium:'Belgium', Switzerland:'Switzerland', Luxembourg:'Luxembourg', Germany:'Germany', Italy:'Italy', Spain:'Spain', UnitedKingdom:'United Kingdom', UnitedStates:'United States', Canada:'Canada', Japan:'Japan', SouthKorea:'South Korea', Other:'Other' },
-  it: { France:'Francia', Belgium:'Belgio', Switzerland:'Svizzera', Luxembourg:'Lussemburgo', Germany:'Germania', Italy:'Italia', Spain:'Spagna', UnitedKingdom:'Regno Unito', UnitedStates:'Stati Uniti', Canada:'Canada', Japan:'Giappone', SouthKorea:'Corea del Sud', Other:'Altro' },
-  es: { France:'Francia', Belgium:'Bélgica', Switzerland:'Suiza', Luxembourg:'Luxemburgo', Germany:'Alemania', Italy:'Italia', Spain:'España', UnitedKingdom:'Reino Unido', UnitedStates:'Estados Unidos', Canada:'Canadá', Japan:'Japón', SouthKorea:'Corea del Sur', Other:'Otro' },
-  de: { France:'Frankreich', Belgium:'Belgien', Switzerland:'Schweiz', Luxembourg:'Luxemburg', Germany:'Deutschland', Italy:'Italien', Spain:'Spanien', UnitedKingdom:'Vereinigtes Königreich', UnitedStates:'Vereinigte Staaten', Canada:'Kanada', Japan:'Japan', SouthKorea:'Südkorea', Other:'Andere' },
-  zh: { France:'法国', Belgium:'比利时', Switzerland:'瑞士', Luxembourg:'卢森堡', Germany:'德国', Italy:'意大利', Spain:'西班牙', UnitedKingdom:'英国', UnitedStates:'美国', Canada:'加拿大', Japan:'日本', SouthKorea:'韩国', Other:'其他' },
-  ja: { France:'フランス', Belgium:'ベルギー', Switzerland:'スイス', Luxembourg:'ルクセンブルク', Germany:'ドイツ', Italy:'イタリア', Spain:'スペイン', UnitedKingdom:'イギリス', UnitedStates:'アメリカ合衆国', Canada:'カナダ', Japan:'日本', SouthKorea:'韓国', Other:'その他' },
-  ko: { France:'프랑스', Belgium:'벨기에', Switzerland:'스위스', Luxembourg:'룩셈부르크', Germany:'독일', Italy:'이탈리아', Spain:'스페인', UnitedKingdom:'영국', UnitedStates:'미국', Canada:'캐나다', Japan:'일본', SouthKorea:'대한민국', Other:'기타' },
-  th: { France:'ฝรั่งเศส', Belgium:'เบลเยียม', Switzerland:'สวิตเซอร์แลนด์', Luxembourg:'ลักเซมเบิร์ก', Germany:'เยอรมนี', Italy:'อิตาลี', Spain:'สเปน', UnitedKingdom:'สหราชอาณาจักร', UnitedStates:'สหรัฐอเมริกา', Canada:'แคนาดา', Japan:'ญี่ปุ่น', SouthKorea:'เกาหลีใต้', Other:'อื่น ๆ' }
+const ACCESS_TEXT = {
+  fr: {name:'Nom complet',job_title:'Fonction / Poste',city:'Ville',business_type:'Type d’activité',website:'Site de la société',instagram:'Instagram professionnel',presence:'Au moins un des deux champs est obligatoire : site de la société ou Instagram professionnel.',required:'Veuillez compléter les champs obligatoires.',website_error:'Indiquez un site valide commençant par https:// ou http://.',instagram_error:'Indiquez un @identifiant ou le lien du profil Instagram professionnel.',country_error:'Indiquez le nom de votre pays.',too_long:'Ce champ est trop long.',verify:'Vérifier mon email',verified:'Email vérifié. Votre demande reste PENDING, en attente de notre approbation. Aucun accès n’est encore accordé.',sent:'Demande reçue — PENDING. Vérifiez votre email via le lien envoyé. Notre équipe devra ensuite approuver votre accès.',failed:'Demande reçue — PENDING. L’email de vérification n’a pas pu être envoyé. Contactez notre équipe pour recevoir un nouveau lien. Aucun accès n’est accordé.'},
+  en: {name:'Full name',job_title:'Job title / Position',city:'City',business_type:'Type of business',website:'Company website',instagram:'Professional Instagram',presence:'Provide at least one: company website or professional Instagram.',required:'Please complete the required fields.',website_error:'Enter a valid website starting with https:// or http://.',instagram_error:'Enter an @username or a professional Instagram profile URL.',country_error:'Enter your country name.',too_long:'This field is too long.',verify:'Verify my email',verified:'Email verified. Your request remains PENDING until our team approves it. Access has not been granted.',sent:'Request received — PENDING. Verify your email using the link we sent. Our team must then approve your access.',failed:'Request received — PENDING. We could not send the verification email. Contact our team for a new link. Access has not been granted.'}
 };
+const ACCESS_LABELS = {
+  it:['Nome completo','Ruolo / Posizione','Città','Tipo di attività'], es:['Nombre completo','Cargo / Puesto','Ciudad','Tipo de negocio'], de:['Vollständiger Name','Position / Funktion','Stadt','Geschäftsart'], zh:['姓名','职位','城市','业务类型'], ja:['氏名','役職','都市','事業の種類'], ko:['성명','직책','도시','사업 유형'], th:['ชื่อและนามสกุล','ตำแหน่ง','เมือง','ประเภทธุรกิจ']
+};
+function at(key) {
+  const labels = ACCESS_LABELS[lang], index = ['name','job_title','city','business_type'].indexOf(key);
+  if (labels && index >= 0) return labels[index];
+  return (ACCESS_TEXT[lang] || ACCESS_TEXT.en)[key];
+}
+function showFieldErrors(errors) {
+  document.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  const messages = [];
+  for (const [key, code] of Object.entries(errors)) {
+    const el = document.getElementById(key === 'privacy_accepted' ? 'f-privacy' : 'f-' + key);
+    if (el) el.setAttribute('aria-invalid', 'true');
+    const label = el?.labels?.[0]?.textContent || key;
+    const message = code === 'presence' ? at('presence') : code === 'website' ? at('website_error') : code === 'instagram' ? at('instagram_error') : code === 'country' ? at('country_error') : code === 'too_long' ? at('too_long') : code === 'email' ? t('err_email') : code === 'privacy' ? t('err_consent') : at('required');
+    messages.push(label + ': ' + message);
+  }
+  const err = document.getElementById('error-msg');
+  err.textContent = messages.join(' '); err.style.display = 'block'; err.focus();
+  document.querySelector('[aria-invalid="true"]')?.focus();
+}
 
 function applyLang() {
   document.documentElement.lang = lang;
@@ -456,24 +456,22 @@ function applyLang() {
   document.getElementById('t-intro').textContent = t('intro');
 
   const req = ' <span class="required">*</span>';
-  document.getElementById('t-label-name').innerHTML = t('label_name') + req;
-  document.getElementById('t-label-firstname').innerHTML = t('label_firstname') + req;
+  document.getElementById('t-label-name').innerHTML = at('name') + req;
+  for (const key of ['job_title','city','business_type']) document.getElementById('t-label-' + key).innerHTML = at(key) + req;
+  document.getElementById('t-presence-help').textContent = at('presence');
   document.getElementById('t-label-company').innerHTML = t('label_company') + req;
   document.getElementById('t-label-email').innerHTML = t('label_email') + req;
   document.getElementById('t-label-phone').textContent = t('label_phone');
-  document.getElementById('t-label-country').textContent = t('label_country');
-  document.getElementById('t-label-instagram').textContent = t('label_instagram');
+  document.getElementById('t-label-country').innerHTML = t('label_country') + req;
+  document.getElementById('t-label-instagram').textContent = at('instagram');
   document.getElementById('f-instagram').placeholder = t('placeholder_instagram');
-  document.getElementById('t-label-website').textContent = t('label_website');
+  document.getElementById('t-label-website').textContent = at('website');
   document.getElementById('f-website').placeholder = t('placeholder_website');
   document.getElementById('t-label-message').textContent = t('label_message');
-  document.getElementById('t-extra-toggle').textContent = t('extra_toggle');
 
-  document.getElementById('t-country-choose').textContent = t('country_choose');
-  document.getElementById('t-country-other').textContent = t('country_other');
-  // Traduit les noms de pays du menu déroulant selon la langue (la valeur soumise reste stable)
-  const CC = COUNTRIES[lang] || COUNTRIES.fr;
-  document.querySelectorAll('#f-country option[data-c]').forEach(o => { const k = o.dataset.c; if (CC[k]) o.textContent = CC[k]; });
+
+
+
 
   // Nom / Prénom / Société : pas d'exemple (le label suffit). On garde les
   // placeholders uniquement sur les champs sensibles au format.
@@ -493,11 +491,6 @@ function applyLang() {
   document.getElementById('t-back-link').textContent = t('back_link');
 }
 
-function toggleExtraFields() {
-  document.getElementById('extra-fields').style.display = 'block';
-  document.getElementById('t-extra-toggle').style.display = 'none';
-}
-
 function setLang(l) {
   lang = l;
   localStorage.setItem('portal_lang', lang);
@@ -506,61 +499,56 @@ function setLang(l) {
 
 applyLang();
 
+document.querySelectorAll('label[id^="t-label-"]').forEach(el => el.htmlFor = el.id.replace('t-label-','f-'));
+const businessSelect = document.getElementById('f-business_type');
+businessSelect.add(new Option('—', ''));
+AccessValidation.businessTypes.forEach(value => businessSelect.add(new Option(value, value)));
+for (const key of ['website','instagram']) document.getElementById('f-' + key).setAttribute('aria-describedby','t-presence-help');
+document.getElementById('access-form').addEventListener('submit', event => {event.preventDefault(); submitForm();});
 async function submitForm() {
-  const lastName  = document.getElementById('f-name').value.trim();
-  const firstName = document.getElementById('f-firstname').value.trim();
-  const company   = document.getElementById('f-company').value.trim();
-  const email     = document.getElementById('f-email').value.trim();
-  const phone     = document.getElementById('f-phone').value.trim();
-  const country   = document.getElementById('f-country').value;
-  const message   = document.getElementById('f-message').value.trim();
-  const errEl     = document.getElementById('error-msg');
-  const btn       = document.getElementById('submit-btn');
-
-  errEl.style.display = 'none';
-  if (!lastName || !firstName || !company || !email) {
-    errEl.textContent = t('err_required');
-    errEl.style.display = 'block';
-    return;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errEl.textContent = t('err_email');
-    errEl.style.display = 'block';
-    return;
-  }
-  if (!document.getElementById('f-privacy').checked) {
-    errEl.textContent = t('err_consent');
-    errEl.style.display = 'block';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = t('submitting');
-
+  const btn = document.getElementById('submit-btn');
+  if (btn.disabled) return;
+  const input = {};
+  for (const key of ['name','company','job_title','country','city','email','business_type','phone','website','instagram','message']) input[key] = document.getElementById('f-' + key).value;
+  input.privacy_accepted = document.getElementById('f-privacy').checked;
+  input.marketing_consent = document.getElementById('f-marketing').checked;
+  const checked = AccessValidation.validate(input);
+  if (!checked.valid) return showFieldErrors(checked.errors);
+  const err = document.getElementById('error-msg');
+  err.style.display = 'none'; btn.disabled = true; btn.textContent = t('submitting');
   try {
-    const r = await fetch('/api/access-request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram: document.getElementById('f-instagram').value.trim(), website: document.getElementById('f-website').value.trim(), message, privacy_accepted: true, marketing_consent: document.getElementById('f-marketing').checked })
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      errEl.textContent = d.error || t('err_server');
-      errEl.style.display = 'block';
-      return;
+    const response = await fetch('/api/access-request', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(checked.data)});
+    const data = await response.json();
+    if (!response.ok) {
+      if (data.fields) return showFieldErrors(data.fields);
+      throw new Error(data.error || t('err_server'));
     }
     document.getElementById('form-section').style.display = 'none';
     document.getElementById('success-section').style.display = 'block';
-  } catch(e) {
-    errEl.textContent = t('err_network');
-    errEl.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = t('submit');
-  }
+    document.getElementById('t-success-msg').textContent = at(data.verification_sent ? 'sent' : 'failed');
+  } catch (error) {err.textContent = error.message || t('err_network'); err.style.display = 'block'; err.focus();}
+  finally {btn.disabled = false; btn.textContent = t('submit');}
 }
-
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') submitForm(); });
+// A fragment keeps the bearer token out of server access logs and referrers.
+const verificationToken = new URLSearchParams(location.hash.slice(1)).get('verify');
+if (verificationToken) {
+  history.replaceState(null, '', location.pathname + location.search);
+  document.getElementById('access-form').style.display = 'none';
+  document.getElementById('t-intro').textContent = at('verify');
+  const button = document.createElement('button'); button.className = 'btn'; button.textContent = at('verify');
+  document.getElementById('form-section').append(button);
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/access-request/verify-email', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:verificationToken})});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      document.getElementById('form-section').style.display = 'none';
+      document.getElementById('success-section').style.display = 'block';
+      document.getElementById('t-success-msg').textContent = at('verified');
+    } catch(error) {const err = document.getElementById('error-msg'); err.textContent = error.message; err.style.display = 'block'; button.disabled = false;}
+  };
+}
 </script>
 </body>
 </html>

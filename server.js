@@ -7,6 +7,7 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1, environment: process.env.NODE_ENV || 'development' });
 }
 const express = require('express');
+const accessValidation = require('./public/access-validation');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -7530,7 +7531,7 @@ app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/rejoindre/:token', (req, res) => sendPage(res, 'invite.html'));
+app.get('/rejoindre/:token', (req, res) => res.redirect('/demande-acces'));
 app.get('/demande-acces', (req, res) => sendPage(res, 'demande-acces.html'));
 app.get('/confidentialite', (req, res) => sendPage(res, 'confidentialite.html'));
 app.get('/cgu', (req, res) => sendPage(res, 'cgu.html'));
@@ -7538,25 +7539,75 @@ app.get('/mentions-legales', (req, res) => sendPage(res, 'mentions-legales.html'
 
 // ── Demandes d'accès acheteur ──────────────────────────────────────────────
 
+async function sendAccessVerification(id, req) {
+  if (!process.env.RESEND_API_KEY) return false;
+  try {
+    const token = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const r = await pool.query("UPDATE access_requests SET verification_token_hash=$2, verification_expires_at=NOW() + INTERVAL '24 hours' WHERE id=$1 AND status='pending' AND email_verified_at IS NULL RETURNING email,name", [id,hash]);
+    if (!r.rows.length) return false;
+    const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
+    const result = await newResendClient(process.env.RESEND_API_KEY).emails.send({
+      from: `${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,
+      to: [r.rows[0].email],
+      subject: `Verify your email / Vérifiez votre email — ${showroomName}`,
+      html: emailLayout({showroomName, content: `
+        <p>Bonjour / Hello ${escHtml(r.rows[0].name)},</p>
+        <p>Confirmez votre email. Votre demande restera en attente de l’approbation de notre équipe.</p>
+        <p>Confirm your email. Your request will remain PENDING until our team approves it.</p>
+        ${emailBtn(`${getBaseUrl(req)}/demande-acces#verify=${token}`, 'CONFIRMER / VERIFY EMAIL →')}
+        <p>Lien valable 24 h / Link valid for 24 hours. Ignorez cet email si vous n’avez pas fait cette demande / Ignore this email if you did not request access.</p>`})
+    });
+    if (result.error) console.error('access verification email:', result.error.message);
+    return !result.error;
+  } catch (error) { console.error('access verification email:', error.message); return false; }
+}
+
+app.post('/api/access-request/verify-email', publicLimiter, async (req, res) => {
+ try {
+  const token = req.body?.token;
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return res.status(400).json({error:'Lien invalide ou expiré / Invalid or expired link.'});
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  const r = await pool.query("UPDATE access_requests SET email_verified_at=NOW(), verification_token_hash=NULL, verification_expires_at=NULL WHERE verification_token_hash=$1 AND verification_expires_at>NOW() AND status='pending' AND email_verified_at IS NULL RETURNING id", [hash]);
+  if (!r.rows.length) return res.status(400).json({error:'Lien invalide ou expiré. Contactez notre équipe pour un nouveau lien / Invalid or expired link. Contact our team for a new link.'});
+  res.json({ok:true,status:'pending'});
+ } catch (error) { console.error('access verification:', error.message); res.status(500).json({error:'Erreur serveur / Server error. Please try again.'}); }
+});
+
+app.post('/api/access-requests/:id/resend-verification', requireRole('owner','agent'), prospectInviteLimiter, async (req,res) => {
+  const sent = await sendAccessVerification(req.params.id, req);
+  res.status(sent ? 200 : 409).json(sent ? {ok:true} : {error:'Envoi impossible : vérifiez la demande et la configuration email.'});
+});
+
 app.post('/api/access-request', publicLimiter, async (req, res) => {
  try {
-  const { name, company, phone, email, country, instagram, website, message, privacy_accepted, marketing_consent } = req.body;
-  if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
-  // RGPD (P0-11) : acceptation de la politique de confidentialité obligatoire.
-  if (privacy_accepted !== true) return res.status(400).json({ error: 'Vous devez accepter la politique de confidentialité.' });
-  // Vérifier doublon (même email en pending)
-  const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
-  if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
+  const checked = accessValidation.validate(req.body);
+  if (!checked.valid) return res.status(400).json({ error: 'Veuillez vérifier les champs obligatoires et vos liens professionnels.', fields: checked.errors });
+  const { name, company, phone, email, country, city, job_title, business_type, instagram, website, message, marketing_consent } = checked.data;
   const id = uuidv4();
-  await pool.query(
-    "INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,marketing_consent,privacy_accepted_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW() + INTERVAL '30 days')",
-    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim(), marketing_consent === true]
-  );
+  // Serialize submissions for the same email, including simultaneous requests.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['access-request:' + email]);
+    const dup = await client.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email]);
+    if (dup.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
+    }
+    await client.query(
+      "INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,marketing_consent,privacy_accepted_at,expires_at,job_title,city,business_type,status,verification_required) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW() + INTERVAL '30 days',$11,$12,$13,'pending',true)",
+      [id,name,company,phone,email,country,instagram,website,message,marketing_consent,job_title,city,business_type]
+    );
+    await client.query('COMMIT');
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+  const verificationSent = await sendAccessVerification(id, req);
   // CRM Airtable : crée une fiche « Prospect » (non bloquant)
   airtableUpsertProspect({ email: email.toLowerCase().trim(), name: name.trim(), company: (company||'').trim() }).catch(() => {});
   sendPushToAdmins('Nouvelle demande d\'accès', `${name}${company ? ' — ' + company : ''}`).catch(() => {});
   // Notifier l'admin
+  try {
   const [showroomName, adminEmail, fromAddress] = await Promise.all([
     getSetting('showroom_name'), getSetting('showroom_email'), getSetting('smtp_from')
   ]);
@@ -7577,6 +7628,9 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
           <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Téléphone</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(phone||'—')}</td></tr>
           <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Email</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(email)}</td></tr>
           <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Pays</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(country||'—')}</td></tr>
+          <tr><td>Ville</td><td>${escHtml(city)}</td></tr>
+          <tr><td>Fonction</td><td>${escHtml(job_title)}</td></tr>
+          <tr><td>Activité</td><td>${escHtml(business_type)}</td></tr>
           ${instagram ? `<tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Instagram</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)">${escHtml(instagram)}</td></tr>` : ''}
           ${website ? `<tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888">Website</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)"><a href="${escHtml(safeHttpUrl(website))}" style="color:#6b8500">${escHtml(website)}</a></td></tr>` : ''}
           ${message ? `<tr><td style="padding:8px;color:#888;vertical-align:top">Message</td><td style="padding:8px">${escHtml(message)}</td></tr>` : ''}
@@ -7586,7 +7640,8 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
     });
     if (sendErr) console.error('[resend] access-request-notify:', sendErr.message || sendErr);
   }
-  res.json({ ok: true });
+  } catch (error) { console.error('access-request notification:', error.message); }
+  res.json({ ok: true, status: 'pending', verification_required: true, verification_sent: verificationSent });
  } catch(e) { console.error('access-request error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -7599,41 +7654,50 @@ app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) =
     LEFT JOIN buyers b ON LOWER(b.email) = LOWER(ar.email)
     ORDER BY ar.created_at DESC
   `);
-  res.json(r.rows);
+  res.json(r.rows.map(({ verification_token_hash, ...row }) => row));
 });
 
 app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async (req, res) => {
  try {
-  const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
-  if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
-  const req2 = r.rows[0];
-  if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
+  let req2, buyerId, tempPassword, reused = false;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+  const r = await client.query('SELECT * FROM access_requests WHERE id=$1 FOR UPDATE', [req.params.id]);
+  if (!r.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Demande introuvable' }); }
+  req2 = r.rows[0];
+  if (req2.status !== 'pending') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Demande déjà traitée' }); }
+  if (req2.verification_required && !req2.email_verified_at) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'L’adresse email doit être vérifiée avant approbation.' }); }
 
   // Créer (ou réutiliser) le compte acheteur avec un mot de passe temporaire.
   // Un compte peut déjà exister (ré-inscription, test, approbation partielle
   // antérieure) : dans ce cas on réinitialise son mot de passe au lieu
   // d'échouer, sinon la demande resterait bloquée « en attente » pour toujours.
   const email = String(req2.email || '').toLowerCase().trim();
-  const tempPassword = crypto.randomBytes(12).toString('hex'); // mot de passe temporaire, envoyé par email — forte entropie requise
+  tempPassword = crypto.randomBytes(12).toString('hex'); // mot de passe temporaire, envoyé par email — forte entropie requise
   const hash = await bcrypt.hash(tempPassword, 10);
-  const existing = await pool.query('SELECT id FROM buyers WHERE LOWER(email)=$1', [email]);
-  let buyerId, reused = false;
+  const existing = await client.query('SELECT id FROM buyers WHERE LOWER(email)=$1', [email]);
+
   if (existing.rows.length) {
     buyerId = existing.rows[0].id;
     reused = true;
-    await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyerId]);
+    await client.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyerId]);
     // Cohérent avec change-password et reset-password : un mot de passe réinitialisé
     // invalide les sessions existantes (sinon une session déjà ouverte reste valide
     // avec l'ancien mot de passe alors que le nouveau vient d'être envoyé par email).
-    await invalidateBuyerSessions(buyerId, null);
+
   } else {
     buyerId = uuidv4();
-    await pool.query(
+    await client.query(
       'INSERT INTO buyers (id,email,password_hash,name,company,phone,country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [buyerId, email, hash, req2.name, req2.company, req2.phone, req2.country]
     );
   }
-  await pool.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
+  await client.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
+    await client.query('COMMIT');
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+  if (reused) await invalidateBuyerSessions(buyerId, null);
   logAudit(req, 'approve_access_request', 'access_request', req.params.id, req2.email);
 
   // Email de bienvenue avec les identifiants
@@ -7691,11 +7755,9 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
 });
 
 app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async (req, res) => {
-  const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
-  if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
+  const r = await pool.query("UPDATE access_requests SET status='declined', verification_token_hash=NULL, verification_expires_at=NULL WHERE id=$1 AND status='pending' RETURNING *", [req.params.id]);
+  if (!r.rows.length) return res.status(409).json({ error: 'Demande introuvable ou déjà traitée' });
   const req2 = r.rows[0];
-  if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
-  await pool.query("UPDATE access_requests SET status='rejected' WHERE id=$1", [req.params.id]);
   logAudit(req, 'reject_access_request', 'access_request', req.params.id, req2.email);
 
   const [showroomName, fromAddress, showroomEmail] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from'), getSetting('showroom_email')]);
@@ -7809,36 +7871,8 @@ app.get('/api/invite/:token', publicLimiter, async (req, res) => {
 // email quand fourni, donc inefficace ici — la création de compte spammée
 // utilise justement un email différent à chaque appel.
 app.post('/api/invite/:token', emailLimiter, async (req, res) => {
-  const r = await pool.query(`
-    SELECT bil.brand_id, b.name as brand_name
-    FROM brand_invite_links bil
-    JOIN brands b ON b.id = bil.brand_id
-    WHERE (bil.token=$1 OR bil.slug=$1) AND bil.active != 0
-  `, [req.params.token]);
-  if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
-
-  const { name, company, email, password } = req.body;
-  if (!email || !password || password.length < 12) return res.status(400).json({ error: 'Email et mot de passe requis (12 caractères min).' });
-  if (!name) return res.status(400).json({ error: 'Nom requis.' });
-
-  const cleanEmail = email.toLowerCase().trim();
-  const hash = await bcrypt.hash(password, 10);
-  const id = uuidv4();
-  try {
-    await pool.query(
-      'INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
-      [id, cleanEmail, hash, name.trim(), (company||'').trim()]
-    );
-    // Régénération de session — anti session fixation (cohérent avec les autres logins)
-    req.session.regenerate(() => {
-      req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
-      req.session.save(() => res.json({ ok: true }));
-      sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
-    });
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé. Connectez-vous directement sur le portail.' });
-    res.status(500).json({ error: 'Erreur serveur.' });
-  }
+  // Invitation links are shareable: they cannot replace individual approval.
+  res.status(409).json({ error: 'Une demande et une approbation manuelle sont requises.', request_url: '/demande-acces' });
 });
 
 // ==================== BUYER ACCESS (magic link) ====================

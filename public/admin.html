@@ -1334,9 +1334,9 @@
     <h1>Demandes d'accès</h1>
     <div class="card">
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-        <button class="btn btn-sm" id="ar-tab-pending" onclick="switchArTab('pending')" style="background:var(--accent);color:var(--black)">En attente</button>
-        <button class="btn btn-secondary btn-sm" id="ar-tab-approved" onclick="switchArTab('approved')">Approuvées</button>
-        <button class="btn btn-secondary btn-sm" id="ar-tab-rejected" onclick="switchArTab('rejected')">Refusées</button>
+        <button class="btn btn-sm" id="ar-tab-pending" onclick="switchArTab('pending')" style="background:var(--accent);color:var(--black)">PENDING</button>
+        <button class="btn btn-secondary btn-sm" id="ar-tab-approved" onclick="switchArTab('approved')">APPROVED</button>
+        <button class="btn btn-secondary btn-sm" id="ar-tab-declined" onclick="switchArTab('declined')">DECLINED</button>
       </div>
       <div id="ar-list"></div>
     </div>
@@ -3514,7 +3514,7 @@ async function loadAccessRequests() {
 
 function switchArTab(tab) {
   _arTab = tab;
-  ['pending','approved','rejected'].forEach(t => {
+  ['pending','approved','declined'].forEach(t => {
     const btn = document.getElementById(`ar-tab-${t}`);
     if (btn) { btn.style.background = t === tab ? 'var(--accent)' : ''; btn.style.color = t === tab ? 'var(--black)' : ''; btn.className = t === tab ? 'btn btn-sm' : 'btn btn-secondary btn-sm'; }
   });
@@ -3525,24 +3525,25 @@ function renderArList() {
   const list = document.getElementById('ar-list');
   const rows = _arData.filter(x => x.status === _arTab);
   if (!rows.length) {
-    const labels = { pending: 'Aucune demande en attente', approved: 'Aucune demande approuvée', rejected: 'Aucune demande refusée' };
+    const labels = { pending: 'Aucune demande en attente', approved: 'Aucune demande approuvée', declined: 'Aucune demande refusée' };
     list.innerHTML = `<div style="color:var(--soft);font-size:13px;padding:20px 0">${labels[_arTab]}</div>`;
     return;
   }
   list.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}<th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Instagram</th><th>Website</th><th>Message</th></tr></thead>
+    <thead><tr>${_arTab === 'pending' ? '<th>Actions</th>' : '<th>Statut</th>'}<th>Date</th><th>Nom</th><th>Société</th><th>Email</th><th>Téléphone</th><th>Pays</th><th>Ville</th><th>Fonction</th><th>Activité</th><th>Email vérifié</th><th>Instagram</th><th>Website</th><th>Message</th></tr></thead>
     <tbody>${rows.map(x => {
       const date = new Date(x.created_at).toLocaleDateString('fr-FR');
       const statusBadge = x.status === 'approved'
-        ? '<span style="color:#34d399;font-size:11px">✓ Approuvée</span>'
-        : '<span style="color:#f87171;font-size:11px">✗ Refusée</span>';
+        ? '<span style="color:#34d399;font-size:11px">APPROVED</span>'
+        : '<span style="color:#f87171;font-size:11px">DECLINED</span>';
       // Colonne Actions en premier (et non en dernier) : sur un écran standard,
       // le tableau (9 colonnes de détails) dépassait la largeur visible et les
       // boutons Approuver/Refuser restaient hors champ sans indice de défilement.
       const actions = _arTab === 'pending'
         ? `<td style="white-space:nowrap">
-            <button class="btn btn-sm" onclick="handleAccessRequest('${x.id}','approve',${x.existing_account ? 'true' : 'false'})" style="background:#34d399;color:#000;margin-right:4px">✓ Approuver</button>
+            <button class="btn btn-sm" onclick="handleAccessRequest('${x.id}','approve',${x.existing_account ? 'true' : 'false'})" ${x.verification_required && !x.email_verified_at ? 'disabled title="Vérification email requise"' : ''} style="background:#34d399;color:#000;margin-right:4px">✓ Approuver</button>
             <button class="btn btn-secondary btn-sm" onclick="handleAccessRequest('${x.id}','reject',false)">✗ Refuser</button>
+            ${!x.email_verified_at ? `<button class="btn btn-secondary btn-sm" onclick="resendAccessVerification('${x.id}')">Renvoyer vérification</button>` : ''}
            </td>`
         : `<td>${statusBadge}</td>`;
       return `<tr>
@@ -3553,8 +3554,9 @@ function renderArList() {
         <td style="font-size:12px">${esc(x.email)}${x.existing_account ? ' <span title="Un compte existe déjà pour cet email — approuver réinitialisera son mot de passe" style="color:#fbbf24">⚠️ compte existant</span>' : ''}</td>
         <td style="font-size:12px">${esc(x.phone||'—')}</td>
         <td style="font-size:12px">${esc(x.country||'—')}</td>
-        <td style="font-size:12px">${x.instagram ? `<a href="https://instagram.com/${esc(x.instagram.replace('@',''))}" target="_blank" style="color:var(--accent)">${esc(x.instagram)}</a>` : '—'}</td>
-        <td style="font-size:12px">${x.website ? `<a href="${esc(x.website)}" target="_blank" style="color:var(--accent)">↗</a>` : '—'}</td>
+        <td>${esc(x.city||'—')}</td><td>${esc(x.job_title||'—')}</td><td>${esc(x.business_type||'—')}</td><td>${x.email_verified_at ? 'Vérifié' : x.verification_required ? 'Non vérifié — requis' : 'Ancienne demande — non vérifié'}</td>
+        <td style="font-size:12px">${x.instagram ? `<a href="https://instagram.com/${esc(x.instagram.replace('@',''))}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(x.instagram)}</a>` : '—'}</td>
+        <td style="font-size:12px">${x.website ? `<a href="${esc(x.website)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">↗</a>` : '—'}</td>
         <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.message||'')}">${esc(x.message||'—')}</td>
       </tr>`;
     }).join('')}</tbody>
@@ -3581,6 +3583,11 @@ async function handleAccessRequest(id, action, existingAccount) {
   }
   loadAccessRequests();
   if (action === 'approve') loadDashboard();
+}
+
+async function resendAccessVerification(id) {
+  const response = await fetch(`/api/access-requests/${id}/resend-verification`, {method:'POST'}).catch(() => null);
+  toast(response?.ok ? 'Email de vérification envoyé' : 'Envoi impossible', !response?.ok);
 }
 
 // ── Relances à valider (acheteurs inactifs, sélections non confirmées) ──
