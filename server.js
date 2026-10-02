@@ -332,8 +332,8 @@ app.use((req, res, next) => {
 });
 
 app.get('/index.html', (req, res) => res.redirect('/'));
-// Favicon → réutilise le logo (évite le 404 /favicon.ico sur chaque page)
-app.get('/favicon.ico', (req, res) => res.redirect(301, '/logo.svg'));
+// Use the same agency favicon as the public Cargo website.
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'public', 'favicon-editions-standard.ico')));
 app.get('/sw.js', (req, res) => {
   const swPath = path.join(__dirname, 'public', 'sw.js');
   let swContent = fs.readFileSync(swPath, 'utf8');
