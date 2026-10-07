@@ -1587,6 +1587,7 @@
       <textarea id="brand-about" rows="4" placeholder="Présentation de la marque, son univers, son histoire..."></textarea>
     </div>
 
+    <div class="form-group"><label>Minimum par référence / Minimum per reference</label><input id="brand-min-reference" type="number" min="1" step="1" value="1"></div>
     <!-- MOQ -->
     <div style="display:flex;gap:16px;margin-top:8px">
       <div class="form-group" style="flex:1">
@@ -2392,6 +2393,7 @@ C93-2252C648 – Ripstop Utility Shorts : Green, Blue Navy, Dark Grey" oninput="
   <div class="modal" style="max-width:460px">
     <h3>Conditions négociées — <span id="bt-brand-name"></span></h3>
     <input type="hidden" id="bt-buyer-id"><input type="hidden" id="bt-brand-id">
+    <div class="field"><label>Minimum par référence / Minimum per reference</label><input type="number" id="bt-min-reference" min="1" step="1" placeholder="Défaut marque / Brand default"></div>
     <p style="font-size:11px;color:#666;margin-bottom:14px">Laisser un champ vide = pas de condition spécifique, repli sur la condition par défaut de la marque.</p>
     <div class="form-group">
       <label>💳 Paiement</label>
@@ -3565,19 +3567,18 @@ function renderArList() {
 async function handleAccessRequest(id, action, existingAccount) {
   const label = action === 'approve' ? 'approuver' : 'refuser';
   const msg = (action === 'approve' && existingAccount)
-    ? 'Un compte existe déjà pour cet email : approuver va RÉINITIALISER son mot de passe (l\'acheteur sera déconnecté de ses sessions en cours). Confirmer ?'
+    ? 'Un compte existe déjà pour cet email. Approuver son accès ?'
     : `Confirmer : ${label} cette demande ?`;
   if (!confirm(msg)) return;
   const r = await fetch(`/api/access-requests/${id}/${action}`, { method: 'POST' }).catch(() => null);
   if (!r || !r.ok) { const d = await r?.json().catch(()=>{}); toast((d?.error || 'Erreur'), true); return; }
   const d = await r.json().catch(() => ({}));
   if (action === 'approve' && d.emailed === false) {
-    // Pas d'email configuré/envoyé : le mot de passe temporaire ne serait connu
-    // de personne sinon — on le montre pour transmission manuelle à l'acheteur.
-    prompt('Email non configuré ou échec d\'envoi. Communiquez ce mot de passe manuellement à l\'acheteur :', d.temp_password || '');
+    // Authorized manual handoff when the activation email cannot be sent.
+    prompt('Email non envoyé. Lien à transmettre à cet acheteur (activation : valable 60 minutes) :', d.activation_url || '');
   } else {
     toast(action === 'approve'
-      ? (d.reused ? 'Approuvée — compte déjà existant, nouveau mot de passe envoyé à l\'acheteur' : 'Demande approuvée — email envoyé à l\'acheteur')
+      ? (d.reused ? 'Approuvée — accès confirmé pour le compte existant' : 'Demande approuvée — email envoyé à l\'acheteur')
       : 'Demande refusée');
   }
   loadAccessRequests();
@@ -4695,7 +4696,7 @@ async function loadBrands() {
     const coverHtml = b.cover_image
       ? `<img src="${b.cover_image}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius: 0 8px 0 0;display:block;margin:-16px -16px 12px;width:calc(100% + 32px)">`
       : '';
-    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||'',invite_bg_url:b.invite_bg_url||'',retail_margin:b.retail_margin||''}).replace(/'/g,"&#39;");
+    const bJson = JSON.stringify({id:b.id,name:b.name,logo_url:b.logo_url||'',logo:b.logo||'',cover_image:b.cover_image||'',thumbnail:b.thumbnail||'',cgv_text:b.cgv_text||'',min_per_reference:b.min_per_reference??1,moq_qty:b.moq_qty||0,moq_amount:b.moq_amount||0,moq_strict:b.moq_strict===true||b.moq_strict==='true',about_text:b.about_text||'',lookbook_url:b.lookbook_url||'',default_currency:b.default_currency||'',delivery_terms:b.delivery_terms||'',payment_terms:b.payment_terms||'',return_terms:b.return_terms||'',order_deadline:b.order_deadline||'',website:b.website||'',instagram:b.instagram||'',facebook:b.facebook||'',tiktok:b.tiktok||'',linkedin:b.linkedin||'',video_url:b.video_url||'',early_access_until:b.early_access_until||'',invite_bg_url:b.invite_bg_url||'',retail_margin:b.retail_margin||''}).replace(/'/g,"&#39;");
     const subBadge = {
       active: `<span class="badge" style="background:#1f3d1f;color:#2ecc71">${t('status_active_label')}</span>`,
       trial: `<span class="badge" style="background:#3d3a1f;color:#e0c95e">${t('status_trial_label')}</span>`,
@@ -4795,6 +4796,7 @@ function resetBrandModal() {
   document.getElementById('brand-thumbnail').value = '';
   document.getElementById('brand-cgv').value = '';
   document.getElementById('brand-about').value = '';
+  document.getElementById('brand-min-reference').value = 1;
   document.getElementById('brand-moq-qty').value = '';
   document.getElementById('brand-moq-amount').value = '';
   document.getElementById('brand-moq-strict').checked = false;
@@ -4875,6 +4877,7 @@ function editBrand(b) {
   document.getElementById('brand-linkedin').value = b.linkedin || '';
   currentBrandVideoUrl = b.video_url || '';
   renderBrandVideoPreview();
+  document.getElementById('brand-min-reference').value = b.min_per_reference ?? 1;
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
   document.getElementById('brand-moq-strict').checked = b.moq_strict === true || b.moq_strict === 'true';
@@ -4908,6 +4911,7 @@ async function saveBrand() {
     cover_image: document.getElementById('brand-cover').value,
     cgv_text: document.getElementById('brand-cgv').value.trim(),
     about_text: document.getElementById('brand-about').value.trim(),
+    min_per_reference: Number(document.getElementById('brand-min-reference').value),
     moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
     moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0,
     moq_strict: document.getElementById('brand-moq-strict').checked,
@@ -6693,7 +6697,7 @@ function renderOrdersPage() {
   tbody.innerHTML = page.length ? page.map(o => `
     <tr>
       <td><input type="checkbox" class="order-check" data-id="${o.id}" onchange="updateBulkBar()"></td>
-      <td style="font-size:11px;color:#888;font-family:monospace" title="${esc(o.order_number || o.id.slice(0,8))}">${o.order_number || o.id.slice(0,8)}</td>
+      <td style="font-size:11px;color:#888;font-family:monospace" title="${esc(o.order_number || o.id.slice(0,8))}">${esc(o.order_number || o.id.slice(0,8))}${o.buyer_po_number ? '<br>PO: '+esc(o.buyer_po_number):''}</td>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
       <td><strong>${esc(o.client_name||'')}</strong><br><span style="font-size:11px;color:#888">${esc(o.client_company||'')}</span></td>
       <td>${esc(o.brand_name||'')}</td>
@@ -7058,11 +7062,12 @@ function filterSelections() {
       <td style="font-size:12px;color:#888">${esc(s.client_company||'—')}</td>
       <td>${esc(s.brand_name||'')}</td>
       <td style="text-align:center">${nItems} art.</td>
-      <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span></td>
+      <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span><div style="font-size:10px;margin-top:4px">${esc(s.workflow_stage || 'proposed')}${s.buyer_comment ? '<br>'+esc(s.buyer_comment):''}</div></td>
       <td style="font-size:11px;color:#888">${s.created_by||'—'}</td>
       <td style="font-size:11px;color:${status==='expired'?'#e74c3c':'#888'}">${expDate}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
+        ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" data-proposal-token="${esc(s.token)}">Conditions</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="editSelectionItems('${escJs(s.token)}')" title="Ajouter / modifier des références">➕ Réf.</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="openEditSelectionClient('${escJs(s.token)}')" title="Corriger nom / email / société">✎ Infos</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="remindSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Relancer l'acheteur par email avec le lien">↻ Relancer</button>` : ''}
@@ -7178,7 +7183,7 @@ async function viewOrder(id) {
   const o = data.order;
   const lines = data.lines || [];
 
-  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + (o.order_number || id.slice(0,8));
+  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + (o.order_number || id.slice(0,8)) + (o.buyer_po_number ? ' · PO: '+o.buyer_po_number : '');
   document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR');
   document.getElementById('mo-status-select').value = o.status || 'confirmed';
 
@@ -8402,6 +8407,7 @@ async function openBuyerProfile(id) {
       ['💳 Paiement', nt.override?.payment_terms || nt.default.payment_terms || '—'],
       ['🚚 Livraison', nt.override?.delivery_terms || nt.default.delivery_terms || '—'],
       ['↩ Retours', nt.override?.return_terms || nt.default.return_terms || '—'],
+      ['Minimum / référence', String(nt.override?.min_per_reference_override ?? nt.default.min_per_reference ?? 1)],
     ];
     return '<div class="card" style="margin-bottom:8px;padding:12px 14px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
@@ -8613,6 +8619,7 @@ function openBuyerTermsModal(brandId, brandName, override) {
   document.getElementById('bt-payment').value = override?.payment_terms || '';
   document.getElementById('bt-delivery').value = override?.delivery_terms || '';
   document.getElementById('bt-return').value = override?.return_terms || '';
+  document.getElementById('bt-min-reference').value = override?.min_per_reference_override ?? '';
   document.getElementById('bt-privileged').checked = override?.is_privileged === true || override?.is_privileged === 'true';
   openModal('modal-buyer-terms');
 }
@@ -8626,7 +8633,7 @@ async function saveBuyerTerms() {
   try {
     const r = await fetch(`/api/admin/buyers/${buyerId}/terms/${brandId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_terms, delivery_terms, return_terms, is_privileged })
+      body: JSON.stringify({ payment_terms, delivery_terms, return_terms, is_privileged, min_per_reference_override: document.getElementById('bt-min-reference').value })
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { toast(d.error || 'Erreur', true); return; }
@@ -8790,6 +8797,12 @@ function clearBulkSelection() {
   if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
   document.getElementById('bulk-bar').style.display = 'none';
 }
+
+document.addEventListener('click',async event=>{
+  const btn=event.target.closest('[data-proposal-token]');if(!btn)return;
+  const conditions=prompt(currentLang==='en'?'Proposed order conditions':'Conditions de la proposition');if(conditions===null)return;
+  try{const response=await fetch('/api/agent-selections/'+encodeURIComponent(btn.dataset.proposalToken)+'/proposal',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposal_conditions:conditions})});const result=await response.json();if(!response.ok)throw new Error(result.error);toast('Conditions enregistrées');loadSelections();}catch(e){toast(e.message,true);}
+});
 </script>
 
 <!-- Aperçu agrandi d'une vignette produit (tableau catalogue) -->

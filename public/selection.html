@@ -115,7 +115,8 @@
     .bar button { min-height: 44px; }
   }
   </style>
-  <script>
+  <script src="/ordering-rules.js"></script>
+<script>
   (function() {
     const _savedTheme = localStorage.getItem('es-theme') || localStorage.getItem('portal_theme_override');
     const h = new Date().getHours();
@@ -141,7 +142,7 @@
 <script>
 const TRANSLATIONS = {
   fr: {
-    loading: 'Chargement…',
+    reference_min: n => `Minimum : ${n} pc(s) par référence`, recommended_order: 'Commande initiale recommandée', minimum_order: 'Minimum de commande', unavailable: 'Indisponible', loading: 'Chargement…',
     err_network: 'Erreur réseau. Réessayez.',
     err_unavailable: 'Sélection indisponible.',
     total_ht: 'Total HT',
@@ -176,7 +177,7 @@ const TRANSLATIONS = {
     export_pdf: '⬇ Exporter en PDF',
   },
   en: {
-    loading: 'Loading…',
+    reference_min: n => `Minimum: ${n} pc(s) per reference`, recommended_order: 'Recommended opening order', minimum_order: 'Minimum order', unavailable: 'Unavailable', loading: 'Loading…',
     err_network: 'Network error. Please try again.',
     err_unavailable: 'Selection unavailable.',
     total_ht: 'Total excl. VAT',
@@ -186,7 +187,7 @@ const TRANSLATIONS = {
     lbl_contact: 'Contact name',
     lbl_email: 'Email',
     lbl_pw_existing: 'Your password',
-    lbl_pw_new: 'Create your password (min. 8 characters)',
+    lbl_pw_new: 'Create your password (min. 12 characters)',
     account_exists_msg: (email) => `You already have an account (${email}). Enter your password to confirm.`,
     cgv_title: 'Terms & Conditions',
     cgv_accept: 'I accept the terms and conditions of sale.',
@@ -215,7 +216,7 @@ const TRANSLATIONS = {
     total_ht: 'Totale IVA escl.', confirm_btn: 'Conferma il mio ordine',
     sub_prepared: (name) => `Selezione preparata per ${name} — verifica le quantità e conferma.`,
     lbl_store: 'Negozio', lbl_contact: 'Nome del contatto', lbl_email: 'Email', lbl_pw_existing: 'La tua password',
-    lbl_pw_new: 'Crea la tua password (min. 8 caratteri)',
+    lbl_pw_new: 'Crea la tua password (min. 12 caratteri)',
     account_exists_msg: (email) => `Hai già un account (${email}). Inserisci la password per confermare.`,
     cgv_title: 'Termini e condizioni', cgv_accept: 'Accetto i termini e le condizioni di vendita.',
     sig_title: 'Firma', sig_clear: 'Cancella', err_cgv: 'Accetta i termini e le condizioni.', err_sig: 'Firma per favore.',
@@ -230,7 +231,7 @@ const TRANSLATIONS = {
     total_ht: 'Total sin IVA', confirm_btn: 'Confirmar mi pedido',
     sub_prepared: (name) => `Selección preparada para ${name} — revisa las cantidades y confirma.`,
     lbl_store: 'Tienda', lbl_contact: 'Nombre de contacto', lbl_email: 'Correo electrónico', lbl_pw_existing: 'Tu contraseña',
-    lbl_pw_new: 'Crea tu contraseña (mín. 8 caracteres)',
+    lbl_pw_new: 'Crea tu contraseña (mín. 12 caracteres)',
     account_exists_msg: (email) => `Ya tienes una cuenta (${email}). Introduce tu contraseña para confirmar.`,
     cgv_title: 'Términos y condiciones', cgv_accept: 'Acepto los términos y condiciones de venta.',
     sig_title: 'Firma', sig_clear: 'Borrar', err_cgv: 'Acepta los términos y condiciones.', err_sig: 'Firma, por favor.',
@@ -245,7 +246,7 @@ const TRANSLATIONS = {
     total_ht: 'Gesamt netto', confirm_btn: 'Bestellung bestätigen',
     sub_prepared: (name) => `Auswahl vorbereitet für ${name} — Mengen prüfen und bestätigen.`,
     lbl_store: 'Geschäft', lbl_contact: 'Ansprechpartner', lbl_email: 'E-Mail', lbl_pw_existing: 'Ihr Passwort',
-    lbl_pw_new: 'Passwort erstellen (mind. 8 Zeichen)',
+    lbl_pw_new: 'Passwort erstellen (mind. 12 Zeichen)',
     account_exists_msg: (email) => `Sie haben bereits ein Konto (${email}). Geben Sie Ihr Passwort ein, um zu bestätigen.`,
     cgv_title: 'Allgemeine Geschäftsbedingungen', cgv_accept: 'Ich akzeptiere die Allgemeinen Geschäftsbedingungen.',
     sig_title: 'Unterschrift', sig_clear: 'Löschen', err_cgv: 'Bitte akzeptieren Sie die AGB.', err_sig: 'Bitte unterschreiben.',
@@ -260,7 +261,7 @@ const TRANSLATIONS = {
     total_ht: '总计（不含税）', confirm_btn: '确认我的订单',
     sub_prepared: (name) => `已为 ${name} 准备选品 — 请核对数量并确认。`,
     lbl_store: '店铺', lbl_contact: '联系人姓名', lbl_email: '邮箱', lbl_pw_existing: '您的密码',
-    lbl_pw_new: '创建密码（至少8个字符）',
+    lbl_pw_new: '创建密码（至少12个字符）',
     account_exists_msg: (email) => `您已有账户（${email}）。请输入密码以确认。`,
     cgv_title: '销售条款与条件', cgv_accept: '我接受销售条款与条件。',
     sig_title: '签名', sig_clear: '清除', err_cgv: '请接受条款与条件。', err_sig: '请签名。',
@@ -275,7 +276,7 @@ const TRANSLATIONS = {
     total_ht: '合計（税抜）', confirm_btn: '注文を確定する',
     sub_prepared: (name) => `${name} 様向けのセレクションです — 数量を確認して確定してください。`,
     lbl_store: '店舗', lbl_contact: '担当者名', lbl_email: 'メールアドレス', lbl_pw_existing: 'パスワード',
-    lbl_pw_new: 'パスワードを作成（8文字以上）',
+    lbl_pw_new: 'パスワードを作成（12文字以上）',
     account_exists_msg: (email) => `すでにアカウントをお持ちです（${email}）。パスワードを入力して確定してください。`,
     cgv_title: '販売利用規約', cgv_accept: '販売利用規約に同意します。',
     sig_title: '署名', sig_clear: 'クリア', err_cgv: '利用規約に同意してください。', err_sig: '署名してください。',
@@ -290,7 +291,7 @@ const TRANSLATIONS = {
     total_ht: '합계(부가세 별도)', confirm_btn: '주문 확정',
     sub_prepared: (name) => `${name}님을 위한 셀렉션입니다 — 수량을 확인하고 확정하세요.`,
     lbl_store: '매장', lbl_contact: '담당자 이름', lbl_email: '이메일', lbl_pw_existing: '비밀번호',
-    lbl_pw_new: '비밀번호 생성 (최소 8자)',
+    lbl_pw_new: '비밀번호 생성 (최소 12자)',
     account_exists_msg: (email) => `이미 계정이 있습니다 (${email}). 확정하려면 비밀번호를 입력하세요.`,
     cgv_title: '판매 약관', cgv_accept: '판매 약관에 동의합니다.',
     sig_title: '서명', sig_clear: '지우기', err_cgv: '약관에 동의해 주세요.', err_sig: '서명해 주세요.',
@@ -305,7 +306,7 @@ const TRANSLATIONS = {
     total_ht: 'รวม (ไม่รวมภาษี)', confirm_btn: 'ยืนยันคำสั่งซื้อ',
     sub_prepared: (name) => `การเลือกที่จัดเตรียมสำหรับ ${name} — ตรวจสอบจำนวนแล้วยืนยัน`,
     lbl_store: 'ร้านค้า', lbl_contact: 'ชื่อผู้ติดต่อ', lbl_email: 'อีเมล', lbl_pw_existing: 'รหัสผ่านของคุณ',
-    lbl_pw_new: 'สร้างรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)',
+    lbl_pw_new: 'สร้างรหัสผ่าน (อย่างน้อย 12 ตัวอักษร)',
     account_exists_msg: (email) => `คุณมีบัญชีอยู่แล้ว (${email}) กรอกรหัสผ่านเพื่อยืนยัน`,
     cgv_title: 'ข้อกำหนดและเงื่อนไข', cgv_accept: 'ฉันยอมรับข้อกำหนดและเงื่อนไขการขาย',
     sig_title: 'ลายเซ็น', sig_clear: 'ล้าง', err_cgv: 'โปรดยอมรับข้อกำหนดและเงื่อนไข', err_sig: 'โปรดลงลายเซ็น',
@@ -358,13 +359,27 @@ function productSizes(p){ return String(p&&p.sizes||'').split(',').map(s=>s.trim
 function productImgs(p){ let a=[]; try{a=JSON.parse(p&&p.images||'[]');}catch(e){} if(!a.length && p&&p.image_url) a=[p.image_url]; return a; }
 function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,'\\$&'); }
 
+function selectionLines() {
+  return Object.entries(cart).map(([k,qty]) => {
+    const [,product_id,color,size] = JSON.parse(k);
+    const p = (DATA.references || []).find(r => r.product.id === product_id)?.product;
+    return { brand_id: DATA.brand.id, product_id, reference: p?.reference || product_id, color, size, qty, quantity: qty, variant_color: color };
+  });
+}
+function normalizeSelection() {
+  const saved = Object.fromEntries(selectionLines().map(l => [OrderingRules.key(l.brand_id,l.product_id,l.color,l.size),l]));
+  const normalized = OrderingRules.normalize(saved, [DATA.brand]);
+  cart = Object.fromEntries(Object.values(normalized).map(l => [OrderingRules.key('',l.product_id,l.color,l.size),l.qty]));
+}
 function initCart() {
   if (cartInit) return;
   cart = {};
-  (DATA.references||[]).forEach(r => {
-    const pid = r.product.id;
-    Object.entries(r.preset||{}).forEach(([sz,q]) => { const n = parseInt(q)||0; if (n>0) cart[pid+'|'+sz] = n; });
+  (DATA.lines || []).forEach(l => {
+    if (!l.product || !(l.quantity > 0)) return;
+    const k = OrderingRules.key('', l.product_id, l.variant_color || l.product.color, l.size);
+    cart[k] = (cart[k] || 0) + Number(l.quantity);
   });
+  normalizeSelection();
   cartInit = true;
 }
 
@@ -378,11 +393,15 @@ function qtyCtrl(k, q) {
 }
 function sizeRows(p) {
   const sizes = productSizes(p);
-  return (sizes.length ? sizes : ['']).map(sz => {
-    const k = p.id+'|'+sz; const q = cart[k]||0;
-    return `<div class="sz-row"><span class="sz-label">${sz?esc(sz):t('qty')}</span>${qtyCtrl(k,q)}</div>`;
-  }).join('');
+  let variants = []; try { variants = JSON.parse(p.variants || '[]'); } catch(e) {}
+  const colors = [...new Set([p.color || '', ...variants.map(v => v.color || '')])];
+  if (p.stock_enabled && p.stock_qty === 0) return '<div class="msg">' + esc(t('unavailable')) + '</div>';
+  return colors.map(color => (sizes.length ? sizes : ['']).map(sz => {
+    const k = OrderingRules.key('',p.id,color,sz);
+    return `<div class="sz-row"><span class="sz-label">${esc([color,sz].filter(Boolean).join(' · ') || t('qty'))}</span>${qtyCtrl(k,cart[k]||0)}</div>`;
+  }).join('')).join('');
 }
+
 function refCard(r) {
   const p = r.product;
   const src = productImgs(p)[0] || '';
@@ -424,7 +443,7 @@ function render() {
           <a href="/api/selection/${TOKEN}/pdf" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:5px 12px;text-decoration:none;letter-spacing:.04em">${t('export_pdf')}</a>
           <button type="button" onclick="clearAll()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:inherit;letter-spacing:.04em">${t('clear_all')}</button>
         </div>
-        ${cards}
+        <div class="msg" style="text-align:left;padding:14px 0">${esc(t('reference_min',OrderingRules.minimum(b)))}${b.min_per_reference_override != null ? ' · '+esc(t('negotiated')) : ''}${Number(b.moq_amount)>0 ? '<br>'+esc(t(b.moq_strict ? 'minimum_order':'recommended_order'))+' : '+Number(b.moq_amount).toFixed(2)+' € HT' : ''}${b.payment_terms ? '<br>'+esc(b.payment_terms):''}${b.delivery_terms ? '<br>'+esc(b.delivery_terms):''}</div>${DATA.proposal_conditions ? '<div class="card">'+esc(DATA.proposal_conditions)+'</div>':''}${cards}
       </div>
       <div class="sel-side">
         <div class="card">
@@ -432,6 +451,8 @@ function render() {
           <div class="field"><label>${t('lbl_contact')}</label><input type="text" id="name" value="${esc(DATA.client.name||'')}"></div>
           <div class="field"><label>${t('lbl_email')}</label><input type="email" id="email" value="${esc(DATA.client.email||'')}" readonly></div>
           ${accountField}
+          <div class="field"><label>Buyer PO number / N° acheteur</label><input id="buyer-po" maxlength="120"></div>
+          <div class="field"><label>Commentaire / Comment</label><textarea id="buyer-comment" maxlength="5000" rows="3"></textarea></div>
         </div>
         <div class="card">
           <label>${t('cgv_title')}</label>
@@ -454,16 +475,29 @@ function render() {
   recalc();
 }
 
-function setCartQty(k, nq) {
-  nq = Math.max(0, parseInt(nq)||0);
-  if (nq>0) cart[k]=nq; else delete cart[k];
-  document.querySelectorAll('input.szi[data-k="'+cssEsc(k)+'"]').forEach(el => {
-    if (el.value !== String(nq)) el.value = nq;
-    el.classList.toggle('on', nq>0);
+function setCartQty(k, nq, delta) {
+  const [,pid] = JSON.parse(k);
+  const p = DATA.references.find(r => r.product.id === pid)?.product;
+  if (!p) return;
+  const siblings = selectionLines().filter(l => l.reference === p.reference);
+  const total = siblings.reduce((n,l) => n + l.qty,0);
+  const min = OrderingRules.minimum(DATA.brand);
+  nq = Math.max(0, Number(nq));
+  if (!Number.isSafeInteger(nq) || nq > 100000) return;
+  if (delta > 0 && total === 0) nq = min;
+  if (delta < 0 && total - (cart[k]||0) + nq < min) {
+    for (const line of siblings) delete cart[OrderingRules.key('',line.product_id,line.color,line.size)];
+  } else {
+    if (nq > 0) cart[k] = nq; else delete cart[k];
+    normalizeSelection();
+  }
+  document.querySelectorAll('input.szi[data-k]').forEach(el => {
+    el.value = cart[el.dataset.k] || 0;
+    el.classList.toggle('on', Number(el.value)>0);
   });
   recalc();
 }
-function stepQty(btn){ const k=btn.dataset.k; setCartQty(k, (cart[k]||0) + parseInt(btn.dataset.d)); }
+function stepQty(btn){ const k=btn.dataset.k; const delta=Number(btn.dataset.d); setCartQty(k, (cart[k]||0) + delta, delta); }
 function inputQty(inp){ setCartQty(inp.dataset.k, inp.value); }
 
 function clearAll() {
@@ -478,7 +512,7 @@ function recalc() {
   const priceOf = {}; (DATA.references||[]).forEach(r => priceOf[r.product.id] = parseFloat(r.product.price||0));
   for (const k in cart) {
     const q = cart[k]; if (!q) continue;
-    const pid = k.slice(0, k.lastIndexOf('|'));
+    const pid = JSON.parse(k)[1];
     total += q * (priceOf[pid] || 0);
   }
   const el = document.getElementById('total'); if (el) el.textContent = total.toFixed(2) + ' €';
@@ -551,12 +585,12 @@ async function confirmSelection() {
   msg.innerHTML = '';
   if (!document.getElementById('cgv').checked) { msg.innerHTML = '<span class="err">' + t('err_cgv') + '</span>'; return; }
   if (!drawn) { msg.innerHTML = '<span class="err">' + t('err_sig') + '</span>'; return; }
-  const lines = Object.entries(cart).filter(([k,q]) => q > 0).map(([k,q]) => { const i = k.lastIndexOf('|'); return { product_id: k.slice(0,i), size: k.slice(i+1), quantity: q }; });
+  const lines = selectionLines().map(({product_id,size,quantity,variant_color}) => ({product_id,size,quantity,variant_color}));
   if (!lines.length) { msg.innerHTML = '<span class="err">' + t('err_qty') + '</span>'; return; }
   const body = {
     password: document.getElementById('pw') ? document.getElementById('pw').value : '',
     signature: document.getElementById('sig').toDataURL('image/png'),
-    cgv_accepted: 1,
+    cgv_accepted: 1, buyer_po_number:document.getElementById('buyer-po').value, buyer_comment:document.getElementById('buyer-comment').value,
     lines
   };
   const btn = document.getElementById('confirm-btn');
@@ -567,13 +601,13 @@ async function confirmSelection() {
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
-  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
+  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p>${esc(d.order_number || '')} · ${esc(d.brand_name || '')} · ${d.pieces || 0} pcs · ${Number(d.total || 0).toFixed(2)} € HT</p><p>${esc(d.payment_terms || '')}</p><p>${esc(d.delivery_terms || '')}</p><a href="/api/public/orders/${encodeURIComponent(d.order_id)}/pdf?token=${encodeURIComponent(d.pdf_token)}" target="_blank" rel="noopener">PDF</a><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
 }
 
 async function saveProgress() {
   const msg = document.getElementById('form-msg');
   msg.innerHTML = '';
-  const lines = Object.entries(cart).map(([k,q]) => { const i = k.lastIndexOf('|'); return { product_id: k.slice(0,i), size: k.slice(i+1), quantity: q }; });
+  const lines = selectionLines().map(({product_id,size,quantity,variant_color}) => ({product_id,size,quantity,variant_color}));
   const btn = document.getElementById('save-progress-btn');
   const original = t('save_btn');
   btn.disabled = true; btn.textContent = t('saving');
