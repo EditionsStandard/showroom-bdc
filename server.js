@@ -73,12 +73,14 @@ if (VAPID_PRIVATE_KEY_RAW && !/^[A-Za-z0-9_-]+$/.test(VAPID_PRIVATE_KEY_RAW)) {
 }
 const VAPID_PUBLIC_KEY = isValidVapidPublicKey(VAPID_PUBLIC_KEY_RAW) ? VAPID_PUBLIC_KEY_RAW : null;
 const VAPID_PRIVATE_KEY = (VAPID_PRIVATE_KEY_RAW && /^[A-Za-z0-9_-]+$/.test(VAPID_PRIVATE_KEY_RAW)) ? VAPID_PRIVATE_KEY_RAW : null;
+let pushReady=false;
 if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
+  try { webpush.setVapidDetails(
     'mailto:' + (process.env.ADMIN_EMAIL || 'admin@localhost'),
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
-  );
+  ); pushReady=true; }
+  catch(_) { console.error('[push-config] Invalid VAPID configuration; push disabled, email fallback retained'); }
 }
 
 // brandId : si fourni, notifie owner + agents/designers de CETTE marque
@@ -86,8 +88,9 @@ if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 // (ex. demande de lien de partage — affaire interne à l'agence, pas aux
 // autres marques). Sans ce filtre, un agent abonné recevait le contenu
 // (nom client + marque) de TOUTES les commandes, toutes marques confondues.
+let pushDisabledUntil = 0;
 async function sendPushToAdmins(title, body, brandId) {
-  if (!webpush || !VAPID_PUBLIC_KEY) return;
+  if (!pushReady || Date.now() < pushDisabledUntil) return;
   try {
     const subs = await pool.query(`
       SELECT ps.id, ps.subscription_json FROM push_subscriptions ps
@@ -95,9 +98,13 @@ async function sendPushToAdmins(title, body, brandId) {
       WHERE ps.staff_id IS NULL OR au.role = 'owner' ${brandId ? "OR (au.role IN ('agent','designer') AND au.brand_id = $1)" : ''}
     `, brandId ? [brandId] : []);
     for (const row of subs.rows) {
-      const sub = JSON.parse(row.subscription_json);
-      webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(e => {
-        console.error('[push-error]', e.statusCode || '', e.message);
+      if (Date.now() < pushDisabledUntil) break;
+      let sub; try { sub=JSON.parse(row.subscription_json); } catch(_) { continue; }
+      await webpush.sendNotification(sub, JSON.stringify({ title, body }), { timeout:8000 }).catch(e => {
+        if (e.statusCode === 401 || e.statusCode === 403) {
+          pushDisabledUntil = Date.now() + 15 * 60 * 1000;
+          console.error('[push-config]', e.statusCode, 'push paused for 15 minutes; email fallback retained');
+        } else console.error('[push-error]', e.statusCode || e.name || 'network');
         // 404/410 : le service de push confirme que cet abonnement n'existe plus
         // (désinstallation, permission révoquée, appareil réinitialisé…) — sans
         // ce nettoyage, la ligne restait en base indéfiniment et chaque envoi
@@ -2675,18 +2682,19 @@ app.get('/api/admin/translate-check', requireRole('owner'), async (req, res) => 
   const configured = !!process.env.ANTHROPIC_API_KEY;
   let cacheRows = null;
   try { const c = await pool.query('SELECT COUNT(*)::int n FROM content_translations'); cacheRows = c.rows[0].n; } catch(_) {}
-  if (!configured) return res.json({ configured: false, cache_rows: cacheRows });
+  if (!configured) return res.json({ configured: false, cache_rows: cacheRows, circuit: translationCircuit.status() });
+  if (translationCircuit.status().open) return res.json({ configured:true,cache_rows:cacheRows,circuit:translationCircuit.status() });
   const sample = 'Nouvelle collection printemps, coupe ajustée en laine.';
   const langs = Object.keys(TRANSLATE_LANGS);
   const results = {};
-  await Promise.all(langs.map(async (lang) => {
+  for (const lang of langs) {
     try {
       const tr = await claudeTranslate([sample], TRANSLATE_LANGS[lang]);
       const val = tr && tr[0];
       results[lang] = { ok: !!(val && String(val).trim() && val !== sample), sample: val || null };
     } catch(e) { results[lang] = { ok: false, error: e.message || String(e) }; }
-  }));
-  res.json({ configured: true, cache_rows: cacheRows, results });
+  }
+  res.json({ configured: true, cache_rows: cacheRows, results, circuit:translationCircuit.status() });
 });
 
 // Purge du cache de traduction (owner) : retire les entrées figées (dont les
@@ -3932,7 +3940,7 @@ app.post('/api/admin/push-subscribe', requireRole('owner','agent'), async (req, 
 });
 
 app.get('/api/admin/vapid-public-key', requireRole('owner','agent'), (req, res) => {
-  res.json({ key: VAPID_PUBLIC_KEY });
+  res.json({ key: pushReady ? VAPID_PUBLIC_KEY:null,configured:pushReady,paused:Date.now()<pushDisabledUntil });
 });
 
 app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (req, res) => {
@@ -4802,9 +4810,11 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
 
     // Compte acheteur : créer (nouveau) ou authentifier (existant)
     const email = sel.client_email;
-    const existing = (await pool.query('SELECT id, email, name, company, phone, country, password_hash FROM buyers WHERE email=$1', [email])).rows[0];
+    const existing = (await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled, activation_pending FROM buyers WHERE email=$1', [email])).rows[0];
     let buyer;
     if (existing) {
+      if (existing.activation_pending) return res.status(403).json({error:'Activez votre compte avec le lien reçu par email.'});
+      if (existing.mfa_enabled && (req.session.buyerPortal?.id !== existing.id || !isSessionFresh(req,BUYER_IDLE_TIMEOUT_MS,BUYER_ABSOLUTE_TIMEOUT_MS))) return res.status(403).json({error:'Connectez-vous au portail avec votre authentification à deux facteurs, puis rouvrez cette sélection.'});
       // Compte déjà existant : on exige le mot de passe pour confirmer l'identité
       if (!password || !await bcrypt.compare(password, existing.password_hash)) {
         return res.status(401).json({ error: 'Mot de passe incorrect. Saisissez le mot de passe de votre compte acheteur.', account_exists: true });
@@ -4968,12 +4978,12 @@ function isSafeNextPath(next) {
 
 app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled, locked_until FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
+  const r = await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled, locked_until, activation_pending FROM buyers WHERE email=$1', [(email||'').toLowerCase().trim()]);
   const buyer = r.rows[0];
   const safeNext = isSafeNextPath(req.body.next) ? req.body.next : '';
   const passwordOk = await bcrypt.compare(password || '', buyer?.password_hash || DUMMY_BCRYPT_HASH);
   const locked = isLocked(buyer);
-  if (buyer && passwordOk && !locked) {
+  if (buyer && passwordOk && !locked && !buyer.activation_pending) {
     await clearLoginFailures('buyers', buyer.id);
     if (buyer.mfa_enabled) {
       // Mot de passe correct mais MFA active côté acheteur : pas de session
@@ -6565,11 +6575,17 @@ app.post('/api/admin/buyers/:id/messages', requireRole('owner', 'agent'), async 
 // ==================== TRADUCTION DE CONTENU (Claude, avec cache) ============
 const TRANSLATE_LANGS = { en: 'English', it: 'Italian', es: 'Spanish', de: 'German',
   zh: 'Chinese (Simplified)', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
+const translationCircuit = new (require('./lib/provider-circuit').ProviderCircuit)({
+  onFailure: (error,state) => console.error('[translate-provider]', error.statusCode || error.name, 'backoff until', state.retry_at)
+});
 
 // Un seul appel Claude pour un petit lot de textes. Renvoie un tableau de même
 // longueur (les cases non traduites valent null). Lève une erreur en cas
 // d'échec dur (réseau, HTTP, JSON illisible) pour laisser le repli agir.
 async function claudeTranslate(texts, langName) {
+  return translationCircuit.run(() => requestClaudeTranslation(texts,langName));
+}
+async function requestClaudeTranslation(texts, langName) {
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -6642,7 +6658,10 @@ async function translateBatch(texts, lang) {
 
   const chunks = [];
   for (let i = 0; i < missing.length; i += TRANSLATE_CHUNK) chunks.push(missing.slice(i, i + TRANSLATE_CHUNK));
-  await Promise.all(chunks.map(runChunk));
+  for (const chunk of chunks) {
+    if (translationCircuit.status().open) break;
+    await runChunk(chunk);
+  }
   return out;
 }
 
@@ -6862,8 +6881,9 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, r.rows[0].buyer_id]);
-      await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1', [tokenHash]);
+      const claimed = await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING buyer_id', [tokenHash]);
+      if (!claimed.rows.length) throw new Error('Lien invalide ou expiré.');
+      await client.query('UPDATE buyers SET password_hash=$1, activation_pending=false WHERE id=$2', [hash, claimed.rows[0].buyer_id]);
       await client.query('COMMIT');
     } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
@@ -7689,91 +7709,53 @@ app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) =
 });
 
 app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async (req, res) => {
- try {
-  const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
-  if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
-  const req2 = r.rows[0];
-  if (req2.status !== 'pending') return res.status(400).json({ error: 'Demande déjà traitée' });
-
-  // Créer (ou réutiliser) le compte acheteur avec un mot de passe temporaire.
-  // Un compte peut déjà exister (ré-inscription, test, approbation partielle
-  // antérieure) : dans ce cas on réinitialise son mot de passe au lieu
-  // d'échouer, sinon la demande resterait bloquée « en attente » pour toujours.
-  const email = String(req2.email || '').toLowerCase().trim();
-  const tempPassword = crypto.randomBytes(12).toString('hex'); // mot de passe temporaire, envoyé par email — forte entropie requise
-  const hash = await bcrypt.hash(tempPassword, 10);
-  const existing = await pool.query('SELECT id FROM buyers WHERE LOWER(email)=$1', [email]);
-  let buyerId, reused = false;
-  if (existing.rows.length) {
-    buyerId = existing.rows[0].id;
-    reused = true;
-    await pool.query('UPDATE buyers SET password_hash=$1 WHERE id=$2', [hash, buyerId]);
-    // Cohérent avec change-password et reset-password : un mot de passe réinitialisé
-    // invalide les sessions existantes (sinon une session déjà ouverte reste valide
-    // avec l'ancien mot de passe alors que le nouveau vient d'être envoyé par email).
-    await invalidateBuyerSessions(buyerId, null);
-  } else {
-    buyerId = uuidv4();
-    await pool.query(
-      'INSERT INTO buyers (id,email,password_hash,name,company,phone,country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [buyerId, email, hash, req2.name, req2.company, req2.phone, req2.country]
-    );
-  }
-  await pool.query("UPDATE access_requests SET status='approved' WHERE id=$1", [req.params.id]);
-  logAudit(req, 'approve_access_request', 'access_request', req.params.id, req2.email);
-
-  // Email de bienvenue avec les identifiants
-  const [showroomName, fromAddress] = await Promise.all([getSetting('showroom_name'), getSetting('smtp_from')]);
-  const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey) {
-    const resend = newResendClient(resendKey);
-    const from = fromAddress || 'showroom@editionsstandard.com';
-    const loginUrl = `${req.protocol}://${req.get('host')}/editions-showroom-b2b-portail`;
-    // Fetch buyer lang (just created — default 'fr', can't be 'en' yet unless set elsewhere)
-    const buyerLangRes = await pool.query('SELECT lang FROM buyers WHERE id=$1', [buyerId]);
-    const isEn = buyerLangRes.rows[0]?.lang === 'en';
-    const { error: sendErr } = await resend.emails.send({
-      from: `${showroomName} <${from}>`,
-      to: [req2.email],
-      subject: isEn
-        ? `Your showroom access to ${showroomName} is confirmed`
-        : `Votre accès au showroom ${showroomName} est confirmé`,
-      html: emailLayout({ showroomName, content: isEn ? `
-        <p>Hello <strong>${escHtml(req2.name)}</strong>,</p>
-        <p>Your access request to the <strong>${escHtml(showroomName)}</strong> showroom has been approved.</p>
-        <p>Here are your login credentials:</p>
-        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
-          <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888;width:120px">Email</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)"><strong>${escHtml(req2.email)}</strong></td></tr>
-          <tr><td style="padding:8px;color:#888">Password</td><td style="padding:8px"><strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${escHtml(tempPassword)}</strong></td></tr>
-        </table>
-        <p style="font-size:12px;color:#888">You can change your password after your first login.</p>
-        ${emailBtn(loginUrl, 'ACCESS SHOWROOM →')}
-      ` : `
-        <p>Bonjour <strong>${escHtml(req2.name)}</strong>,</p>
-        <p>Votre demande d'accès au showroom <strong>${escHtml(showroomName)}</strong> a été acceptée.</p>
-        <p>Voici vos identifiants de connexion :</p>
-        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
-          <tr><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1);color:#888;width:120px">Email</td><td style="padding:8px;border-bottom:1px solid rgba(17,17,17,.1)"><strong>${escHtml(req2.email)}</strong></td></tr>
-          <tr><td style="padding:8px;color:#888">Mot de passe</td><td style="padding:8px"><strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${escHtml(tempPassword)}</strong></td></tr>
-        </table>
-        <p style="font-size:12px;color:#888">Vous pourrez modifier votre mot de passe après votre première connexion.</p>
-        ${emailBtn(loginUrl, 'ACCÉDER AU SHOWROOM →')}
-      ` })
-    });
-    // Le SDK Resend résout avec {data:null,error} au lieu de rejeter — sans cette
-    // vérification, un envoi échoué laissait le compte acheteur créé avec un mot
-    // de passe temporaire que ni l'acheteur (pas d'email) ni l'admin (réponse sans
-    // mot de passe) ne connaissaient. On le renvoie dans la réponse si l'email
-    // n'est pas confirmé envoyé, pour transmission manuelle.
-    if (sendErr) { console.error('[resend] access-request-approve:', sendErr.message || sendErr); return res.json({ ok: true, reused, emailed: false, temp_password: tempPassword }); }
-  } else {
-    // Pas de RESEND_API_KEY configurée : sans ce repli, le mot de passe temporaire
-    // n'était communiqué nulle part (ni email, ni réponse) — le compte acheteur
-    // était créé mais définitivement inaccessible.
-    return res.json({ ok: true, reused, emailed: false, temp_password: tempPassword });
-  }
-  res.json({ ok: true, reused, emailed: true });
- } catch(e) { console.error('approve access request:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+  const client = await pool.connect();
+  let request, buyerId, reused = false, needsActivation = false, token;
+  try {
+    await client.query('BEGIN');
+    request = (await client.query('SELECT * FROM access_requests WHERE id=$1 FOR UPDATE', [req.params.id])).rows[0];
+    if (!request || request.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error:'Demande introuvable ou déjà traitée' });
+    }
+    const email = String(request.email || '').toLowerCase().trim();
+    const existing = (await client.query('SELECT id,activation_pending FROM buyers WHERE LOWER(email)=$1', [email])).rows[0];
+    if (existing) {
+      buyerId=existing.id; reused=true; needsActivation=existing.activation_pending;
+    } else {
+      buyerId=uuidv4(); needsActivation=true;
+      const unreachablePasswordHash=await bcrypt.hash(crypto.randomBytes(32).toString('hex'),10);
+      await client.query('INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending) VALUES($1,$2,$3,$4,$5,$6,$7,true)',[buyerId,email,unreachablePasswordHash,request.name,request.company,request.phone,request.country]);
+    }
+    if (needsActivation) {
+      token=crypto.randomBytes(32).toString('hex');
+      const tokenHash=crypto.createHash('sha256').update(token).digest('hex');
+      await client.query('DELETE FROM buyer_password_resets WHERE buyer_id=$1',[buyerId]);
+      await client.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '60 minutes')",[tokenHash,buyerId]);
+    }
+    await client.query("UPDATE access_requests SET status='approved' WHERE id=$1",[request.id]);
+    await client.query('COMMIT');
+  } catch(e) {
+    await client.query('ROLLBACK');
+    console.error('approve access request:',e.message);
+    return res.status(500).json({error:'Erreur serveur'});
+  } finally { client.release(); }
+  logAudit(req,'approve_access_request','access_request',request.id,request.email);
+  const url=needsActivation ? `${getBaseUrl(req)}/editions-showroom-b2b-portail?activation=1&token=${token}` : `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
+  let emailed=false;
+  try {
+    if(process.env.RESEND_API_KEY) {
+      const [showroomName,fromAddress,buyerLang]=await Promise.all([getSetting('showroom_name'),getSetting('smtp_from'),pool.query('SELECT lang FROM buyers WHERE id=$1',[buyerId])]);
+      const isEn=buyerLang.rows[0]?.lang==='en';
+      const content=isEn
+        ? `<p>Hello <strong>${escHtml(request.name)}</strong>,</p><p>Your access has been approved.</p>${needsActivation ? '<p>Choose your own password using this single-use link, valid for 60 minutes.</p>':'<p>Your existing account is ready to use.</p>'}${emailBtn(url,needsActivation ? 'ACTIVATE MY ACCOUNT →':'ACCESS SHOWROOM →')}`
+        : `<p>Bonjour <strong>${escHtml(request.name)}</strong>,</p><p>Votre accès a été approuvé.</p>${needsActivation ? '<p>Choisissez votre mot de passe avec ce lien à usage unique, valable 60 minutes.</p>':'<p>Votre compte existant est prêt à être utilisé.</p>'}${emailBtn(url,needsActivation ? 'ACTIVER MON COMPTE →':'ACCÉDER AU SHOWROOM →')}`;
+      const result=await newResendClient(process.env.RESEND_API_KEY).emails.send({from:`${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,to:[request.email],subject:isEn ? 'Your showroom access is approved':'Votre accès au showroom est approuvé',html:emailLayout({showroomName,content})});
+      emailed=!result.error;
+      if(result.error)console.error('[resend] activation:',result.error.message || 'send failed');
+    }
+  } catch(e) { console.error('[resend] activation:',e.message); }
+  res.json({ok:true,reused,emailed,...(!emailed ? {activation_url:url}: {})});
 });
 
 app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async (req, res) => {

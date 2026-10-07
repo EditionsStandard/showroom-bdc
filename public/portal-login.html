@@ -405,6 +405,7 @@ const params = new URLSearchParams(location.search);
 if (params.get('token')) {
   resetToken = params.get('token');
   showView('reset');
+  if(params.get('activation')==='1') document.getElementById('reset-msg').textContent = currentLang === 'en' ? 'Activate your account: choose your password (12 characters minimum).' : 'Activez votre compte : choisissez votre mot de passe (12 caractères minimum).';
   // Sécurité : retire immédiatement le token de l'URL visible (barre d'adresse,
   // historique navigateur, un éventuel Referer sortant) une fois lu en mémoire.
   // (Le ?next= éventuel reste porté par le champ caché du formulaire, inutile
