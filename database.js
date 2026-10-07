@@ -562,6 +562,8 @@ async function init() {
   for (const sql of alters) {
     await pool.query(sql).catch(e => console.error('Migration colonne ignorée:', e.message.split('\n')[0]));
   }
+  // Required ordering invariant: never silently ignore a failed migration.
+  await require('./lib/min-reference-migration').migrateMinReference(pool);
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
   // Backfill + dédoublonnage des abonnements push existants avant de poser la
   // contrainte d'unicité (des doublons ont pu s'accumuler tant que le bug était
