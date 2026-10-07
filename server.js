@@ -1765,12 +1765,14 @@ app.get('/api/brands', requireRole('owner', 'agent', 'designer'), async (req, re
 app.post('/api/brands', requireRole('owner'), async (req, res) => {
   const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, website, instagram, facebook, tiktok, linkedin, video_url, invite_bg_url, retail_margin } = req.body;
   if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
+  const minimum = req.body.min_per_reference === undefined ? null : Number(req.body.min_per_reference);
+  if (minimum !== null && (!Number.isSafeInteger(minimum) || minimum < 1 || minimum > MAX_LINE_QTY)) return res.status(400).json({ error: 'Minimum par référence invalide' });
   if (retail_margin !== undefined && retail_margin !== null && retail_margin !== '' && !(Number.isFinite(parseFloat(retail_margin)) && parseFloat(retail_margin) > 0)) return res.status(400).json({ error: 'Marge retail invalide' });
   const id = uuidv4();
   const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(req.body.order_deadline || '') ? req.body.order_deadline : null;
   const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(req.body.early_access_until || '') ? req.body.early_access_until : null;
-  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until,invite_bg_url,retail_margin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)',
-    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', (retail_margin !== undefined && retail_margin !== null && retail_margin !== '') ? parseFloat(retail_margin) : null]);
+  await pool.query('INSERT INTO brands (id,name,logo_url,logo,cover_image,thumbnail,cgv_text,moq_qty,moq_amount,moq_strict,about_text,lookbook_url,delivery_terms,payment_terms,order_deadline,return_terms,website,instagram,facebook,tiktok,linkedin,video_url,early_access_until,invite_bg_url,retail_margin,min_per_reference) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)',
+    [id, name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), moq_strict||false, about_text||'', safeHttpUrl(lookbook_url), (req.body.delivery_terms||'').slice(0,600), (req.body.payment_terms||'').slice(0,600), orderDeadline, (req.body.return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', (retail_margin !== undefined && retail_margin !== null && retail_margin !== '') ? parseFloat(retail_margin) : null, minimum ?? 1]);
   res.json({ id, name });
 });
 
@@ -1778,11 +1780,13 @@ app.put('/api/brands/:id', requireRole('owner'), async (req, res) => {
   try {
     const { name, logo_url, logo, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, about_text, lookbook_url, default_currency, delivery_terms, payment_terms, order_deadline, return_terms, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until, invite_bg_url, retail_margin } = req.body;
     if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nom requis' });
+  const minimum = req.body.min_per_reference === undefined ? null : Number(req.body.min_per_reference);
+  if (minimum !== null && (!Number.isSafeInteger(minimum) || minimum < 1 || minimum > MAX_LINE_QTY)) return res.status(400).json({ error: 'Minimum par référence invalide' });
     if (retail_margin !== undefined && retail_margin !== null && retail_margin !== '' && !(Number.isFinite(parseFloat(retail_margin)) && parseFloat(retail_margin) > 0)) return res.status(400).json({ error: 'Marge retail invalide' });
     const orderDeadline = /^\d{4}-\d{2}-\d{2}$/.test(order_deadline || '') ? order_deadline : null;
     const earlyAccessUntil = /^\d{4}-\d{2}-\d{2}$/.test(early_access_until || '') ? early_access_until : null;
-    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23, invite_bg_url=$24, retail_margin=$25 WHERE id=$26',
-      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', (retail_margin !== undefined && retail_margin !== null && retail_margin !== '') ? parseFloat(retail_margin) : null, req.params.id]);
+    await pool.query('UPDATE brands SET name=$1, logo_url=$2, logo=$3, cover_image=$4, thumbnail=$5, cgv_text=$6, moq_qty=$7, moq_amount=$8, about_text=$9, lookbook_url=$10, default_currency=$11, moq_strict=$12, delivery_terms=$13, payment_terms=$14, order_deadline=$15, return_terms=$16, website=$17, instagram=$18, facebook=$19, tiktok=$20, linkedin=$21, video_url=$22, early_access_until=$23, invite_bg_url=$24, retail_margin=$25, min_per_reference=COALESCE($27,min_per_reference) WHERE id=$26',
+      [name, safeHttpUrl(logo_url), logo||'', cover_image||'', thumbnail||'', cgv_text||'', Math.floor(nonNeg(moq_qty)), nonNeg(moq_amount), about_text||'', safeHttpUrl(lookbook_url), default_currency||null, moq_strict||false, (delivery_terms||'').slice(0,600), (payment_terms||'').slice(0,600), orderDeadline, (return_terms||'').slice(0,600), safeHttpUrl(website), safeHttpUrl(instagram), safeHttpUrl(facebook), safeHttpUrl(tiktok), safeHttpUrl(linkedin), video_url||'', earlyAccessUntil, invite_bg_url||'', (retail_margin !== undefined && retail_margin !== null && retail_margin !== '') ? parseFloat(retail_margin) : null, req.params.id, minimum]);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
 });
@@ -4335,7 +4339,9 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (!buyer_signature) return { error: 'Signature requise' };
   if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
 
-  const brandCheck = await pool.query('SELECT subscription_status, moq_qty, moq_amount, moq_strict FROM brands WHERE id=$1', [brand_id]);
+  const brandCheck = await pool.query(`SELECT b.name, b.subscription_status, b.moq_qty, b.moq_amount, b.moq_strict,
+    b.min_per_reference, bt.min_per_reference_override FROM brands b
+    LEFT JOIN buyer_brand_terms bt ON bt.brand_id=b.id AND bt.buyer_id=$2 WHERE b.id=$1`, [brand_id, buyer_id || null]);
   if (!brandCheck.rows[0]) return { error: 'Marque introuvable' };
   if (brandCheck.rows[0].subscription_status === 'inactive') {
     return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
@@ -4363,6 +4369,17 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   }
 
   const totalQty = resolvedLines.reduce((s, l) => s + l.quantity, 0);
+  const ordering = require('./public/ordering-rules');
+  const perReference = ordering.minimum(brandCheck.rows[0]);
+  const referenceTotals = ordering.aggregate(resolvedLines.map(l => ({
+    brand_id, reference: l.product.reference, product_id: l.product_id, quantity: l.quantity
+  })), 'quantity');
+  for (const [key, quantity] of referenceTotals) {
+    if (quantity < perReference) return {
+      error: `${brandCheck.rows[0].name} — ${JSON.parse(key)[1]} : minimum ${perReference} pièces par référence (quantité actuelle : ${quantity}).`,
+      code: 'min_per_reference', brand_id, reference: JSON.parse(key)[1], required_minimum: perReference, current_quantity: quantity
+    };
+  }
   const totalAmount = resolvedLines.reduce((s, l) => s + l.quantity * parseFloat(l.product.price || 0), 0);
   const moqQty = parseInt(brandCheck.rows[0].moq_qty) || 0;
   const moqAmount = parseFloat(brandCheck.rows[0].moq_amount) || 0;
@@ -4394,7 +4411,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     // ne jamais fusionner deux commandes réellement différentes passées coup
     // sur coup par le même acheteur.
     await dbClient.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [dedupKey]);
-    const linesSignature = resolvedLines.map(l => `${l.product_id}:${l.quantity}:${l.size || ''}`).sort().join('|');
+    const linesSignature = resolvedLines.map(l => JSON.stringify([l.product_id, l.quantity, l.size || '', l.variant_color || ''])).sort().join('|');
     const dupCandidates = await dbClient.query(
       `SELECT id, pdf_token, order_number FROM orders
        WHERE brand_id=$1 AND created_at > NOW() - INTERVAL '20 seconds'
@@ -4403,8 +4420,8 @@ async function createOrder({ brand_id, client_name, client_email, client_company
       [brand_id, buyer_id || null, (client_email || '').toLowerCase().trim()]
     );
     for (const cand of dupCandidates.rows) {
-      const candLines = (await dbClient.query('SELECT product_id, quantity, size FROM order_lines WHERE order_id=$1', [cand.id])).rows;
-      const candSignature = candLines.map(l => `${l.product_id}:${l.quantity}:${l.size || ''}`).sort().join('|');
+      const candLines = (await dbClient.query('SELECT product_id, quantity, size, variant_color FROM order_lines WHERE order_id=$1', [cand.id])).rows;
+      const candSignature = candLines.map(l => JSON.stringify([l.product_id, l.quantity, l.size || '', l.variant_color || ''])).sort().join('|');
       if (candSignature === linesSignature) {
         await dbClient.query('COMMIT');
         return { order_id: cand.id, pdf_token: cand.pdf_token, order_number: cand.order_number };
@@ -4651,11 +4668,17 @@ app.get('/api/selection/:token', publicLimiter, async (req, res) => {
     if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
     if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
     if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
-    const b = await pool.query('SELECT id, name, logo, logo_url, cgv_text, moq_qty, moq_amount FROM brands WHERE id=$1', [sel.brand_id]);
+    const b = await pool.query(`SELECT b.id, b.name, b.logo, b.logo_url, b.cgv_text, b.moq_qty, b.moq_amount, b.moq_strict,
+      b.min_per_reference, bt.min_per_reference_override,
+      COALESCE(NULLIF(bt.payment_terms,''),b.payment_terms) AS payment_terms,
+      COALESCE(NULLIF(bt.delivery_terms,''),b.delivery_terms) AS delivery_terms
+      FROM brands b LEFT JOIN buyers buyer ON LOWER(buyer.email)=LOWER($2)
+      LEFT JOIN buyer_brand_terms bt ON bt.brand_id=b.id AND bt.buyer_id=buyer.id
+      WHERE b.id=$1`, [sel.brand_id, sel.client_email]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
     const items = JSON.parse(sel.items_json || '[]');
     const ids = [...new Set(items.map(i => i.product_id))];
-    const prods = await pool.query('SELECT id, reference, description, color, composition, price, price_retail, image_url, images, sizes FROM products WHERE id = ANY($1)', [ids]);
+    const prods = await pool.query('SELECT id, reference, description, color, variants, stock_enabled, stock_qty, composition, price, price_retail, image_url, images, sizes FROM products WHERE id = ANY($1) AND brand_id=$2 AND (active != 0 OR is_sample=true)', [ids, sel.brand_id]);
     const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
     // Regroupe par référence : le client choisit lui-même les quantités par taille.
     // Les quantités éventuellement pré-remplies par l'agent servent de valeurs de départ.
@@ -4719,18 +4742,17 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
       const sz = (l.size || '').toString();
       const validSizes = sizeMap[pid] || [];
       if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
-      agg[pid + '|' + sz] = Math.max(0, parseInt(l.quantity) || 0);
+      agg[JSON.stringify([pid, String(l.variant_color || ''), sz])] = Math.max(0, parseInt(l.quantity) || 0);
     }
     // Conserve toute référence de la sélection absente du panier envoyé (à 0)
     // plutôt que de la faire disparaître — un envoi partiel ne doit pas
     // effacer les autres lignes déjà enregistrées.
     selectedIds.forEach(pid => {
-      if (![...Object.keys(agg)].some(k => k.startsWith(pid + '|'))) agg[pid + '|'] = 0;
+      if (!Object.keys(agg).some(k => JSON.parse(k)[0] === pid)) agg[JSON.stringify([pid, '', ''])] = 0;
     });
     const newItems = Object.entries(agg).map(([k, quantity]) => {
-      const idx = k.lastIndexOf('|');
-      const product_id = k.slice(0, idx), size = k.slice(idx + 1);
-      return { product_id, size, quantity, note: notesByProduct[product_id] || '' };
+      const [product_id, variant_color, size] = JSON.parse(k);
+      return { product_id, variant_color, size, quantity, note: notesByProduct[product_id] || '' };
     });
     await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2', [JSON.stringify(newItems), req.params.token]);
     res.json({ ok: true });
@@ -4815,11 +4837,12 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
       const q = parseInt(l.quantity) || 0;
       if (q <= 0) continue;
-      agg[pid + '|' + sz] = (agg[pid + '|' + sz] || 0) + q;
+      const key = JSON.stringify([pid, String(l.variant_color || ''), sz]);
+      agg[key] = (agg[key] || 0) + q;
     }
     const finalLines = Object.entries(agg).map(([k, quantity]) => {
-      const idx = k.lastIndexOf('|');
-      return { product_id: k.slice(0, idx), size: k.slice(idx + 1), quantity };
+      const [product_id, variant_color, size] = JSON.parse(k);
+      return { product_id, variant_color, size, quantity };
     });
     if (!finalLines.length) return res.status(400).json({ error: 'Veuillez indiquer au moins une quantité.' });
 
@@ -5400,7 +5423,18 @@ app.post('/api/portal/shortlist/:productId', requireBuyerAuth, async (req, res) 
 app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   try {
     // != 'inactive' exclut les NULL en PG — on inclut explicitement les NULL
-    const r = await pool.query("SELECT id, name, about_text, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
+    const r = await pool.query("SELECT id, name, about_text, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, min_per_reference, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
+    const negotiated = (await pool.query('SELECT * FROM buyer_brand_terms WHERE buyer_id=$1', [req.session.buyerPortal.id])).rows;
+    for (const brand of r.rows) {
+      const override = negotiated.find(o => o.brand_id === brand.id);
+      brand.min_per_reference_override = override?.min_per_reference_override ?? null;
+      brand.effective_min_per_reference = require('./public/ordering-rules').minimum(brand);
+      if (override) {
+        for (const field of ['payment_terms', 'delivery_terms', 'return_terms']) if (override[field]) brand[field] = override[field];
+        brand.custom_terms = true;
+        brand.is_privileged = override.is_privileged;
+      }
+    }
     const season = (await getSetting('current_season')) || '';
     const brands = r.rows.map(b => ({
       ...b,
@@ -5416,7 +5450,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {
   try {
-    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until FROM brands WHERE id=$1", [req.params.brandId]);
+    const b = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, about_text, cgv_text, moq_qty, moq_amount, moq_strict, min_per_reference, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, subscription_status, lookbook_url, default_currency, website, instagram, facebook, tiktok, linkedin, video_url, early_access_until FROM brands WHERE id=$1", [req.params.brandId]);
     if (!b.rows[0] || b.rows[0].subscription_status === 'inactive') return res.status(404).json({ error: 'Marque indisponible' });
     const p = await pool.query('SELECT id, reference, description, color, sizes, price, price_retail, image_url, images, variants, collection_name, composition, category, season_id, active, created_at, stock_qty, stock_enabled, video_url, featured FROM products WHERE brand_id=$1 AND active != 0 ORDER BY collection_name, reference', [req.params.brandId]);
     // Track views for all products in this brand page load — une seule requête
@@ -5485,15 +5519,17 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
     // — un champ vide dans la surcharge = pas de négociation sur ce point,
     // repli sur la condition par défaut de la marque.
     const termsOverride = (await pool.query(
-      'SELECT payment_terms, delivery_terms, return_terms FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2',
+      'SELECT payment_terms, delivery_terms, return_terms, min_per_reference_override FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2',
       [req.session.buyerPortal.id, req.params.brandId]
     )).rows[0];
     if (termsOverride) {
       brand.custom_terms = true;
+      brand.min_per_reference_override = termsOverride.min_per_reference_override;
       if (termsOverride.payment_terms) brand.payment_terms = termsOverride.payment_terms;
       if (termsOverride.delivery_terms) brand.delivery_terms = termsOverride.delivery_terms;
       if (termsOverride.return_terms) brand.return_terms = termsOverride.return_terms;
     }
+    brand.effective_min_per_reference = require('./public/ordering-rules').minimum(brand);
     brand.logo = cloudinaryOpt(brand.logo);
     brand.logo_url = cloudinaryOpt(brand.logo_url);
     brand.cover_image = cloudinaryOpt(brand.cover_image);
@@ -5691,6 +5727,50 @@ app.get('/api/portal/orders/:id/lines', requireBuyerAuth, async (req, res) => {
     [req.params.id]
   );
   res.json(lines.rows);
+});
+
+// Reconcile historical order snapshots before the buyer adds anything.
+app.get('/api/portal/orders/:id/reorder', requireBuyerAuth, async (req, res) => {
+  try {
+    const buyerId = req.session.buyerPortal.id;
+    const order = (await pool.query('SELECT brand_id FROM orders WHERE id=$1 AND buyer_id=$2', [req.params.id,buyerId])).rows[0];
+    if (!order) return res.status(404).json({ error: 'Commande introuvable' });
+    if ((await getLockedBrandIds(buyerId,[order.brand_id])).size) return res.status(403).json({ error: 'Collection en accès anticipé' });
+    const brand = (await pool.query(`SELECT b.*,bt.min_per_reference_override FROM brands b LEFT JOIN buyer_brand_terms bt ON bt.brand_id=b.id AND bt.buyer_id=$2 WHERE b.id=$1`,[order.brand_id,buyerId])).rows[0];
+    if (!brand || brand.subscription_status === 'inactive') return res.status(400).json({ error: 'Marque indisponible' });
+    const old = (await pool.query('SELECT ol.*,p.reference FROM order_lines ol JOIN products p ON p.id=ol.product_id WHERE ol.order_id=$1',[req.params.id])).rows;
+    const current = (await pool.query('SELECT * FROM products WHERE brand_id=$1 AND active != 0',[order.brand_id])).rows;
+    const lines = [], changes = new Map();
+    const allocated = new Map();
+    for (const previous of old) {
+      const matches = current.filter(p=>p.reference===previous.reference);
+      const p = current.find(p=>p.id===previous.product_id) || (matches.length===1 ? matches[0] : null);
+      const sizes = String(p?.sizes || '').split(',').map(s=>s.trim()).filter(Boolean);
+      let variants=[]; try { variants=JSON.parse(p?.variants || '[]'); } catch(_) {}
+      const color = previous.variant_color || p?.color || '';
+      const validColor = !color || color===p?.color || variants.some(v=>v.color===color);
+      const booked = allocated.get(p?.id) || 0;
+      if (!p || !validColor || (sizes.length && !sizes.includes(previous.size)) || (p.stock_enabled && p.stock_qty !== null && p.stock_qty < booked+previous.quantity)) {
+        changes.set(previous.reference,'unavailable'); continue;
+      }
+      allocated.set(p.id,booked+previous.quantity);
+      if (changes.get(previous.reference)!=='unavailable') changes.set(previous.reference,Number(previous.unit_price)!==Number(p.price) ? 'price_updated' : changes.get(previous.reference) || 'unchanged');
+      lines.push({ brand_id:brand.id,brand_name:brand.name,product_id:p.id,reference:p.reference,description:p.description,color,size:previous.size,qty:previous.quantity,price:p.price,price_retail:p.price_retail,image_url:p.image_url });
+    }
+    const rules = require('./public/ordering-rules');
+    const normalized = rules.normalize(Object.fromEntries(lines.map((l,i)=>[i,l])),[brand]);
+    // Raising an old quantity to the current minimum must also fit current stock.
+    for (const [key,line] of Object.entries(normalized)) {
+      const p = current.find(p=>p.id===line.product_id);
+      const qty = Object.values(normalized).filter(l=>l.product_id===p.id).reduce((n,l)=>n+l.qty,0);
+      if (p.stock_enabled && p.stock_qty!==null && qty>p.stock_qty) {
+        changes.set(line.reference,'unavailable');
+        delete normalized[key];
+      }
+    }
+    const safe = Object.values(normalized).filter(l=>changes.get(l.reference)!=='unavailable');
+    res.json({ brand, lines:safe, summary:{ references:changes.size, unchanged:[...changes.values()].filter(v=>v==='unchanged').length, prices_updated:[...changes.values()].filter(v=>v==='price_updated').length, unavailable:[...changes.values()].filter(v=>v==='unavailable').length, minimum:rules.minimum(brand) } });
+  } catch(e) { console.error('reorder:',e.message); res.status(500).json({ error:'Impossible de réconcilier la commande' }); }
 });
 
 app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
@@ -6285,8 +6365,8 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     let negotiatedTerms = [];
     if (brandIds.length) {
       const [defaultsRes, overridesRes] = await Promise.all([
-        pool.query('SELECT id, payment_terms, delivery_terms, return_terms FROM brands WHERE id = ANY($1)', [brandIds]),
-        pool.query('SELECT brand_id, payment_terms, delivery_terms, return_terms, is_privileged, updated_at, updated_by FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id = ANY($2)', [req.params.id, brandIds])
+        pool.query('SELECT id, min_per_reference, payment_terms, delivery_terms, return_terms FROM brands WHERE id = ANY($1)', [brandIds]),
+        pool.query('SELECT brand_id, min_per_reference_override, payment_terms, delivery_terms, return_terms, is_privileged, updated_at, updated_by FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id = ANY($2)', [req.params.id, brandIds])
       ]);
       const defaultsByBrand = Object.fromEntries(defaultsRes.rows.map(b => [b.id, b]));
       const overridesByBrand = Object.fromEntries(overridesRes.rows.map(o => [o.brand_id, o]));
@@ -6317,16 +6397,22 @@ app.post('/api/admin/buyers/:id/terms/:brandId', requireRole('owner','agent'), a
     const deliveryTerms = (req.body.delivery_terms || '').toString().trim();
     const returnTerms = (req.body.return_terms || '').toString().trim();
     const isPrivileged = req.body.is_privileged === true;
-    if (!paymentTerms && !deliveryTerms && !returnTerms && !isPrivileged) {
+    const rawMin = req.body.min_per_reference_override;
+    // Older admin clients omit the field: preserve an existing exception.
+    const existing = (await pool.query('SELECT min_per_reference_override FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.params.id, req.params.brandId])).rows[0];
+    const minOverride = rawMin === undefined ? existing?.min_per_reference_override ?? null
+      : rawMin === '' || rawMin === null ? null : Number(rawMin);
+    if (minOverride !== null && (!Number.isSafeInteger(minOverride) || minOverride < 1 || minOverride > MAX_LINE_QTY)) return res.status(400).json({ error: 'Minimum par référence : entier positif requis.' });
+    if (!paymentTerms && !deliveryTerms && !returnTerms && !isPrivileged && minOverride === null) {
       await pool.query('DELETE FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.params.id, req.params.brandId]);
       logAudit(req, 'buyer_terms_cleared', 'buyer', req.params.id, req.params.brandId);
       return res.json({ ok: true, cleared: true });
     }
     await pool.query(
-      `INSERT INTO buyer_brand_terms (buyer_id, brand_id, payment_terms, delivery_terms, return_terms, is_privileged, updated_at, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7)
-       ON CONFLICT (buyer_id, brand_id) DO UPDATE SET payment_terms=$3, delivery_terms=$4, return_terms=$5, is_privileged=$6, updated_at=NOW(), updated_by=$7`,
-      [req.params.id, req.params.brandId, paymentTerms, deliveryTerms, returnTerms, isPrivileged, req.session.staffUser?.email || (req.session.admin ? 'owner' : '')]
+      `INSERT INTO buyer_brand_terms (buyer_id, brand_id, payment_terms, delivery_terms, return_terms, is_privileged, updated_at, updated_by, min_per_reference_override)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7,$8)
+       ON CONFLICT (buyer_id, brand_id) DO UPDATE SET payment_terms=$3, delivery_terms=$4, return_terms=$5, is_privileged=$6, updated_at=NOW(), updated_by=$7, min_per_reference_override=$8`,
+      [req.params.id, req.params.brandId, paymentTerms, deliveryTerms, returnTerms, isPrivileged, req.session.staffUser?.email || (req.session.admin ? 'owner' : ''), minOverride]
     );
     logAudit(req, 'buyer_terms_updated', 'buyer', req.params.id, req.params.brandId);
     res.json({ ok: true });

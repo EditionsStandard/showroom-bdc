@@ -977,6 +977,11 @@ const TRANSLATIONS = {
     email_err: 'Erreur réseau.',
     reorder_toast: (n) => `↺ ${n} produit(s) ajouté(s) au panier`,
     reorder_err: 'Impossible de renouveler — commande introuvable.',
+    reorder_summary: (n,u,p,a,m) => `${n} références trouvées · ${u} inchangées · ${p} prix actualisés · ${a} indisponibles. Minimum actuel : ${m} pc(s)/référence. Ajouter au panier ?`,
+    reference_min: n => `Minimum : ${n} pc(s) par référence`,
+    negotiated_reference_min: n => `Votre minimum négocié : ${n} pc(s) par référence`,
+    minimum_order_label: 'Minimum de commande', recommended_opening_label: 'Commande initiale recommandée',
+    references_label: 'référence(s)', pieces_label: 'pc(s)', excl_vat_label: 'HT',
     reorder_empty: 'Commande vide.',
     ref_copy_toast: (ref) => `✓ Référence copiée : ${ref}`,
     sizes_qty: 'Tailles & quantités',
@@ -1146,6 +1151,11 @@ const TRANSLATIONS = {
     email_err: 'Network error.',
     reorder_toast: (n) => `↺ ${n} product(s) added to cart`,
     reorder_err: 'Cannot reorder — order not found.',
+    reorder_summary: (n,u,p,a,m) => `${n} references found · ${u} unchanged · ${p} prices updated · ${a} unavailable. Current minimum: ${m} pc(s)/reference. Add to cart?`,
+    reference_min: n => `Minimum: ${n} pc(s) per reference`,
+    negotiated_reference_min: n => `Your negotiated minimum: ${n} pc(s) per reference`,
+    minimum_order_label: 'Minimum order', recommended_opening_label: 'Recommended opening order',
+    references_label: 'reference(s)', pieces_label: 'pc(s)', excl_vat_label: 'excl. VAT',
     reorder_empty: 'Order is empty.',
     ref_copy_toast: (ref) => `✓ Reference copied: ${ref}`,
     sizes_qty: 'Sizes & quantities',
@@ -1860,6 +1870,7 @@ function applyLang() {
   <button id="cart-bar-btn" onclick="showView('cart')">Voir ma sélection →</button>
 </div>
 
+<script src="/ordering-rules.js"></script>
 <script>
 let me = null;
 let allBrands = [];
@@ -1894,7 +1905,7 @@ let earlyAccessLocked = false; // vrai si la marque courante est en accès antic
 let CART_KEY = 'portal_cart';
 let currenciesData = [{ code: 'EUR', symbol: '€', rate: 1 }];
 let selectedCurrency = currenciesData[0];
-const cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
+let cart = {}; // key: brandId|productId|size -> {brand_id, brand_name, product_id, reference, description, color, size, qty, price}
 let favorites = new Set(); // product IDs — "j'aime"
 let shortlist = new Set(); // product IDs — "à montrer/étudier en équipe" (niveau intermédiaire, distinct des favoris et du panier)
 let recentlyViewed = []; // [{id, brand_id, reference, description, color, price, image_url}]
@@ -2274,7 +2285,7 @@ window.addEventListener('online', () => { if (Object.keys(cart).length) syncCart
 function restoreCart() {
   try {
     const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
-    Object.entries(saved).forEach(([k, v]) => { if (v.qty > 0) cart[k] = v; });
+    cart = OrderingRules.normalize(saved, allBrands);
   } catch(e) {}
 }
 
@@ -2282,7 +2293,8 @@ async function syncCartFromServer() {
   try {
     const serverCart = await fetch('/api/portal/cart').then(r => r.json());
     // Merge: server wins for items not in local, local wins for items already present
-    Object.entries(serverCart).forEach(([k, v]) => { if (v.qty > 0 && !cart[k]) cart[k] = v; });
+    Object.entries(OrderingRules.normalize(serverCart, allBrands)).forEach(([k, v]) => { if (!cart[k]) cart[k] = v; });
+    cart = OrderingRules.normalize(cart, allBrands);
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
     updateCartBar();
   } catch(e) {}
@@ -2341,19 +2353,7 @@ async function handleQrParams() {
   if (!p) return;
   const sizes = (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
   const sz = sizes[0] || '';
-  const key = currentBrand.id + '|' + p.id + '|' + sz;
-  if (!cart[key]) {
-    let qImgs = []; try { qImgs = JSON.parse(p.images || '[]'); } catch(e) {}
-    if (!qImgs.length && p.image_url) qImgs = [p.image_url];
-    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: p.id, reference: p.reference, description: p.description, color: p.color, size: sz, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: qImgs[0] || '' };
-  }
-  cart[key].qty += 1;
-  saveCart();
-  updateCartBar();
-  // Refresh displayed qty on the card
-  const elId = `qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g, '_')}`;
-  const qdEl = document.getElementById(elId);
-  if (qdEl) { qdEl.textContent = cart[key].qty; qdEl.classList.add('active'); }
+  changeQty(p.id, sz, 1);
   const label = t('qr_added', p.reference);
   showQrToast(label);
   // Scroll to product card and flash it
@@ -2398,6 +2398,8 @@ async function init() {
     const brandsData = await brandsRes.json();
     // Si l'API retourne une erreur JSON ou pas un tableau → on sécurise
     allBrands = Array.isArray(brandsData) ? brandsData : [];
+    cart = OrderingRules.normalize(cart, allBrands);
+    saveCart();
     if (!Array.isArray(brandsData)) {
       const _errMsg = esc(brandsData.error || t('load_err_brands'));
       document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
@@ -2885,6 +2887,9 @@ async function openBrand(brandId, _fromPop) {
   }
   if (data.error) { showPortalToast(data.error, 4000); container.style.display = 'none'; document.getElementById('brand-picker').style.display = 'block'; return; }
   currentBrand = data.brand;
+  const brandIndex = allBrands.findIndex(b => b.id === currentBrand.id);
+  if (brandIndex >= 0) allBrands[brandIndex] = currentBrand;
+  cart = OrderingRules.normalize(cart, allBrands);
   currentProducts = data.products;
   earlyAccessLocked = !!currentBrand.early_access_locked;
   trackBrandView(currentBrand);
@@ -3239,22 +3244,22 @@ function renderProductsPage() {
       </div>`;
     }
     const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
-    const key0 = currentBrand.id + '|' + p.id + '|';
+    const key0 = OrderingRules.key(currentBrand.id, p.id, p.color, '');
     const _isOutOfStock = p.stock_enabled && p.stock_qty === 0;
     const qtyHtml = _isOutOfStock
       ? `<div style="margin-top:10px"><span class="stock-badge out" style="display:inline-block">${t('stock_out')}</span></div>`
       : sizes.length ? sizes.map(sz => {
-        const k = currentBrand.id + '|' + p.id + '|' + sz;
+        const k = OrderingRules.key(currentBrand.id, p.id, p.color, sz);
         const q = cart[k] ? cart[k].qty : 0;
         return `<div class="qty-row"><span style="font-size:11px;font-family:'Plex Mono','Space Mono',monospace;min-width:30px">${esc(sz)}</span>
-          <button class="qty-btn" aria-label="${t('qty_decrease_label')}" onclick="changeQty('${p.id}','${sz}',-1)">−</button>
+          <button class="qty-btn" aria-label="${t('qty_decrease_label')}" data-qty-product="${esc(p.id)}" data-qty-size="${esc(sz)}" data-qty-delta="-1">−</button>
           <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-          <button class="qty-btn" aria-label="${t('qty_increase_label')}" onclick="changeQty('${p.id}','${sz}',1)">+</button></div>`;
+          <button class="qty-btn" aria-label="${t('qty_increase_label')}" data-qty-product="${esc(p.id)}" data-qty-size="${esc(sz)}" data-qty-delta="1">+</button></div>`;
       }).join('') : (() => {
         const q = cart[key0] ? cart[key0].qty : 0;
-        return `<div class="qty-row"><button class="qty-btn" aria-label="${t('qty_decrease_label')}" onclick="changeQty('${p.id}','',-1)">−</button>
+        return `<div class="qty-row"><button class="qty-btn" aria-label="${t('qty_decrease_label')}" data-qty-product="${esc(p.id)}" data-qty-size="" data-qty-delta="-1">−</button>
           <span class="qty-display${q>0?' active':''}" id="qd_${p.id}_">${q}</span>
-          <button class="qty-btn" aria-label="${t('qty_increase_label')}" onclick="changeQty('${p.id}','',1)">+</button></div>`;
+          <button class="qty-btn" aria-label="${t('qty_increase_label')}" data-qty-product="${esc(p.id)}" data-qty-size="" data-qty-delta="1">+</button></div>`;
       })();
     const _cartQty = getProductCartQty(p.id);
     const _cartBadge = _cartQty > 0 ? `<div class="cart-badge" style="position:absolute;top:48px;right:8px;background:var(--accent);color:var(--black);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Plex Mono','Space Mono',monospace;z-index:2">${_cartQty}</div>` : '';
@@ -3275,7 +3280,7 @@ function renderProductsPage() {
         <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="product-desc" onclick="openProductDrawer('${p.id}')" style="cursor:pointer" data-tr="${esc(sentenceCase(p.description))}">${esc(sentenceCase(p.description))}</div>
         ${colorMetaHtml}
         ${priceBlockHtml(p.price, p.price_retail, true)}
-        ${qtyHtml}
+        <div style="font-size:10px;color:var(--muted);margin-top:8px">${esc(quantityMinimumLabel(currentBrand))}</div>${qtyHtml}
       </div>
     </div>`;
   }).join('');
@@ -3297,33 +3302,66 @@ function renderProductsPage() {
   }
 }
 
-function changeQty(productId, size, delta, variantColor) {
-  const p = currentProducts.find(x => x.id === productId);
-  const key = currentBrand.id + '|' + productId + '|' + size;
-  if (!p && !cart[key]) return; // référence introuvable (liste rafraîchie entre-temps) et rien à retirer : rien à faire
-  if (!cart[key]) {
-    let pImgs = []; try { pImgs = JSON.parse(p.images || '[]'); } catch(e) {}
-    if (!pImgs.length && p.image_url) pImgs = [p.image_url];
-    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: (variantColor !== undefined ? variantColor : p.color) || '', size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: pImgs[0] || '' };
-  } else if (variantColor !== undefined) {
-    // Appelé depuis le tiroir produit (puce de coloris active) : le coloris de
-    // la ligne suit le dernier coloris regardé au moment d'ajuster la quantité
-    // — une référence garde une seule ligne par taille, mais celle-ci reflète
-    // désormais fidèlement ce que l'acheteur a réellement choisi.
-    cart[key].color = variantColor || p?.color || '';
-  }
-  const wasZero = cart[key].qty === 0;
-  cart[key].qty = Math.max(0, cart[key].qty + delta);
-  if (wasZero && cart[key].qty > 0) fetch(`/api/portal/stats/cart/${productId}`, { method: 'POST' }).catch(() => {});
-  if (cart[key].qty === 0) delete cart[key];
-  const elId = `qd_${productId}_${size.replace(/[^a-zA-Z0-9]/g,'_')}`;
-  const el = document.getElementById(elId);
-  if (el) { el.textContent = cart[key] ? cart[key].qty : 0; el.classList.toggle('active', !!cart[key] && cart[key].qty > 0); }
-  saveCart();
-  if (navigator.vibrate && cart[key] && delta > 0) navigator.vibrate(40); // short haptic pulse
-  updateCartBar();
-  refreshCartBadges();
+function quantityMinimumLabel(brand) {
+  const min = OrderingRules.minimum(brand);
+  return t(brand?.min_per_reference_override != null ? 'negotiated_reference_min' : 'reference_min', min);
 }
+function setReferenceQuantity(key, quantity, delta) {
+  const line = cart[key];
+  if (!line) return;
+  const refKey = OrderingRules.referenceKey(line);
+  const siblings = Object.entries(cart).filter(([, l]) => OrderingRules.referenceKey(l) === refKey);
+  const total = siblings.reduce((sum, [, l]) => sum + l.qty, 0);
+  const min = OrderingRules.minimum(allBrands.find(b => b.id === line.brand_id) || currentBrand);
+  let next = delta !== undefined ? line.qty + delta : Number(quantity);
+  if (!Number.isSafeInteger(next) || next > 100000) return;
+  next = Math.max(0, next);
+  if (delta > 0 && total === 0) next = min;
+  const newTotal = total - line.qty + next;
+  if (newTotal > 0 && newTotal < min) {
+    if (delta < 0) siblings.forEach(([k]) => delete cart[k]);
+    else line.qty = Math.max(0, min - (total - line.qty));
+  } else if (next > 0) line.qty = next;
+  else delete cart[key];
+  saveCart(); updateCartBar(); refreshCartBadges();
+}
+function changeQty(productId, size, delta, variantColor) {
+  if (!currentBrand || earlyAccessLocked) return;
+  const p = currentProducts.find(x => x.id === productId);
+  if (!p || (p.stock_enabled && p.stock_qty === 0)) return;
+  const color = variantColor !== undefined ? variantColor : p.color;
+  const key = OrderingRules.key(currentBrand.id, productId, color, size);
+  if (!cart[key]) {
+    if (delta < 0) return;
+    let images = []; try { images = JSON.parse(p.images || '[]'); } catch(e) {}
+    cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: productId, reference: p.reference, description: p.description, color: color || '', size, qty: 0, price: p.price, price_retail: p.price_retail || 0, image_url: images[0] || p.image_url || '' };
+  }
+  setReferenceQuantity(key, undefined, delta);
+  refreshQuantityDisplays();
+}
+function refreshQuantityDisplays() {
+  document.querySelectorAll('[data-qty-product][data-qty-delta="1"]').forEach(btn => {
+    const p = currentProducts.find(p => p.id === btn.dataset.qtyProduct);
+    const color = btn.dataset.qtyDrawer ? drawerActiveColor || p?.color : p?.color;
+    const line = cart[OrderingRules.key(currentBrand?.id, p?.id, color, btn.dataset.qtySize)];
+    const display = btn.parentElement.querySelector('.qty-display');
+    if (display) { display.textContent = line?.qty || 0; display.classList.toggle('active', !!line?.qty); }
+  });
+}
+document.addEventListener('click', event => {
+  const qty = event.target.closest('[data-qty-product]');
+  if (qty) { event.stopPropagation(); changeQty(qty.dataset.qtyProduct, qty.dataset.qtySize, Number(qty.dataset.qtyDelta), qty.dataset.qtyDrawer ? drawerActiveColor : undefined); return; }
+  const step = event.target.closest('[data-cart-step]');
+  if (step) { setReferenceQuantity(step.dataset.cartStep, undefined, Number(step.dataset.delta)); renderCart(true); return; }
+  const remove = event.target.closest('[data-cart-remove]');
+  if (remove) { setReferenceQuantity(remove.dataset.cartRemove, 0); renderCart(true); }
+});
+document.addEventListener('change', event => {
+  if (event.target.matches('[data-cart-input]')) { setReferenceQuantity(event.target.dataset.cartInput, event.target.value); queueMicrotask(() => renderCart(true)); }
+});
+document.addEventListener('input', event => {
+  if (event.target.matches('[data-cart-note]')) setCartNote(event.target.dataset.cartNote, event.target.value);
+});
 
 function updateCartBar() {
   const items = Object.values(cart);
@@ -3335,7 +3373,9 @@ function updateCartBar() {
   syncChatCartOffset();
 }
 
-function renderCart() {
+function renderCart(preserveReview = false) {
+  const previousOpened = new Set(openedCgvBrands);
+  const previousChecked = new Set([...document.querySelectorAll('.cgv-brand-checkbox:checked')].map(el => el.dataset.brandId));
   document.getElementById('cart-bar').style.display = 'none';
   syncChatCartOffset();
   const items = Object.values(cart);
@@ -3362,7 +3402,7 @@ let moqBlocked = false;
         const label = ok ? '✓' : t('moq_remaining_qty', remaining);
         bars.push(`<div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
-            <span>${t('moq_bar_qty')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
+            <span>${t(moqStrict ? 'minimum_order_label' : 'recommended_opening_label')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${brandQty} / ${moqQty} — ${label}</span>
           </div>
           <div style="height:5px;background:var(--border);border-radius: 0;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${barColor};border-radius: 0;transition:width .4s ease"></div>
@@ -3378,7 +3418,7 @@ let moqBlocked = false;
         const label = ok ? '✓' : t('moq_remaining_amt', fmtPrice(remaining));
         bars.push(`<div style="margin-top:8px">
           <div style="display:flex;justify-content:space-between;font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:${ok?'var(--accent)':'var(--muted)'};margin-bottom:4px">
-            <span>${t('moq_bar_amt')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
+            <span>${t(moqStrict ? 'minimum_order_label' : 'recommended_opening_label')}</span><span style="color:${ok?'var(--accent)':'var(--soft)'}">${fmtPrice(brandTotal)} / ${fmtPrice(moqAmount)} — ${label}</span>
           </div>
           <div style="height:5px;background:var(--border);border-radius: 0;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${barColor};border-radius: 0;transition:width .4s ease"></div>
@@ -3388,7 +3428,7 @@ let moqBlocked = false;
       moqWarnHtml = `<div style="padding:10px 0 4px">${bars.join('')}</div>`;
     }
     return `<div style="margin-bottom:24px">
-      <div style="font-family:var(--dot),monospace;font-size:13px;color:var(--accent);margin-bottom:10px;letter-spacing:.04em">${esc(lines[0].brand_name)}</div>
+      <div style="font-family:var(--dot),monospace;font-size:13px;color:var(--accent);margin-bottom:10px;letter-spacing:.04em">${esc(lines[0].brand_name)}</div><div style="font-size:11px;color:var(--soft);margin-bottom:10px">${new Set(lines.map(l => l.reference || l.product_id)).size} ${esc(t('references_label'))} · ${brandQty} ${esc(t('pieces_label'))} · ${fmtPrice(brandTotal)} ${esc(t('excl_vat_label'))}<br>${esc(quantityMinimumLabel(brand))} ✓${brand?.payment_terms ? '<br>' + esc(brand.payment_terms) : ''}${brand?.delivery_terms ? '<br>' + esc(brand.delivery_terms) : ''}</div>
       ${lines.map((l, li) => {
         const noteKey = Object.keys(cart).find(k => cart[k] === l) || '';
         const safeNoteKey = noteKey.replace(/[^a-zA-Z0-9]/g,'_');
@@ -3400,11 +3440,11 @@ let moqBlocked = false;
             <div style="font-family:var(--dot),monospace;font-size:13px;margin-bottom:2px">${esc(l.reference)}</div>
             ${l.color ? `<div style="font-size:11px;color:var(--muted);font-family:'Plex Mono','Space Mono',monospace">${esc(l.color)}</div>` : ''}
             ${l.size ? `<div style="font-size:11px;color:var(--soft);font-family:'Plex Mono','Space Mono',monospace;margin-top:2px">${esc(l.size)}</div>` : ''}
-            <textarea class="cart-line-note" rows="1" placeholder="${t('cart_note_ph')}" oninput="setCartNote('${noteKey}',this.value)">${esc(l.note||'')}</textarea>
+            <textarea class="cart-line-note" rows="1" placeholder="${t('cart_note_ph')}" data-cart-note="${esc(noteKey)}">${esc(l.note||'')}</textarea>
           </div>
           <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            <button onclick="removeCartItem('${noteKey}')" title="${t('remove_item')||'Retirer'}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1;align-self:flex-end">✕</button>
-            <div style="font-size:11px;font-family:'Plex Mono','Space Mono',monospace;color:var(--muted)">× ${l.qty} · ${fmtPrice(parseFloat(l.price||0))}</div>
+            <button data-cart-remove="${esc(noteKey)}" title="${t('remove_item')||'Retirer'}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1;align-self:flex-end">✕</button>
+            <div class="qty-row"><button type="button" class="qty-btn" data-cart-step="${esc(noteKey)}" data-delta="-1" aria-label="${esc(t('qty_decrease_label'))}">−</button><input type="number" min="0" max="9999" step="1" inputmode="numeric" data-cart-input="${esc(noteKey)}" value="${l.qty}" aria-label="${esc(t('qty_label'))}" style="width:48px;min-height:36px;background:var(--dark);color:var(--white);border:1px solid var(--border);text-align:center"><button type="button" class="qty-btn" data-cart-step="${esc(noteKey)}" data-delta="1" aria-label="${esc(t('qty_increase_label'))}">+</button></div>
             <div style="font-size:13px;font-weight:700;font-family:var(--dot),monospace;color:var(--accent)">${fmtPrice(l.qty * parseFloat(l.price||0))}</div>
             ${l.price_retail > 0 ? `<div style="font-size:10px;font-family:'Plex Mono','Space Mono',monospace;color:var(--muted)">PVC ${fmtPrice(l.price_retail)}</div>` : ''}
           </div>
@@ -3442,6 +3482,11 @@ let moqBlocked = false;
     </div>`;
   }).join('');
   document.getElementById('cgv-blocks').innerHTML = cgvHtml;
+  if (preserveReview) {
+    previousOpened.forEach(id => openedCgvBrands.add(id));
+    document.querySelectorAll('.cgv-brand-checkbox').forEach(el => { el.disabled = !previousOpened.has(el.dataset.brandId); el.checked = previousChecked.has(el.dataset.brandId); });
+    return;
+  }
 
   if (me) {
     document.getElementById('ck-name').value = me.name || '';
@@ -3988,23 +4033,23 @@ function copyShareLink() {
 
 // ── Renouveler commande ───────────────────────────────
 async function reorderOrder(orderId) {
-  const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
-  const brandId = card?.dataset.brand;
-  const brandName = card?.dataset.brandName || '';
-  if (!brandId) { showToast(t('reorder_err')); return; }
-  const lines = await fetch('/api/portal/orders/' + orderId + '/lines').then(r => r.json());
-  if (!lines.length) { showToast(t('reorder_empty')); return; }
-  let added = 0;
-  lines.forEach(l => {
-    const key = brandId + '|' + l.product_id + '|' + (l.size || '');
-    if (!cart[key]) {
-      cart[key] = { brand_id: brandId, brand_name: brandName, product_id: l.product_id, reference: l.reference, description: '', color: l.variant_color || l.product_color || '', size: l.size || '', qty: 0, price: l.unit_price, image_url: '' };
+  try {
+    const response = await fetch('/api/portal/orders/' + encodeURIComponent(orderId) + '/reorder');
+    const data = await response.json();
+    if (!response.ok) { showToast(data.error || t('reorder_err')); return; }
+    const summary = data.summary;
+    if (!confirm(t('reorder_summary',summary.references,summary.unchanged,summary.prices_updated,summary.unavailable,summary.minimum))) return;
+    const index = allBrands.findIndex(b=>b.id===data.brand.id);
+    if(index>=0) allBrands[index]=data.brand;
+    for (const line of data.lines) {
+      const key = OrderingRules.key(line.brand_id,line.product_id,line.color,line.size);
+      if (cart[key]) { cart[key].qty += line.qty; cart[key].price=line.price; }
+      else cart[key]=line;
     }
-    cart[key].qty += l.quantity;
-    added++;
-  });
-  saveCart(); updateCartBar();
-  showToast(t('reorder_added', added));
+    cart=OrderingRules.normalize(cart,allBrands);
+    saveCart(); updateCartBar();
+    showToast(t('reorder_added', data.lines.length));
+  } catch(e) { showToast(t('reorder_err')); }
 }
 
 // ── Toast ──────────────────────────────────────────────
@@ -4661,25 +4706,25 @@ function openProductDrawer(productId, _fromPop) {
   // Qty rows
   const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
   const _drawerOutOfStock = p.stock_enabled && p.stock_qty === 0;
-  document.getElementById('drawer-sizes-title').textContent = sizes.length ? t('sizes_qty') : t('qty_label');
+  document.getElementById('drawer-sizes-title').textContent = (sizes.length ? t('sizes_qty') : t('qty_label')) + ' · ' + quantityMinimumLabel(currentBrand);
   const rows = _drawerOutOfStock
     ? `<div style="margin-top:8px"><span class="stock-badge out">● Rupture de stock — ajout au panier désactivé</span></div>`
     : sizes.length ? sizes.map(sz => {
-      const k = currentBrand.id + '|' + p.id + '|' + sz;
+      const k = OrderingRules.key(currentBrand.id, p.id, drawerActiveColor || p.color, sz);
       const q = cart[k]?.qty || 0;
       return `<div class="drawer-qty-row">
         <span class="drawer-size-label">${esc(sz)}</span>
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','${sz}',-1,drawerActiveColor);drawerRefreshQty()">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" data-qty-product="${esc(p.id)}" data-qty-size="${esc(sz)}" data-qty-delta="-1" data-qty-drawer="1">−</button>
         <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','${sz}',1,drawerActiveColor);drawerRefreshQty()">+</button>
+        <button class="qty-btn" aria-label="Augmenter la quantité" data-qty-product="${esc(p.id)}" data-qty-size="${esc(sz)}" data-qty-delta="1" data-qty-drawer="1">+</button>
       </div>`;
     }).join('') : (() => {
-      const k = currentBrand.id + '|' + p.id + '|';
+      const k = OrderingRules.key(currentBrand.id, p.id, drawerActiveColor || p.color, '');
       const q = cart[k]?.qty || 0;
       return `<div class="drawer-qty-row">
-        <button class="qty-btn" aria-label="Diminuer la quantité" onclick="changeQty('${p.id}','',-1,drawerActiveColor);drawerRefreshQty()">−</button>
+        <button class="qty-btn" aria-label="Diminuer la quantité" data-qty-product="${esc(p.id)}" data-qty-size="" data-qty-delta="-1" data-qty-drawer="1">−</button>
         <span class="qty-display${q>0?' active':''}" id="dqd_${p.id}_">${q}</span>
-        <button class="qty-btn" aria-label="Augmenter la quantité" onclick="changeQty('${p.id}','',1,drawerActiveColor);drawerRefreshQty()">+</button>
+        <button class="qty-btn" aria-label="Augmenter la quantité" data-qty-product="${esc(p.id)}" data-qty-size="" data-qty-delta="1" data-qty-drawer="1">+</button>
       </div>`;
     })();
   document.getElementById('drawer-qty-rows').innerHTML = rows;
@@ -4764,17 +4809,18 @@ function drawerNav(delta) {
 }
 
 function drawerRefreshQty() {
+  refreshQuantityDisplays();
   if (!drawerProduct) return;
   const p = drawerProduct;
   const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
   if (sizes.length) {
     sizes.forEach(sz => {
-      const k = currentBrand.id + '|' + p.id + '|' + sz;
+      const k = OrderingRules.key(currentBrand.id, p.id, drawerActiveColor || p.color, sz);
       const el = document.getElementById(`dqd_${p.id}_${sz.replace(/[^a-zA-Z0-9]/g,'_')}`);
       if (el) { el.textContent = cart[k]?.qty || 0; el.classList.toggle('active', (cart[k]?.qty||0) > 0); }
     });
   } else {
-    const k = currentBrand.id + '|' + p.id + '|';
+    const k = OrderingRules.key(currentBrand.id, p.id, drawerActiveColor || p.color, '');
     const el = document.getElementById(`dqd_${p.id}_`);
     if (el) { el.textContent = cart[k]?.qty || 0; el.classList.toggle('active', (cart[k]?.qty||0) > 0); }
   }
@@ -4846,7 +4892,7 @@ document.addEventListener('visibilitychange', async () => {
 // ── Badge quantité panier par produit ─────────────────
 function getProductCartQty(productId) {
   return Object.entries(cart)
-    .filter(([k]) => k.split('|')[1] === productId)
+    .filter(([, v]) => v.product_id === productId)
     .reduce((sum, [, v]) => sum + (v.qty || 0), 0);
 }
 
@@ -4881,14 +4927,9 @@ function initLongPress() {
         if (navigator.vibrate) navigator.vibrate([20, 10, 40]);
         const p = (window.allProducts || currentProducts || []).find(x => x.id === pid);
         if (!p || !currentBrand) return;
-        const key = currentBrand.id + '|' + pid + '|—';
-        if (!cart[key]) {
-          let lpImgs = []; try { lpImgs = JSON.parse(p.images || '[]'); } catch(e) {}
-          if (!lpImgs.length && p.image_url) lpImgs = [p.image_url];
-          cart[key] = { brand_id: currentBrand.id, brand_name: currentBrand.name, product_id: pid, reference: p.reference, description: p.description || '', color: p.color || '', size: '—', qty: 1, price: p.price, price_retail: p.price_retail || 0, image_url: lpImgs[0] || '' };
-          saveCart(); updateCartBar(); refreshCartBadges();
-          showPortalToast('✓ ' + p.reference + ' ajouté', false);
-        }
+        const size = (p.sizes || '').split(',').map(s => s.trim()).find(Boolean) || '';
+        changeQty(pid, size, 1);
+        showPortalToast('✓ ' + p.reference, false);
       }, 500);
     }, { passive: true });
     card.addEventListener('touchend', () => clearTimeout(timer), { passive: true });
