@@ -564,6 +564,7 @@ async function init() {
   }
   // Required ordering invariant: never silently ignore a failed migration.
   await require('./lib/min-reference-migration').migrateMinReference(pool);
+  await require('./lib/buyer-account-migration').migrateBuyerAccounts(pool);
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
   // Backfill + dédoublonnage des abonnements push existants avant de poser la
   // contrainte d'unicité (des doublons ont pu s'accumuler tant que le bug était
@@ -754,6 +755,7 @@ async function init() {
     // sélections agent : cloisonnement marque + filtres brouillons/templates
     'CREATE INDEX IF NOT EXISTS idx_agent_selections_brand_id ON agent_selections(brand_id)',
     'CREATE INDEX IF NOT EXISTS idx_agent_selections_status ON agent_selections(status)',
+    'CREATE INDEX IF NOT EXISTS idx_agent_selections_order ON agent_selections(linked_order_id)',
     // timelines de commande
     'CREATE INDEX IF NOT EXISTS idx_order_events_order_id ON order_events(order_id)',
     'CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id)',
