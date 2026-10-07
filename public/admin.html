@@ -6697,7 +6697,7 @@ function renderOrdersPage() {
   tbody.innerHTML = page.length ? page.map(o => `
     <tr>
       <td><input type="checkbox" class="order-check" data-id="${o.id}" onchange="updateBulkBar()"></td>
-      <td style="font-size:11px;color:#888;font-family:monospace" title="${esc(o.order_number || o.id.slice(0,8))}">${o.order_number || o.id.slice(0,8)}</td>
+      <td style="font-size:11px;color:#888;font-family:monospace" title="${esc(o.order_number || o.id.slice(0,8))}">${esc(o.order_number || o.id.slice(0,8))}${o.buyer_po_number ? '<br>PO: '+esc(o.buyer_po_number):''}</td>
       <td>${new Date(o.created_at).toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR')}</td>
       <td><strong>${esc(o.client_name||'')}</strong><br><span style="font-size:11px;color:#888">${esc(o.client_company||'')}</span></td>
       <td>${esc(o.brand_name||'')}</td>
@@ -7062,11 +7062,12 @@ function filterSelections() {
       <td style="font-size:12px;color:#888">${esc(s.client_company||'—')}</td>
       <td>${esc(s.brand_name||'')}</td>
       <td style="text-align:center">${nItems} art.</td>
-      <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span></td>
+      <td><span class="badge badge-${SEL_BADGE[status]||'confirmed'}">${SEL_LABEL[status]||status}</span><div style="font-size:10px;margin-top:4px">${esc(s.workflow_stage || 'proposed')}${s.buyer_comment ? '<br>'+esc(s.buyer_comment):''}</div></td>
       <td style="font-size:11px;color:#888">${s.created_by||'—'}</td>
       <td style="font-size:11px;color:${status==='expired'?'#e74c3c':'#888'}">${expDate}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px">
         ${status !== 'expired' ? `<a href="${selUrl}" target="_blank" class="btn btn-secondary btn-sm">Voir</a>` : ''}
+        ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" data-proposal-token="${esc(s.token)}">Conditions</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="editSelectionItems('${escJs(s.token)}')" title="Ajouter / modifier des références">➕ Réf.</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="openEditSelectionClient('${escJs(s.token)}')" title="Corriger nom / email / société">✎ Infos</button>` : ''}
         ${status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="remindSelection('${escJs(s.token)}','${escJs(s.selection_number||s.client_name||'')}')" title="Relancer l'acheteur par email avec le lien">↻ Relancer</button>` : ''}
@@ -7182,7 +7183,7 @@ async function viewOrder(id) {
   const o = data.order;
   const lines = data.lines || [];
 
-  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + (o.order_number || id.slice(0,8));
+  document.getElementById('mo-ref').textContent   = t('order_ref_prefix') + (o.order_number || id.slice(0,8)) + (o.buyer_po_number ? ' · PO: '+o.buyer_po_number : '');
   document.getElementById('mo-date').textContent  = new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'fr-FR');
   document.getElementById('mo-status-select').value = o.status || 'confirmed';
 
@@ -8796,6 +8797,12 @@ function clearBulkSelection() {
   if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
   document.getElementById('bulk-bar').style.display = 'none';
 }
+
+document.addEventListener('click',async event=>{
+  const btn=event.target.closest('[data-proposal-token]');if(!btn)return;
+  const conditions=prompt(currentLang==='en'?'Proposed order conditions':'Conditions de la proposition');if(conditions===null)return;
+  try{const response=await fetch('/api/agent-selections/'+encodeURIComponent(btn.dataset.proposalToken)+'/proposal',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposal_conditions:conditions})});const result=await response.json();if(!response.ok)throw new Error(result.error);toast('Conditions enregistrées');loadSelections();}catch(e){toast(e.message,true);}
+});
 </script>
 
 <!-- Aperçu agrandi d'une vignette produit (tableau catalogue) -->

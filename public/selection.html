@@ -443,7 +443,7 @@ function render() {
           <a href="/api/selection/${TOKEN}/pdf" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:5px 12px;text-decoration:none;letter-spacing:.04em">${t('export_pdf')}</a>
           <button type="button" onclick="clearAll()" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:0;font-family:inherit;letter-spacing:.04em">${t('clear_all')}</button>
         </div>
-        <div class="msg" style="text-align:left;padding:14px 0">${esc(t('reference_min',OrderingRules.minimum(b)))}${b.min_per_reference_override != null ? ' · '+esc(t('negotiated')) : ''}${Number(b.moq_amount)>0 ? '<br>'+esc(t(b.moq_strict ? 'minimum_order':'recommended_order'))+' : '+Number(b.moq_amount).toFixed(2)+' € HT' : ''}${b.payment_terms ? '<br>'+esc(b.payment_terms):''}${b.delivery_terms ? '<br>'+esc(b.delivery_terms):''}</div>${cards}
+        <div class="msg" style="text-align:left;padding:14px 0">${esc(t('reference_min',OrderingRules.minimum(b)))}${b.min_per_reference_override != null ? ' · '+esc(t('negotiated')) : ''}${Number(b.moq_amount)>0 ? '<br>'+esc(t(b.moq_strict ? 'minimum_order':'recommended_order'))+' : '+Number(b.moq_amount).toFixed(2)+' € HT' : ''}${b.payment_terms ? '<br>'+esc(b.payment_terms):''}${b.delivery_terms ? '<br>'+esc(b.delivery_terms):''}</div>${DATA.proposal_conditions ? '<div class="card">'+esc(DATA.proposal_conditions)+'</div>':''}${cards}
       </div>
       <div class="sel-side">
         <div class="card">
@@ -451,6 +451,8 @@ function render() {
           <div class="field"><label>${t('lbl_contact')}</label><input type="text" id="name" value="${esc(DATA.client.name||'')}"></div>
           <div class="field"><label>${t('lbl_email')}</label><input type="email" id="email" value="${esc(DATA.client.email||'')}" readonly></div>
           ${accountField}
+          <div class="field"><label>Buyer PO number / N° acheteur</label><input id="buyer-po" maxlength="120"></div>
+          <div class="field"><label>Commentaire / Comment</label><textarea id="buyer-comment" maxlength="5000" rows="3"></textarea></div>
         </div>
         <div class="card">
           <label>${t('cgv_title')}</label>
@@ -588,7 +590,7 @@ async function confirmSelection() {
   const body = {
     password: document.getElementById('pw') ? document.getElementById('pw').value : '',
     signature: document.getElementById('sig').toDataURL('image/png'),
-    cgv_accepted: 1,
+    cgv_accepted: 1, buyer_po_number:document.getElementById('buyer-po').value, buyer_comment:document.getElementById('buyer-comment').value,
     lines
   };
   const btn = document.getElementById('confirm-btn');
@@ -599,7 +601,7 @@ async function confirmSelection() {
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
-  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
+  document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p>${esc(d.order_number || '')} · ${esc(d.brand_name || '')} · ${d.pieces || 0} pcs · ${Number(d.total || 0).toFixed(2)} € HT</p><p>${esc(d.payment_terms || '')}</p><p>${esc(d.delivery_terms || '')}</p><a href="/api/public/orders/${encodeURIComponent(d.order_id)}/pdf?token=${encodeURIComponent(d.pdf_token)}" target="_blank" rel="noopener">PDF</a><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
 }
 
 async function saveProgress() {

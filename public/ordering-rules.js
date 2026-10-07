@@ -25,6 +25,20 @@
     if (delta > 0) return quantity === 0 ? min : quantity + 1;
     return quantity <= min ? 0 : quantity - 1;
   }
+  function catalogIssue(product, line, { allocated = 0, requireSize = false } = {}) {
+    if (!product || ((product.active === 0 || product.active === false) && !product.is_sample)) return 'unavailable';
+    const quantity = Number(line.quantity ?? line.qty);
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000) return 'quantity';
+    const size = String(line.size || '');
+    const sizes = String(product.sizes || '').split(',').map(s => s.trim()).filter(Boolean);
+    if ((size || requireSize) && sizes.length && !sizes.includes(size)) return 'size';
+    const color = String(line.variant_color ?? line.color ?? '');
+    let variants = [];
+    try { variants = typeof product.variants === 'string' ? JSON.parse(product.variants || '[]') : product.variants || []; } catch (_) {}
+    if (color && color !== product.color && !variants.some(v => v.color === color)) return 'color';
+    if (product.stock_enabled && product.stock_qty != null && allocated + quantity > Number(product.stock_qty)) return 'stock';
+    return null;
+  }
   function normalize(saved, brands = []) {
     const result = Object.create(null);
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return result;
@@ -46,5 +60,5 @@
     }
     return result;
   }
-  return { minimum, key, referenceKey, aggregate, step, normalize };
+  return { minimum, key, referenceKey, aggregate, step, normalize, catalogIssue };
 });

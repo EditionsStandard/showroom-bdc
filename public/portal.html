@@ -980,7 +980,7 @@ const TRANSLATIONS = {
     reorder_summary: (n,u,p,a,m) => `${n} références trouvées · ${u} inchangées · ${p} prix actualisés · ${a} indisponibles. Minimum actuel : ${m} pc(s)/référence. Ajouter au panier ?`,
     reference_min: n => `Minimum : ${n} pc(s) par référence`,
     negotiated_reference_min: n => `Votre minimum négocié : ${n} pc(s) par référence`,
-    minimum_order_label: 'Minimum de commande', recommended_opening_label: 'Commande initiale recommandée',
+    confirmation_next:'Nous vous contacterons pour confirmer le paiement et la livraison.', minimum_order_label: 'Minimum de commande', recommended_opening_label: 'Commande initiale recommandée',
     references_label: 'référence(s)', pieces_label: 'pc(s)', excl_vat_label: 'HT',
     reorder_empty: 'Commande vide.',
     ref_copy_toast: (ref) => `✓ Référence copiée : ${ref}`,
@@ -1154,7 +1154,7 @@ const TRANSLATIONS = {
     reorder_summary: (n,u,p,a,m) => `${n} references found · ${u} unchanged · ${p} prices updated · ${a} unavailable. Current minimum: ${m} pc(s)/reference. Add to cart?`,
     reference_min: n => `Minimum: ${n} pc(s) per reference`,
     negotiated_reference_min: n => `Your negotiated minimum: ${n} pc(s) per reference`,
-    minimum_order_label: 'Minimum order', recommended_opening_label: 'Recommended opening order',
+    confirmation_next:'We will contact you to confirm payment and delivery.', minimum_order_label: 'Minimum order', recommended_opening_label: 'Recommended opening order',
     references_label: 'reference(s)', pieces_label: 'pc(s)', excl_vat_label: 'excl. VAT',
     reorder_empty: 'Order is empty.',
     ref_copy_toast: (ref) => `✓ Reference copied: ${ref}`,
@@ -1526,6 +1526,7 @@ function applyLang() {
   </div>
 
   <div id="view-catalog" class="view-section" style="display:none;opacity:1">
+    <details id="quick-order-tool" style="border:1px solid var(--border);padding:14px;margin-bottom:20px"></details>
     <div id="brand-picker"></div>
     <div id="brand-products" style="display:none"></div>
   </div>
@@ -1549,6 +1550,7 @@ function applyLang() {
       <div id="checkout-form">
         <div class="field"><label data-field="name">Nom complet *</label><input id="ck-name"></div>
         <div class="field"><label data-field="company">Société</label><input id="ck-company"></div>
+        <div class="field"><label>Buyer PO number / N° de commande acheteur</label><input id="ck-po" maxlength="120" autocomplete="off"></div>
         <div class="field"><label data-field="phone">Téléphone</label><input id="ck-phone"></div>
         <div class="field"><label data-field="country">Pays</label><input id="ck-country"></div>
         <div id="cgv-blocks"></div>
@@ -1602,10 +1604,12 @@ function applyLang() {
     <button class="back-btn" onclick="showView('catalog')">← Retour au catalogue</button>
     <h2 class="section-title" id="shortlist-section-title" data-t="shortlist_title">Ma shortlist</h2>
     <p style="font-family:'Plex Mono','Space Mono',monospace;font-size:13px;color:var(--soft);margin:-16px 0 20px" data-t="shortlist_intro">Articles mis de côté pour en discuter en équipe avant de commander.</p>
+    <div id="named-shortlists" style="margin-bottom:24px"></div>
     <div id="shortlist-list"></div>
   </div>
 
   <div id="view-account" class="view-section" style="display:none;opacity:1;max-width:680px">
+    <div id="company-tools" style="border:1px solid var(--border);padding:18px;margin-bottom:24px"></div>
     <h2 class="section-title">Mon profil</h2>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-bottom:24px">
@@ -2469,7 +2473,7 @@ function showView(view, _fromPop) {
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
-  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); }
+  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); window.BuyerTools?.loadCompany(); }
   if (view === 'favs') renderFavs();
   if (view === 'shortlist') renderShortlist();
   if (!_fromPop) pushNav({ v: view, brand: null });
@@ -2904,7 +2908,7 @@ async function openBrand(brandId, _fromPop) {
   const moqParts = [];
   if (parseInt(currentBrand.moq_qty) > 0) moqParts.push(t('moq_pieces', currentBrand.moq_qty));
   if (parseFloat(currentBrand.moq_amount) > 0) moqParts.push(t('moq_amount', Number(currentBrand.moq_amount).toFixed(2)));
-  const moqHtml = moqParts.length ? `<div class="brand-banner-moq">📦 ${moqParts.join(' — ')}</div>` : '';
+  const moqHtml = `<div class="brand-banner-moq">${esc(quantityMinimumLabel(currentBrand))}</div>` + (moqParts.length ? `<div class="brand-banner-moq">📦 ${esc(t(currentBrand.moq_strict ? 'minimum_order_label':'recommended_opening_label'))} · ${Number(currentBrand.moq_qty)>0 ? Number(currentBrand.moq_qty)+' '+esc(t('pieces_label'))+' · ':''}${Number(currentBrand.moq_amount)>0 ? fmtPrice(currentBrand.moq_amount):''}</div>` : '');
   // data-tr = texte source FR traduit par translateVisibleContent() si langue ≠ FR (emoji hors du span)
   const deliveryTermsSafe = (currentBrand.delivery_terms || '').trim().replace(/\n/g, ' · ');
   const deliveryHtml = deliveryTermsSafe ? `<div class="brand-banner-moq">🚚 <span data-tr="${esc(deliveryTermsSafe)}">${esc(deliveryTermsSafe)}</span></div>` : '';
@@ -3313,6 +3317,9 @@ function setReferenceQuantity(key, quantity, delta) {
   const siblings = Object.entries(cart).filter(([, l]) => OrderingRules.referenceKey(l) === refKey);
   const total = siblings.reduce((sum, [, l]) => sum + l.qty, 0);
   const min = OrderingRules.minimum(allBrands.find(b => b.id === line.brand_id) || currentBrand);
+  if(delta===undefined && Number(quantity)===0) {
+    delete cart[key];cart=OrderingRules.normalize(cart,allBrands);saveCart();updateCartBar();refreshCartBadges();return;
+  }
   let next = delta !== undefined ? line.qty + delta : Number(quantity);
   if (!Number.isSafeInteger(next) || next > 100000) return;
   next = Math.max(0, next);
@@ -3349,6 +3356,8 @@ function refreshQuantityDisplays() {
   });
 }
 document.addEventListener('click', event => {
+  const contact = event.target.closest('[data-confirm-contact]');
+  if (contact) { openChatWidget(); return; }
   const qty = event.target.closest('[data-qty-product]');
   if (qty) { event.stopPropagation(); changeQty(qty.dataset.qtyProduct, qty.dataset.qtySize, Number(qty.dataset.qtyDelta), qty.dataset.qtyDrawer ? drawerActiveColor : undefined); return; }
   const step = event.target.closest('[data-cart-step]');
@@ -3626,7 +3635,7 @@ async function submitCheckout() {
     const r = await fetch('/api/portal/checkout', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lines, client_name,
+        lines, client_name, buyer_po_number:document.getElementById('ck-po').value.trim(),
         client_company: document.getElementById('ck-company').value.trim(),
         client_phone: document.getElementById('ck-phone').value.trim(),
         client_country: document.getElementById('ck-country').value.trim(),
@@ -3674,7 +3683,7 @@ async function submitCheckout() {
     document.getElementById('view-cart').style.display = 'none';
     document.getElementById('view-success').style.display = 'block';
     const brandNames = succeeded.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
-    document.getElementById('success-detail').innerHTML = t('success_msg', esc(brandNames));
+    document.getElementById('success-detail').innerHTML = succeeded.map(o => `<div style="text-align:left;border:1px solid var(--border);padding:18px;margin-top:18px"><strong>${esc(o.order_number)} · ${esc(o.brand_name)}</strong><p>${o.reference_count} ${esc(t('references_label'))} · ${o.pieces} ${esc(t('pieces_label'))} · ${fmtPrice(o.total)} ${esc(t('excl_vat_label'))}</p>${o.buyer_po_number ? '<p>PO: '+esc(o.buyer_po_number)+'</p>' : ''}<p>${esc(o.payment_terms || '')}</p><p>${esc(o.delivery_window || o.delivery_terms || '')}</p><p>${esc(t('confirmation_next'))}</p><a class="btn-secondary" href="/api/portal/orders/${encodeURIComponent(o.order_id)}/pdf" target="_blank" rel="noopener">PDF</a> <button class="btn-secondary" type="button" data-confirm-contact="${esc(o.brand_id)}">${esc(t('dash_contact_message'))}</button></div>`).join('');
   } catch(e) {
     msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
     btnConfirm.disabled = false;
@@ -4257,6 +4266,7 @@ async function renderFavs() {
 }
 
 async function renderShortlist() {
+  window.BuyerTools?.loadShortlists();
   const el = document.getElementById('shortlist-list');
   if (!shortlist.size) { el.innerHTML = `<p class="msg" style="color:var(--muted)">${t('shortlist_empty')}</p>`; return; }
   el.innerHTML = '';
@@ -5204,5 +5214,6 @@ document.getElementById('modal-compare').addEventListener('click', e => {
   if (e.target === document.getElementById('modal-compare')) closeCompareModal();
 });
 </script>
+<script src="/buyer-tools.js"></script>
 </body>
 </html>

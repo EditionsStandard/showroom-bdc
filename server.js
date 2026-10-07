@@ -3173,7 +3173,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
   const r = await pool.query(`
     SELECT o.id, o.order_number, o.brand_id, o.client_name, o.client_email, o.client_company,
            o.client_phone, o.client_country, o.status, o.notes, o.admin_notes,
-           o.cgv_accepted, o.buyer_id, o.created_at,
+           o.cgv_accepted, o.buyer_id, o.buyer_po_number, o.created_at,
            b.name as brand_name,
            COUNT(ol.id) as line_count,
            SUM(ol.quantity * ol.unit_price) as total
@@ -3210,7 +3210,7 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
     const params = needsScope ? [req.userBrandId] : [];
     const r = await pool.query(`
       SELECT a.token, a.selection_number, a.brand_id, a.client_name, a.client_email, a.client_company,
-             a.notes, a.created_by, a.used, a.created_at, a.expires_at,
+             a.notes, a.created_by, a.used, a.created_at, a.expires_at, a.workflow_stage, a.linked_order_id, a.proposal_conditions, a.buyer_comment,
              b.name as brand_name,
              a.items_json
       FROM agent_selections a
@@ -3220,6 +3220,19 @@ app.get('/api/agent-selections', requireRole('owner','agent','designer'), async 
     `, params);
     res.json(r.rows);
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.patch('/api/agent-selections/:token/proposal',requireRole('owner','agent'),async(req,res)=>{
+  try {
+    const conditions=req.body.proposal_conditions;
+    if(typeof conditions!=='string' || conditions.length>5000)return res.status(400).json({error:'Conditions invalides'});
+    const sel=(await pool.query('SELECT brand_id,used,expires_at FROM agent_selections WHERE token=$1',[req.params.token])).rows[0];
+    if(!sel)return res.status(404).json({error:'Sélection introuvable'});
+    if(isBrandScoped(req) && sel.brand_id!==req.userBrandId)return res.status(403).json({error:'Accès refusé'});
+    const changed=await pool.query("UPDATE agent_selections SET proposal_conditions=$1,workflow_stage='proposed' WHERE token=$2 AND used=false AND expires_at>NOW() RETURNING token",[conditions,req.params.token]);
+    if(!changed.rows.length)return res.status(409).json({error:'Sélection déjà approuvée ou expirée'});
+    logAudit(req,'proposal_updated','agent_selection',req.params.token,'');res.json({ok:true});
+  }catch(e){console.error('[proposal]',e.message);res.status(500).json({error:'Erreur serveur'});}
 });
 
 // Suppression d'une sélection (ex. sélections de test). Bornée à la marque de
@@ -3272,11 +3285,11 @@ app.put('/api/agent-selections/:token/items', requireRole('owner','agent'), asyn
       // via /selection/:token, et pourrait finir dans une commande de cette marque.
       if (!pid || !ownProductIds.has(pid)) continue;
       const size = (i.size || '').toString();
-      const key = pid + '|' + size;
+      const key = JSON.stringify([pid,i.variant_color || '',size]);
       if (seen.has(key)) continue;
       seen.add(key);
       const note = typeof i.note === 'string' ? i.note.trim().slice(0, 300) : '';
-      cleanItems.push({ product_id: pid, size, quantity: Math.max(0, parseInt(i.quantity) || 0), note });
+      cleanItems.push({ product_id: pid, size, variant_color:String(i.variant_color || '').slice(0,60), quantity: Math.max(0, parseInt(i.quantity) || 0), note });
     }
     if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins une référence' });
     const refCount = new Set(cleanItems.map(i => i.product_id)).size;
@@ -3310,7 +3323,7 @@ app.get('/api/agent-selections/:token/pdf', requireRole('owner','agent'), async 
     const pdf = await generateSelectionPDF({
       brand: { name: s.brand_name, logo: s.brand_logo, logo_url: s.brand_logo_url },
       client_name: s.client_name, client_email: s.client_email, client_company: s.client_company, client_country: '',
-      notes: s.notes, lines, showroomName, agentName
+      notes: [s.notes,s.proposal_conditions].filter(Boolean).join('\n\n'), lines, showroomName, agentName
     });
     logAudit(req, 'download_selection_pdf', 'agent_selection', req.params.token, '');
     res.setHeader('Content-Type', 'application/pdf');
@@ -3464,22 +3477,26 @@ app.post('/api/orders/:id/sign', requireRole('owner','agent'), async (req, res) 
       return res.status(400).json({ error: 'Signature requise' });
     }
     const orderId = req.params.id;
-    const prev = await pool.query('SELECT status FROM orders WHERE id=$1', [orderId]);
-    if (!prev.rows[0]) return res.status(404).json({ error: 'Commande introuvable' });
-    const oldStatus = prev.rows[0].status;
-    // Contrairement à PUT /status, cet endpoint ne vérifiait aucun état de
-    // départ — signer une commande annulée ou archivée la ressuscitait
-    // silencieusement en "validated" (avec régénération du PDF + email de
-    // confirmation renvoyé à l'acheteur).
-    if (oldStatus === 'cancelled' || oldStatus === 'archived') {
-      return res.status(409).json({ error: `Commande ${oldStatus === 'cancelled' ? 'annulée' : 'archivée'} : impossible de la signer.` });
-    }
     const signedBy = req.session?.staffUser?.name || req.session?.staffUser?.email || (req.session?.admin ? 'Owner' : 'Agent');
-
-    await pool.query(
-      'UPDATE orders SET agent_signature=$1, agent_signed_at=NOW(), agent_signed_by=$2, status=$3 WHERE id=$4',
-      [signature, signedBy, 'validated', orderId]
-    );
+    const db = await pool.connect();
+    let oldStatus;
+    try {
+      await db.query('BEGIN');
+      const prev = await db.query('SELECT status FROM orders WHERE id=$1 FOR UPDATE', [orderId]);
+      if (!prev.rows[0]) {
+        await db.query('ROLLBACK');
+        return res.status(404).json({error:'Commande introuvable'});
+      }
+      oldStatus = prev.rows[0].status;
+      if (oldStatus === 'cancelled' || oldStatus === 'archived') {
+        await db.query('ROLLBACK');
+        return res.status(409).json({error:'Commande annulée ou archivée : impossible de la signer.'});
+      }
+      await db.query('UPDATE orders SET agent_signature=$1,agent_signed_at=NOW(),agent_signed_by=$2,status=$3 WHERE id=$4', [signature,signedBy,'validated',orderId]);
+      await db.query("UPDATE agent_selections SET workflow_stage='final_order',agency_validated_at=NOW() WHERE linked_order_id=$1",[orderId]);
+      await db.query('COMMIT');
+    } catch(e) { await db.query('ROLLBACK'); throw e; }
+    finally { db.release(); }
     logAudit(req, 'order_signed', 'order', orderId, signedBy);
     await pool.query(
       'INSERT INTO order_status_history (id, order_id, old_status, new_status, changed_by) VALUES ($1,$2,$3,$4,$5)',
@@ -3571,8 +3588,8 @@ async function sendOrderStatusEmail(orderId, status) {
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
     ...(showroomEmail && showroomEmail.toLowerCase() !== order.client_email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
     subject: isEn
-      ? `Order update — ${order.brand_name} — ${statusLabels[status]}`
-      : `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}`,
+      ? `Order update — ${order.brand_name} — ${statusLabels[status]}${order.buyer_po_number ? ' — PO: '+order.buyer_po_number : ''}`
+      : `Mise à jour commande — ${order.brand_name} — ${statusLabels[status]}${order.buyer_po_number ? ' — PO: '+order.buyer_po_number : ''}`,
     html: emailLayout({ showroomName, brandName: order.brand_name, brandLogo: order.brand_logo || '', content: `
       <p>${isEn ? 'Hello' : 'Bonjour'} <strong>${escHtml(order.client_name)}</strong>,</p>
       <p>${msg}</p>
@@ -3616,8 +3633,8 @@ async function sendOrderSignedEmail(orderId, pdfBuffer) {
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
     ...(showroomEmail && showroomEmail.toLowerCase() !== order.client_email.toLowerCase() ? { bcc: [showroomEmail] } : {}),
     subject: isEn
-      ? `Final signed order — ${order.brand_name} — ${showroomName}`
-      : `Bon de commande définitif signé — ${order.brand_name} — ${showroomName}`,
+      ? `Final signed order — ${order.brand_name} — ${showroomName}${order.buyer_po_number ? ' — PO: '+order.buyer_po_number : ''}`
+      : `Bon de commande définitif signé — ${order.brand_name} — ${showroomName}${order.buyer_po_number ? ' — PO: '+order.buyer_po_number : ''}`,
     attachments: [{ filename, content: pdfBuffer.toString('base64'), contentType: 'application/pdf' }],
     html: emailLayout({ showroomName, brandName: order.brand_name, brandLogo: order.brand_logo || '', content: isEn ? `
       <p>Hello <strong>${escHtml(order.client_name)}</strong>,</p>
@@ -4335,7 +4352,8 @@ app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, 
 
 const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
 const MAX_LINE_PRICE = 100000; // garde-fou contre les prix absurdes (édition P.U. d'une ligne de commande)
-async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id }) {
+async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id, buyer_po_number = '', selection_token, buyer_comment = '' }) {
+  if (typeof buyer_po_number !== 'string' || buyer_po_number.length > 120 || /[\r\n]/.test(buyer_po_number)) return { error:'Buyer PO number: maximum 120 characters' };
   // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées).
   // Filtre d'abord les lignes non-objet (null, tableau, primitive) — sinon le spread/accès
   // à .quantity plante avant même la validation de quantité qui suit.
@@ -4348,9 +4366,13 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
 
   const brandCheck = await pool.query(`SELECT b.name, b.subscription_status, b.moq_qty, b.moq_amount, b.moq_strict,
-    b.min_per_reference, bt.min_per_reference_override FROM brands b
+    b.min_per_reference, b.early_access_until, bt.is_privileged, bt.min_per_reference_override,
+    COALESCE(NULLIF(bt.payment_terms,''),b.payment_terms) AS payment_terms,
+    COALESCE(NULLIF(bt.delivery_terms,''),b.delivery_terms) AS delivery_terms,
+    COALESCE(NULLIF(bt.return_terms,''),b.return_terms) AS return_terms FROM brands b
     LEFT JOIN buyer_brand_terms bt ON bt.brand_id=b.id AND bt.buyer_id=$2 WHERE b.id=$1`, [brand_id, buyer_id || null]);
   if (!brandCheck.rows[0]) return { error: 'Marque introuvable' };
+  if (brandCheck.rows[0].early_access_until && new Date(brandCheck.rows[0].early_access_until)>new Date() && !brandCheck.rows[0].is_privileged) return {error:'Collection en accès anticipé : accès privilégié requis.'};
   if (brandCheck.rows[0].subscription_status === 'inactive') {
     return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
   }
@@ -4374,6 +4396,12 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (!resolvedLines.length) return { error: 'Aucun produit valide pour cette marque' };
   if (resolvedLines.length < validLines.length) {
     return { error: 'Un ou plusieurs articles de votre panier ne sont plus disponibles — veuillez actualiser la page et réessayer.' };
+  }
+  const allocation = new Map();
+  for (const line of resolvedLines) {
+    const issue=require('./public/ordering-rules').catalogIssue(line.product,line,{allocated:allocation.get(line.product_id) || 0});
+    if(issue) return {error:`${brandCheck.rows[0].name} — ${line.product.reference} : ${issue==='size'?'taille indisponible':issue==='color'?'coloris indisponible':issue==='stock'?'stock insuffisant':'article indisponible'}.`,code:issue,reference:line.product.reference};
+    allocation.set(line.product_id,(allocation.get(line.product_id) || 0)+line.quantity);
   }
 
   const totalQty = resolvedLines.reduce((s, l) => s + l.quantity, 0);
@@ -4424,24 +4452,27 @@ async function createOrder({ brand_id, client_name, client_email, client_company
       `SELECT id, pdf_token, order_number FROM orders
        WHERE brand_id=$1 AND created_at > NOW() - INTERVAL '20 seconds'
          AND (($2::text IS NOT NULL AND buyer_id=$2) OR ($2::text IS NULL AND buyer_id IS NULL AND lower(client_email)=$3))
+       AND COALESCE(buyer_po_number,'')=$4
+         AND ($5::text IS NULL OR id IN (SELECT linked_order_id FROM agent_selections WHERE token=$5))
        ORDER BY created_at DESC LIMIT 5`,
-      [brand_id, buyer_id || null, (client_email || '').toLowerCase().trim()]
+      [brand_id, buyer_id || null, (client_email || '').toLowerCase().trim(),buyer_po_number.trim(),selection_token || null]
     );
     for (const cand of dupCandidates.rows) {
       const candLines = (await dbClient.query('SELECT product_id, quantity, size, variant_color FROM order_lines WHERE order_id=$1', [cand.id])).rows;
       const candSignature = candLines.map(l => JSON.stringify([l.product_id, l.quantity, l.size || '', l.variant_color || ''])).sort().join('|');
       if (candSignature === linesSignature) {
         await dbClient.query('COMMIT');
-        return { order_id: cand.id, pdf_token: cand.pdf_token, order_number: cand.order_number };
+        return getOrderConfirmation(cand.id);
       }
     }
     const seqRes = await dbClient.query("SELECT LPAD(nextval('order_number_seq')::TEXT, 4, '0') AS num");
     const orderNumber = 'ES-' + seqRes.rows[0].num;
     await dbClient.query(
-      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id,order_number,pdf_token)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11,$12,$13)`,
-      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber, pdfToken]
+      `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id,order_number,pdf_token,buyer_po_number,commercial_snapshot)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11,$12,$13,$14,$15)`,
+      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber, pdfToken, buyer_po_number.trim(), JSON.stringify(brandCheck.rows[0])]
     );
+    if(selection_token) await dbClient.query("UPDATE agent_selections SET linked_order_id=$1,workflow_stage='buyer_approved',buyer_approved_at=NOW(),buyer_comment=$2 WHERE token=$3 AND used=true",[orderId,buyer_comment,selection_token]);
     for (const line of resolvedLines) {
       // Décrément du stock si suivi : décrément atomique et conditionnel
       // (verrou ligne + garde stock_qty >= quantité) → évite le sur-engagement
@@ -4468,6 +4499,8 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     if (e && e.message === 'stock_insuffisant') {
       return { error: `Stock insuffisant pour la référence ${e.stockRef}. Rafraîchissez votre sélection.` };
     }
+    if (e.constraint === 'min_per_reference') return { error:`${brandCheck.rows[0].name} — ${e.message}`, code:'min_per_reference' };
+    console.error('[order-create]', e.code || e.name);
     return { error: 'Erreur lors de la création de la commande' };
   } finally {
     dbClient.release();
@@ -4489,7 +4522,20 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`, brand_id).catch(e => console.error('[push-order-error]', e.message));
   notifyOwnerOrder(orderId, 'Nouvelle commande').catch(() => {}); // copie email au propriétaire
 
-  return { order_id: orderId, total: orderTotal, pdf_token: pdfToken };
+  return getOrderConfirmation(orderId);
+}
+
+async function getOrderConfirmation(orderId) {
+  const row=(await pool.query(`SELECT o.id AS order_id,o.order_number,o.pdf_token,o.buyer_po_number,o.delivery_window,o.commercial_snapshot,
+    b.name AS brand_name,b.payment_terms,b.delivery_terms,COUNT(DISTINCT p.reference)::int AS reference_count,
+    COALESCE(SUM(l.quantity),0)::int AS pieces,COALESCE(SUM(l.quantity*l.unit_price),0) AS total
+    FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines l ON l.order_id=o.id
+    LEFT JOIN products p ON p.id=l.product_id WHERE o.id=$1 GROUP BY o.id,b.id`,[orderId])).rows[0];
+  if(!row) return {error:'Commande introuvable'};
+  const snapshot=row.commercial_snapshot;
+  delete row.commercial_snapshot;
+  if(snapshot) { row.payment_terms=snapshot.payment_terms; row.delivery_terms=snapshot.delivery_terms; }
+  return row;
 }
 
 app.post('/api/public/orders', publicLimiter, requireCommandeAccessBody, async (req, res) => {
@@ -4535,7 +4581,7 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
       ? await pool.query('SELECT id FROM products WHERE id = ANY($1) AND brand_id = $2', [candidateIds, brandId])
       : { rows: [] };
     const ownProductIds = new Set(ownProducts.rows.map(r => r.id));
-    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', quantity: Math.max(0, parseInt(i.quantity) || 0), note: typeof i.note === 'string' ? i.note.trim().slice(0, 300) : '' }));
+    const cleanItems = validItems.filter(i => ownProductIds.has(i.product_id)).map(i => ({ product_id: i.product_id, size: i.size || '', variant_color:String(i.variant_color || '').slice(0,60), quantity: Math.max(0, parseInt(i.quantity) || 0), note: typeof i.note === 'string' ? i.note.trim().slice(0, 300) : '' }));
     if (!cleanItems.length) return res.status(400).json({ error: 'Sélectionnez au moins un article' });
     const token = crypto.randomBytes(24).toString('hex');
     const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 jours
@@ -4684,6 +4730,8 @@ app.get('/api/selection/:token', publicLimiter, async (req, res) => {
       LEFT JOIN buyer_brand_terms bt ON bt.brand_id=b.id AND bt.buyer_id=buyer.id
       WHERE b.id=$1`, [sel.brand_id, sel.client_email]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Marque introuvable' });
+    const selectionBuyer=(await pool.query('SELECT id FROM buyers WHERE LOWER(email)=LOWER($1)',[sel.client_email])).rows[0];
+    if((await getLockedBrandIds(selectionBuyer?.id || null,[sel.brand_id])).size)return res.status(403).json({error:'Collection en accès anticipé'});
     const items = JSON.parse(sel.items_json || '[]');
     const ids = [...new Set(items.map(i => i.product_id))];
     const prods = await pool.query('SELECT id, reference, description, color, variants, stock_enabled, stock_qty, composition, price, price_retail, image_url, images, sizes FROM products WHERE id = ANY($1) AND brand_id=$2 AND (active != 0 OR is_sample=true)', [ids, sel.brand_id]);
@@ -4704,7 +4752,7 @@ app.get('/api/selection/:token', publicLimiter, async (req, res) => {
     res.json({
       brand: b.rows[0],
       client: { name: sel.client_name, email: sel.client_email, company: sel.client_company },
-      notes: sel.notes,
+      notes: sel.notes, proposal_conditions:sel.proposal_conditions, workflow_stage:sel.workflow_stage,
       references,
       lines,
       account_exists: existingBuyer.rows.length > 0
@@ -4787,7 +4835,7 @@ app.get('/api/selection/:token/pdf', publicLimiter, async (req, res) => {
     const pdf = await generateSelectionPDF({
       brand: { name: s.brand_name, logo: s.brand_logo, logo_url: s.brand_logo_url },
       client_name: s.client_name, client_email: s.client_email, client_company: s.client_company, client_country: '',
-      notes: s.notes, lines, showroomName, agentName
+      notes: [s.notes,s.proposal_conditions].filter(Boolean).join('\n\n'), lines, showroomName, agentName
     });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Cache-Control', 'no-store, private');
@@ -4799,7 +4847,8 @@ app.get('/api/selection/:token/pdf', publicLimiter, async (req, res) => {
 // 4) L'acheteur crée son compte (ou se connecte) et valide la commande
 app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
   try {
-    const { password, signature, cgv_accepted, lines } = req.body;
+    const { password, signature, cgv_accepted, lines, buyer_po_number, buyer_comment = '' } = req.body;
+    if(typeof buyer_comment!=='string' || buyer_comment.length>5000)return res.status(400).json({error:'Commentaire trop long'});
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
     if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
@@ -4869,7 +4918,8 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     const result = await createOrder({
       brand_id: sel.brand_id, client_name: buyer.name || sel.client_name, client_email: email,
       client_company: buyer.company || sel.client_company, client_phone: buyer.phone, client_country: buyer.country,
-      notes: sel.notes, lines: finalLines, buyer_signature: signature, cgv_accepted: cgv_accepted ? 1 : 0, buyer_id: buyer.id
+      notes: [sel.notes,sel.proposal_conditions,buyer_comment].filter(Boolean).join('\n\n'), lines: finalLines, buyer_signature: signature, cgv_accepted: cgv_accepted ? 1 : 0, buyer_id: buyer.id,
+      buyer_po_number,selection_token:sel.token,buyer_comment
     });
     if (result.error) {
       // La commande a échoué (MOQ non atteint, marque désactivée...) : on
@@ -4884,12 +4934,12 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       [uuidv4(), email, 'order_signed', 'order', result.order_id, `Sélection ${sel.selection_number || sel.token.slice(0,8)} validée et signée · CGV acceptées · IP ${req.ip || ''}`]).catch(e => console.error('audit order_signed:', e.message));
     // Connecte l'acheteur
     req.session.regenerate(err => {
-      if (err) return res.json({ ok: true, order_id: result.order_id });
+      if (err) return res.json({ ok: true, ...result });
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
       // Sauvegarde explicite avant de répondre : le JS client enchaîne
       // généralement sur un appel authentifié juste après ce {ok:true}, qui
       // échouerait si la nouvelle session n'est pas encore garantie persistée.
-      req.session.save(() => res.json({ ok: true, order_id: result.order_id }));
+      req.session.save(() => res.json({ ok: true, ...result }));
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -5163,7 +5213,7 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
     const [profile, orders, carts, messages, notifications, follows] = await Promise.all([
       pool.query('SELECT id, email, name, company, phone, country, created_at, last_seen_at, lang, favorites_json, shortlist_json FROM buyers WHERE id=$1', [buyerId]),
       pool.query(`SELECT o.id, o.brand_id, o.client_name, o.client_email, o.client_company,
-                         o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
+                         o.client_phone, o.client_country, o.status, o.notes, o.buyer_po_number, o.cgv_accepted, o.created_at,
                          b.name as brand_name
                   FROM orders o JOIN brands b ON o.brand_id=b.id
                   WHERE o.buyer_id=$1 ORDER BY o.created_at DESC`, [buyerId]),
@@ -5179,7 +5229,10 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
       cart: carts.rows[0] || null,
       messages: messages.rows,
       notifications: notifications.rows,
-      followed_brands: follows.rows
+      followed_brands: follows.rows,
+      company_memberships:(await pool.query('SELECT cu.company_id,cu.role,c.name,c.billing FROM company_users cu JOIN companies c ON c.id=cu.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
+      company_locations:(await pool.query('SELECT cl.* FROM company_locations cl JOIN company_users cu ON cu.company_id=cl.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
+      buying_shortlists:(await pool.query('SELECT * FROM buying_shortlists WHERE owner_id=$1',[buyerId])).rows
     };
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="mes-donnees-showroom.json"');
@@ -5215,11 +5268,14 @@ async function anonymizeAndDeleteBuyer(buyerId) {
     }
     await dbClient.query(
       `UPDATE orders SET client_name='[Supprimé]', client_email='deleted@deleted', client_phone='',
-         client_company='', client_country='', notes='', buyer_signature='', agent_signature=NULL, buyer_id=NULL
+         client_company='', client_country='', notes='', buyer_po_number='', commercial_snapshot=NULL, buyer_signature='', agent_signature=NULL, buyer_id=NULL
        WHERE buyer_id=$1`,
       [buyerId]
     );
+    const companies=(await dbClient.query('SELECT company_id FROM company_users WHERE buyer_id=$1',[buyerId])).rows;
+    await dbClient.query('DELETE FROM company_invites WHERE email=$1 OR invited_by=$2',[buyerEmail || '',buyerId]);
     await dbClient.query('DELETE FROM buyers WHERE id=$1', [buyerId]);
+    for(const company of companies) await dbClient.query('DELETE FROM companies WHERE id=$1 AND NOT EXISTS(SELECT 1 FROM company_users WHERE company_id=$1)',[company.company_id]);
     await dbClient.query('COMMIT');
   } catch(e) {
     await dbClient.query('ROLLBACK');
@@ -5641,7 +5697,7 @@ async function checkMoq(brand_id, lines) {
 
 app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
-  const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes } = req.body;
+  const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes, buyer_po_number } = req.body;
   if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'Sélection vide' });
   if (lines.length > 500) return res.status(400).json({ error: 'Commande trop volumineuse' });
   if (lines.some(l => !l || typeof l !== 'object' || !l.brand_id)) return res.status(400).json({ error: 'Sélection invalide' });
@@ -5683,7 +5739,7 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
       client_company: client_company || buyer.company,
       client_phone: client_phone || buyer.phone,
       client_country: client_country || buyer.country,
-      notes, lines: brandLines, buyer_signature, cgv_accepted, buyer_id: buyer.id
+      notes, lines: brandLines, buyer_signature, cgv_accepted, buyer_id: buyer.id, buyer_po_number
     });
     if (r.error) anyError = true;
     results.push({ brand_id, brand_name: brandNameOf(brand_id), ...r });
@@ -5696,7 +5752,7 @@ app.get('/api/portal/orders', requireBuyerAuth, async (req, res) => {
   const r = await pool.query(`
     SELECT o.id, o.order_number, o.brand_id, o.client_name, o.client_email, o.client_company,
            o.client_phone, o.client_country, o.status, o.notes, o.cgv_accepted, o.created_at,
-           o.delivery_window, b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
+           o.delivery_window, o.buyer_po_number, b.name as brand_name, SUM(ol.quantity * ol.unit_price) as total
     FROM orders o
     JOIN brands b ON o.brand_id = b.id
     LEFT JOIN order_lines ol ON ol.order_id = o.id
@@ -6367,10 +6423,9 @@ app.get('/api/admin/buyers/:id/profile', requireRole('owner','agent'), async (re
     }
     const resolveList = ids => ids.map(id => productsById[id]).filter(Boolean);
 
-    // Conditions négociées — une entrée par marque avec laquelle l'acheteur a
-    // déjà commandé, comparant la condition par défaut de la marque et une
-    // éventuelle surcharge négociée pour cet acheteur précis.
-    const brandsForTerms = Object.fromEntries(orders.rows.map(o => [o.brand_id, o.brand_name]));
+    // Allow negotiated conditions before the first order; retain staff brand scope.
+    const permittedBrands = await pool.query('SELECT id,name FROM brands' + (scoped ? ' WHERE id=$1' : '') + ' ORDER BY name', scoped ? [brandId] : []);
+    const brandsForTerms = Object.fromEntries(permittedBrands.rows.map(b => [b.id,b.name]));
     const brandIds = Object.keys(brandsForTerms);
     let negotiatedTerms = [];
     if (brandIds.length) {
@@ -6595,12 +6650,12 @@ async function requestClaudeTranslation(texts, langName) {
       messages: [{ role: 'user', content:
         `You are a fashion copy translator. Translate each string of this JSON array into ${langName}, preserving the brand/fashion tone. Do NOT translate proper nouns, brand names, references/SKUs. Some strings contain placeholder tokens like {0}, {1}, {2} or HTML tags like <strong> — preserve these EXACTLY as they appear (same token/tag text, may be reordered to fit natural word order in the target language, but never translated, altered, or dropped). Return ONLY a JSON array of translations, same length and order, nothing else.\n\n${JSON.stringify(texts)}` }]
     }),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(8000)
   });
   if (!resp.ok) {
     let detail = '';
     try { detail = (await resp.text()).slice(0, 300); } catch (_) {}
-    throw new Error('Anthropic HTTP ' + resp.status + (detail ? ' ' + detail : ''));
+    throw Object.assign(new Error('Anthropic HTTP ' + resp.status), { statusCode:resp.status });
   }
   const data = await resp.json();
   if (data.stop_reason === 'max_tokens') throw new Error('réponse tronquée (max_tokens)');
@@ -6637,15 +6692,12 @@ async function translateBatch(texts, lang) {
   const missing = jobs.filter(j => !isReal(j));
   if (!missing.length || !process.env.ANTHROPIC_API_KEY) return out;
 
-  // Traduit un lot ; en cas d'échec, un seul nouvel essai avant repli.
+  // Circuit breaker: source fallback is never persisted as a translation.
   async function runChunk(chunk) {
     let tr;
     try {
       tr = await claudeTranslate(chunk.map(m => m.text), langName);
-    } catch (e1) {
-      try { tr = await claudeTranslate(chunk.map(m => m.text), langName); }
-      catch (e2) { console.error(`[translate] ${lang} lot ${chunk.length} échec: ${e2.message}`); return; }
-    }
+    } catch (_) { return; }
     chunk.forEach((m, k) => {
       const val = (tr[k] != null && String(tr[k]).trim()) ? String(tr[k]) : m.text;
       out[m.i] = val;
@@ -8404,14 +8456,15 @@ async function sendOrderEmails(orderId, pdfBuffer) {
     }
   } catch(e) { console.error('[order-email-thumbs]', e.message); }
 
+  thumbsHtml = (order.buyer_po_number ? '<p>Buyer PO: <strong>'+escHtml(order.buyer_po_number)+'</strong></p>' : '') + thumbsHtml;
   // ── Email acheteur ──
   const buyerSend = await resend.emails.send({
     from: fromFormatted,
     to: [order.client_email],
     ...(showroomEmail ? { replyTo: showroomEmail } : {}), // réponses de l'acheteur → showroom
     subject: isEn
-      ? `Order proposal — ${order.brand_name} — ${showroomName}`
-      : `Proposition de commande — ${order.brand_name} — ${showroomName}`,
+      ? `Order proposal — ${order.brand_name} — ${showroomName}${order.buyer_po_number ? ' — PO: '+order.buyer_po_number : ''}`
+      : `Proposition de commande — ${order.brand_name} — ${showroomName}${order.buyer_po_number ? ' — PO: '+order.buyer_po_number : ''}`,
     html: emailLayout({
       showroomName,
       brandName: order.brand_name,
@@ -9063,6 +9116,8 @@ app.post('/api/admin/pending-reminders/:id/reject', requireRole('owner','agent')
 });
 
 // Catch-all 404
+require('./lib/buyer-company').registerBuyerCompany({app,pool,auth:requireBuyerAuth,getLockedBrandIds,audit:logAudit});
+require('./lib/quick-order').registerQuickOrder({app,pool,auth:requireBuyerAuth,getLockedBrandIds});
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
