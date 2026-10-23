@@ -1041,7 +1041,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
         // que le code TOTP n'est pas vérifié — mfaPending ne porte aucun droit.
         req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
         logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
-        return res.redirect('/admin/login?step=mfa');
+        return req.session.save(err => res.redirect(err ? '/admin/login?error=1' : '/admin/login?step=mfa'));
       }
       return req.session.regenerate(err => {
         if (err) return res.redirect('/admin/login?error=1');
@@ -1083,9 +1083,10 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     await clearOwnerLoginFailures();
     const ownerMfaEnabled = (await getSetting('owner_mfa_enabled')) === 'on';
     if (ownerMfaEnabled) {
+      // Persist pending MFA before responding: the next request may arrive immediately.
       req.session.mfaPending = { kind: 'owner' };
       logAuditRaw('admin', 'login_password_ok_mfa_pending', 'staff', '', req.ip);
-      return res.redirect('/admin/login?step=mfa');
+      return req.session.save(err => res.redirect(err ? '/admin/login?error=1' : '/admin/login?step=mfa'));
     }
     req.session.regenerate(err => {
       if (err) return res.redirect('/admin/login?error=1');
@@ -4085,7 +4086,7 @@ app.get('/portal/access', async (req, res) => {
     if (buyer.mfa_enabled) {
       req.session.mfaPendingBuyer = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country, next: '' };
       logAuditRaw(buyer.email, 'login_password_ok_mfa_pending', 'buyer', buyer.id, req.ip);
-      return res.redirect('/editions-showroom-b2b-portail?step=mfa');
+      return req.session.save(err => res.redirect(err ? '/editions-showroom-b2b-portail?error=1' : '/editions-showroom-b2b-portail?step=mfa'));
     }
     // Régénération de session — anti session fixation (même principe que les
     // autres points de connexion buyer/admin de ce fichier).
@@ -5041,7 +5042,7 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
       // que côté admin — voir /admin/login/mfa).
       req.session.mfaPendingBuyer = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country, next: safeNext };
       logAuditRaw(buyer.email, 'login_password_ok_mfa_pending', 'buyer', buyer.id, req.ip);
-      return res.redirect('/editions-showroom-b2b-portail?step=mfa');
+      return req.session.save(err => res.redirect(err ? '/editions-showroom-b2b-portail?error=1' : '/editions-showroom-b2b-portail?step=mfa'));
     }
     // Régénération de session — anti session fixation
     req.session.regenerate(err => {
@@ -6250,13 +6251,7 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
       ? `Période : ${data.from || '…'} → ${data.to || "aujourd'hui"}`
       : 'Période : depuis le début';
 
-    let logoBuf = null;
-    try {
-      const svg2img = require('svg2img');
-      const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
-      logoBuf = await new Promise((resolve, reject) =>
-        svg2img(svgSrc, { width: 120, height: 120, preserveAspectRatio: true }, (err, buf) => err ? reject(err) : resolve(buf)));
-    } catch(e) { /* logo optionnel */ }
+    const logoBuf = loadPdfLogo();
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const F = registerPdfFonts(doc);
@@ -8853,7 +8848,7 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     // le code TOTP n'est pas vérifié (même logique que /admin/login).
     req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
     logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
-    return res.json({ mfaRequired: true });
+    return req.session.save(err => err ? res.status(500).json({ error: 'Session unavailable' }) : res.json({ mfaRequired: true }));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
 
