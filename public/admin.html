@@ -715,8 +715,12 @@
       </div>
       <div class="stat" style="--stat-color:#a78bfa;--stat-bg:#160a28">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
-        <div class="num" id="stat-total">—</div><div class="label" data-t="stat_revenue">CA total HT</div>
+        <div class="num" id="stat-total">—</div><div class="label" data-t="stat_revenue">Montant des commandes actives HT</div>
       </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;font-size:12px">
+      <strong id="stat-orders-breakdown">Commandes à valider HT : — · Commandes validées / expédiées HT : —</strong>
+      <p id="stat-orders-meaning" style="margin:6px 0 0;color:var(--muted)">Montant des commandes enregistrées, pas le chiffre d'affaires facturé ou encaissé.</p>
     </div>
     <div class="stats" style="margin-bottom:20px">
       <div class="stat" style="--stat-color:#34d399;--stat-bg:#062016;margin-bottom:0">
@@ -2435,7 +2439,7 @@ const TRANSLATIONS = {
     dash_kicker: 'Vue d\'ensemble de votre showroom en temps réel',
     h1_orders: 'Commandes', h1_settings: 'Paramètres', h1_staff: 'Comptes', h1_buyers: 'Acheteurs',
     // Stats
-    stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'CA total HT',
+    stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'Commandes actives HT',
     stat_buyers: 'Acheteurs', stat_online: 'En ligne maintenant', btn_confirm_regen: '✓ Confirmer',
     stat_conversion: 'Conversion sélections → commandes',
     recent_orders: 'Dernières commandes',
@@ -2579,7 +2583,7 @@ const TRANSLATIONS = {
     label_billing: 'Facturation',
     status_active_label: '✅ Actif', status_trial_label: '⏳ Essai', status_inactive_label: '❌ Impayé',
     // Dashboard (dynamique)
-    dash_priorities_title: 'Priorités du jour', dash_ca_monthly_title: 'CA mensuel', dash_ca_brand_title: 'CA par marque',
+    dash_priorities_title: 'Priorités du jour', dash_ca_monthly_title: 'Commandes mensuelles HT', dash_ca_brand_title: 'Commandes par marque',
     dash_online_buyers_title: 'Acheteurs en ligne', js_no_buyer_online: 'Personne en ligne actuellement.',
     global_search_placeholder: '🔍 Rechercher commandes, acheteurs…',
     dash_view_portal_title: 'Voir le portail acheteur', dash_portal_link: 'Portail', dash_notifications_btn: '🔔 Notifications',
@@ -2651,7 +2655,7 @@ const TRANSLATIONS = {
     dash_kicker: 'A real-time overview of your showroom',
     h1_orders: 'Orders', h1_settings: 'Settings', h1_staff: 'Accounts', h1_buyers: 'Buyers',
     // Stats
-    stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Total revenue',
+    stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Active orders (excl. VAT)',
     stat_buyers: 'Buyers', stat_online: 'Online now', btn_confirm_regen: '✓ Confirm',
     stat_conversion: 'Selection → order conversion',
     recent_orders: 'Recent orders',
@@ -2795,7 +2799,7 @@ const TRANSLATIONS = {
     label_billing: 'Billing',
     status_active_label: '✅ Active', status_trial_label: '⏳ Trial', status_inactive_label: '❌ Unpaid',
     // Dashboard (dynamic)
-    dash_priorities_title: "Today's priorities", dash_ca_monthly_title: 'Monthly revenue', dash_ca_brand_title: 'Revenue by brand',
+    dash_priorities_title: "Today's priorities", dash_ca_monthly_title: 'Monthly order value', dash_ca_brand_title: 'Order value by brand',
     dash_online_buyers_title: 'Buyers online', js_no_buyer_online: 'No one online right now.',
     global_search_placeholder: '🔍 Search orders, buyers…',
     dash_view_portal_title: 'View the buyer portal', dash_portal_link: 'Portal', dash_notifications_btn: '🔔 Notifications',
@@ -3039,6 +3043,7 @@ async function initUserRole() {
     ownerOpts.forEach(el => el.style.display = '');
   } else {
     document.getElementById('nav-settings').style.display = 'none';
+    document.getElementById('nav-access-requests').style.display = 'none';
   }
   if (me.role === 'designer') {
     currentUserBrandId = me.brand_id || null;
@@ -4179,6 +4184,16 @@ async function loadDashboard() {
   document.getElementById('stat-orders').textContent = stats.orders_count ?? '—';
   document.getElementById('stat-total').textContent =
     stats.revenue_total != null ? Number(stats.revenue_total).toFixed(2) + ' €' : '—';
+  const breakdown = document.getElementById('stat-orders-breakdown');
+  if (breakdown) {
+    const euros = n => n == null ? '—' : Number(n).toFixed(2) + ' €';
+    breakdown.textContent = currentLang === 'en'
+      ? 'Orders pending validation: ' + euros(stats.pending_validation_total) + ' · Validated / shipped orders: ' + euros(stats.validated_orders_total)
+      : 'Commandes à valider HT : ' + euros(stats.pending_validation_total) + ' · Commandes validées / expédiées HT : ' + euros(stats.validated_orders_total);
+    document.getElementById('stat-orders-meaning').textContent = currentLang === 'en'
+      ? 'Order value, not invoiced or collected revenue.'
+      : 'Montant des commandes enregistrées, pas le chiffre d’affaires facturé ou encaissé.';
+  }
   document.getElementById('stat-buyers').textContent = stats.buyers_count ?? '—';
   document.getElementById('stat-online-num').textContent = onlineIds.length;
 
