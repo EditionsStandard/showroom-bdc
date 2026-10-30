@@ -1058,7 +1058,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
         // que le code TOTP n'est pas vérifié — mfaPending ne porte aucun droit.
         req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
         logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
-        return res.redirect('/admin/login?step=mfa');
+        return req.session.save(error => error ? res.redirect('/admin/login?error=1') : res.redirect('/admin/login?step=mfa'));
       }
       return req.session.regenerate(err => {
         if (err) return res.redirect('/admin/login?error=1');
@@ -1102,7 +1102,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     if (ownerMfaEnabled) {
       req.session.mfaPending = { kind: 'owner' };
       logAuditRaw('admin', 'login_password_ok_mfa_pending', 'staff', '', req.ip);
-      return res.redirect('/admin/login?step=mfa');
+      return req.session.save(error => error ? res.redirect('/admin/login?error=1') : res.redirect('/admin/login?step=mfa'));
     }
     req.session.regenerate(err => {
       if (err) return res.redirect('/admin/login?error=1');
@@ -8900,7 +8900,7 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     // le code TOTP n'est pas vérifié (même logique que /admin/login).
     req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
     logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
-    return res.json({ mfaRequired: true });
+    return req.session.save(error => error ? res.status(503).json({ error: 'Session indisponible' }) : res.json({ mfaRequired: true }));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
 

@@ -4,14 +4,16 @@ const crypto=require('node:crypto');
 const {startServer,withDb,id}=require('./helpers');
 let server,cookie;
 before(async()=>{
-  server=await startServer({dbNameSuffix:'activation',port:3197});
+  server=await startServer({dbNameSuffix:'activation_'+id('fresh'),port:3197});
   const {authenticator}=require('otplib');
   const secret=authenticator.generateSecret();
   await withDb(server.dbUrl,async db=>{
     await db.query("INSERT INTO settings(key,value) VALUES('owner_mfa_enabled','on'),('owner_mfa_secret',$1),('owner_mfa_last_step','0') ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",[secret]);
   });
   const login=await fetch(server.baseUrl+'/admin/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'password=TestAdmin123!',redirect:'manual'});
+  assert.equal(login.headers.get('location'),'/admin/login?step=mfa');
   cookie=login.headers.get('set-cookie').split(';')[0];
+  await withDb(server.dbUrl,async db=>assert.equal((await db.query("SELECT COUNT(*)::int AS n FROM user_sessions WHERE sess->'mfaPending'->>'kind'='owner'")).rows[0].n,1,'MFA challenge must be persisted before redirect on a fresh database'));
   const mfa=await fetch(server.baseUrl+'/admin/login/mfa',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Cookie:cookie},body:'code='+authenticator.generate(secret),redirect:'manual'});
   assert.equal(mfa.headers.get('location'),'/admin','owner MFA must complete');
   cookie=mfa.headers.get('set-cookie')?.split(';')[0] || cookie;
