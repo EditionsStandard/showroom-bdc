@@ -135,6 +135,17 @@
       <input id="f-email" type="email" autocomplete="email">
     </div>
 
+    <div class="row">
+      <div class="field">
+        <label id="t-label-instagram">Instagram <span class="required">*</span></label>
+        <input id="f-instagram" type="text" autocomplete="off" required>
+      </div>
+      <div class="field">
+        <label id="t-label-website">Website <span class="required">*</span></label>
+        <input id="f-website" type="url" autocomplete="url" required>
+      </div>
+    </div>
+
     <button type="button" class="toggle-link" id="t-extra-toggle" onclick="toggleExtraFields()">+ Informations complémentaires (optionnel)</button>
 
     <div id="extra-fields" style="display:none">
@@ -161,17 +172,6 @@
             <option value="Corée du Sud" data-c="SouthKorea">Corée du Sud</option>
             <option value="Autre" data-c="Other" id="t-country-other">Autre</option>
           </select>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="field">
-          <label id="t-label-instagram">Instagram</label>
-          <input id="f-instagram" type="text" autocomplete="off">
-        </div>
-        <div class="field">
-          <label id="t-label-website">Website</label>
-          <input id="f-website" type="url" autocomplete="url">
         </div>
       </div>
 
@@ -463,9 +463,9 @@ function applyLang() {
   document.getElementById('t-label-email').innerHTML = t('label_email') + req;
   document.getElementById('t-label-phone').textContent = t('label_phone');
   document.getElementById('t-label-country').textContent = t('label_country');
-  document.getElementById('t-label-instagram').textContent = t('label_instagram');
+  document.getElementById('t-label-instagram').innerHTML = t('label_instagram') + req;
   document.getElementById('f-instagram').placeholder = t('placeholder_instagram');
-  document.getElementById('t-label-website').textContent = t('label_website');
+  document.getElementById('t-label-website').innerHTML = t('label_website') + req;
   document.getElementById('f-website').placeholder = t('placeholder_website');
   document.getElementById('t-label-message').textContent = t('label_message');
   document.getElementById('t-extra-toggle').textContent = t('extra_toggle');
@@ -515,11 +515,13 @@ async function submitForm() {
   const phone     = document.getElementById('f-phone').value.trim();
   const country   = document.getElementById('f-country').value;
   const message   = document.getElementById('f-message').value.trim();
+  const instagram = document.getElementById('f-instagram').value.trim();
+  const website   = document.getElementById('f-website').value.trim();
   const errEl     = document.getElementById('error-msg');
   const btn       = document.getElementById('submit-btn');
 
   errEl.style.display = 'none';
-  if (!lastName || !firstName || !company || !email) {
+  if (!lastName || !firstName || !company || !email || !instagram || !website) {
     errEl.textContent = t('err_required');
     errEl.style.display = 'block';
     return;
@@ -529,6 +531,7 @@ async function submitForm() {
     errEl.style.display = 'block';
     return;
   }
+  // La validation du format reste definitivement effectuee par l'API.
   if (!document.getElementById('f-privacy').checked) {
     errEl.textContent = t('err_consent');
     errEl.style.display = 'block';
@@ -542,7 +545,7 @@ async function submitForm() {
     const r = await fetch('/api/access-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram: document.getElementById('f-instagram').value.trim(), website: document.getElementById('f-website').value.trim(), message, privacy_accepted: true, marketing_consent: document.getElementById('f-marketing').checked })
+      body: JSON.stringify({ name: `${firstName} ${lastName}`, company, email, phone, country, instagram, website, message, privacy_accepted: true, marketing_consent: document.getElementById('f-marketing').checked })
     });
     const d = await r.json();
     if (!r.ok) {
