@@ -722,6 +722,8 @@ async function init() {
     }
   }
 
+  await require('./lib/admin-commercial-migration').migrateAdminCommercial(pool);
+
   // Nettoyage des tokens expirés
   await pool.query(`
     DELETE FROM buyer_magic_links WHERE expires_at < NOW() - INTERVAL '7 days';
