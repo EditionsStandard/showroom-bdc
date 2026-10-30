@@ -13,6 +13,7 @@ const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
+const { validateBuyerAccessRequest } = require('./lib/buyer-access-validation');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
@@ -3145,9 +3146,9 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
   const conditions = [];
   const params = [];
 
-  if (req.userRole === 'designer' || req.userRole === 'agent') {
+  if (isBrandScoped(req)) {
     params.push(req.userBrandId);
-    conditions.push(`o.brand_id = $${params.length}`);
+    conditions.push(`o.brand_id = ${params.length}`);
   }
   if (dateFrom) {
     params.push(dateFrom);
@@ -7230,7 +7231,10 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
         ? pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE id = $1`, p)
         : pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
       pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
-      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue_total FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) AS revenue_total,
+        COALESCE(SUM(CASE WHEN o.status = 'confirmed' THEN ol.quantity * ol.unit_price ELSE 0 END), 0) AS pending_validation_total,
+        COALESCE(SUM(CASE WHEN o.status IN ('validated','in_production','shipped') THEN ol.quantity * ol.unit_price ELSE 0 END), 0) AS validated_orders_total
+        FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
       scoped
         ? pool.query(`SELECT COUNT(DISTINCT o.buyer_id) as buyers_count FROM orders o WHERE o.buyer_id IS NOT NULL AND o.brand_id = $1`, p)
         : pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
@@ -7246,6 +7250,8 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
       brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
       orders_count: parseInt(ordersR.rows[0].orders_count) || 0,
       revenue_total: parseFloat(revenueR.rows[0].revenue_total) || 0,
+      pending_validation_total: parseFloat(revenueR.rows[0].pending_validation_total) || 0,
+      validated_orders_total: parseFloat(revenueR.rows[0].validated_orders_total) || 0,
       buyers_count: parseInt(buyersR.rows[0].buyers_count) || 0,
       orders_last30: parseInt(orders30R.rows[0].orders_last30) || 0,
       selections_total: selTotal,
@@ -7333,7 +7339,9 @@ app.get('/api/admin/dashboard/priorities', requireRole('owner','agent'), async (
                   FROM appointments a JOIN brands b ON b.id = a.brand_id
                   WHERE a.slot_date = CURRENT_DATE ${scoped ? 'AND a.brand_id = $1' : ''}
                   ORDER BY a.slot_time ASC`, p),
-      pool.query(`SELECT id, name, company, email, created_at FROM access_requests WHERE status='pending' ORDER BY created_at ASC LIMIT 20`),
+      req.userRole === 'owner'
+        ? pool.query(`SELECT id, name, company, email, created_at FROM access_requests WHERE status='pending' ORDER BY created_at ASC LIMIT 20`)
+        : Promise.resolve({ rows: [] }),
       pool.query(`SELECT s.token, s.selection_number, s.client_name, s.client_company, s.expires_at, b.name AS brand_name
                   FROM agent_selections s JOIN brands b ON b.id = s.brand_id
                   WHERE s.used = false AND s.expires_at BETWEEN NOW() AND NOW() + INTERVAL '48 hours'
@@ -7701,6 +7709,9 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   const { name, company, phone, email, country, instagram, website, message, privacy_accepted, marketing_consent } = req.body;
   if (!name || !email) return res.status(400).json({ error: 'Nom et email requis' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
+  // Les demandes publiques doivent identifier une boutique avant toute notification.
+  const qualification = validateBuyerAccessRequest({ company, website, instagram });
+  if (!qualification.ok) return res.status(400).json({ error: qualification.error });
   // RGPD (P0-11) : acceptation de la politique de confidentialité obligatoire.
   if (privacy_accepted !== true) return res.status(400).json({ error: 'Vous devez accepter la politique de confidentialité.' });
   // Vérifier doublon (même email en pending)
@@ -7709,7 +7720,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   const id = uuidv4();
   await pool.query(
     "INSERT INTO access_requests (id,name,company,phone,email,country,instagram,website,message,marketing_consent,privacy_accepted_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW() + INTERVAL '30 days')",
-    [id, name.trim(), (company||'').trim(), (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), (instagram||'').trim(), safeHttpUrl(website), (message||'').trim(), marketing_consent === true]
+    [id, name.trim(), qualification.company, (phone||'').trim(), email.toLowerCase().trim(), (country||'').trim(), qualification.instagram, qualification.website, (message||'').trim(), marketing_consent === true]
   );
   // CRM Airtable : crée une fiche « Prospect » (non bloquant)
   airtableUpsertProspect({ email: email.toLowerCase().trim(), name: name.trim(), company: (company||'').trim() }).catch(() => {});
@@ -7748,7 +7759,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
  } catch(e) { console.error('access-request error:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) => {
+app.get('/api/access-requests', requireRole('owner'), async (req, res) => {
   // existing_account : signale au staff qu'un compte acheteur existe déjà pour cet
   // email — approuver réinitialisera son mot de passe plutôt que d'en créer un nouveau.
   const r = await pool.query(`
@@ -7760,7 +7771,7 @@ app.get('/api/access-requests', requireRole('owner','agent'), async (req, res) =
   res.json(r.rows);
 });
 
-app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async (req, res) => {
+app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, res) => {
   const client = await pool.connect();
   let request, buyerId, reused = false, needsActivation = false, token;
   try {
@@ -7810,7 +7821,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner','agent'), async
   res.json({ok:true,reused,emailed,...(!emailed ? {activation_url:url}: {})});
 });
 
-app.post('/api/access-requests/:id/reject', requireRole('owner','agent'), async (req, res) => {
+app.post('/api/access-requests/:id/reject', requireRole('owner'), async (req, res) => {
   const r = await pool.query('SELECT * FROM access_requests WHERE id=$1', [req.params.id]);
   if (!r.rows.length) return res.status(404).json({ error: 'Demande introuvable' });
   const req2 = r.rows[0];
@@ -8793,7 +8804,7 @@ app.get('/api/admin/badge-counts', requireRole('owner', 'agent'), async (req, re
     const r = await pool.query(`
       SELECT
         (SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '24 hours' ${scoped ? 'AND brand_id = $1' : ''}) as new_orders,
-        (SELECT COUNT(*) FROM access_requests WHERE status='pending') as pending_requests,
+        (SELECT COUNT(*) FROM access_requests WHERE status='pending' ${req.userRole === 'owner' ? '' : 'AND FALSE'}) as pending_requests,
         (SELECT COUNT(*) FROM appointments WHERE created_at > NOW() - INTERVAL '48 hours' ${scoped ? 'AND brand_id = $1' : ''}) as pending_appointments
     `, p);
     res.json({
