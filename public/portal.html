@@ -378,6 +378,16 @@
   .btn-secondary:hover { color: var(--white); }
   .btn-danger { background: transparent; color: var(--danger); border: none; text-transform: uppercase; font-size: 11px; letter-spacing: .1em; font-weight: 400; }
   .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .buyer-help { font-size:12px;line-height:1.6;color:var(--soft); }
+  .buyer-dialog { margin:auto;background:var(--black);color:var(--white);border:1px solid var(--border);width:min(480px,calc(100vw - 32px));max-height:85dvh;box-sizing:border-box;padding:24px;overflow:auto; }
+  .buyer-dialog::backdrop { background:rgba(0,0,0,.7); }
+  .buyer-dialog h3 { margin-top:0; }
+  .buyer-dialog label { display:block;font-size:12px;margin-top:16px; }
+  .buyer-dialog input,.buyer-dialog textarea,.buyer-dialog select,#ck-country,#prof-country { width:100%;min-width:0;box-sizing:border-box;background:var(--black);color:var(--white);border:1px solid var(--border);border-radius:0;padding:12px;font:inherit; }
+  .buyer-dialog label input,.buyer-dialog label select,.buyer-dialog label textarea { margin-top:6px; }
+  .buyer-dialog-actions { display:flex;gap:10px;flex-wrap:wrap;margin-top:20px; }
+  .buyer-dialog-error { color:#e79090;white-space:pre-wrap; }
+  .buyer-dialog [data-form-result] { overflow-wrap:anywhere; }
   .btn-confirm { width: 100%; background: var(--white); color: var(--black); border: none; padding: 18px; font-size: 11px; font-weight: 400; cursor: pointer; letter-spacing: .3em; text-transform: uppercase; border-radius: 0; font-family: inherit; margin-top: 18px; max-width: 480px; transition: background .25s, color .25s; }
   .btn-confirm:hover:not(:disabled) { opacity: .85; }
   .btn-confirm:disabled { opacity: .4; cursor: default; }
@@ -852,10 +862,14 @@ const TRANSLATIONS = {
     pw_fields_required: 'Tous les champs sont requis.', pw_saved: 'Mot de passe mis à jour ✓',
     back_catalog: '← Retour au catalogue', back_brands: '← Toutes les marques',
     cart_title: 'Ma sélection', cart_btn: 'Voir ma sélection →',
-    ck_name: 'Nom complet *', ck_company: 'Société', ck_phone: 'Téléphone', ck_country: 'Pays',
+    ck_name: 'Nom complet *', ck_company: 'Société', ck_phone: 'Téléphone', ck_country: 'Pays *',
     cgv_accept_brand: (brand) => `J'ai lu et j'accepte les conditions générales de vente de ${brand}.`,
     sig_label: 'Signature', sig_clear: 'Effacer',
-    btn_confirm: 'Valider ma sélection',
+    btn_confirm: 'Transmettre ma commande',
+    payment_terms_label: 'Paiement', delivery_terms_label: 'Livraison', terms_to_confirm: 'À confirmer avec le showroom',
+    country_help: 'Choisissez le pays de cette commande. Une ancienne valeur doit être vérifiée.',
+    err_country: 'Sélectionnez un pays dans la liste avant de transmettre votre commande.',
+    checkout_commitment: 'Votre signature et votre acceptation des CGV seront enregistrées avec une commande par marque. Cette étape ne déclenche aucun paiement. Les conditions propres à chaque marque restent applicables.',
     orders_title: 'Mes commandes', orders_loading: 'Chargement…', orders_empty: 'Aucune commande pour le moment.',
     orders_see_detail: 'Voir le détail', orders_hide: 'Masquer', orders_pdf: '📄 PDF', orders_no_items: 'Aucun article.',
     status_confirmed: 'Reçue', status_validated: 'Validée', status_cancelled: 'Annulée',
@@ -873,9 +887,9 @@ const TRANSLATIONS = {
     account_pw: 'Changer le mot de passe', pw_current: 'Mot de passe actuel', pw_new: 'Nouveau mot de passe', pw_btn: 'Changer le mot de passe',
     prof_name: 'Prénom / Nom *', prof_company: 'Entreprise / Boutique', prof_email: 'Email', prof_phone: 'Téléphone', prof_country: 'Pays',
     ph_name: 'Jean Dupont', ph_company: 'Ma Boutique SARL', ph_phone: '+33 6 00 00 00 00', ph_country: 'France',
-    success_title: 'Sélection confirmée', success_back: 'Retour au catalogue',
-    success_subtitle: 'Un email de confirmation a été envoyé.',
-    success_msg: (brands) => `Votre sélection a été transmise pour : <strong>${brands}</strong>.<br><br>Vous recevrez un email de confirmation pour chaque marque. Un délai de <strong>7 jours</strong> est nécessaire pour recevoir la version définitive, datée et signée par les deux parties.`,
+    success_title: 'Commande enregistrée', success_back: 'Retour au catalogue',
+    success_subtitle: 'Retrouvez les commandes enregistrées et leurs PDF dans « Mes commandes ».',
+    success_msg: (brands) => `Votre commande a été enregistrée pour : <strong>${brands}</strong>.`,
     welcome_sub: 'Sélectionnez une marque pour parcourir sa collection, ajouter des articles et passer commande.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> marque${n>1?'s':''} disponible${n>1?'s':''}`,
     search_ph: 'Rechercher une référence…', search_no_result: 'Aucune référence ne correspond.',
@@ -980,7 +994,7 @@ const TRANSLATIONS = {
     reorder_summary: (n,u,p,a,m) => `${n} références trouvées · ${u} inchangées · ${p} prix actualisés · ${a} indisponibles. Minimum actuel : ${m} pc(s)/référence. Ajouter au panier ?`,
     reference_min: n => `Minimum : ${n} pc(s) par référence`,
     negotiated_reference_min: n => `Votre minimum négocié : ${n} pc(s) par référence`,
-    confirmation_next:'Nous vous contacterons pour confirmer le paiement et la livraison.', minimum_order_label: 'Minimum de commande', recommended_opening_label: 'Commande initiale recommandée',
+    confirmation_next:'Prochaine étape : validation commerciale par le showroom. Aucun paiement n’a été effectué ici. Consultez les conditions ci-dessus ou contactez-nous.', minimum_order_label: 'Minimum de commande', recommended_opening_label: 'Commande initiale recommandée',
     references_label: 'référence(s)', pieces_label: 'pc(s)', excl_vat_label: 'HT',
     reorder_empty: 'Commande vide.',
     ref_copy_toast: (ref) => `✓ Référence copiée : ${ref}`,
@@ -1026,10 +1040,14 @@ const TRANSLATIONS = {
     pw_fields_required: 'All fields are required.', pw_saved: 'Password updated ✓',
     back_catalog: '← Back to catalogue', back_brands: '← All brands',
     cart_title: 'My selection', cart_btn: 'View my selection →',
-    ck_name: 'Full name *', ck_company: 'Company', ck_phone: 'Phone', ck_country: 'Country',
+    ck_name: 'Full name *', ck_company: 'Company', ck_phone: 'Phone', ck_country: 'Country *',
     cgv_accept_brand: (brand) => `I have read and accept the terms and conditions of ${brand}.`,
     sig_label: 'Signature', sig_clear: 'Clear',
-    btn_confirm: 'Confirm my selection',
+    btn_confirm: 'Submit my order',
+    payment_terms_label: 'Payment', delivery_terms_label: 'Delivery', terms_to_confirm: 'To confirm with the showroom',
+    country_help: 'Choose the country for this order. Any previous unqualified value must be checked.',
+    err_country: 'Select a country from the list before submitting your order.',
+    checkout_commitment: 'Your signature and acceptance of the terms will be recorded with one order per brand. This step does not initiate payment. Each brand’s terms remain applicable.',
     orders_title: 'My orders', orders_loading: 'Loading…', orders_empty: 'No orders yet.',
     orders_see_detail: 'View details', orders_hide: 'Hide', orders_pdf: '📄 PDF', orders_no_items: 'No items.',
     status_confirmed: 'Received', status_validated: 'Validated', status_cancelled: 'Cancelled',
@@ -1047,9 +1065,9 @@ const TRANSLATIONS = {
     account_pw: 'Change password', pw_current: 'Current password', pw_new: 'New password', pw_btn: 'Change password',
     prof_name: 'First / Last name *', prof_company: 'Company / Store', prof_email: 'Email', prof_phone: 'Phone', prof_country: 'Country',
     ph_name: 'John Smith', ph_company: 'My Store Ltd', ph_phone: '+44 7700 000000', ph_country: 'United Kingdom',
-    success_title: 'Selection confirmed', success_back: 'Back to catalogue',
-    success_subtitle: 'A confirmation email has been sent.',
-    success_msg: (brands) => `Your selection has been sent for: <strong>${brands}</strong>.<br><br>You will receive a confirmation email for each brand. Please allow <strong>7 days</strong> to receive the final version, dated and signed by both parties.`,
+    success_title: 'Order recorded', success_back: 'Back to catalogue',
+    success_subtitle: 'Find your recorded orders and PDFs under “My orders”.',
+    success_msg: (brands) => `Your order has been recorded for: <strong>${brands}</strong>.`,
     welcome_sub: 'Select a brand to browse its collection, add items and place your order.',
     welcome_brands: (n) => `<span style="color:var(--accent);font-weight:700">${n}</span> brand${n>1?'s':''} available`,
     search_ph: 'Search by reference…', search_no_result: 'No matching references.',
@@ -1154,7 +1172,7 @@ const TRANSLATIONS = {
     reorder_summary: (n,u,p,a,m) => `${n} references found · ${u} unchanged · ${p} prices updated · ${a} unavailable. Current minimum: ${m} pc(s)/reference. Add to cart?`,
     reference_min: n => `Minimum: ${n} pc(s) per reference`,
     negotiated_reference_min: n => `Your negotiated minimum: ${n} pc(s) per reference`,
-    confirmation_next:'We will contact you to confirm payment and delivery.', minimum_order_label: 'Minimum order', recommended_opening_label: 'Recommended opening order',
+    confirmation_next:'Next step: commercial validation by the showroom. No payment was made here. Review the terms above or contact us.', minimum_order_label: 'Minimum order', recommended_opening_label: 'Recommended opening order',
     references_label: 'reference(s)', pieces_label: 'pc(s)', excl_vat_label: 'excl. VAT',
     reorder_empty: 'Order is empty.',
     ref_copy_toast: (ref) => `✓ Reference copied: ${ref}`,
@@ -1297,6 +1315,9 @@ async function _translateNow(root) {
 
 function applyLang() {
   const T = uiDict();
+  if (window.BuyerCountries) ['prof-country','ck-country'].forEach(id => {
+    const select=document.getElementById(id); if(select) BuyerCountries.fill(select,select.value,currentLang);
+  });
   const _sid = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   // (le scan générique [data-t] existant plus bas dans cette fonction couvre
   // déjà les libellés portés par un <span> à côté d'une icône SVG — nav
@@ -1552,7 +1573,7 @@ function applyLang() {
         <div class="field"><label data-field="company">Société</label><input id="ck-company"></div>
         <div class="field"><label>Buyer PO number / N° de commande acheteur</label><input id="ck-po" maxlength="120" autocomplete="off"></div>
         <div class="field"><label data-field="phone">Téléphone</label><input id="ck-phone"></div>
-        <div class="field"><label data-field="country">Pays</label><input id="ck-country"></div>
+        <div class="field"><label for="ck-country" data-field="country">Pays *</label><select id="ck-country" autocomplete="country" required aria-describedby="checkout-country-help"></select><p id="checkout-country-help" class="buyer-help" data-t="country_help">Choisissez le pays de cette commande. Une ancienne valeur doit être vérifiée.</p></div>
         <div id="cgv-blocks"></div>
         <div id="sig-draw-wrap">
           <canvas id="sig-canvas"></canvas>
@@ -1571,7 +1592,8 @@ function applyLang() {
           <a onclick="toggleSigMode()" style="display:block;font-family:'Plex Mono','Space Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Revenir à la signature manuscrite</a>
         </div>
         <p id="moq-hint" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;font-family:'Plex Mono','Space Mono',monospace">Minimum de commande non atteint — complétez votre sélection pour valider.</p>
-        <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Valider ma sélection</button>
+        <p class="buyer-help" data-t="checkout_commitment">Votre signature et votre acceptation des CGV seront enregistrées avec une commande par marque. Cette étape ne déclenche aucun paiement. Les conditions propres à chaque marque restent applicables.</p>
+        <button class="btn-confirm" id="btn-confirm-order" onclick="submitCheckout()">Transmettre ma commande</button>
         <div id="checkout-msg"></div>
       </div>
     </div>
@@ -1619,7 +1641,7 @@ function applyLang() {
         <div class="field"><label data-field="prof-company">Entreprise / Boutique</label><input id="prof-company" type="text" placeholder="Ma Boutique SARL"></div>
         <div class="field"><label data-field="prof-email">Email</label><input id="prof-email" type="email" disabled style="opacity:.5;cursor:not-allowed"></div>
         <div class="field"><label data-field="prof-phone">Téléphone</label><input id="prof-phone" type="tel" placeholder="+33 6 00 00 00 00"></div>
-        <div class="field field-full"><label data-field="prof-country">Pays</label><input id="prof-country" type="text" placeholder="France"></div>
+        <div class="field field-full"><label for="prof-country" data-field="prof-country">Pays</label><select id="prof-country" autocomplete="country"></select></div>
       </div>
       <button id="account-save-btn" class="btn-confirm" onclick="saveProfile()">Enregistrer les modifications</button>
       <div id="prof-msg" style="margin-top:12px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px"></div>
@@ -1699,8 +1721,8 @@ function applyLang() {
 
   <div id="view-success" style="display:none;text-align:center;padding:60px 20px;max-width:560px;margin:0 auto">
     <div class="success-check" style="font-size:48px;width:80px;height:80px;border-radius:50%;background:rgba(204,235,60,.12);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;color:var(--accent)">✓</div>
-    <h2 class="section-title" style="text-align:center;margin-bottom:8px" data-t="success_title">Sélection confirmée</h2>
-    <p style="color:var(--soft);font-size:13px;margin-bottom:24px" data-t="success_subtitle">Un email de confirmation a été envoyé.</p>
+    <h2 class="section-title" style="text-align:center;margin-bottom:8px" data-t="success_title">Commande enregistrée</h2>
+    <p style="color:var(--soft);font-size:13px;margin-bottom:24px" data-t="success_subtitle">Retrouvez les commandes enregistrées et leurs PDF dans « Mes commandes ».</p>
     <div id="success-detail" class="msg" style="text-align:left;margin-bottom:32px"></div>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
       <button class="btn-confirm" onclick="showView('orders')" style="background:transparent;border:1px solid var(--accent);color:var(--accent)">📋 <span data-t="nav_orders">Mes commandes</span></button>
@@ -1874,6 +1896,7 @@ function applyLang() {
   <button id="cart-bar-btn" onclick="showView('cart')">Voir ma sélection →</button>
 </div>
 
+<script src="/countries.js"></script>
 <script src="/ordering-rules.js"></script>
 <script>
 let me = null;
@@ -2630,7 +2653,7 @@ function fillProfileForm() {
   document.getElementById('prof-company').value = me.company || '';
   document.getElementById('prof-email').value = me.email || '';
   document.getElementById('prof-phone').value = me.phone || '';
-  document.getElementById('prof-country').value = me.country || '';
+  BuyerCountries.fill(document.getElementById('prof-country'), me.country, currentLang);
   document.getElementById('prof-msg').textContent = '';
   document.getElementById('pw-msg').textContent = '';
 }
@@ -2639,7 +2662,7 @@ async function saveProfile() {
   const name = document.getElementById('prof-name').value.trim();
   const company = document.getElementById('prof-company').value.trim();
   const phone = document.getElementById('prof-phone').value.trim();
-  const country = document.getElementById('prof-country').value.trim();
+  const country = document.getElementById('prof-country').value;
   const msg = document.getElementById('prof-msg');
   if (!name) { msg.innerHTML = `<span style="color:#e74c3c">${t('prof_name_required')}</span>`; return; }
   try {
@@ -3501,7 +3524,7 @@ let moqBlocked = false;
     document.getElementById('ck-name').value = me.name || '';
     document.getElementById('ck-company').value = me.company || '';
     document.getElementById('ck-phone').value = me.phone || '';
-    document.getElementById('ck-country').value = me.country || '';
+    BuyerCountries.fill(document.getElementById('ck-country'), me.country, currentLang);
   }
 
   initSigCanvas();
@@ -3592,6 +3615,9 @@ async function submitCheckout() {
   const msg = document.getElementById('checkout-msg');
   const client_name = document.getElementById('ck-name').value.trim();
   if (!client_name) { msg.innerHTML = `<div class="msg error">${t('err_name')}</div>`; return; }
+  if (!BuyerCountries.getCountryCode(document.getElementById('ck-country').value)) {
+    msg.className='msg error'; msg.textContent=t('err_country'); document.getElementById('ck-country').focus(); return;
+  }
   const cgvBoxes = [...document.querySelectorAll('.cgv-brand-checkbox')];
   if (!cgvBoxes.length || !cgvBoxes.every(cb => cb.checked)) { msg.innerHTML = `<div class="msg error">${t('err_cgv')}</div>`; return; }
   const sigTypedVal = document.getElementById('sig-typed').value.trim();
@@ -3676,14 +3702,16 @@ async function submitCheckout() {
       }
       msg.className = 'msg error';
       msg.textContent = text;
-      renderCart();
+      renderCart(true);
       return;
     }
 
     document.getElementById('view-cart').style.display = 'none';
     document.getElementById('view-success').style.display = 'block';
-    const brandNames = succeeded.map(o => allBrands.find(b => b.id === o.brand_id)?.name || o.brand_id).join(', ');
-    document.getElementById('success-detail').innerHTML = succeeded.map(o => `<div style="text-align:left;border:1px solid var(--border);padding:18px;margin-top:18px"><strong>${esc(o.order_number)} · ${esc(o.brand_name)}</strong><p>${o.reference_count} ${esc(t('references_label'))} · ${o.pieces} ${esc(t('pieces_label'))} · ${fmtPrice(o.total)} ${esc(t('excl_vat_label'))}</p>${o.buyer_po_number ? '<p>PO: '+esc(o.buyer_po_number)+'</p>' : ''}<p>${esc(o.payment_terms || '')}</p><p>${esc(o.delivery_window || o.delivery_terms || '')}</p><p>${esc(t('confirmation_next'))}</p><a class="btn-secondary" href="/api/portal/orders/${encodeURIComponent(o.order_id)}/pdf" target="_blank" rel="noopener">PDF</a> <button class="btn-secondary" type="button" data-confirm-contact="${esc(o.brand_id)}">${esc(t('dash_contact_message'))}</button></div>`).join('');
+    window.scrollTo({top:0,behavior:'instant'});
+    document.querySelector('#view-success h2').setAttribute('tabindex','-1');
+    document.querySelector('#view-success h2').focus({preventScroll:true});
+    document.getElementById('success-detail').innerHTML = succeeded.map(o => `<div style="text-align:left;border:1px solid var(--border);padding:18px;margin-top:18px"><strong>${esc(o.order_number)} · ${esc(o.brand_name)}</strong><p>${o.reference_count} ${esc(t('references_label'))} · ${o.pieces} ${esc(t('pieces_label'))} · ${fmtPrice(o.total)} ${esc(t('excl_vat_label'))}</p>${o.buyer_po_number ? '<p>PO: '+esc(o.buyer_po_number)+'</p>' : ''}<p>${esc(t('payment_terms_label'))} : ${esc(o.payment_terms || t('terms_to_confirm'))}</p><p>${esc(t('delivery_terms_label'))} : ${esc(o.delivery_window || o.delivery_terms || t('terms_to_confirm'))}</p><p>${esc(t('confirmation_next'))}</p><a class="btn-secondary" href="/api/portal/orders/${encodeURIComponent(o.order_id)}/pdf" target="_blank" rel="noopener">PDF</a> <button class="btn-secondary" type="button" data-confirm-contact="${esc(o.brand_id)}">${esc(t('dash_contact_message'))}</button></div>`).join('');
   } catch(e) {
     msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
     btnConfirm.disabled = false;

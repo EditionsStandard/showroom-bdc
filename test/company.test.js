@@ -35,3 +35,34 @@ test('buying lists are personal until explicitly shared, remain isolated from ot
   assert.equal((await request(users[2],'/api/portal/buying-shortlists')).data.length,0);
   assert.equal((await request(users[1],'/api/portal/buying-shortlists/'+listId,'PATCH',{notes:'Unauthorized'})).status,403);
 });
+
+test('structured addresses validate country and city, preserve legacy records and owner-only writes',async()=>{
+  const company=(await request(users[0],'/api/portal/company')).data.company;
+  const legacy={address:'Legacy address, unchanged',reference:'Existing billing reference'};
+  await withDb(server.dbUrl,db=>db.query('UPDATE companies SET billing=$1 WHERE id=$2',[legacy,company.id]));
+  assert.deepEqual((await request(users[0],'/api/portal/company')).data.company.billing,legacy);
+  const invalid=[{},[],{address:'A',city:'Paris',country:'France'},{address:'A',city:'Paris',country:'XX'},{address:'A',country:'FR'},{address:['A'],city:'Paris',country:'FR'}];
+  for(const address of invalid) {
+    assert.equal((await request(users[0],'/api/portal/company','PUT',{name:company.name,billing:address})).status,400);
+    assert.equal((await request(users[0],'/api/portal/company/locations','POST',{name:'Test location',shipping:address})).status,400);
+  }
+  assert.deepEqual((await request(users[0],'/api/portal/company')).data.company.billing,legacy);
+  const billing={...legacy,address:'12 Test Street',address_line2:'Unit 2',city:'Paris',postal_code:'75001',country:'FR'};
+  assert.equal((await request(users[1],'/api/portal/company','PUT',{name:company.name,billing})).status,403);
+  assert.equal((await request(users[0],'/api/portal/company','PUT',{name:company.name,billing})).status,200);
+  assert.deepEqual((await request(users[0],'/api/portal/company')).data.company.billing,billing);
+  // Postal codes are optional: do not require a postcode for every country.
+  assert.equal((await request(users[0],'/api/portal/company/locations','POST',{name:'Test store',shipping:{address:'Test address',city:'Hong Kong',country:'HK'}})).status,200);
+  assert.equal((await request(users[2],'/api/portal/company')).data.locations.length,0);
+});
+
+test('profile country changes require ISO codes without rewriting unqualified historical countries',async()=>{
+  await withDb(server.dbUrl,db=>db.query("UPDATE buyers SET country='Other' WHERE id=$1",[users[0].id]));
+  const profile=country=>request(users[0],'/api/portal/update-profile','POST',{name:'Buyer',company:'Retailer',phone:'',country});
+  assert.equal((await profile('Other')).status,200);
+  for(const value of ['France','XX','',{},null])assert.equal((await profile(value)).status,400);
+  assert.equal((await profile('dk')).status,200);
+  const result=await withDb(server.dbUrl,db=>db.query('SELECT country FROM buyers WHERE id=$1',[users[0].id]));
+  assert.equal(result.rows[0].country,'DK');
+  assert.equal((await profile('Other')).status,400,'a stale form cannot restore a legacy value');
+});

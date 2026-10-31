@@ -2,7 +2,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const fs=require('fs');const assert=require('node:assert/strict');
 const root=require('node:path').resolve(__dirname,'..');
 (async()=>{
- const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const browser=await chromium.launch({headless:true,...(process.env.CHROME_EXECUTABLE?{executablePath:process.env.CHROME_EXECUTABLE}:{}),args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:390,height:844}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const brand={id:'b',name:'WODD',min_per_reference:3,moq_amount:3500,moq_qty:3,moq_strict:false,payment_terms:'100% upon confirmation',cgv_text:'Terms'};
@@ -11,6 +11,7 @@ const root=require('node:path').resolve(__dirname,'..');
   const u=new URL(route.request().url());
   if(u.hostname!=='showroom.test') return route.abort();
   if(u.pathname==='/portal')return route.fulfill({contentType:'text/html',body:fs.readFileSync(root+'/public/portal.html','utf8')});
+  if(u.pathname==='/countries.js')return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public/countries.js','utf8')});
   if(u.pathname==='/buyer-tools.js')return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public/buyer-tools.js','utf8')});
   if(u.pathname==='/ordering-rules.js')return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public/ordering-rules.js','utf8')});
   if(u.pathname.startsWith('/api/')){
