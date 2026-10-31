@@ -19,7 +19,7 @@ before(async () => {
 after(() => server?.stop());
 const line = quantity => ({ brand_id:brand,product_id:'minimum-p',quantity,size:'7"',variant_color:'Gold' });
 async function checkout(lines) {
-  const response=await fetch(server.baseUrl+'/api/portal/checkout',{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({lines,client_name:'Buyer',buyer_signature:'signed',cgv_accepted:true})});
+  const response=await fetch(server.baseUrl+'/api/portal/checkout',{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({lines,client_name:'Buyer',client_country:'FR',buyer_signature:'signed',cgv_accepted:true})});
   return response.json();
 }
 test('direct API rejects 1/2 and accepts 3 below non-strict €3500 recommendation', async () => {
@@ -51,7 +51,7 @@ test('split colors and sizes aggregate by reference and persist separately',asyn
   assert.deepEqual(new Set(lines.map(l=>l.variant_color)),new Set(['Gold','Silver']));
 });
 test('PO and confirmation persist; reorder exposes current prices and availability before adding',async()=>{
-  const response=await fetch(server.baseUrl+'/api/portal/checkout',{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({lines:[line(3)],client_name:'Buyer',buyer_signature:'signed',cgv_accepted:true,buyer_po_number:'PO-CURRENT-2026'})});
+  const response=await fetch(server.baseUrl+'/api/portal/checkout',{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({lines:[line(3)],client_name:'Buyer',client_country:'FR',buyer_signature:'signed',cgv_accepted:true,buyer_po_number:'PO-CURRENT-2026'})});
   const result=await response.json();assert.equal(result.ok,true,JSON.stringify(result));
   const order=result.orders[0];
   assert.match(order.order_number,/^ES-/);
@@ -82,4 +82,14 @@ test('agent selection approval retains link, reference aggregate and proposed or
     const row=(await db.query('SELECT workflow_stage,linked_order_id,buyer_comment FROM agent_selections WHERE token=$1',[token])).rows[0];
     assert.equal(row.workflow_stage,'buyer_approved');assert.equal(row.linked_order_id,result.order_id);assert.equal(row.buyer_comment,'Deliver together');
   });
+});
+
+test('checkout rejects missing or unqualified countries before creating any order',async()=>{
+  const count=()=>withDb(server.dbUrl,async db=>(await db.query('SELECT COUNT(*)::int AS n FROM orders')).rows[0].n);
+  const before=await count();
+  for(const client_country of [undefined,'','Other','France','XX',{},['FR']]) {
+    const r=await fetch(server.baseUrl+'/api/portal/checkout',{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({lines:[line(3)],client_name:'Buyer',client_country,buyer_signature:'signed',cgv_accepted:true})});
+    assert.equal(r.status,400);assert.equal((await r.json()).code,'invalid_country');
+  }
+  assert.equal(await count(),before);
 });

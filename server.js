@@ -5338,8 +5338,15 @@ app.delete('/api/portal/account', requireBuyerAuth, async (req, res) => {
 
 app.post('/api/portal/update-profile', requireBuyerAuth, async (req, res) => {
   const { name, company, phone, country } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Le nom est requis' });
-  const c = String(company||'').trim(), ph = String(phone||'').trim(), co = String(country||'').trim();
+  if (typeof name!=='string' || !name.trim() || name.length>200) return res.status(400).json({ error: 'Le nom est requis (200 caractères maximum)' });
+  const c = String(company||'').trim(), ph = String(phone||'').trim();
+  if(typeof country!=='string')return res.status(400).json({error:'Choisissez un pays / Choose a country'});
+  const previous=(await pool.query('SELECT country FROM buyers WHERE id=$1',[req.session.buyerPortal.id])).rows[0];
+  if(!previous)return res.status(404).json({error:'Compte introuvable'});
+  // An unchanged legacy value may be retained, never guessed from a country name.
+  const code=require('./lib/territories').getCountryCode(country);
+  if(!code && country!==String(previous.country || ''))return res.status(400).json({error:'Choisissez un pays dans la liste / Choose a country from the list'});
+  const co=code || country;
   await pool.query('UPDATE buyers SET name=$1, company=$2, phone=$3, country=$4 WHERE id=$5',
     [name.trim(), c, ph, co, req.session.buyerPortal.id]);
   req.session.buyerPortal = { ...req.session.buyerPortal, name: name.trim(), company: c, phone: ph, country: co };
@@ -5732,6 +5739,8 @@ async function checkMoq(brand_id, lines) {
 app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes, buyer_po_number } = req.body;
+  const countryCode=require('./lib/territories').getCountryCode(client_country);
+  if(!countryCode)return res.status(400).json({error:'Choisissez un pays dans la liste / Choose a country from the list',code:'invalid_country'});
   if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'Sélection vide' });
   if (lines.length > 500) return res.status(400).json({ error: 'Commande trop volumineuse' });
   if (lines.some(l => !l || typeof l !== 'object' || !l.brand_id)) return res.status(400).json({ error: 'Sélection invalide' });
@@ -5772,7 +5781,7 @@ app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
       client_email: buyer.email,
       client_company: client_company || buyer.company,
       client_phone: client_phone || buyer.phone,
-      client_country: client_country || buyer.country,
+      client_country: countryCode,
       notes, lines: brandLines, buyer_signature, cgv_accepted, buyer_id: buyer.id, buyer_po_number
     });
     if (r.error) anyError = true;
