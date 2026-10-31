@@ -96,7 +96,7 @@ async function sendPushToAdmins(title, body, brandId) {
     const subs = await pool.query(`
       SELECT ps.id, ps.subscription_json FROM push_subscriptions ps
       LEFT JOIN admin_users au ON au.id = ps.staff_id
-      WHERE ps.staff_id IS NULL OR au.role = 'owner' ${brandId ? "OR (au.role IN ('agent','designer') AND au.brand_id = $1)" : ''}
+      WHERE ps.staff_id IS NULL OR au.role = 'owner' ${brandId ? "OR (au.role = 'designer' AND au.brand_id = $1)" : ''}
     `, brandId ? [brandId] : []);
     for (const row of subs.rows) {
       if (Date.now() < pushDisabledUntil) break;
@@ -283,7 +283,7 @@ app.use((req, res, next) => {
   // Données privées (commandes, acheteurs, staff, sécurité...) : jamais de cache
   // navigateur/proxy intermédiaire. Les routes qui servent déjà un fichier
   // (PDF) posent en plus leur propre Content-Disposition, ce header ne les gêne pas.
-  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/')) {
+  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/') || req.path.startsWith('/api/wholesale-commissions') || req.path.startsWith('/api/agent-selections')) {
     res.setHeader('Cache-Control', 'no-store, private');
   }
   next();
@@ -501,6 +501,18 @@ async function requireMfaEnrolled(req, res, next) {
     next();
   }
 }
+// Refresh staff identity before any API authorization (including cached owner
+// sessions). Session invalidation remains useful, but is no longer the only
+// revocation boundary when the session store is temporarily unavailable.
+app.use(async (req,res,next) => {
+  if (!req.session?.staffUser || !(req.path.startsWith('/api/') || req.path.startsWith('/admin')) || req.path === '/admin/logout' || req.path === '/api/agent/logout') return next();
+  try {
+    const user=(await pool.query('SELECT role,brand_id,mfa_enabled FROM admin_users WHERE id=$1',[req.session.staffUser.id])).rows[0];
+    if (!user) return req.session.destroy(() => req.path.startsWith('/api/') ? res.status(401).json({error:'Compte révoqué'}) : res.redirect('/admin/login'));
+    Object.assign(req.session.staffUser,{role:user.role,brand_id:user.brand_id,mfaEnrolled:!!user.mfa_enabled});
+    next();
+  } catch(e) { res.status(503).json({error:'Vérification du compte indisponible'}); }
+});
 app.use(requireMfaEnrolled);
 
 // ── Mode maintenance ────────────────────────────────────────────────
@@ -785,13 +797,17 @@ function requireRole(...allowed) {
   };
 }
 
+require('./lib/agent-api').registerAgentApi({app,pool,auth:requireRole,getRole});
+require('./lib/agent-scopes').registerAgentScopes({app,pool,auth:requireRole,audit:logAudit});
+require('./lib/wholesale-commissions').registerWholesaleCommissions({app,pool,auth:requireRole,audit:logAudit});
+
 // Like requireRole, but for designers also checks req.params.brandId (or :id, as a fallback) matches their assigned brand
 function requireBrandScope(...allowed) {
   const roleCheck = requireRole(...allowed);
   return (req, res, next) => {
     roleCheck(req, res, () => {
       // Restrict designer AND agent (when brand_id set) to their own brand
-      if (req.userRole === 'designer' || (req.userRole === 'agent' && req.userBrandId)) {
+      if (req.userRole === 'designer' || (req.userRole === 'agent' && req.userBrandId && !req.agentScopeAuthorized)) {
         const brandParam = req.params.brandId || req.params.id;
         if (brandParam && brandParam !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
       }
@@ -1042,7 +1058,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
         // que le code TOTP n'est pas vérifié — mfaPending ne porte aucun droit.
         req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
         logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
-        return res.redirect('/admin/login?step=mfa');
+        return req.session.save(error => error ? res.redirect('/admin/login?error=1') : res.redirect('/admin/login?step=mfa'));
       }
       return req.session.regenerate(err => {
         if (err) return res.redirect('/admin/login?error=1');
@@ -1086,7 +1102,7 @@ app.post('/admin/login', loginLimiter, async (req, res) => {
     if (ownerMfaEnabled) {
       req.session.mfaPending = { kind: 'owner' };
       logAuditRaw('admin', 'login_password_ok_mfa_pending', 'staff', '', req.ip);
-      return res.redirect('/admin/login?step=mfa');
+      return req.session.save(error => error ? res.redirect('/admin/login?error=1') : res.redirect('/admin/login?step=mfa'));
     }
     req.session.regenerate(err => {
       if (err) return res.redirect('/admin/login?error=1');
@@ -1373,7 +1389,7 @@ app.get('/api/me', requireAdmin, (req, res) => {
 // ==================== STAFF ACCOUNTS (owner only) ====================
 
 app.get('/api/staff', requireRole('owner'), async (req, res) => {
-  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.avatar_url, a.created_at, a.last_seen_at, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
+  const r = await pool.query('SELECT a.id, a.email, a.role, a.brand_id, a.name, a.avatar_url, a.created_at, a.last_seen_at, a.parent_agent_id, b.name as brand_name FROM admin_users a LEFT JOIN brands b ON a.brand_id=b.id ORDER BY a.created_at DESC');
   res.json(r.rows);
 });
 
@@ -1444,6 +1460,8 @@ async function invalidateStaffSessions(userId, exceptSid) {
 }
 
 app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
+  let staffEditDb;
+  let staffEditCommitted=false;
   try {
     const { name, email, role, brand_id, password, avatar_url } = req.body;
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
@@ -1453,10 +1471,17 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
     if (role === 'designer' && !brand_id) return res.status(400).json({ error: 'Une marque doit être assignée à un designer' });
     // Même garde-fou que DELETE : jamais retirer le dernier owner (auto-verrouillage
     // total de l'admin sinon — plus personne pour gérer le staff/les marques).
-    const target = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
+    staffEditDb=await pool.connect();
+    await staffEditDb.query('BEGIN');
+    await staffEditDb.query("SELECT pg_advisory_xact_lock(hashtext('agent-scope-edits'))");
+    const target = await staffEditDb.query('SELECT role,parent_agent_id FROM admin_users WHERE id=$1', [req.params.id]);
+    if (target.rows[0]?.role === 'agent' && role !== 'agent') {
+      const dependants = await staffEditDb.query('SELECT 1 FROM admin_users WHERE parent_agent_id=$1 UNION ALL SELECT 1 FROM agent_scope_grants WHERE staff_id=$1 LIMIT 1', [req.params.id]);
+      if (target.rows[0].parent_agent_id || dependants.rows.length) return res.status(409).json({error:'Retirez les affectations et rattachements avant de changer ce rôle'});
+    }
     const oldRole = target.rows[0]?.role;
     if (role !== 'owner' && oldRole === 'owner') {
-      const ownerCount = await pool.query("SELECT COUNT(*) FROM admin_users WHERE role='owner'");
+      const ownerCount = await staffEditDb.query("SELECT COUNT(*) FROM admin_users WHERE role='owner'");
       if (parseInt(ownerCount.rows[0].count) <= 1) {
         return res.status(400).json({ error: 'Impossible de rétrograder le dernier compte owner.' });
       }
@@ -1465,10 +1490,12 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
     const cleanAvatarUrl = sanitizeAvatarUrl(avatar_url);
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5,avatar_url=$6 WHERE id=$7', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), hash, cleanAvatarUrl, req.params.id]);
+      await staffEditDb.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,password_hash=$5,avatar_url=$6 WHERE id=$7', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), hash, cleanAvatarUrl, req.params.id]);
     } else {
-      await pool.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,avatar_url=$5 WHERE id=$6', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), cleanAvatarUrl, req.params.id]);
+      await staffEditDb.query('UPDATE admin_users SET name=$1,email=$2,role=$3,brand_id=$4,avatar_url=$5 WHERE id=$6', [name, normalizedEmail, role, staffBrandIdFor(role, brand_id), cleanAvatarUrl, req.params.id]);
     }
+    await staffEditDb.query('COMMIT');
+    staffEditCommitted=true;
     logAudit(req, 'update_staff', 'staff', req.params.id, `role=${role}`);
     // Editer sa propre fiche (nom/email/mdp) sans changer son propre rôle ne doit
     // pas déconnecter la session en cours — sinon l'owner qui modifie son propre
@@ -1477,6 +1504,12 @@ app.put('/api/staff/:id', requireRole('owner'), async (req, res) => {
     await invalidateStaffSessions(req.params.id, isSelfEditNoRoleChange ? req.sessionID : null);
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+  finally {
+    if(staffEditDb) {
+      if(!staffEditCommitted) await staffEditDb.query('ROLLBACK');
+      staffEditDb.release();
+    }
+  }
 });
 
 app.delete('/api/staff/:id', requireRole('owner'), async (req, res) => {
@@ -2103,7 +2136,7 @@ app.post('/api/brands/:brandId/sample-product', requireBrandScope('owner','agent
 
 // True when the current role is restricted to a single brand (designer, or agent with brand_id).
 function isBrandScoped(req) {
-  return req.userRole === 'designer' || (req.userRole === 'agent' && !!req.userBrandId);
+  return req.userRole === 'designer' || (req.userRole === 'agent' && !!req.userBrandId && !req.agentScopeAuthorized);
 }
 
 async function checkProductBrandScope(req, res) {
@@ -3148,7 +3181,7 @@ app.get('/api/orders', requireRole('owner','agent','designer'), async (req, res)
 
   if (isBrandScoped(req)) {
     params.push(req.userBrandId);
-    conditions.push(`o.brand_id = ${params.length}`);
+    conditions.push(`o.brand_id = $${params.length}`);
   }
   if (dateFrom) {
     params.push(dateFrom);
@@ -3963,7 +3996,7 @@ app.get('/api/admin/vapid-public-key', requireRole('owner','agent'), (req, res) 
 
 app.delete('/api/admin/appointments/:id', requireRole('owner','agent'), async (req, res) => {
   try {
-    if (req.userRole === 'agent' && req.userBrandId) {
+    if (req.userRole === 'agent' && req.userBrandId && !req.agentScopeAuthorized) {
       const check = await pool.query('SELECT brand_id FROM appointments WHERE id=$1', [req.params.id]);
       if (!check.rows[0] || check.rows[0].brand_id !== req.userBrandId) return res.status(403).json({ error: 'Accès refusé' });
     }
@@ -4589,9 +4622,9 @@ app.post('/api/brands/:brandId/agent-selection', requireBrandScope('owner','agen
     const seqSel = await pool.query("SELECT LPAD(nextval('selection_number_seq')::TEXT, 4, '0') AS num");
     const selectionNumber = 'SEL-' + seqSel.rows[0].num;
     await pool.query(
-      `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at, selection_number)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [token, brandId, client_name||'', client_email.toLowerCase().trim(), client_company||'', JSON.stringify(cleanItems), notes||'', req.session?.staffUser?.email || 'owner', expires, selectionNumber]
+      `INSERT INTO agent_selections (token, brand_id, client_name, client_email, client_company, items_json, notes, created_by, expires_at, selection_number, client_country)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [token, brandId, client_name||'', client_email.toLowerCase().trim(), client_company||'', JSON.stringify(cleanItems), notes||'', req.session?.staffUser?.email || 'owner', expires, selectionNumber, require('./lib/territories').getCountryCode(req.body.client_country) || '']
     );
     const url = `${getBaseUrl(req)}/selection/${token}`;
     sendAgentSelectionEmail({ email: client_email.toLowerCase().trim(), name: client_name, brandName: b.rows[0].name, selectionNumber, url, req }).catch(e => console.error('agent-selection email:', e.message));
@@ -8826,6 +8859,9 @@ app.get('/agent-manifest.json', (req, res) => res.sendFile(path.join(__dirname, 
 app.get('/agent', (req, res) => sendPage(res, 'agent.html'));
 
 async function agentBrandsFor(user) {
+  if (user.role === 'agent') {
+    return (await pool.query('SELECT id,name,logo,logo_url,thumbnail FROM brands WHERE id IN (SELECT brand_id FROM agent_scope_grants WHERE staff_id=$1) ORDER BY name', [user.id])).rows;
+  }
   if (!user.brand_id) {
     const r = await pool.query("SELECT id, name, logo, logo_url, thumbnail FROM brands ORDER BY name");
     return r.rows;
@@ -8864,7 +8900,7 @@ app.post('/api/agent/login', loginLimiter, async (req, res) => {
     // le code TOTP n'est pas vérifié (même logique que /admin/login).
     req.session.mfaPending = { kind: 'staff', id: user.id, email: user.email, role: user.role, brand_id: user.brand_id, name: user.name };
     logAuditRaw(user.email, 'login_password_ok_mfa_pending', 'staff', user.id, req.ip);
-    return res.json({ mfaRequired: true });
+    return req.session.save(error => error ? res.status(503).json({ error: 'Session indisponible' }) : res.json({ mfaRequired: true }));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Server error' }); }
 });
 
