@@ -9208,6 +9208,7 @@ init().then(() => {
       `);
       await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
       await require('./lib/buyer-engagement-ledger').pruneLedger(pool);
+      await require('./lib/buyer-engagement-preparation').prunePreparationQueue(pool);
       // Rétention du journal d'audit : 12 mois — suffisant pour investiguer un
       // incident détecté tardivement, sans accumuler indéfiniment des emails/IPs.
       await pool.query("DELETE FROM admin_audit_log WHERE created_at < NOW() - INTERVAL '12 months'");

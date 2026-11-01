@@ -1328,6 +1328,14 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
       <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
     </div>
+    <div id="engagement-preparation-panel" class="card">
+      <h3 id="engagement-preparation-title">File de préparation — test uniquement</h3>
+      <p id="engagement-preparation-note"></p><p id="engagement-preparation-control" role="status" aria-live="polite"></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-preparation-refresh">Actualiser la file</button><button type="button" class="btn btn-secondary" id="engagement-preparation-enqueue">Préparer les candidats</button><button type="button" class="btn btn-secondary" id="engagement-preparation-process">Tester un lot de 10</button><button type="button" class="btn btn-secondary" id="engagement-preparation-pause">Reprendre les tests de préparation</button></div>
+      <p id="engagement-preparation-status" role="status" aria-live="polite"></p><p id="engagement-preparation-asof"></p><p id="engagement-preparation-counts"></p><p id="engagement-preparation-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-preparation-head"></thead><tbody id="engagement-preparation-rows"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-preparation-prev" aria-label="Page précédente de la file de préparation">←</button> <button type="button" class="btn btn-secondary" id="engagement-preparation-next" aria-label="Page suivante de la file de préparation">→</button>
+    </div>
     <div id="engagement-rules"></div>
     <div class="card"><h3 id="engagement-buyers-title">Acheteurs — simulation</h3><p id="engagement-count"></p><div class="table-wrap"><table><thead id="engagement-head"></thead><tbody id="engagement-buyers"></tbody></table></div><button type="button" class="btn btn-secondary" id="engagement-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-next">→</button></div>
     <div class="card">
@@ -8913,7 +8921,8 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261101-ledger"></script>
+<script src="/buyer-engagement-admin.js?v=20261101-preparation"></script>
+<script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 </body>
 </html>

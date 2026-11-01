@@ -85,6 +85,41 @@ const fs=require('node:fs'),path=require('node:path');
         await page.waitForFunction(()=>!document.getElementById('engagement-run-prev').disabled);
         await page.locator('#engagement-run-prev').click();
       }
+      // Each viewport/language gets a clean preparation rehearsal over the
+      // same synthetic candidates. Simulation run history is kept intact.
+      await withDb(server.dbUrl,db=>db.query('DELETE FROM buyer_engagement_preparation_jobs'));
+      await page.locator('#engagement-preparation-refresh').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-preparation-enqueue').disabled);
+      assert.equal(await page.locator('#engagement-preparation-process').isDisabled(),true);
+      let loseEnqueue=true;const preparationKeys=[];
+      await page.route('**/preparation-queue/enqueue',async route=>{
+        preparationKeys.push(route.request().postDataJSON().request_key);const response=await route.fetch();
+        if(loseEnqueue){loseEnqueue=false;return route.abort();}return route.fulfill({response});
+      });
+      await page.locator('#engagement-preparation-enqueue').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-preparation-enqueue').disabled);
+      await page.locator('#engagement-preparation-enqueue').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#engagement-preparation-rows tr').length===50 && !document.getElementById('engagement-preparation-enqueue').disabled);
+      assert.equal(preparationKeys.length,2);assert.equal(preparationKeys[0],preparationKeys[1]);
+      await page.locator('#engagement-preparation-next').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#engagement-preparation-rows tr').length===1);
+      await page.locator('#engagement-preparation-prev').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#engagement-preparation-rows tr').length===50);
+      await page.locator('#engagement-preparation-pause').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-preparation-process').disabled);
+      await page.locator('#engagement-preparation-process').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-preparation-process').disabled);
+      let queue=await page.evaluate(()=>fetch('/api/admin/buyer-engagement/preparation-queue').then(r=>r.json()));
+      assert.equal(queue.counts.simulated,10);assert.equal(queue.delivery_enabled,false);
+      let processRequests=0;
+      await page.route('**/preparation-queue/process',async route=>{processRequests++;await route.fetch();return route.abort();});
+      await page.locator('#engagement-preparation-process').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-preparation-process').disabled);
+      assert.match(await page.locator('#engagement-preparation-status').innerText(),lang==='fr'?/non confirmé/:/unconfirmed/);
+      queue=await page.evaluate(()=>fetch('/api/admin/buyer-engagement/preparation-queue').then(r=>r.json()));
+      assert.equal(processRequests,1,'ambiguous batch processing must never auto-retry');assert.equal(queue.counts.simulated,20);
+      await page.locator('#engagement-preparation-pause').click();
+      await page.waitForFunction(()=>document.getElementById('engagement-preparation-process').disabled && !document.getElementById('engagement-preparation-pause').disabled);
       if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`engagement-admin-${width}-${lang}.png`)});}
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'admin overflow');
       await context.clearCookies();await context.addCookies(cookies(buyerCookie));
@@ -103,7 +138,7 @@ const fs=require('node:fs'),path=require('node:path');
       if(process.env.SCREENSHOT_DIR)await page.locator('#buyer-email-preferences').screenshot({path:path.join(process.env.SCREENSHOT_DIR,`engagement-preferences-${width}-${lang}.png`)});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'buyer overflow');
       assert.deepEqual(errors,[]);
-      console.log(`PASS engagement durable ledger, lost-response retry, pagination, pause/recheck, templates, buyer preference: ${width}px ${lang}`);
+      console.log(`PASS engagement ledger + locked queue, lost-response recovery, pagination, pause/process, templates, buyer preference: ${width}px ${lang}`);
       await context.close();
     }
   }finally {await browser?.close();server?.stop();}
