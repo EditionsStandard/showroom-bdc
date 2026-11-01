@@ -1633,6 +1633,7 @@ function applyLang() {
   <div id="view-account" class="view-section" style="display:none;opacity:1;max-width:680px">
     <div id="company-tools" style="border:1px solid var(--border);padding:18px;margin-bottom:24px"></div>
     <h2 class="section-title">Mon profil</h2>
+    <div id="buyer-email-preferences" class="card" style="padding:24px;margin-bottom:24px;border:1px solid var(--border)"></div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-bottom:24px">
       <h3 id="account-info-title" style="font-family:'Plex Mono','Space Mono',monospace;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
@@ -2496,7 +2497,7 @@ function showView(view, _fromPop) {
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
-  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); window.BuyerTools?.loadCompany(); }
+  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); window.BuyerTools?.loadCompany(); window.BuyerEmailPreferences?.load(); }
   if (view === 'favs') renderFavs();
   if (view === 'shortlist') renderShortlist();
   if (!_fromPop) pushNav({ v: view, brand: null });
@@ -5243,5 +5244,6 @@ document.getElementById('modal-compare').addEventListener('click', e => {
 });
 </script>
 <script src="/buyer-tools.js?v=buyer-forms-20261031"></script>
+<script src="/buyer-email-preferences.js?v=20261101"></script>
 </body>
 </html>

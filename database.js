@@ -565,6 +565,7 @@ async function init() {
   // Required ordering invariant: never silently ignore a failed migration.
   await require('./lib/min-reference-migration').migrateMinReference(pool);
   await require('./lib/buyer-account-migration').migrateBuyerAccounts(pool);
+  await require('./lib/buyer-engagement-migration').migrateBuyerEngagement(pool);
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
   // Backfill + dédoublonnage des abonnements push existants avant de poser la
   // contrainte d'unicité (des doublons ont pu s'accumuler tant que le bug était
@@ -736,7 +737,7 @@ async function init() {
     DELETE FROM selection_shares WHERE expires_at < NOW() - INTERVAL '7 days';
     DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
     DELETE FROM buyer_carts WHERE updated_at < NOW() - INTERVAL '90 days';
-    DELETE FROM access_requests WHERE status='pending' AND created_at < NOW() - INTERVAL '30 days';
+    DELETE FROM access_requests WHERE status IN ('pending','rejected') AND created_at < NOW() - INTERVAL '30 days';
     DELETE FROM commande_links WHERE expires_at < NOW() - INTERVAL '30 days';
   `).catch(() => {});
 

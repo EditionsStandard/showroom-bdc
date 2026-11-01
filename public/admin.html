@@ -661,6 +661,7 @@
     <a data-section="brands"><span class="icon">🏷️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
     <a data-section="orders"><span class="icon">📋</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="buyer-engagement" id="nav-buyer-engagement" style="display:none"><span class="icon">◷</span><span>BUYER ENGAGEMENT</span></a>
     <a data-section="email-templates" id="nav-email-templates" style="display:none"><span class="icon">✉️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6z"/><path d="M22 6l-10 7L2 6"/></svg> <span>Modèles email</span></a>
     <a data-section="security" id="nav-security" style="display:none"><span class="icon">🔒</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> <span>Sécurité &amp; audit</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
@@ -1318,6 +1319,14 @@
     </div>
   </div>
 
+  <div id="buyer-engagement" class="section">
+    <h1>BUYER ENGAGEMENT</h1>
+    <div class="card"><p id="engagement-intro"></p><button type="button" class="btn btn-secondary" id="engagement-refresh">Actualiser la simulation</button><p id="engagement-status" role="status" aria-live="polite"></p></div>
+    <div id="engagement-rules"></div>
+    <div class="card"><h3 id="engagement-buyers-title">Acheteurs — simulation</h3><p id="engagement-count"></p><div class="table-wrap"><table><thead id="engagement-head"></thead><tbody id="engagement-buyers"></tbody></table></div><button type="button" class="btn btn-secondary" id="engagement-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-next">→</button></div>
+    <div class="card"><h3 id="engagement-template-title">Brouillons de modèles</h3><p id="engagement-template-note"></p><label for="engagement-template-choice">FR / EN</label><select id="engagement-template-choice"></select><form id="engagement-template-form"><div class="form-group"><label for="engagement-subject" id="engagement-subject-label">Objet</label><input id="engagement-subject" maxlength="200" required></div><div class="form-group"><label for="engagement-body" id="engagement-body-label">Texte</label><textarea id="engagement-body" rows="7" maxlength="10000" required></textarea></div><button class="btn btn-primary" id="engagement-template-save">Enregistrer le brouillon</button></form><pre id="engagement-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>
+  </div>
+
   <div id="buyers" class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
       <h1 style="margin:0" data-t="h1_buyers">Acheteurs</h1>
@@ -1332,7 +1341,7 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label data-t="lbl_email_req">Email *</label><input id="buyer-email" type="email" data-tp="ph_buyer_email"></div>
-        <div class="form-group"><label data-t="lbl_password_req">Mot de passe *</label><input id="buyer-password" type="password"></div>
+        <p>Un lien à usage unique permet à l’acheteur de choisir son mot de passe.</p><div id="buyer-activation-status" role="status" style="overflow-wrap:anywhere"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label data-t="lbl_phone">Téléphone</label><input id="buyer-phone" type="tel"></div>
@@ -3026,6 +3035,7 @@ function activateSection(name, fromPop) {
   if (name === 'brands') loadBrands();
   if (name === 'orders') loadOrders();
   if (name === 'commissions') loadCommissions();
+  if (name === 'buyer-engagement') window.BuyerEngagement.load();
   if (name === 'settings') loadSettings();
   if (name === 'staff') loadStaff();
   if (name === 'buyers') loadBuyers();
@@ -3075,6 +3085,7 @@ async function initUserRole() {
     document.getElementById('nav-staff').style.display = '';
     document.getElementById('nav-security').style.display = '';
     document.getElementById('nav-email-templates').style.display = '';
+    document.getElementById('nav-buyer-engagement').style.display = '';
     const ownerOpts = document.querySelectorAll('#role-owner-option, #edit-role-owner-option');
     ownerOpts.forEach(el => el.style.display = '');
   } else {
@@ -3267,7 +3278,7 @@ async function createStaff() {
   const role = document.getElementById('staff-role').value;
   const brand_id = document.getElementById('staff-brand-id').value;
   const avatar_url = document.getElementById('staff-avatar-url').value;
-  if (!email || !password) { toast('Email et mot de passe requis', true); return; }
+  if (!email) { toast('Email requis', true); return; }
 
   const r = await fetch('/api/staff', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3893,19 +3904,21 @@ async function createBuyer() {
   const name = document.getElementById('buyer-name').value.trim();
   const company = document.getElementById('buyer-company').value.trim();
   const email = document.getElementById('buyer-email').value.trim();
-  const password = document.getElementById('buyer-password').value;
   const phone = document.getElementById('buyer-phone').value.trim();
   const country = document.getElementById('buyer-country').value.trim();
-  if (!email || !password) { toast('Email et mot de passe requis', true); return; }
+  if (!email) { toast('Email requis', true); return; }
 
   const r = await fetch('/api/buyers', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, company, email, password, phone, country })
+    body: JSON.stringify({ name, company, email, phone, country })
   }).then(r => r.json());
   if (r.error) { toast(r.error, true); return; }
 
-  ['buyer-name','buyer-company','buyer-email','buyer-password','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
+  ['buyer-name','buyer-company','buyer-email','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
   loadBuyers();
+  const status=document.getElementById('buyer-activation-status');
+  status.textContent=r.emailed?'Compte créé — lien d’activation envoyé.':'Compte créé. Aucun email envoyé. Lien à transmettre (60 min) : ';
+  if(r.activation_url){const link=document.createElement('a');link.href=r.activation_url;link.textContent=r.activation_url;status.append(link);}
   toast(t('js_buyer_created'));
 }
 
@@ -8883,7 +8896,8 @@ document.addEventListener('click',async event=>{
   <div id="scope-rows"></div><button class="btn btn-secondary" onclick="addScopeRow()">Ajouter une affectation</button>
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
-<script src="/admin-commercial.js"></script>
+<script src="/admin-commercial.js?v=engagement-20261101"></script>
+<script src="/buyer-engagement-admin.js?v=20261101"></script>
 
 </body>
 </html>

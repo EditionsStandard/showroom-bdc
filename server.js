@@ -47,6 +47,18 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 const { pool, init } = require('./database');
+const engagement = require('./lib/buyer-engagement');
+
+// Persist the authenticated session before recording a successful login. A
+// telemetry failure must not lock a buyer out of an otherwise valid session.
+function saveBuyerLogin(req, buyerId, done) {
+  req.session.save(async error => {
+    if (error) return done(error);
+    try { await engagement.recordLogin(pool, buyerId); }
+    catch (e) { console.error('[engagement-login]', e.message); }
+    done(null);
+  });
+}
 
 // Une variable Railway copiée-collée embarque facilement un caractère parasite
 // (saut de ligne, espace, guillemets/backticks restés collés au copier-coller
@@ -4108,8 +4120,9 @@ app.get('/portal/access', async (req, res) => {
     const r = await pool.query('SELECT * FROM buyer_access_tokens WHERE token=$1 AND used=false AND expires_at > NOW()', [token]);
     if (!r.rows[0]) return res.redirect('/portal?error=link_expired');
     const buyer = (await pool.query('SELECT * FROM buyers WHERE id=$1', [r.rows[0].buyer_id])).rows[0];
-    if (!buyer) return res.redirect('/portal');
-    await pool.query('UPDATE buyer_access_tokens SET used=true WHERE token=$1', [token]);
+    if (!buyer || buyer.activation_pending) return res.redirect('/editions-showroom-b2b-portail?activation_required=1');
+    const claimed = await pool.query('UPDATE buyer_access_tokens SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING token', [token]);
+    if (!claimed.rowCount) return res.redirect('/portal?error=link_expired');
     // Un lien magique authentifie au même niveau qu'un mot de passe — s'il
     // contournait le MFA de l'acheteur quand celui-ci est activé, n'importe quel
     // staff pouvant déclencher /api/admin/buyers/:id/send-access (agent inclus,
@@ -4127,7 +4140,7 @@ app.get('/portal/access', async (req, res) => {
       if (err) return res.redirect('/portal');
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
       logAuditRaw(buyer.email, 'login_success', 'buyer', buyer.id, req.ip);
-      req.session.save(() => res.redirect('/portal'));
+      saveBuyerLogin(req, buyer.id, error => res.redirect(error ? '/editions-showroom-b2b-portail?error=1' : '/portal'));
     });
   } catch(e) { res.redirect('/portal'); }
 });
@@ -4527,6 +4540,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
         [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'', line.variant_color||'']
       );
     }
+    if (buyer_id) await dbClient.query('UPDATE buyers SET last_meaningful_activity_at=NOW() WHERE id=$1',[buyer_id]);
     await dbClient.query('COMMIT');
   } catch(e) {
     await dbClient.query('ROLLBACK');
@@ -4907,7 +4921,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       if (!password || password.length < 12) return res.status(400).json({ error: 'Choisissez un mot de passe (12 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
       const id = uuidv4();
-      await pool.query('INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
+      await pool.query(`INSERT INTO buyers (id,email,password_hash,name,company,access_source,activated_at,login_history_known) VALUES ($1,$2,$3,$4,$5,'agent_selection',NOW(),true)`,
         [id, email, hash, sel.client_name || '', sel.client_company || '']);
       buyer = { id, email, name: sel.client_name || '', company: sel.client_company || '', phone: '', country: '' };
     }
@@ -4973,7 +4987,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       // Sauvegarde explicite avant de répondre : le JS client enchaîne
       // généralement sur un appel authentifié juste après ce {ok:true}, qui
       // échouerait si la nouvelle session n'est pas encore garantie persistée.
-      req.session.save(() => res.json({ ok: true, ...result }));
+      saveBuyerLogin(req, buyer.id, error => res.json({ ok:true, ...result, ...(error?{session_saved:false}:{}) }));
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -5085,7 +5099,7 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
       // Sauvegarde explicite avant redirection — voir commentaire équivalent
       // sur /admin/login/mfa (évite un rebond côté navigateur si le 302 est
       // suivi avant la persistance garantie de la nouvelle session).
-      req.session.save(err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(safeNext || '/portal'));
+      saveBuyerLogin(req, buyer.id, err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(safeNext || '/portal'));
     });
     return;
   }
@@ -5136,7 +5150,7 @@ app.post('/editions-showroom-b2b-portail/mfa', loginLimiter, async (req, res) =>
     if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
     req.session.buyerPortal = { id: pending.id, email: pending.email, name: pending.name, company: pending.company, phone: pending.phone, country: pending.country };
     logAuditRaw(pending.email, usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'buyer', pending.id, req.ip);
-    req.session.save(err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(pending.next || '/portal'));
+    saveBuyerLogin(req, pending.id, err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(pending.next || '/portal'));
   });
 });
 
@@ -5264,6 +5278,7 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
       messages: messages.rows,
       notifications: notifications.rows,
       followed_brands: follows.rows,
+      engagement: await engagement.exportEngagement(pool,buyerId),
       company_memberships:(await pool.query('SELECT cu.company_id,cu.role,c.name,c.billing FROM company_users cu JOIN companies c ON c.id=cu.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
       company_locations:(await pool.query('SELECT cl.* FROM company_locations cl JOIN company_users cu ON cu.company_id=cl.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
       buying_shortlists:(await pool.query('SELECT * FROM buying_shortlists WHERE owner_id=$1',[buyerId])).rows
@@ -6065,8 +6080,12 @@ app.post('/api/portal/cart', requireBuyerAuth, cartLimiter, async (req, res) => 
   const cartJson = JSON.stringify(req.body.cart || {});
   if (cartJson.length > 100_000) return res.status(400).json({ error: 'Panier trop volumineux' });
   await pool.query(
-    `INSERT INTO buyer_carts (buyer_id, cart_json, updated_at) VALUES ($1,$2,NOW())
-     ON CONFLICT (buyer_id) DO UPDATE SET cart_json=$2, updated_at=NOW()`,
+    `WITH changed AS (
+       INSERT INTO buyer_carts (buyer_id,cart_json,updated_at) VALUES ($1,$2,NOW())
+       ON CONFLICT (buyer_id) DO UPDATE SET cart_json=$2,updated_at=NOW()
+         WHERE buyer_carts.cart_json::jsonb IS DISTINCT FROM $2::jsonb
+       RETURNING buyer_id
+     ) UPDATE buyers SET last_meaningful_activity_at=NOW() WHERE id IN (SELECT buyer_id FROM changed) AND $2::jsonb NOT IN ('{}'::jsonb,'null'::jsonb)`,
     [req.session.buyerPortal.id, cartJson]
   );
   res.json({ ok: true });
@@ -6978,7 +6997,7 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
       await client.query('BEGIN');
       const claimed = await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING buyer_id', [tokenHash]);
       if (!claimed.rows.length) throw new Error('Lien invalide ou expiré.');
-      await client.query('UPDATE buyers SET password_hash=$1, activation_pending=false WHERE id=$2', [hash, claimed.rows[0].buyer_id]);
+      await client.query('UPDATE buyers SET password_hash=$1, activated_at=CASE WHEN activation_pending THEN COALESCE(activated_at,NOW()) ELSE activated_at END, activation_pending=false WHERE id=$2', [hash, claimed.rows[0].buyer_id]);
       await client.query('COMMIT');
     } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
@@ -7204,6 +7223,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), prospect
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
     const buyer = b.rows[0];
+    if (!await hasBuyerMarketingPermission(buyer.id)) return res.status(409).json({error:'Accord marketing non confirmé ou retiré'});
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(503).json({ error: 'Email non configuré' });
     const [showroomName, agentName, fromAddress, showroomEmail] = await Promise.all([
@@ -7543,71 +7563,48 @@ app.delete('/api/portal/appointments/:id', requireBuyerAuth, async (req, res) =>
 });
 
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
-  const { email, password, name, company, phone, country } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  for (const [k, v] of Object.entries({ email, name, company, phone, country })) {
-    if (v !== undefined && v !== null && typeof v !== 'string') return res.status(400).json({ error: `Champ "${k}" invalide` });
+  const { email, name, company, phone, country } = req.body;
+  if (typeof email !== 'string' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return res.status(400).json({error:'Email invalide'});
+  for (const [key,value] of Object.entries({name,company,phone,country})) {
+    if(value != null && typeof value !== 'string') return res.status(400).json({error:`Champ "${key}" invalide`});
   }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
-  if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
-  const hash = await bcrypt.hash(password, 10);
-  const id = uuidv4();
-  const cleanEmail = email.toLowerCase().trim();
+  const id=uuidv4(), cleanEmail=email.toLowerCase().trim();
+  const token=crypto.randomBytes(32).toString('hex');
+  const tokenHash=crypto.createHash('sha256').update(token).digest('hex');
+  const hash=await bcrypt.hash(crypto.randomBytes(32).toString('hex'),10);
+  const db=await pool.connect();
   try {
-    await pool.query(
-      'INSERT INTO buyers (id, email, password_hash, name, company, phone, country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [id, cleanEmail, hash, name||'', company||'', phone||'', country||'']
-    );
-    res.json({ id });
-    sendBuyerWelcomeEmail({ email: cleanEmail, password, name, req }).catch(e => console.error('Buyer welcome email error:', e.message));
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
-    console.error(err); res.status(500).json({ error: "Erreur serveur" });
-  }
+    await db.query('BEGIN');
+    await db.query(`INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending,access_source,approved_at,login_history_known)
+      VALUES($1,$2,$3,$4,$5,$6,$7,true,'admin_created',NOW(),true)`,[id,cleanEmail,hash,name||'',company||'',phone||'',country||'']);
+    await db.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '60 minutes')",[tokenHash,id]);
+    await db.query('COMMIT');
+  } catch(error) {
+    await db.query('ROLLBACK');
+    return res.status(error.code==='23505'?400:500).json({error:error.code==='23505'?'Cet email est déjà utilisé':'Erreur serveur'});
+  } finally {db.release();}
+  logAudit(req,'create_buyer','buyer',id);
+  const url=`${getBaseUrl(req)}/editions-showroom-b2b-portail?activation=1&token=${token}`;
+  const emailed=await sendApprovedBuyerEmail({buyerId:id,name:name||'',email:cleanEmail,url,needsActivation:true});
+  res.set('Cache-Control','no-store');
+  res.json({id,emailed,...(!emailed?{activation_url:url}:{})});
 });
 
-async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) { console.log('RESEND_API_KEY non configurée — email de bienvenue acheteur non envoyé'); return; }
-  const resend = newResendClient(resendKey);
-  const showroomName = await getSetting('showroom_name');
-  const fromAddress = await getSetting('smtp_from');
-  const fromField = fromAddress || 'showroom@editionsstandard.com';
-  const portalUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
-  const isEn = lang === 'en';
-
-  const { error } = await resend.emails.send({
-    from: `${showroomName} <${fromField}>`,
-    to: [email],
-    subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès au showroom — ${showroomName}`,
-    html: emailLayout({
-      showroomName,
-      content: isEn ? `
-        <p>Hello${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
-        <p>Your B2B showroom access for <strong>${showroomName}</strong> has been created. You can now browse our brands, view collections, and place orders online.</p>
-        ${emailInfoBox([
-          ['Email', email],
-          ['Password', password],
-        ])}
-        <p style="font-size:13px;color:#888">You can change this password at any time from your account, under <strong>My profile</strong>.</p>
-        ${emailBtn(portalUrl, 'Access showroom →')}
-        <p style="font-size:13px;color:#888;margin-top:28px">Feel free to contact us if you have any questions.</p>
-        <p>Best regards,<br><strong>${showroomName}</strong></p>
-      ` : `
-        <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
-        <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
-        ${emailInfoBox([
-          ['Email', email],
-          ['Mot de passe', password],
-        ])}
-        <p style="font-size:13px;color:#888">Vous pouvez modifier ce mot de passe à tout moment depuis votre espace, rubrique <strong>Mon profil</strong>.</p>
-        ${emailBtn(portalUrl, 'Accéder au showroom →')}
-        <p style="font-size:13px;color:#888;margin-top:28px">En cas de question, n'hésitez pas à nous contacter.</p>
-        <p>Cordialement,<br><strong>${showroomName}</strong></p>
-      `
-    })
-  });
-  if (error) console.error('[resend] buyer-welcome-email:', error.message || error);
+async function sendApprovedBuyerEmail({buyerId,name,email,url,needsActivation}) {
+  let emailed=false;
+  try {
+    if(process.env.RESEND_API_KEY) {
+      const [showroomName,fromAddress,buyerLang]=await Promise.all([getSetting('showroom_name'),getSetting('smtp_from'),pool.query('SELECT lang FROM buyers WHERE id=$1',[buyerId])]);
+      const isEn=buyerLang.rows[0]?.lang==='en';
+      const content=isEn
+        ? `<p>Hello <strong>${escHtml(name)}</strong>,</p><p>Your access has been approved.</p>${needsActivation ? '<p>Choose your own password using this single-use link, valid for 60 minutes.</p>':'<p>Your existing account is ready to use.</p>'}${emailBtn(url,needsActivation ? 'ACTIVATE MY ACCOUNT →':'ACCESS SHOWROOM →')}`
+        : `<p>Bonjour <strong>${escHtml(name)}</strong>,</p><p>Votre accès a été approuvé.</p>${needsActivation ? '<p>Choisissez votre mot de passe avec ce lien à usage unique, valable 60 minutes.</p>':'<p>Votre compte existant est prêt à être utilisé.</p>'}${emailBtn(url,needsActivation ? 'ACTIVER MON COMPTE →':'ACCÉDER AU SHOWROOM →')}`;
+      const result=await newResendClient(process.env.RESEND_API_KEY).emails.send({from:`${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,to:[email],subject:isEn ? 'Your showroom access is approved':'Votre accès au showroom est approuvé',html:emailLayout({showroomName,content})});
+      emailed=!result.error;
+      if(result.error)console.error('[resend] activation:',result.error.message || 'send failed');
+    }
+  } catch(e) { console.error('[resend] activation:',e.message); }
+  return emailed;
 }
 
 app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
@@ -7738,7 +7735,7 @@ app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/rejoindre/:token', (req, res) => sendPage(res, 'invite.html'));
+app.get('/rejoindre/:token', (req, res) => res.redirect('/demande-acces'));
 app.get('/demande-acces', (req, res) => sendPage(res, 'demande-acces.html'));
 app.get('/confidentialite', (req, res) => sendPage(res, 'confidentialite.html'));
 app.get('/cgu', (req, res) => sendPage(res, 'cgu.html'));
@@ -7830,7 +7827,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, r
     } else {
       buyerId=uuidv4(); needsActivation=true;
       const unreachablePasswordHash=await bcrypt.hash(crypto.randomBytes(32).toString('hex'),10);
-      await client.query('INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending) VALUES($1,$2,$3,$4,$5,$6,$7,true)',[buyerId,email,unreachablePasswordHash,request.name,request.company,request.phone,request.country]);
+      await client.query(`INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending,access_source,approved_at,login_history_known) VALUES($1,$2,$3,$4,$5,$6,$7,true,'access_request',NOW(),true)`,[buyerId,email,unreachablePasswordHash,request.name,request.company,request.phone,request.country]);
     }
     if (needsActivation) {
       token=crypto.randomBytes(32).toString('hex');
@@ -7838,6 +7835,8 @@ app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, r
       await client.query('DELETE FROM buyer_password_resets WHERE buyer_id=$1',[buyerId]);
       await client.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '60 minutes')",[tokenHash,buyerId]);
     }
+    await client.query('UPDATE buyers SET approved_at=COALESCE(approved_at,NOW()) WHERE id=$1',[buyerId]);
+    await engagement.captureRequestPreference(client,buyerId,request);
     await client.query("UPDATE access_requests SET status='approved' WHERE id=$1",[request.id]);
     await client.query('COMMIT');
   } catch(e) {
@@ -7847,19 +7846,8 @@ app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, r
   } finally { client.release(); }
   logAudit(req,'approve_access_request','access_request',request.id,request.email);
   const url=needsActivation ? `${getBaseUrl(req)}/editions-showroom-b2b-portail?activation=1&token=${token}` : `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
-  let emailed=false;
-  try {
-    if(process.env.RESEND_API_KEY) {
-      const [showroomName,fromAddress,buyerLang]=await Promise.all([getSetting('showroom_name'),getSetting('smtp_from'),pool.query('SELECT lang FROM buyers WHERE id=$1',[buyerId])]);
-      const isEn=buyerLang.rows[0]?.lang==='en';
-      const content=isEn
-        ? `<p>Hello <strong>${escHtml(request.name)}</strong>,</p><p>Your access has been approved.</p>${needsActivation ? '<p>Choose your own password using this single-use link, valid for 60 minutes.</p>':'<p>Your existing account is ready to use.</p>'}${emailBtn(url,needsActivation ? 'ACTIVATE MY ACCOUNT →':'ACCESS SHOWROOM →')}`
-        : `<p>Bonjour <strong>${escHtml(request.name)}</strong>,</p><p>Votre accès a été approuvé.</p>${needsActivation ? '<p>Choisissez votre mot de passe avec ce lien à usage unique, valable 60 minutes.</p>':'<p>Votre compte existant est prêt à être utilisé.</p>'}${emailBtn(url,needsActivation ? 'ACTIVER MON COMPTE →':'ACCÉDER AU SHOWROOM →')}`;
-      const result=await newResendClient(process.env.RESEND_API_KEY).emails.send({from:`${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,to:[request.email],subject:isEn ? 'Your showroom access is approved':'Votre accès au showroom est approuvé',html:emailLayout({showroomName,content})});
-      emailed=!result.error;
-      if(result.error)console.error('[resend] activation:',result.error.message || 'send failed');
-    }
-  } catch(e) { console.error('[resend] activation:',e.message); }
+  const emailed=await sendApprovedBuyerEmail({buyerId,name:request.name,email:request.email,url,needsActivation});
+  res.set('Cache-Control','no-store');
   res.json({ok:true,reused,emailed,...(!emailed ? {activation_url:url}: {})});
 });
 
@@ -7981,37 +7969,8 @@ app.get('/api/invite/:token', publicLimiter, async (req, res) => {
 // emailLimiter (IP, 5/h) plutôt que buyerAuthLimiter : ce dernier est keyé par
 // email quand fourni, donc inefficace ici — la création de compte spammée
 // utilise justement un email différent à chaque appel.
-app.post('/api/invite/:token', emailLimiter, async (req, res) => {
-  const r = await pool.query(`
-    SELECT bil.brand_id, b.name as brand_name
-    FROM brand_invite_links bil
-    JOIN brands b ON b.id = bil.brand_id
-    WHERE (bil.token=$1 OR bil.slug=$1) AND bil.active != 0
-  `, [req.params.token]);
-  if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
-
-  const { name, company, email, password } = req.body;
-  if (!email || !password || password.length < 12) return res.status(400).json({ error: 'Email et mot de passe requis (12 caractères min).' });
-  if (!name) return res.status(400).json({ error: 'Nom requis.' });
-
-  const cleanEmail = email.toLowerCase().trim();
-  const hash = await bcrypt.hash(password, 10);
-  const id = uuidv4();
-  try {
-    await pool.query(
-      'INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
-      [id, cleanEmail, hash, name.trim(), (company||'').trim()]
-    );
-    // Régénération de session — anti session fixation (cohérent avec les autres logins)
-    req.session.regenerate(() => {
-      req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
-      req.session.save(() => res.json({ ok: true }));
-      sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
-    });
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé. Connectez-vous directement sur le portail.' });
-    res.status(500).json({ error: 'Erreur serveur.' });
-  }
+app.post('/api/invite/:token', emailLimiter, (req,res) => {
+  res.status(409).json({error:'Une demande d’accès et une approbation manuelle sont nécessaires.',redirect:'/demande-acces'});
 });
 
 // ==================== BUYER ACCESS (magic link) ====================
@@ -8070,23 +8029,25 @@ app.get('/api/buyer/verify', async (req, res) => {
   if (!link || link.used || new Date(link.expires_at) < new Date()) {
     return res.status(401).json({ error: 'Lien invalide ou expiré' });
   }
-  await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1', [token]);
+
   // Ce lien magique n'exige qu'un accès à la boîte mail — s'il correspond à un
   // compte du portail acheteur protégé par MFA, l'accepter reviendrait à
   // contourner ce MFA (accès en lecture à l'historique de commandes + PDF de
   // facture). On bloque plutôt cette voie légère et on renvoie vers le
   // portail complet, qui applique le MFA normalement.
-  const acct = await pool.query('SELECT mfa_enabled FROM buyers WHERE email=$1', [link.email]);
-  if (acct.rows[0]?.mfa_enabled) {
+  const acct = await pool.query('SELECT id,mfa_enabled,activation_pending FROM buyers WHERE LOWER(email)=LOWER($1)', [link.email]);
+  if (acct.rows[0]?.mfa_enabled || acct.rows[0]?.activation_pending) {
     return res.status(403).json({ error: 'Un compte sécurisé existe pour cet email. Veuillez vous connecter via <a href="/editions-showroom-b2b-portail">le portail acheteur</a>.' });
   }
+  const claim=await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1 AND used=0 AND expires_at>NOW() RETURNING token',[token]);
+  if(!claim.rowCount) return res.status(401).json({error:'Lien invalide ou expiré'});
   // Régénération de session — anti fixation, même principe que les autres points
   // de connexion (cette route héritée était la seule à en manquer).
   req.session.regenerate(err => {
     if (err) return res.status(500).json({ error: 'Erreur serveur' });
     req.session.buyerEmail = link.email;
     req.session.buyerBrandId = brand_id;
-    req.session.save(() => res.json({ ok: true, email: link.email }));
+    saveBuyerLogin(req, acct.rows[0]?.id, error => error ? res.status(503).json({error:'Session indisponible'}) : res.json({ ok: true, email: link.email }));
   });
 });
 
@@ -9038,6 +8999,7 @@ app.get('/api/portal/my-data-export', requireBuyerAuth, async (req, res) => {
       profile: profile.rows[0] || null,
       orders: orders.rows,
       favorites,
+      engagement: await engagement.exportEngagement(pool,buyerId),
     });
   } catch(e) { res.status(500).json({ error: 'Erreur export' }); }
 });
@@ -9065,12 +9027,22 @@ app.post('/api/portal/delete-account', requireBuyerAuth, async (req, res) => {
 // une fois la base prête — mais l'ENVOI reste soumis à validation manuelle
 // ici : ces deux relances partaient jusqu'ici sans regard humain malgré leur
 // caractère commercial sensible.
+async function hasBuyerMarketingPermission(buyerId) {
+  const result=await pool.query("SELECT 1 FROM buyer_email_preferences WHERE buyer_id=$1 AND status='granted'",[buyerId]);
+  return result.rowCount>0;
+}
+
 async function sendInactiveReminderNow(buyerId) {
+  if (!await hasBuyerMarketingPermission(buyerId)) throw new Error('Accord marketing non confirmé ou retiré');
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) throw new Error('RESEND_API_KEY non configurée');
-  const r = await pool.query('SELECT id, email, name, company, lang FROM buyers WHERE id=$1', [buyerId]);
+  const r = await pool.query('SELECT * FROM buyers WHERE id=$1', [buyerId]);
   const buyer = r.rows[0];
   if (!buyer) throw new Error('Acheteur introuvable');
+  if (!engagement.evaluateBuyer({...buyer,email_status:'granted'},{id:'inactive',mode:'simulation',delay_hours:45*24}).eligible ||
+      (buyer.last_engagement_email_at && Date.now()-new Date(buyer.last_engagement_email_at).getTime()<45*86400000)) {
+    throw new Error('Acheteur non éligible : activité récente, historique inconnu ou relance récente');
+  }
   const showroomName = await getSetting('showroom_name');
   const showroomEmail = await getSetting('showroom_email');
   const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
@@ -9085,7 +9057,7 @@ async function sendInactiveReminderNow(buyerId) {
   // marqué "envoyé" à tort dans la file de validation.
   const { error } = await resend.emails.send({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], ...(showroomEmail && showroomEmail.toLowerCase() !== buyer.email.toLowerCase() ? { bcc: [showroomEmail] } : {}), subject, html: emailLayout({ showroomName, content }) });
   if (error) throw new Error(`Resend: ${error.message || error.name || 'échec envoi'}`);
-  await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
+  await pool.query('UPDATE buyers SET last_engagement_email_at=NOW() WHERE id=$1', [buyer.id]);
 }
 
 async function sendSelectionReminderNow(token) {
@@ -9174,6 +9146,7 @@ app.post('/api/admin/pending-reminders/:id/reject', requireRole('owner','agent')
 // Catch-all 404
 require('./lib/buyer-company').registerBuyerCompany({app,pool,auth:requireBuyerAuth,getLockedBrandIds,audit:logAudit});
 require('./lib/quick-order').registerQuickOrder({app,pool,auth:requireBuyerAuth,getLockedBrandIds});
+engagement.registerBuyerEngagement({app,pool,ownerAuth:requireRole('owner'),buyerAuth:requireBuyerAuth,audit:logAudit});
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
@@ -9214,6 +9187,7 @@ process.on('uncaughtException', (err) => {
 
 // Start
 init().then(() => {
+  if (process.env.BACKGROUND_JOBS_ENABLED !== 'false') {
   // Préchauffe le cache des liens showroom (footer email) au démarrage, puis
   // rafraîchit périodiquement en filet de sécurité (POST /api/settings le
   // fait déjà immédiatement à la sauvegarde — ceci couvre un cache resté
@@ -9229,6 +9203,7 @@ init().then(() => {
         DELETE FROM buyer_password_resets WHERE expires_at < NOW();
         DELETE FROM buyer_access_tokens WHERE expires_at < NOW();
         DELETE FROM selection_shares WHERE expires_at < NOW();
+        DELETE FROM access_requests WHERE status IN ('pending','rejected') AND created_at < NOW() - INTERVAL '30 days';
         DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
       `);
       await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
@@ -9362,6 +9337,11 @@ init().then(() => {
           FROM buyers b
           WHERE (b.last_seen_at < NOW() - INTERVAL '45 days' OR b.last_seen_at IS NULL)
             AND b.created_at < NOW() - INTERVAL '45 days'
+            AND b.login_history_known=true AND b.activation_pending=false
+            AND b.last_login_at IS NOT NULL
+            AND b.last_meaningful_activity_at <= NOW() - INTERVAL '45 days'
+            AND (b.last_engagement_email_at IS NULL OR b.last_engagement_email_at < NOW() - INTERVAL '45 days')
+            AND EXISTS (SELECT 1 FROM buyer_email_preferences ep WHERE ep.buyer_id=b.id AND ep.status='granted')
             AND NOT EXISTS (
               SELECT 1 FROM pending_reminders p
               WHERE p.type='buyer_inactive' AND p.target_id=b.id AND p.status='pending'
@@ -9431,6 +9411,7 @@ init().then(() => {
   }
   scheduleSelectionReminders();
 
+  } // Existing jobs can be disabled in isolated validation environments.
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✅ Showroom BDC démarré sur http://localhost:${PORT}`);
     console.log(`   Admin : http://localhost:${PORT}/admin\n`);

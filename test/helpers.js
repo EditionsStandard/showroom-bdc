@@ -40,13 +40,17 @@ async function waitForServer(baseUrl, timeoutMs = 20000) {
 }
 
 async function startServer({ dbNameSuffix, port }) {
+  if (!['localhost','127.0.0.1','[::1]'].includes(new URL(PG_ADMIN_URL).hostname)) throw new Error('Tests require a local PostgreSQL server');
+  if (!/^[a-z0-9_]+$/.test(dbNameSuffix)) throw new Error('Invalid test database suffix');
   const dbName = 'showroom_test_' + dbNameSuffix;
   await ensureDb(dbName);
   const databaseUrl = dbUrlFor(dbName);
 
-  const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+  const proc = spawn(process.execPath, ['--require', path.join(__dirname,'no-outbound.js'), path.join(__dirname, '..', 'server.js')], {
     env: {
-      ...process.env,
+      PATH: process.env.PATH,
+      NODE_ENV: 'test',
+      BACKGROUND_JOBS_ENABLED: 'false',
       DATABASE_URL: databaseUrl,
       PORT: String(port),
       SESSION_SECRET: 'test-secret-not-for-production',
@@ -56,6 +60,7 @@ async function startServer({ dbNameSuffix, port }) {
   });
   let stderr = '';
   proc.stderr.on('data', d => { stderr += d.toString(); });
+  proc.stdout.resume();
 
   const baseUrl = `http://127.0.0.1:${port}`;
   try {
