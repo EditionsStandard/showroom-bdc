@@ -1322,8 +1322,24 @@
   <div id="buyer-engagement" class="section">
     <h1>BUYER ENGAGEMENT</h1>
     <div class="card"><p id="engagement-intro"></p><button type="button" class="btn btn-secondary" id="engagement-refresh">Actualiser la simulation</button><p id="engagement-status" role="status" aria-live="polite"></p></div>
+    <div class="card">
+      <h3 id="engagement-actions-title">Calculs enregistrés</h3>
+      <p id="engagement-actions-note"></p><p id="engagement-control-state" role="status" aria-live="polite"></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
+      <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
+    </div>
     <div id="engagement-rules"></div>
     <div class="card"><h3 id="engagement-buyers-title">Acheteurs — simulation</h3><p id="engagement-count"></p><div class="table-wrap"><table><thead id="engagement-head"></thead><tbody id="engagement-buyers"></tbody></table></div><button type="button" class="btn btn-secondary" id="engagement-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-next">→</button></div>
+    <div class="card">
+      <h3 id="engagement-candidates-title">Candidats enregistrés</h3><p id="engagement-candidates-note"></p><p id="engagement-candidate-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-candidate-head"></thead><tbody id="engagement-candidates"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-candidate-prev" aria-label="Page précédente des candidats">←</button> <button type="button" class="btn btn-secondary" id="engagement-candidate-next" aria-label="Page suivante des candidats">→</button>
+    </div>
+    <div class="card">
+      <h3 id="engagement-runs-title">Journal des calculs</h3><p id="engagement-run-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-run-head"></thead><tbody id="engagement-runs"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-run-prev" aria-label="Page précédente du journal">←</button> <button type="button" class="btn btn-secondary" id="engagement-run-next" aria-label="Page suivante du journal">→</button>
+    </div>
     <div class="card"><h3 id="engagement-template-title">Brouillons de modèles</h3><p id="engagement-template-note"></p><label for="engagement-template-choice">FR / EN</label><select id="engagement-template-choice"></select><form id="engagement-template-form"><div class="form-group"><label for="engagement-subject" id="engagement-subject-label">Objet</label><input id="engagement-subject" maxlength="200" required></div><div class="form-group"><label for="engagement-body" id="engagement-body-label">Texte</label><textarea id="engagement-body" rows="7" maxlength="10000" required></textarea></div><button class="btn btn-primary" id="engagement-template-save">Enregistrer le brouillon</button></form><pre id="engagement-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>
   </div>
 
@@ -8897,7 +8913,7 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261101"></script>
+<script src="/buyer-engagement-admin.js?v=20261101-ledger"></script>
 
 </body>
 </html>

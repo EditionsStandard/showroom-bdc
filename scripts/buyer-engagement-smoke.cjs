@@ -15,7 +15,11 @@ const fs=require('node:fs'),path=require('node:path');
     await withDb(server.dbUrl,async db=>{
       await db.query("INSERT INTO settings(key,value) VALUES('owner_mfa_enabled','on'),('owner_mfa_secret',$1),('owner_mfa_last_step','0') ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",[secret]);
       await db.query('INSERT INTO buyers(id,email,password_hash,name,country,login_history_known,approved_at) VALUES($1,$2,$3,$4,$5,true,NOW())',[buyer,buyer+'@test.invalid',await bcrypt.hash(password,10),'Synthetic buyer','FR']);
-      for(let i=0;i<101;i++) await db.query("INSERT INTO buyers(id,email,password_hash,name) VALUES($1,$2,'not-a-password',$3)",[id('synthetic'),`synthetic${i}@test.invalid`,`Synthetic ${i}`]);
+      for(let i=0;i<101;i++) {
+        const synthetic=id('synthetic');
+        await db.query("INSERT INTO buyers(id,email,password_hash,name,login_history_known,approved_at,activation_pending) VALUES($1,$2,'not-a-password',$3,$4,NOW()-INTERVAL '40 days',true)",[synthetic,`synthetic${i}@test.invalid`,`Synthetic ${i}`,i<51]);
+        if(i<51)await db.query("INSERT INTO buyer_email_preferences(buyer_id,status,source,notice_version) VALUES($1,'granted','synthetic','test-only')",[synthetic]);
+      }
     });
     const post=(route,body,cookie)=>fetch(server.baseUrl+route,{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body),redirect:'manual'});
     const initial=await post('/admin/login',{password:'TestAdmin123!'});
@@ -46,6 +50,41 @@ const fs=require('node:fs'),path=require('node:path');
       assert.equal(await page.locator('#engagement-preview img').count(),0);
       await page.locator('#engagement-template-save').click();await page.waitForFunction(()=>!document.getElementById('engagement-template-save').disabled);
       assert.equal(await page.locator('#engagement-subject').inputValue(),'Synthetic <img src=x onerror=alert(1)>');
+      // Lose the first successful response, then retry the identical operation.
+      // The server has committed; the UI must reuse its request key.
+      let loseResponse=true;const requestKeys=[];
+      await page.route('**/api/admin/buyer-engagement/simulation-runs',async route=>{
+        requestKeys.push(route.request().postDataJSON().request_key);
+        const response=await route.fetch();
+        if(loseResponse){loseResponse=false;return route.abort();}
+        return route.fulfill({response});
+      });
+      await page.locator('#engagement-generate').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-generate').disabled);
+      await page.locator('#engagement-generate').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#engagement-candidates tr').length===50 && !document.getElementById('engagement-generate').disabled);
+      assert.equal(requestKeys.length,2);assert.equal(requestKeys[0],requestKeys[1]);
+      await page.locator('#engagement-candidate-next').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#engagement-candidates tr').length===1);
+      await page.locator('#engagement-candidate-prev').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#engagement-candidates tr').length===50);
+      await page.locator('#engagement-pause').click();
+      await page.waitForFunction(()=>document.getElementById('engagement-generate').disabled && !document.getElementById('engagement-pause').disabled);
+      assert.equal(await page.locator('#engagement-recheck').isEnabled(),true);
+      await page.locator('#engagement-recheck').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-recheck').disabled);
+      assert.match(await page.locator('#engagement-candidates tr').first().innerText(),lang==='fr'?/pause/:/paused/);
+      await page.locator('#engagement-pause').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-generate').disabled);
+      await page.locator('#engagement-recheck').click();
+      await page.waitForFunction(()=>!document.getElementById('engagement-recheck').disabled);
+      const ledger=await page.evaluate(()=>fetch('/api/admin/buyer-engagement/ledger').then(r=>r.json()));
+      assert.equal(ledger.candidates.total,51);assert.equal(ledger.sending_enabled,false);
+      if(width===1440 && lang==='en'){
+        assert.ok(ledger.runs.total>10);await page.locator('#engagement-run-next').click();
+        await page.waitForFunction(()=>!document.getElementById('engagement-run-prev').disabled);
+        await page.locator('#engagement-run-prev').click();
+      }
       if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`engagement-admin-${width}-${lang}.png`)});}
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'admin overflow');
       await context.clearCookies();await context.addCookies(cookies(buyerCookie));
@@ -64,7 +103,7 @@ const fs=require('node:fs'),path=require('node:path');
       if(process.env.SCREENSHOT_DIR)await page.locator('#buyer-email-preferences').screenshot({path:path.join(process.env.SCREENSHOT_DIR,`engagement-preferences-${width}-${lang}.png`)});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'buyer overflow');
       assert.deepEqual(errors,[]);
-      console.log(`PASS engagement admin pagination, rule save, template safety, buyer preference: ${width}px ${lang}`);
+      console.log(`PASS engagement durable ledger, lost-response retry, pagination, pause/recheck, templates, buyer preference: ${width}px ${lang}`);
       await context.close();
     }
   }finally {await browser?.close();server?.stop();}

@@ -1,6 +1,6 @@
 # BUYER ENGAGEMENT — premier lot, simulation uniquement
 
-État de travail du 1 novembre 2026. Base : `61d82e620ad568480903a60b24d99616d42c7420` (PR #284). Ce lot reprend les corrections de formulaires, commandes et permissions agents livrées depuis l’audit du 8 octobre. Il ne constitue pas un déploiement ni une autorisation d’envoyer des campagnes.
+État du premier lot, 1 novembre 2026. Le registre durable ajouté au deuxième lot est décrit dans [buyer-engagement-simulation-ledger.md](buyer-engagement-simulation-ledger.md) ; les mentions ci-dessous de calcul sans écriture décrivent le GET d’aperçu et le premier lot. Base : `61d82e620ad568480903a60b24d99616d42c7420` (PR #284). Ce lot reprend les corrections de formulaires, commandes et permissions agents livrées depuis l’audit du 8 octobre. Il ne constitue pas un déploiement ni une autorisation d’envoyer des campagnes.
 
 ## Livré dans ce lot
 
