@@ -315,3 +315,21 @@ test('receipt write failure rolls back order, stock, cart conversion and meaning
     });
   }
 });
+
+test('closing an unreserved uncertain key fences a delayed creation request',async()=>{
+  const saved=await save(cartOf(cartLine())),body=checkoutBody(saved);
+  const closed=await request('/api/portal/checkout-v2/'+body.request_key+'/cancel','POST',{brands:[brandA]});
+  assertComplete(closed);assert.equal(closed.body.orders[0].code,'checkout_cancelled');
+  const delayed=await checkout(body);assert.equal(delayed.status,409);
+  assert.deepEqual(await counts(),{orders:0,stock:100,stockB:100});assert.deepEqual((await snapshot()).cart,saved.cart);
+});
+test('closing a reserved attempt preserves existing results and prevents missing brands from creating orders',async()=>{
+  const saved=await save(cartOf(cartLine(),cartLine(brandB,3))),body=checkoutBody(saved),pool=new Pool({connectionString:server.dbUrl});
+  try{await require('../lib/buyer-cart').createBuyerCartService(pool).reserveCheckout(buyer,body,{client_email:buyer+'@test.invalid',client_company:'Synthetic shop',client_phone:''});}finally{await pool.end();}
+  const closed=await request('/api/portal/checkout-v2/'+body.request_key+'/cancel','POST',{brands:[brandA,brandB]});assertComplete(closed);
+  const replay=await checkout(body);assertComplete(replay);assert.equal(replay.body.ok,false);assert.equal(replay.body.orders.length,2);
+  assert.deepEqual(await counts(),{orders:0,stock:100,stockB:100});
+  const retry=await checkout(checkoutBody(await snapshot()));assertComplete(retry);assert.equal(retry.body.ok,true);
+  const closeAgain=await request('/api/portal/checkout-v2/'+retry.body.request_key+'/cancel','POST',{brands:[brandA,brandB]});
+  assertComplete(closeAgain);assert.equal(closeAgain.body.ok,true);assert.deepEqual(closeAgain.body.orders,retry.body.orders);
+});

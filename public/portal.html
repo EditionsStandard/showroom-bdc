@@ -1461,6 +1461,7 @@ function applyLang() {
       el.textContent = T[key];
     }
   });
+  if (typeof PortalCart !== 'undefined') PortalCart.render();
   if (typeof renderDashboardResources === 'function') renderDashboardResources();
   if (typeof renderPortalMessageFeedback === 'function') renderPortalMessageFeedback();
   // Re-render dynamic parts if visible
@@ -1594,6 +1595,7 @@ function applyLang() {
         <button onclick="clearCart()" style="background:none;border:none;color:var(--muted);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
       </div>
     </div>
+    <div id="cart-sync-panel" class="panel" role="status" aria-live="polite" hidden style="padding:16px;margin-bottom:20px;overflow-wrap:anywhere"></div>
     <div class="checkout-layout">
       <div id="cart-lines"></div>
       <div id="checkout-form">
@@ -1927,6 +1929,8 @@ function applyLang() {
 
 <script src="/countries.js?v=buyer-forms-20261031"></script>
 <script src="/ordering-rules.js"></script>
+<script src="/buyer-cart-client.js?v=20261102-1"></script>
+<script src="/buyer-cart-portal.js?v=20261102-1"></script>
 <script>
 let me = null;
 let allBrands = [];
@@ -2316,45 +2320,14 @@ function setSaveStatus(state, label) {
 }
 
 let cartSyncTimer;
-function saveCart() {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-  setSaveStatus(navigator.onLine === false ? 'offline' : 'saving');
-  clearTimeout(cartSyncTimer);
-  cartSyncTimer = setTimeout(syncCartNow, 1200);
+function saveCart(){ PortalCart.save(); }
+async function syncCartNow(){ return PortalCart.sync(); }
+function restoreCart(){
+  try { cart=OrderingRules.normalize(JSON.parse(localStorage.getItem(CART_KEY)||'{}'),allBrands); }
+  catch { setSaveStatus('error'); }
 }
-
-async function syncCartNow() {
-  if (navigator.onLine === false) { setSaveStatus('offline'); return; }
-  try {
-    const r = await fetch('/api/portal/cart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) });
-    if (!r.ok) throw new Error('bad status');
-    const now = new Date();
-    setSaveStatus('saved', String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'));
-  } catch(e) {
-    setSaveStatus(navigator.onLine === false ? 'offline' : 'error');
-  }
-}
-
-window.addEventListener('offline', () => setSaveStatus('offline'));
-window.addEventListener('online', () => { if (Object.keys(cart).length) syncCartNow(); });
-
-function restoreCart() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
-    cart = OrderingRules.normalize(saved, allBrands);
-  } catch(e) {}
-}
-
-async function syncCartFromServer() {
-  try {
-    const serverCart = await fetch('/api/portal/cart').then(r => r.json());
-    // Merge: server wins for items not in local, local wins for items already present
-    Object.entries(OrderingRules.normalize(serverCart, allBrands)).forEach(([k, v]) => { if (!cart[k]) cart[k] = v; });
-    cart = OrderingRules.normalize(cart, allBrands);
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
-    updateCartBar();
-  } catch(e) {}
-}
+async function syncCartFromServer(){ return PortalCart.initialize(); }
+window.addEventListener('offline',()=>setSaveStatus('offline'));
 
 function stockTier(p) {
   if (!p.stock_enabled) return null;
@@ -2436,7 +2409,6 @@ async function init() {
   CART_KEY = 'portal_cart_' + (me.email || 'default');
   autoSetCurrency(COUNTRY_CURRENCY[me.country] || '');
   restoreCart();
-  syncCartFromServer();
   syncFavoritesFromServer();
   syncShortlistFromServer();
   // Populate user menu (topbar dropdown — mobile) + sidebar switcher (desktop)
@@ -2455,7 +2427,6 @@ async function init() {
     // Si l'API retourne une erreur JSON ou pas un tableau → on sécurise
     allBrands = Array.isArray(brandsData) ? brandsData : [];
     cart = OrderingRules.normalize(cart, allBrands);
-    saveCart();
     if (!Array.isArray(brandsData)) {
       const _errMsg = esc(brandsData.error || t('load_err_brands'));
       document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
@@ -2465,6 +2436,7 @@ async function init() {
     document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${t('load_err_network')}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
     return;
   }
+  await syncCartFromServer();
   try { applyLang(); } catch(e) { console.error('applyLang:', e); }
   renderBrandPicker();
   // Langue non native mémorisée : charge son dictionnaire d'UI puis ré-applique.
@@ -2813,6 +2785,7 @@ async function confirmDeleteAccount() {
       body: JSON.stringify({ password })
     }).then(r => r.json());
     if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
+    portalLogout();
     window.location.href = '/editions-showroom-b2b-portail?deleted=1';
   } catch(e) { msg.className = 'msg error'; msg.textContent = t('delete_network_err'); }
 }
@@ -3708,6 +3681,8 @@ async function exportSelectionPdf() {
 }
 
 async function submitCheckout() {
+  if(PortalCart.busy)return;
+  try{if(PortalCart.hasPending()){try{await PortalCart.recover();}catch{}return;}}catch{PortalCart.render();return;}
   const msg = document.getElementById('checkout-msg');
   const client_name = document.getElementById('ck-name').value.trim();
   if (!client_name) { msg.innerHTML = `<div class="msg error">${t('err_name')}</div>`; return; }
@@ -3754,33 +3729,30 @@ async function submitCheckout() {
   }
 
   try {
-    const r = await fetch('/api/portal/checkout', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const r = await PortalCart.checkout({
         lines, client_name, buyer_po_number:document.getElementById('ck-po').value.trim(),
         client_company: document.getElementById('ck-company').value.trim(),
         client_phone: document.getElementById('ck-phone').value.trim(),
         client_country: document.getElementById('ck-country').value.trim(),
         buyer_signature, cgv_accepted: 1
-      })
-    }).then(r => r.json());
+    });
 
     if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; btnConfirm.disabled = false; btnConfirm.textContent = origBtnText; return; }
 
+    applyCheckoutResult(r);
+  } catch(e) {
+    msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
+    btnConfirm.disabled = false;
     btnConfirm.textContent = origBtnText;
-    // Un produit devenu indisponible entre l'ajout au panier et la validation
-    // (rupture de stock, désactivation, marque désactivée) peut faire échouer
-    // la commande d'UNE marque tout en réussissant pour les autres — on ne vide
-    // du panier que les marques réellement commandées, et on garde l'utilisateur
-    // sur le panier (avec un message clair) si au moins une marque a échoué,
-    // au lieu d'afficher un écran de succès pour tout et de tout vider à tort.
+  }
+}
+
+function applyCheckoutResult(r){
+  const msg=document.getElementById('checkout-msg'),btnConfirm=document.getElementById('btn-confirm-order');
+  btnConfirm.textContent=t('btn_confirm');btnConfirm.disabled=false;
     const orders = r.orders || [];
     const succeeded = orders.filter(o => !o.error);
     const failed = orders.filter(o => o.error);
-    succeeded.forEach(o => {
-      Object.keys(cart).forEach(k => { if (cart[k].brand_id === o.brand_id) delete cart[k]; });
-    });
-    saveCart();
 
     if (failed.length) {
       // #checkout-msg vit dans #view-cart : si on bascule sur #view-success,
@@ -3808,11 +3780,6 @@ async function submitCheckout() {
     document.querySelector('#view-success h2').setAttribute('tabindex','-1');
     document.querySelector('#view-success h2').focus({preventScroll:true});
     document.getElementById('success-detail').innerHTML = succeeded.map(o => `<div style="text-align:left;border:1px solid var(--border);padding:18px;margin-top:18px"><strong>${esc(o.order_number)} · ${esc(o.brand_name)}</strong><p>${o.reference_count} ${esc(t('references_label'))} · ${o.pieces} ${esc(t('pieces_label'))} · ${fmtPrice(o.total)} ${esc(t('excl_vat_label'))}</p>${o.buyer_po_number ? '<p>PO: '+esc(o.buyer_po_number)+'</p>' : ''}<p>${esc(t('payment_terms_label'))} : ${esc(o.payment_terms || t('terms_to_confirm'))}</p><p>${esc(t('delivery_terms_label'))} : ${esc(o.delivery_window || o.delivery_terms || t('terms_to_confirm'))}</p><p>${esc(t('confirmation_next'))}</p><a class="btn-secondary" href="/api/portal/orders/${encodeURIComponent(o.order_id)}/pdf" target="_blank" rel="noopener">PDF</a> <button class="btn-secondary" type="button" data-confirm-contact="${esc(o.brand_id)}">${esc(t('dash_contact_message'))}</button></div>`).join('');
-  } catch(e) {
-    msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
-    btnConfirm.disabled = false;
-    btnConfirm.textContent = origBtnText;
-  }
 }
 
 // ── Tableau de bord (accueil du portail) ──────────────────────────────
@@ -5167,7 +5134,7 @@ function portalLogout() {
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('es-') || key.startsWith('cart-') || key.startsWith('fav-') || key.startsWith('portal_') || key === CART_KEY)) {
+    if (key && (key.startsWith('es-') || key.startsWith('cart-') || key.startsWith('fav-') || key.startsWith('portal_') || key.startsWith('buyer_cart_attempt_v2:') || key === CART_KEY)) {
       keysToRemove.push(key);
     }
   }

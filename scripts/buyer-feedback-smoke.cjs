@@ -15,11 +15,11 @@ const root=path.resolve(__dirname,'..');
       let orderNumber='INITIAL-ORDER',thread=[];const payloads=[];
       const order=number=>({id:'synthetic-order',order_number:number,brand_name:'Synthetic brand',status:'confirmed',created_at:'2026-11-01T12:00:00Z',total:'120.00'});
       const attachment={url:'https://res.cloudinary.com/test-only/example.pdf',name:'Synthetic <img src=x>.pdf',type:'application/pdf'};
-      await page.route('**/*',async route=>{
+      await page.route('**/*',require('./cart-protocol-fixture.cjs')(async route=>{
         const request=route.request(),url=new URL(request.url());if(url.hostname!=='showroom.test')return route.abort();
         const send=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
         if(url.pathname==='/portal')return route.fulfill({contentType:'text/html',body:fs.readFileSync(root+'/public/portal.html','utf8')});
-        if(['/countries.js','/ordering-rules.js','/buyer-tools.js','/buyer-email-preferences.js'].includes(url.pathname))return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public'+url.pathname,'utf8')});
+        if(['/countries.js','/ordering-rules.js','/buyer-tools.js','/buyer-email-preferences.js','/buyer-cart-client.js','/buyer-cart-portal.js'].includes(url.pathname))return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public'+url.pathname,'utf8')});
         if(url.pathname==='/logo.svg')return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(root+'/public/logo.svg','utf8')});
         if(url.pathname==='/api/portal/me')return send({id:'synthetic-buyer',email:'synthetic@example.test',name:'Synthetic buyer',company:'Synthetic shop',country:'FR'});
         if(url.pathname==='/api/portal/brands')return send([]);
@@ -65,7 +65,7 @@ const root=path.resolve(__dirname,'..');
         if(url.pathname==='/api/portal/email-preferences')return send({status:'unknown'});
         if(url.pathname.startsWith('/api/'))return send([]);
         return route.fulfill({status:404,body:''});
-      });
+      }));
       await page.goto('http://showroom.test/portal');
       await page.waitForFunction(()=>window._pingInterval&&document.querySelector('#dash-pending').dataset.state==='error'&&document.querySelector('#dash-orders').dataset.state==='ready');
       assert.match(await page.locator('#dash-orders').innerText(),/INITIAL-ORDER/);

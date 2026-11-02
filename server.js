@@ -5849,6 +5849,12 @@ app.post('/api/portal/checkout-v2', requireBuyerAuth, cartCheckoutLimiter, async
   } catch (error) { return cartApiError(res,error); }
 });
 
+app.post('/api/portal/checkout-v2/:request_key/cancel', requireBuyerAuth, cartCheckoutLimiter, async(req,res)=>{
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.cancel(req.session.buyerPortal.id,req.params.request_key,req.body.brands)); }
+  catch(error){ return cartApiError(res,error); }
+});
+
 app.get('/api/portal/checkout-v2/:request_key', requireBuyerAuth, async (req,res) => {
   res.setHeader('Cache-Control','no-store, private');
   try { res.json(await buyerCart.result(req.session.buyerPortal.id,req.params.request_key)); }

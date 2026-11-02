@@ -89,3 +89,10 @@ test('unavailable storage blocks starting an attempt instead of losing its ident
   const store=storage();store.setItem=()=>{throw new Error('quota');};
   assert.throws(()=>api.saveAttempt(store,'buyer',{request_key:key,cart_id:id,revision:1,brands:['b']}),/quota/);
 });
+
+test('a persisted review stays blocked across reload even if the new base would allow a clean merge',async()=>{
+  const client=api.create({read:async()=>state(),write:async()=>{throw new Error('must_not_write');}});
+  await client.initialize({base:state(),local:cart(line()),review:true});
+  assert.equal(client.inspect().phase,'review');assert.equal(Object.values(client.inspect().cart).length,1);
+  assert.throws(()=>client.flush(),/cart_not_ready/);
+});

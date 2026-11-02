@@ -69,8 +69,8 @@
         const remote=await read();
         const merged=merge(base,local,remote);
         base=merged.recovery.remote;recovery=merged.recovery;conflicts=merged.conflicts;
-        if(!conflicts.length)local=merged.cart;
-        phase=conflicts.length?'review':'ready';emit();return inspect();
+        if(!conflicts.length&&!saved.review)local=merged.cart;
+        phase=conflicts.length||saved.review?'review':'ready';emit();return inspect();
       }catch(error){phase='error';emit();throw error;}
     }
     async function reconcile(){

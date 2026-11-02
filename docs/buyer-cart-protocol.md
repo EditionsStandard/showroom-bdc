@@ -1,5 +1,8 @@
 # Panier durable — protocole serveur
 
+État historique de la préparation du moteur/serveur. Le [raccordement au portail](buyer-cart-portal.md) est désormais préparé et testé en branche, sans déploiement.
+
+
 Lot préparé sur `feat/buyer-engagement-foundations`, sans fusion, déploiement ni
 connexion à une base réelle. Le portail utilise encore les routes historiques.
 Son raccordement au nouveau protocole constitue le prochain lot. Les relances

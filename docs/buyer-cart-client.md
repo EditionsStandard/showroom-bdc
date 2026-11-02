@@ -1,5 +1,8 @@
 # Moteur client du panier — préparé, sans raccordement au portail
 
+État historique de la préparation du moteur/serveur. Le [raccordement au portail](buyer-cart-portal.md) est désormais préparé et testé en branche, sans déploiement.
+
+
 [public/buyer-cart-client.js](../public/buyer-cart-client.js) est un module autonome
 utilisable dans le navigateur et dans les tests Node. Aucun script du portail ne
 le charge encore. Les routes historiques et les parcours acheteur restent utilisés.
