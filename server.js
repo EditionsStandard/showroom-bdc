@@ -48,6 +48,7 @@ cloudinary.config({
 });
 const { pool, init } = require('./database');
 const engagement = require('./lib/buyer-engagement');
+const commercialMetrics = require('./lib/commercial-metrics');
 
 // Persist the authenticated session before recording a successful login. A
 // telemetry failure must not lock a buyer out of an otherwise valid session.
@@ -6179,13 +6180,13 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
       // Top 10 acheteurs par montant commandé
       pool.query(`
         SELECT b.name, b.company, b.email, b.last_seen_at,
-               COUNT(o.id) as order_count,
+               COUNT(DISTINCT o.id)::int as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount
         FROM buyers b
-        ${scoped ? 'JOIN' : 'LEFT JOIN'} orders o ON o.buyer_id = b.id ${scoped ? 'AND o.brand_id = $1' : ''}
+        JOIN orders o ON o.buyer_id = b.id AND ${commercialMetrics.activeOrdersSql('o')} ${scoped ? 'AND o.brand_id = $1' : ''}
         LEFT JOIN order_lines ol ON ol.order_id = o.id
         GROUP BY b.id, b.name, b.company, b.email, b.last_seen_at
-        ORDER BY total_amount DESC LIMIT 10
+        ORDER BY total_amount DESC, b.id LIMIT 10
       `, p),
       // Acheteurs inactifs > 30 jours
       pool.query(`
@@ -6197,23 +6198,23 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
       `, p),
       // Top marques par CA (limité à sa marque pour un agent scopé)
       pool.query(`
-        SELECT br.name, COUNT(DISTINCT o.id) as order_count,
+        SELECT br.name, COUNT(DISTINCT o.id)::int as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
-               COUNT(DISTINCT o.buyer_id) as buyer_count
+               COUNT(DISTINCT o.buyer_id)::int as buyer_count
         FROM brands br
-        LEFT JOIN orders o ON o.brand_id = br.id
+        JOIN orders o ON o.brand_id = br.id AND ${commercialMetrics.activeOrdersSql('o')}
         LEFT JOIN order_lines ol ON ol.order_id = o.id
         ${scoped ? 'WHERE br.id = $1' : ''}
         GROUP BY br.id, br.name
-        ORDER BY total_amount DESC
+        ORDER BY total_amount DESC, br.id
       `, p),
       // Activité 30 derniers jours (commandes par jour)
       pool.query(`
-        SELECT DATE(o.created_at) as day, COUNT(DISTINCT o.id) as count,
+        SELECT DATE(o.created_at) as day, COUNT(DISTINCT o.id)::int as count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as amount
         FROM orders o
         LEFT JOIN order_lines ol ON ol.order_id = o.id
-        WHERE o.created_at >= NOW() - INTERVAL '30 days'
+        WHERE ${commercialMetrics.activeOrdersSql('o')} AND o.created_at >= NOW() - INTERVAL '30 days' AND o.created_at <= NOW()
         ${scoped ? 'AND o.brand_id = $1' : ''}
         GROUP BY DATE(o.created_at)
         ORDER BY day ASC
@@ -7292,22 +7293,20 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
       scoped
         ? pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE id = $1`, p)
         : pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
-      pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE ${commercialMetrics.activeOrdersSql('o')} ${oFilter}`, p),
       pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) AS revenue_total,
         COALESCE(SUM(CASE WHEN o.status = 'confirmed' THEN ol.quantity * ol.unit_price ELSE 0 END), 0) AS pending_validation_total,
         COALESCE(SUM(CASE WHEN o.status IN ('validated','in_production','shipped') THEN ol.quantity * ol.unit_price ELSE 0 END), 0) AS validated_orders_total
-        FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+        FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE ${commercialMetrics.activeOrdersSql('o')} ${oFilter}`, p),
       scoped
         ? pool.query(`SELECT COUNT(DISTINCT o.buyer_id) as buyers_count FROM orders o WHERE o.buyer_id IS NOT NULL AND o.brand_id = $1`, p)
         : pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
-      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE o.status NOT IN ('draft','cancelled') AND o.created_at >= NOW() - INTERVAL '30 days' ${oFilter}`, p),
-      // Conversion sélections → commandes (sélections confirmées / envoyées, hors templates)
+      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE ${commercialMetrics.activeOrdersSql('o')} AND o.created_at >= NOW() - INTERVAL '30 days' AND o.created_at <= NOW() ${oFilter}`, p),
+      // Acceptation des propositions enregistrées, hors brouillons/modèles. Aucun indicateur de livraison email.
       pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE used = true)::int AS confirmed
                   FROM agent_selections a
-                  WHERE (a.is_template IS NULL OR a.is_template = false) ${scoped ? 'AND a.brand_id = $1' : ''}`, p)
+                  WHERE ${commercialMetrics.proposedSelectionsSql('a')} ${scoped ? 'AND a.brand_id = $1' : ''}`, p)
     ]);
-    const selTotal = parseInt(selConvR.rows[0]?.total) || 0;
-    const selConfirmed = parseInt(selConvR.rows[0]?.confirmed) || 0;
     res.json({
       brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
       orders_count: parseInt(ordersR.rows[0].orders_count) || 0,
@@ -7316,9 +7315,8 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
       validated_orders_total: parseFloat(revenueR.rows[0].validated_orders_total) || 0,
       buyers_count: parseInt(buyersR.rows[0].buyers_count) || 0,
       orders_last30: parseInt(orders30R.rows[0].orders_last30) || 0,
-      selections_total: selTotal,
-      selections_confirmed: selConfirmed,
-      conversion_rate: selTotal ? Math.round((selConfirmed / selTotal) * 100) : 0
+      ...commercialMetrics.selectionMetrics(selConvR.rows[0]),
+      active_order_statuses: commercialMetrics.ACTIVE_ORDER_STATUSES
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -7433,56 +7431,17 @@ app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
 
 app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req, res) => {
   try {
-    const lang = req.query.lang === 'en' ? 'en-GB' : 'fr-FR';
-    const scoped = isBrandScoped(req);
-    const r = await pool.query(`
-      SELECT DATE_TRUNC('month', o.created_at) as month_date,
-             COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total
-      FROM orders o
-      LEFT JOIN order_lines ol ON ol.order_id = o.id
-      WHERE o.created_at >= NOW() - INTERVAL '6 months'
-        AND o.status NOT IN ('draft', 'cancelled')
-        ${scoped ? 'AND o.brand_id = $1' : ''}
-      GROUP BY DATE_TRUNC('month', o.created_at)
-      ORDER BY month_date ASC
-    `, scoped ? [req.userBrandId] : []);
-    // Build a map of existing data
-    const byMonth = {};
-    r.rows.forEach(row => {
-      const key = new Date(row.month_date).toISOString().slice(0, 7);
-      byMonth[key] = { total: parseFloat(row.total) || 0 };
-    });
-    // Fill in all 6 months including those with 0
-    const result = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = d.toLocaleDateString(lang, { month: 'short' });
-      result.push({ month: monthName, total: (byMonth[key] || { total: 0 }).total });
-    }
-    res.json(result);
+    const scoped=isBrandScoped(req);
+    const result=await pool.query(commercialMetrics.revenueChartSql(scoped?'brand':'all'),scoped?[req.userBrandId]:[]);
+    res.json(commercialMetrics.formatRevenueChart(result.rows,req.query.lang));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/dashboard/top-products', requireRole('owner', 'agent'), async (req, res) => {
   try {
-    const scoped = isBrandScoped(req);
-    const r = await pool.query(`
-      SELECT p.id, p.reference, p.description, p.color, b.name as brand_name,
-             SUM(ol.quantity) as qty, COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue
-      FROM order_lines ol
-      JOIN orders o ON o.id = ol.order_id
-      JOIN products p ON p.id = ol.product_id
-      JOIN brands b ON b.id = p.brand_id
-      WHERE o.created_at >= NOW() - INTERVAL '6 months'
-        AND o.status NOT IN ('draft', 'cancelled')
-        ${scoped ? 'AND o.brand_id = $1' : ''}
-      GROUP BY p.id, p.reference, p.description, p.color, b.name
-      ORDER BY qty DESC
-      LIMIT 8
-    `, scoped ? [req.userBrandId] : []);
-    res.json(r.rows.map(row => ({ ...row, qty: parseInt(row.qty, 10) || 0, revenue: parseFloat(row.revenue) || 0 })));
+    const scoped=isBrandScoped(req);
+    const result=await pool.query(commercialMetrics.topProductsSql(scoped?'brand':'all'),scoped?[req.userBrandId]:[]);
+    res.json(commercialMetrics.formatTopProducts(result.rows));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 

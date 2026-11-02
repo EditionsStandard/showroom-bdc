@@ -722,6 +722,7 @@
       <div id="online-buyers-list"><p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p></div>
     </div>
 
+    <div id="dashboard-stats-status" role="status" aria-live="polite" style="font-size:12px;margin-bottom:8px"></div>
     <div class="stats">
       <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
@@ -751,11 +752,12 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
-    <!-- Conversion sélections → commandes -->
+    <!-- Acceptation des sélections proposées -->
     <div class="card" id="conversion-card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">
       <div>
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em" data-t="stat_conversion">Conversion sélections → commandes</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em" data-t="stat_conversion">Acceptation des sélections proposées</div>
         <div style="font-size:12px;color:#888;margin-top:6px"><span id="stat-conv-sub">—</span></div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px" data-t="stat_selection_meaning">Hors brouillons et modèles. Ne mesure pas la réception des emails ni une vente définitive.</p>
       </div>
       <div style="font-size:34px;font-weight:700;color:var(--accent);line-height:1" id="stat-conversion">—</div>
     </div>
@@ -767,6 +769,7 @@
           <span id="chart-total" style="font-size:11px;color:#888"></span>
         </div>
         <canvas id="revenue-chart" height="120" style="width:100%;display:block"></canvas>
+        <div id="revenue-chart-status" role="status" aria-live="polite" style="font-size:12px;margin-top:8px"></div>
       </div>
       <div class="card" style="margin-bottom:0">
         <h3 style="margin:0 0 14px;font-size:14px" data-t="dash_ca_brand_title">CA par marque</h3>
@@ -859,7 +862,7 @@
         <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_top_buyers_title">Top Acheteurs</h3>
         <div class="table-wrap" id="top-buyers-wrap">
           <table style="min-width:300px">
-            <thead><tr><th data-t="th_name">Nom</th><th data-t="th_company">Société</th><th data-t="th_cmds">Cmds</th><th data-t="th_ca">CA</th></tr></thead>
+            <thead><tr><th data-t="th_name">Nom</th><th data-t="th_company">Société</th><th data-t="th_cmds">Cmds</th><th data-t="th_active_order_amount">Commandes actives HT</th></tr></thead>
             <tbody id="top-buyers-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
@@ -876,7 +879,7 @@
         <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_top_brands_title">Perf. Marques</h3>
         <div class="table-wrap" id="top-brands-wrap">
           <table style="min-width:280px">
-            <thead><tr><th data-t="th_brand">Marque</th><th data-t="th_cmds">Cmds</th><th data-t="th_ca">CA</th><th data-t="stat_buyers">Acheteurs</th></tr></thead>
+            <thead><tr><th data-t="th_brand">Marque</th><th data-t="th_cmds">Cmds</th><th data-t="th_active_order_amount">Commandes actives HT</th><th data-t="stat_buyers">Acheteurs</th></tr></thead>
             <tbody id="top-brands-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
@@ -2508,7 +2511,10 @@ const TRANSLATIONS = {
     // Stats
     stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'Commandes actives HT',
     stat_buyers: 'Acheteurs', stat_online: 'En ligne maintenant', btn_confirm_regen: '✓ Confirmer',
-    stat_conversion: 'Conversion sélections → commandes',
+    stat_conversion: 'Acceptation des sélections proposées',
+    dash_stats_error: 'Statistiques indisponibles.', dash_stats_loading: 'Chargement des statistiques…',
+    dash_chart_error: 'Impossible de charger les montants mensuels.', dash_chart_loading: 'Chargement des montants mensuels…', dash_data_retry: 'Réessayer',
+    stat_selection_meaning: 'Hors brouillons et modèles. Ne mesure pas la réception des emails ni une vente définitive.',
     recent_orders: 'Dernières commandes',
     // Table headers
     th_date: 'Date', th_client: 'Client', th_brand: 'Marque', th_total: 'Total',
@@ -2670,6 +2676,7 @@ const TRANSLATIONS = {
     dash_analytics_title: 'Analytiques',
     dash_top_buyers_title: 'Top Acheteurs', dash_inactive_buyers_title: 'Acheteurs inactifs', dash_top_brands_title: 'Perf. Marques',
     dash_world_map_title: 'Clients dans le monde', dash_all_brands: '🏢 Toutes les marques',
+    th_active_order_amount: 'Commandes actives HT',
     th_country: 'Pays', th_clients: 'Clients', th_ca: 'CA', th_cmds: 'Cmds',
     loading_label: 'Chargement…', loading_map_label: 'Chargement de la carte…',
     js_resend: 'Renvoyer',
@@ -2724,7 +2731,10 @@ const TRANSLATIONS = {
     // Stats
     stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Active orders (excl. VAT)',
     stat_buyers: 'Buyers', stat_online: 'Online now', btn_confirm_regen: '✓ Confirm',
-    stat_conversion: 'Selection → order conversion',
+    stat_conversion: 'Proposed selection acceptance',
+    dash_stats_error: 'Statistics unavailable.', dash_stats_loading: 'Loading statistics…',
+    dash_chart_error: 'Unable to load monthly order values.', dash_chart_loading: 'Loading monthly order values…', dash_data_retry: 'Retry',
+    stat_selection_meaning: 'Excludes drafts and templates. Does not measure email receipt or a final sale.',
     recent_orders: 'Recent orders',
     // Table headers
     th_date: 'Date', th_client: 'Client', th_brand: 'Brand', th_total: 'Total',
@@ -2886,6 +2896,7 @@ const TRANSLATIONS = {
     dash_analytics_title: 'Analytics',
     dash_top_buyers_title: 'Top Buyers', dash_inactive_buyers_title: 'Inactive buyers', dash_top_brands_title: 'Brand Performance',
     dash_world_map_title: 'Clients around the world', dash_all_brands: '🏢 All brands',
+    th_active_order_amount: 'Active orders (excl. VAT)',
     th_country: 'Country', th_clients: 'Clients', th_ca: 'Revenue', th_cmds: 'Orders',
     loading_label: 'Loading…', loading_map_label: 'Loading map…',
     js_resend: 'Resend',
@@ -3991,6 +4002,27 @@ function toast(msg, err) {
 
 // ── Recherche globale ────────────────────────────────────────────────
 let _lastChartData = [];
+let _revenueChartVersion=0;
+async function loadRevenueChart() {
+  const version=++_revenueChartVersion,canvas=document.getElementById('revenue-chart');
+  const status=document.getElementById('revenue-chart-status'),total=document.getElementById('chart-total');
+  _lastChartData=[];canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  canvas.setAttribute('aria-hidden','true');status.textContent=t('dash_chart_loading');total.textContent='—';
+  try {
+    const response=await fetch('/api/dashboard/revenue-chart?months=6&lang='+currentLang);
+    if(!response.ok)throw new Error('chart_unavailable');
+    const rows=await response.json();
+    if(!Array.isArray(rows)||rows.length!==6||rows.some(r=>!r||typeof r.month!=='string'||r.total===null||!Number.isFinite(Number(r.total))))throw new Error('chart_invalid');
+    if(version!==_revenueChartVersion)return;
+    const chart=rows.map(r=>({...r,total:Number(r.total)}));drawRevenueChart(chart);canvas.removeAttribute('aria-hidden');status.textContent='';
+    const amount=chart.reduce((sum,r)=>sum+r.total,0).toFixed(0);
+    total.textContent=currentLang==='en'?`6 months · ${amount} € active orders`:`6 mois · ${amount} € commandes actives`;
+  } catch(error) {
+    if(version!==_revenueChartVersion)return;
+    _lastChartData=[];canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);total.textContent='—';
+    status.innerHTML=`${esc(t('dash_chart_error'))} <button type="button" class="btn btn-secondary btn-sm" data-revenue-chart-retry onclick="loadRevenueChart()">${esc(t('dash_data_retry'))}</button>`;
+  }
+}
 function drawRevenueChart(monthlyData) {
   _lastChartData = monthlyData;
   const canvas = document.getElementById('revenue-chart');
@@ -4242,6 +4274,62 @@ document.addEventListener('click', e => {
   }
 });
 
+// A failed statistics request is unknown data, never an empty proposal cohort.
+let _dashboardStatsVersion=0;
+async function loadDashboardStats() {
+  const version=++_dashboardStatsVersion;
+  const status=document.getElementById('dashboard-stats-status');
+  const statEls=['stat-brands','stat-orders','stat-total','stat-buyers'].map(id=>document.getElementById(id));
+  statEls.forEach(el=>{el.textContent='—';el.classList.add('skeleton');el.setAttribute('aria-busy','true');});
+  document.getElementById('stat-orders-breakdown').textContent='—';
+  document.getElementById('stat-orders-meaning').textContent=currentLang==='en'
+    ? 'Order value, not invoiced or collected revenue.'
+    : 'Montant des commandes enregistrées, pas le chiffre d’affaires facturé ou encaissé.';
+  document.getElementById('stat-conversion').textContent='—';
+  document.getElementById('stat-conv-sub').textContent=t('dash_stats_loading');
+  status.dataset.state='loading';status.textContent=t('dash_stats_loading');
+  try {
+    const response=await fetch('/api/stats');
+    if(!response.ok)throw new Error('statistics_unavailable');
+    const payload=await response.json();
+    if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('statistics_invalid');
+    const number=(value,count=false)=>{
+      if(!['number','string'].includes(typeof value)||String(value).trim()==='')throw new Error('statistics_invalid');
+      const parsed=Number(value);
+      if(!Number.isFinite(parsed)||(count&&(!Number.isInteger(parsed)||parsed<0)))throw new Error('statistics_invalid');
+      return parsed;
+    };
+    const stats={};
+    for(const key of ['brands_count','orders_count','buyers_count'])stats[key]=number(payload[key],true);
+    for(const key of ['revenue_total','pending_validation_total','validated_orders_total'])stats[key]=number(payload[key]);
+    const proposed=number(payload.selections_proposed??payload.selections_total,true);
+    const accepted=number(payload.selections_accepted??payload.selections_confirmed,true);
+    const rate=number(payload.selection_acceptance_rate??payload.conversion_rate);
+    if(accepted>proposed||rate<0||rate>100)throw new Error('statistics_invalid');
+    if(version!==_dashboardStatsVersion)return;
+    document.getElementById('stat-brands').textContent=stats.brands_count;
+    document.getElementById('stat-orders').textContent=stats.orders_count;
+    document.getElementById('stat-total').textContent=stats.revenue_total.toFixed(2)+' €';
+    document.getElementById('stat-buyers').textContent=stats.buyers_count;
+    const euros=value=>value.toFixed(2)+' €';
+    document.getElementById('stat-orders-breakdown').textContent=currentLang==='en'
+      ? 'Orders pending validation: '+euros(stats.pending_validation_total)+' · Validated / shipped orders: '+euros(stats.validated_orders_total)
+      : 'Commandes à valider HT : '+euros(stats.pending_validation_total)+' · Commandes validées / expédiées HT : '+euros(stats.validated_orders_total);
+    document.getElementById('stat-conversion').textContent=proposed?rate+'%':'—';
+    document.getElementById('stat-conv-sub').textContent=proposed
+      ? `${accepted}/${proposed} `+(currentLang==='en'?'recorded proposals accepted by buyers':'propositions enregistrées acceptées par les acheteurs')
+      : (currentLang==='en'?'No recorded proposal':'Aucune proposition enregistrée');
+    status.dataset.state='ready';status.textContent='';
+  } catch(error) {
+    if(version!==_dashboardStatsVersion)return;
+    document.getElementById('stat-conv-sub').textContent=t('dash_stats_error');
+    status.dataset.state='error';
+    status.innerHTML=`${esc(t('dash_stats_error'))} <button type="button" class="btn btn-secondary btn-sm" data-dashboard-stats-retry onclick="loadDashboardStats()">${esc(t('dash_data_retry'))}</button>`;
+  } finally {
+    if(version===_dashboardStatsVersion)statEls.forEach(el=>{el.classList.remove('skeleton');el.setAttribute('aria-busy','false');});
+  }
+}
+
 // Dashboard
 async function loadDashboard() {
   if (currentUserRole === 'designer') return loadDesignerDashboard();
@@ -4250,51 +4338,16 @@ async function loadDashboard() {
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
 
-  // Skeleton pendant le chargement
-  const statEls = ['stat-brands','stat-orders','stat-total','stat-buyers','stat-online-num'];
-  statEls.forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = '███'; el.classList.add('skeleton'); } });
-
-  // Charger les stats légères + marques + présence en parallèle
-  const [stats, brands, recentOrders, onlineIds] = await Promise.all([
-    fetch('/api/stats').then(r => r.json()).catch(() => ({})),
+  // Les statistiques ont leur propre état et leur propre bouton de nouvel essai.
+  loadDashboardStats();
+  const onlineStat=document.getElementById('stat-online-num');
+  onlineStat.textContent='███';onlineStat.classList.add('skeleton');
+  const [brands,recentOrders,onlineIds]=await Promise.all([
     arr(fetch('/api/brands')),
     arrOrders(fetch('/api/orders?limit=10&sort=date_desc')),
     arr(fetch('/api/buyers/presence'))
   ]);
-
-  // Retirer le skeleton
-  statEls.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('skeleton'); });
-
-  // Stats cards via /api/stats
-  document.getElementById('stat-brands').textContent = stats.brands_count ?? brands.length;
-  document.getElementById('stat-orders').textContent = stats.orders_count ?? '—';
-  document.getElementById('stat-total').textContent =
-    stats.revenue_total != null ? Number(stats.revenue_total).toFixed(2) + ' €' : '—';
-  const breakdown = document.getElementById('stat-orders-breakdown');
-  if (breakdown) {
-    const euros = n => n == null ? '—' : Number(n).toFixed(2) + ' €';
-    breakdown.textContent = currentLang === 'en'
-      ? 'Orders pending validation: ' + euros(stats.pending_validation_total) + ' · Validated / shipped orders: ' + euros(stats.validated_orders_total)
-      : 'Commandes à valider HT : ' + euros(stats.pending_validation_total) + ' · Commandes validées / expédiées HT : ' + euros(stats.validated_orders_total);
-    document.getElementById('stat-orders-meaning').textContent = currentLang === 'en'
-      ? 'Order value, not invoiced or collected revenue.'
-      : 'Montant des commandes enregistrées, pas le chiffre d’affaires facturé ou encaissé.';
-  }
-  document.getElementById('stat-buyers').textContent = stats.buyers_count ?? '—';
-  document.getElementById('stat-online-num').textContent = onlineIds.length;
-
-  // Taux de conversion sélections → commandes
-  const convEl = document.getElementById('stat-conversion');
-  if (convEl) {
-    if (stats.selections_total) {
-      convEl.textContent = (stats.conversion_rate ?? 0) + '%';
-      document.getElementById('stat-conv-sub').textContent =
-        `${stats.selections_confirmed}/${stats.selections_total} ` + (currentLang === 'en' ? 'selections confirmed' : 'sélections confirmées');
-    } else {
-      convEl.textContent = '—';
-      document.getElementById('stat-conv-sub').textContent = (currentLang === 'en' ? 'No selection sent yet' : 'Aucune sélection envoyée');
-    }
-  }
+  onlineStat.classList.remove('skeleton');onlineStat.textContent=onlineIds.length;
 
   // Peupler le sélecteur de marque de la carte Partage
   const shareSel = document.getElementById('share-brand-select');
@@ -4304,31 +4357,8 @@ async function loadDashboard() {
     updateShareLinks();
   }
 
-  // Graphique CA mensuel (6 derniers mois) — via endpoint serveur
-  fetch('/api/dashboard/revenue-chart?months=6&lang=' + currentLang).then(r => r.json()).then(chartData => {
-    if (Array.isArray(chartData)) {
-      drawRevenueChart(chartData);
-      const totalChart = chartData.reduce((s, d) => s + (d.total || 0), 0);
-      document.getElementById('chart-total').textContent = (currentLang === 'en' ? `6 months · ${totalChart.toFixed(0)} € revenue` : `6 mois · ${totalChart.toFixed(0)} € CA`);
-    }
-  }).catch(() => {
-    // Fallback client-side avec les commandes récentes
-    const months = {};
-    const now2 = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d2 = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
-      const key = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`;
-      months[key] = 0;
-    }
-    recentOrders.forEach(o => {
-      const key = o.created_at ? o.created_at.slice(0,7) : null;
-      if (key && months[key] !== undefined) months[key] += parseFloat(o.total)||0;
-    });
-    const fallbackData = Object.entries(months).map(([k, v]) => ({ month: k.slice(5), total: v }));
-    drawRevenueChart(fallbackData);
-    const fallbackTotal = fallbackData.reduce((s,d)=>s+d.total,0).toFixed(0);
-    document.getElementById('chart-total').textContent = (currentLang === 'en' ? `6 months · ${fallbackTotal} € revenue` : `6 mois · ${fallbackTotal} € CA`);
-  });
+  // Montants mensuels : une panne ne doit pas produire une estimation sur dix commandes.
+  loadRevenueChart();
 
   // Tableau des dernières commandes
   const tbody = document.getElementById('recent-orders-body');
@@ -4425,8 +4455,12 @@ async function loadTopProducts() {
   const box = document.getElementById('top-products-list');
   if (!box) return;
   try {
-    const rows = await fetch('/api/dashboard/top-products').then(r => r.json());
-    if (!Array.isArray(rows) || !rows.length) {
+    const response=await fetch('/api/dashboard/top-products');
+    if(!response.ok)throw new Error('products_unavailable');
+    const payload=await response.json();
+    if(!Array.isArray(payload)||payload.some(r=>!r||r.qty===null||r.revenue===null||!Number.isFinite(Number(r.qty))||!Number.isFinite(Number(r.revenue))))throw new Error('products_invalid');
+    const rows=payload.map(r=>({...r,qty:Number(r.qty),revenue:Number(r.revenue)}));
+    if (!rows.length) {
       box.innerHTML = `<p style="font-size:13px;color:#666">${t('js_no_orders_6mo')}</p>`;
       return;
     }
@@ -4441,7 +4475,7 @@ async function loadTopProducts() {
         </div>
         <div class="dash-row-value" style="font-size:11px;color:#7a7a7a;min-width:120px;text-align:right">${t('js_qty_unit_label')(r.qty)} · ${r.revenue.toFixed(0)} €</div>
       </div>`).join('');
-  } catch(e) { box.innerHTML = `<p style="font-size:12px;color:#e07a7a">${t('js_load_error')}</p>`; }
+  } catch(e) { box.innerHTML = `<p role="status" style="font-size:12px;color:#e07a7a">${esc(t('js_load_error'))} <button type="button" class="btn btn-secondary btn-sm" data-top-products-retry onclick="loadTopProducts()">${esc(t('dash_data_retry'))}</button></p>`; }
 }
 
 // ── Priorités du jour — agrège ce qui attend une action ───────────────
