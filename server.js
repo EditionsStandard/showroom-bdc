@@ -49,6 +49,7 @@ cloudinary.config({
 const { pool, init } = require('./database');
 const engagement = require('./lib/buyer-engagement');
 const commercialMetrics = require('./lib/commercial-metrics');
+const buyerCart = require('./lib/buyer-cart').createBuyerCartService(pool);
 
 // Persist the authenticated session before recording a successful login. A
 // telemetry failure must not lock a buyer out of an otherwise valid session.
@@ -1002,6 +1003,14 @@ const cartLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+const cartCheckoutLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: authedUserRateLimitKey,
+  message: {error:'Trop de tentatives de commande. Réessayez dans une minute.'},
+  standardHeaders: true, legacyHeaders: false
 });
 
 // Emails sortants déclenchés par du staff (invitation prospect, renvoi d'accès/
@@ -4400,7 +4409,13 @@ app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, 
 
 const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
 const MAX_LINE_PRICE = 100000; // garde-fou contre les prix absurdes (édition P.U. d'une ligne de commande)
-async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id, buyer_po_number = '', selection_token, buyer_comment = '' }) {
+async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id, buyer_po_number = '', selection_token, buyer_comment = '', cart_context = null }) {
+  // A durable receipt must be read before catalogue, stock or commercial checks:
+  // those may have changed since a committed order whose response was lost.
+  if (cart_context) {
+    const replay = await cart_context.replay();
+    if (replay) return replay;
+  }
   if (typeof buyer_po_number !== 'string' || buyer_po_number.length > 120 || /[\r\n]/.test(buyer_po_number)) return { error:'Buyer PO number: maximum 120 characters' };
   // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées).
   // Filtre d'abord les lignes non-objet (null, tableau, primitive) — sinon le spread/accès
@@ -4481,8 +4496,17 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   const pdfToken = crypto.randomBytes(24).toString('base64url');
   const dedupKey = `order-dedup:${brand_id}:${buyer_id || (client_email || '').toLowerCase().trim()}`;
   const dbClient = await pool.connect();
+  let committedCartResult;
   try {
     await dbClient.query('BEGIN');
+    if (cart_context) {
+      const replay = await cart_context.beforeCreate(dbClient);
+      if (replay) { await dbClient.query('COMMIT'); return replay; }
+    } else if (buyer_id) {
+      // Legacy orders provide no cart revision. Preserve their workflow, but
+      // never treat their remaining cart as a proven, unconverted episode.
+      await buyerCart.invalidateLegacyOrder(dbClient, buyer_id, brand_id);
+    }
     // Anti-double-soumission : un double-clic sur "Commander" ou une requête
     // rejouée après un timeout apparent côté client (ni /api/public/orders ni
     // /api/portal/checkout ne portent de clé d'idempotence) ne doit pas créer
@@ -4496,7 +4520,9 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     // sur coup par le même acheteur.
     await dbClient.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [dedupKey]);
     const linesSignature = resolvedLines.map(l => JSON.stringify([l.product_id, l.quantity, l.size || '', l.variant_color || ''])).sort().join('|');
-    const dupCandidates = await dbClient.query(
+    // Explicit v2 cycles can intentionally order identical lines again. Only
+    // the old paths use the twenty-second content heuristic.
+    const dupCandidates = cart_context ? { rows: [] } : await dbClient.query(
       `SELECT id, pdf_token, order_number FROM orders
        WHERE brand_id=$1 AND created_at > NOW() - INTERVAL '20 seconds'
          AND (($2::text IS NOT NULL AND buyer_id=$2) OR ($2::text IS NULL AND buyer_id IS NULL AND lower(client_email)=$3))
@@ -4542,9 +4568,11 @@ async function createOrder({ brand_id, client_name, client_email, client_company
       );
     }
     if (buyer_id) await dbClient.query('UPDATE buyers SET last_meaningful_activity_at=NOW() WHERE id=$1',[buyer_id]);
+    if (cart_context) committedCartResult = await cart_context.complete(dbClient, orderId, await getOrderConfirmation(orderId, dbClient));
     await dbClient.query('COMMIT');
   } catch(e) {
     await dbClient.query('ROLLBACK');
+    if (e.cartError) return e.result;
     if (e && e.message === 'stock_insuffisant') {
       return { error: `Stock insuffisant pour la référence ${e.stockRef}. Rafraîchissez votre sélection.` };
     }
@@ -4571,11 +4599,11 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`, brand_id).catch(e => console.error('[push-order-error]', e.message));
   notifyOwnerOrder(orderId, 'Nouvelle commande').catch(() => {}); // copie email au propriétaire
 
-  return getOrderConfirmation(orderId);
+  return committedCartResult || getOrderConfirmation(orderId);
 }
 
-async function getOrderConfirmation(orderId) {
-  const row=(await pool.query(`SELECT o.id AS order_id,o.order_number,o.pdf_token,o.buyer_po_number,o.delivery_window,o.commercial_snapshot,
+async function getOrderConfirmation(orderId, db = pool) {
+  const row=(await db.query(`SELECT o.id AS order_id,o.order_number,o.pdf_token,o.buyer_po_number,o.delivery_window,o.commercial_snapshot,
     b.name AS brand_name,b.payment_terms,b.delivery_terms,COUNT(DISTINCT p.reference)::int AS reference_count,
     COALESCE(SUM(l.quantity),0)::int AS pieces,COALESCE(SUM(l.quantity*l.unit_price),0) AS total
     FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines l ON l.order_id=o.id
@@ -5280,6 +5308,7 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
       notifications: notifications.rows,
       followed_brands: follows.rows,
       engagement: await engagement.exportEngagement(pool,buyerId),
+      cart_protocol: await buyerCart.exportData(buyerId),
       company_memberships:(await pool.query('SELECT cu.company_id,cu.role,c.name,c.billing FROM company_users cu JOIN companies c ON c.id=cu.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
       company_locations:(await pool.query('SELECT cl.* FROM company_locations cl JOIN company_users cu ON cu.company_id=cl.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
       buying_shortlists:(await pool.query('SELECT * FROM buying_shortlists WHERE owner_id=$1',[buyerId])).rows
@@ -5752,6 +5781,80 @@ async function checkMoq(brand_id, lines) {
   return null;
 }
 
+function cartApiError(res, error) {
+  if (error.cartError) return res.status(error.status || 409).json(error.result);
+  console.error('[buyer-cart]', error.code || error.name);
+  return res.status(503).json({error:'Panier temporairement indisponible / Cart temporarily unavailable',code:'cart_unavailable'});
+}
+
+// New protocol is opt-in. The existing portal keeps its current endpoints until
+// its reconciliation and uncertain-checkout UI have been reviewed separately.
+app.post('/api/portal/checkout-v2', requireBuyerAuth, cartCheckoutLimiter, async (req, res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  const buyer=req.session.buyerPortal, body=req.body;
+  try {
+    const effectiveContext={client_email:buyer.email,client_company:body?.client_company||buyer.company||'',client_phone:body?.client_phone||buyer.phone||''};
+    const reservation=await buyerCart.reserveCheckout(buyer.id,body,effectiveContext);
+    const pending=[];
+    for (const brandId of reservation.brands) {
+      if (!(await reservation.context(brandId).replay())) pending.push(brandId);
+    }
+    if (!pending.length) return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+
+    const countryCode=require('./lib/territories').getCountryCode(body.client_country);
+    const inputError=!countryCode ? {error:'Choisissez un pays dans la liste / Choose a country from the list',code:'invalid_country'}
+      : typeof body.client_name!=='string'||!body.client_name.trim()||body.client_name.length>200 ? {error:'Nom requis / Name required',code:'invalid_name'}
+      : typeof body.buyer_signature!=='string'||!body.buyer_signature||body.buyer_signature.length>1500000 ? {error:'Signature requise / Signature required',code:'invalid_signature'}
+      : ![true,1].includes(body.cgv_accepted) ? {error:'Acceptation des CGV requise / Terms acceptance required',code:'invalid_terms'} : null;
+    if (inputError) {
+      for (const brandId of pending) await buyerCart.recordResult(reservation,brandId,inputError);
+      return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+    }
+
+    // Preserve the preflight rule of the original checkout: an early-access or
+    // brand MOQ refusal stops every still-pending brand before order creation.
+    const brands=(await pool.query('SELECT id,name,early_access_until FROM brands WHERE id=ANY($1)',[reservation.brands])).rows;
+    const nameOf=id=>brands.find(b=>b.id===id)?.name||id;
+    const preflight=new Map();
+    for (const brandId of pending) {
+      const brand=brands.find(b=>b.id===brandId);
+      if (brand?.early_access_until&&new Date(brand.early_access_until)>new Date()) {
+        const privileged=await pool.query('SELECT is_privileged FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2',[buyer.id,brandId]);
+        if (!privileged.rows[0]?.is_privileged) preflight.set(brandId,{error:`${nameOf(brandId)} : collection encore en accès anticipé.`,code:'early_access'});
+      }
+      const moq=await checkMoq(brandId,body.lines.filter(line=>line.brand_id===brandId));
+      if (moq&&!preflight.has(brandId)) preflight.set(brandId,{error:`${nameOf(brandId)} : ${moq}`,code:'moq'});
+    }
+    if (preflight.size) {
+      for (const brandId of pending) await buyerCart.recordResult(reservation,brandId,{brand_name:nameOf(brandId),...(preflight.get(brandId)||{error:'Commande non engagée : une marque ne satisfait pas les conditions de validation.',code:'preflight_aborted'})});
+      return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+    }
+
+    for (const brandId of pending) {
+      const context=reservation.context(brandId);
+      let result;
+      try {
+        result=await createOrder({brand_id:brandId,client_name:body.client_name,...effectiveContext,
+          client_country:countryCode,notes:body.notes,lines:body.lines.filter(line=>line.brand_id===brandId),
+          buyer_signature:body.buyer_signature,cgv_accepted:body.cgv_accepted,buyer_id:buyer.id,
+          buyer_po_number:body.buyer_po_number,cart_context:context});
+      } catch (error) {
+        // A post-commit notification failure must not overwrite an atomic receipt.
+        result=await context.replay();
+        if (!result) throw error;
+      }
+      if (result.error) await buyerCart.recordResult(reservation,brandId,{brand_name:nameOf(brandId),...result});
+    }
+    return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+  } catch (error) { return cartApiError(res,error); }
+});
+
+app.get('/api/portal/checkout-v2/:request_key', requireBuyerAuth, async (req,res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.result(req.session.buyerPortal.id,req.params.request_key)); }
+  catch (error) { return cartApiError(res,error); }
+});
+
 app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes, buyer_po_number } = req.body;
@@ -6072,6 +6175,18 @@ app.get('/share/:token', async (req, res) => {
   res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sélection — ${showroomName}</title><style>body{font-family:'Helvetica Neue',sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#111}.header{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}.tag{display:inline-block;background:rgba(224,176,58,.1);border:1px solid #d4a017;color:#8a6500;font-size:11px;padding:3px 10px;border-radius:12px;margin-bottom:16px}.total{background:#111;color:#fff;padding:14px 18px;margin-top:24px;font-weight:700;display:flex;justify-content:space-between;font-size:15px}</style></head><body><div class="header"><h1 style="font-size:22px;margin:0 0 4px">${showroomName}</h1><p style="color:#888;font-size:12px;margin:0">Sélection partagée — lecture seule</p></div><span class="tag">NON CONTRACTUEL</span>${rows}<div class="total"><span>TOTAL HT</span><span>${grandTotal.toFixed(2)} €</span></div><p style="color:#aaa;font-size:11px;margin-top:24px;text-align:center">Ce document est non contractuel. La commande doit être validée sur le portail.</p></body></html>`);
 });
 
+app.get('/api/portal/cart-state', requireBuyerAuth, async (req,res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.snapshot(req.session.buyerPortal.id)); }
+  catch (error) { return cartApiError(res,error); }
+});
+
+app.put('/api/portal/cart-state', requireBuyerAuth, cartLimiter, async (req,res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.save(req.session.buyerPortal.id,req.body)); }
+  catch (error) { return cartApiError(res,error); }
+});
+
 app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
   const r = await pool.query('SELECT cart_json FROM buyer_carts WHERE buyer_id=$1', [req.session.buyerPortal.id]);
   res.json(r.rows[0] ? JSON.parse(r.rows[0].cart_json || '{}') : {});
@@ -6080,16 +6195,10 @@ app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
 app.post('/api/portal/cart', requireBuyerAuth, cartLimiter, async (req, res) => {
   const cartJson = JSON.stringify(req.body.cart || {});
   if (cartJson.length > 100_000) return res.status(400).json({ error: 'Panier trop volumineux' });
-  await pool.query(
-    `WITH changed AS (
-       INSERT INTO buyer_carts (buyer_id,cart_json,updated_at) VALUES ($1,$2,NOW())
-       ON CONFLICT (buyer_id) DO UPDATE SET cart_json=$2,updated_at=NOW()
-         WHERE buyer_carts.cart_json::jsonb IS DISTINCT FROM $2::jsonb
-       RETURNING buyer_id
-     ) UPDATE buyers SET last_meaningful_activity_at=NOW() WHERE id IN (SELECT buyer_id FROM changed) AND $2::jsonb NOT IN ('{}'::jsonb,'null'::jsonb)`,
-    [req.session.buyerPortal.id, cartJson]
-  );
-  res.json({ ok: true });
+  try {
+    await buyerCart.saveLegacy(req.session.buyerPortal.id,req.body.cart || {});
+    res.json({ ok: true });
+  } catch (error) { return cartApiError(res,error); }
 });
 
 app.post('/api/portal/stats/view/:productId', requireBuyerAuth, async (req, res) => {

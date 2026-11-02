@@ -1,5 +1,10 @@
 # Précondition du rappel panier 48 h — revue en lecture seule
 
+Ce document conserve le constat au commit `142daef`. Un lot ultérieur ajoute un
+[protocole serveur versionné et des reçus transactionnels](buyer-cart-protocol.md).
+Le portail utilise encore le parcours historique ; le raccordement client et sa
+validation restent nécessaires avant de lever le blocage des relances panier.
+
 Le rappel panier doit rester bloqué. L’âge du snapshot ne prouve pas qu’il reste à commander : le retrait des marques commandées dépend encore du navigateur.
 
 ## Preuves dans le code au commit 142daef
