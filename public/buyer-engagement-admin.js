@@ -7,7 +7,7 @@ window.BuyerEngagement = (() => {
   const labels={welcome:['Activation / première connexion','Activation / first login'],inactive:['Inactivité','Inactivity'],cart:['Panier incomplet','Incomplete cart'],brand_interest:['Intérêt marque','Brand interest']};
   const reasons={
     cart_conversion_not_reliable:['Évaluation par marque dans le volet Paniers inactifs','Brand-level evaluation in the Inactive carts panel'],
-    brand_events_not_collected:['Bloqué : événements marque non collectés','Blocked: brand events not collected'],
+    brand_events_not_collected:['Évaluation dans le volet Intérêt marque','Evaluation in the Brand interest panel'],
     rule_disabled:['Désactivée','Disabled'],marketing_permission_missing:['Accord marketing absent ou retiré','Marketing permission missing or withdrawn'],
     history_unknown:['Historique inconnu','Unknown history'],approval_unknown:['Approbation non documentée','Undocumented approval'],
     already_logged_in:['Déjà connecté','Already logged in'],delay_not_reached:['Délai non atteint','Delay not reached'],activation_pending:['Activation à terminer','Activation pending'],
@@ -43,7 +43,7 @@ window.BuyerEngagement = (() => {
   const request=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   function syncControls() {
     const busy=loading||mutationBusy;
-    document.querySelectorAll('#buyer-engagement button,#buyer-engagement input,#buyer-engagement select,#buyer-engagement textarea').forEach(el=>{if(!el.closest('#engagement-preparation-panel,#engagement-cart-panel'))el.disabled=busy;});
+    document.querySelectorAll('#buyer-engagement button,#buyer-engagement input,#buyer-engagement select,#buyer-engagement textarea').forEach(el=>{if(!el.closest('#engagement-preparation-panel,#engagement-cart-panel,#engagement-brand-panel'))el.disabled=busy;});
     $('prev').disabled=busy||!state||offset===0;
     $('next').disabled=busy||!state||offset+state.limit>=state.total;
     $('template-choice').disabled=busy||!state;
@@ -81,7 +81,7 @@ window.BuyerEngagement = (() => {
       'Simulation only. Recorded calculations keep candidates and a journal; no email or CRM opportunity is created. Dates cover logins, cart changes and orders, without proving every visit. Incomplete historic accounts are excluded. Delivery and conversion metrics are not available yet.');
     $('refresh').textContent=text('Actualiser les données','Refresh data');
     $('status').textContent=text('Aperçu calculé le ','Preview calculated at ')+date(state.now);
-    $('rules').innerHTML=state.rules.map(r=>`<form class="card" data-rule="${esc(r.id)}"><h3>${esc(label(r.id))}</h3><p>${esc(['cart','brand_interest'].includes(r.id)?reason(r.id==='cart'?'cart_conversion_not_reliable':'brand_events_not_collected'):text('Candidats indicatifs, à contrôler avant toute relance.','Indicative candidates; review before any follow-up.'))}</p><div class="form-row"><div class="form-group"><label for="engagement-mode-${r.id}">${text('Mode','Mode')}</label><select id="engagement-mode-${r.id}" name="mode"><option value="disabled" ${r.mode==='disabled'?'selected':''}>${text('Désactivée','Disabled')}</option><option value="simulation" ${r.mode==='simulation'?'selected':''}>Simulation</option></select></div><div class="form-group"><label for="engagement-delay-${r.id}">${text('Délai en heures','Delay in hours')}</label><input id="engagement-delay-${r.id}" name="delay" type="number" min="${r.id==='cart'?48:1}" max="8760" step="1" value="${r.delay_hours}" required></div></div><button class="btn btn-secondary">${text('Enregistrer','Save')}</button> <small>v${r.version}</small></form>`).join('');
+    $('rules').innerHTML=state.rules.map(r=>`<form class="card" data-rule="${esc(r.id)}"><h3>${esc(label(r.id))}</h3><p>${esc(['cart','brand_interest'].includes(r.id)?reason(r.id==='cart'?'cart_conversion_not_reliable':'brand_events_not_collected'):text('Candidats indicatifs, à contrôler avant toute relance.','Indicative candidates; review before any follow-up.'))}</p><div class="form-row"><div class="form-group"><label for="engagement-mode-${r.id}">${text('Mode','Mode')}</label><select id="engagement-mode-${r.id}" name="mode"><option value="disabled" ${r.mode==='disabled'?'selected':''}>${text('Désactivée','Disabled')}</option><option value="simulation" ${r.mode==='simulation'?'selected':''}>Simulation</option></select></div><div class="form-group"><label for="engagement-delay-${r.id}">${r.id==='brand_interest'?text('Fenêtre en heures (jours entiers)','Window in hours (whole days)'):text('Délai en heures','Delay in hours')}</label><input id="engagement-delay-${r.id}" name="delay" type="number" min="${r.id==='cart'?48:r.id==='brand_interest'?72:1}" max="${r.id==='brand_interest'?720:8760}" step="${r.id==='brand_interest'?24:1}" value="${r.delay_hours}" required></div>${r.id==='brand_interest'?`<div class="form-group"><label for="engagement-min-days">${text('Jours UTC distincts minimum','Minimum distinct UTC days')}</label><input id="engagement-min-days" name="min_days" type="number" min="2" max="30" step="1" value="${r.min_distinct_days}" required></div>`:''}</div><button class="btn btn-secondary">${text('Enregistrer','Save')}</button> <small>v${r.version}</small></form>`).join('');
     $('buyers-title').textContent=text('Acheteurs — aperçu','Buyers — preview');
     $('count').textContent=`${state.total?offset+1:0}–${Math.min(offset+state.limit,state.total)} / ${state.total} · `+text('Cet aperçu ne crée aucun candidat et concerne cette page.','This preview creates no candidates and applies to this page.');
     $('head').innerHTML='<tr>'+[text('Acheteur','Buyer'),text('Historique / accord','History / permission'),text('Connexion / dernière action','Login / last action'),label('welcome'),label('inactive')].map(t=>'<th>'+esc(t)+'</th>').join('')+'</tr>';
@@ -130,7 +130,7 @@ window.BuyerEngagement = (() => {
     if(results[0].status==='fulfilled')renderPreview(results[0].value,choice);else $('status').textContent=results[0].reason.message;
     if(results[1].status==='fulfilled')renderLedger(results[1].value);else $('ledger-status').textContent=results[1].reason.message;
     loading=false;syncControls();
-    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load()]);
+    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load()]);
   }
   async function refreshLedger() {
     if(loading||mutationBusy)return;
@@ -175,7 +175,7 @@ window.BuyerEngagement = (() => {
   $('run-next').onclick=()=>{runOffset+=(ledgerState?.runs.limit||10);refreshLedger();};
   $('rules').addEventListener('submit',event=>{
     event.preventDefault();const form=event.target,rule=state.rules.find(r=>r.id===form.dataset.rule);
-    mutate(()=>api('/rules/'+rule.id,request('PUT',{mode:form.elements.mode.value,delay_hours:Number(form.elements.delay.value),version:rule.version})).then(()=>null));
+    mutate(()=>api('/rules/'+rule.id,request('PUT',{mode:form.elements.mode.value,delay_hours:Number(form.elements.delay.value),version:rule.version,...(rule.id==='brand_interest'?{min_distinct_days:Number(form.elements.min_days.value)}:{})})).then(()=>null));
   });
   $('template-choice').onchange=selectTemplate;$('subject').oninput=preview;$('body').oninput=preview;
   $('template-form').onsubmit=event=>{
