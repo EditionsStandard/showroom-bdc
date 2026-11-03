@@ -39,7 +39,7 @@ async function waitForServer(baseUrl, timeoutMs = 20000) {
   throw new Error('Le serveur de test n\'a pas démarré à temps: ' + baseUrl);
 }
 
-async function startServer({ dbNameSuffix, port }) {
+async function startServer({ dbNameSuffix, port, retentionOnly = false }) {
   if (!['localhost','127.0.0.1','[::1]'].includes(new URL(PG_ADMIN_URL).hostname)) throw new Error('Tests require a local PostgreSQL server');
   if (!/^[a-z0-9_]+$/.test(dbNameSuffix)) throw new Error('Invalid test database suffix');
   const dbName = 'showroom_test_' + dbNameSuffix;
@@ -50,7 +50,8 @@ async function startServer({ dbNameSuffix, port }) {
     env: {
       PATH: process.env.PATH,
       NODE_ENV: 'test',
-      BACKGROUND_JOBS_ENABLED: 'false',
+      BACKGROUND_JOBS_ENABLED: retentionOnly ? 'true' : 'false',
+      LEGACY_BACKGROUND_JOBS_ENABLED: 'false',
       DATABASE_URL: databaseUrl,
       PORT: String(port),
       SESSION_SECRET: 'test-secret-not-for-production',

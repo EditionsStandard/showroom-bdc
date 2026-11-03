@@ -1347,6 +1347,12 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
       <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
     </div>
+    <div id="engagement-retention-panel" class="card">
+      <h3 id="engagement-retention-title">Conservation des données — surveillance</h3><p id="engagement-retention-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-retention-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-retention-run">Exécuter un lot</button></div>
+      <p id="engagement-retention-status" role="status" aria-live="polite"></p><p id="engagement-retention-health"></p><p id="engagement-retention-policy"></p>
+      <h4 id="engagement-retention-runs-title">Dix derniers passages</h4><ul id="engagement-retention-runs" style="overflow-wrap:anywhere"></ul>
+    </div>
     <div id="engagement-brand-panel" class="card">
       <h3 id="engagement-brand-title">Intérêt marque — simulation</h3><p id="engagement-brand-note"></p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-brand-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-brand-generate">Enregistrer les signaux</button><button type="button" class="btn btn-secondary" id="engagement-brand-recheck">Recontrôler</button></div>
@@ -8988,10 +8994,11 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261103-brand-interest"></script>
+<script src="/buyer-engagement-admin.js?v=20261103-retention"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 <script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
+<script src="/buyer-engagement-retention.js?v=20261103-1"></script>
 </body>
 </html>

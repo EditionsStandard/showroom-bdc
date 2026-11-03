@@ -43,7 +43,7 @@ window.BuyerEngagement = (() => {
   const request=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   function syncControls() {
     const busy=loading||mutationBusy;
-    document.querySelectorAll('#buyer-engagement button,#buyer-engagement input,#buyer-engagement select,#buyer-engagement textarea').forEach(el=>{if(!el.closest('#engagement-preparation-panel,#engagement-cart-panel,#engagement-brand-panel'))el.disabled=busy;});
+    document.querySelectorAll('#buyer-engagement button,#buyer-engagement input,#buyer-engagement select,#buyer-engagement textarea').forEach(el=>{if(!el.closest('#engagement-preparation-panel,#engagement-cart-panel,#engagement-brand-panel,#engagement-retention-panel'))el.disabled=busy;});
     $('prev').disabled=busy||!state||offset===0;
     $('next').disabled=busy||!state||offset+state.limit>=state.total;
     $('template-choice').disabled=busy||!state;
@@ -130,7 +130,7 @@ window.BuyerEngagement = (() => {
     if(results[0].status==='fulfilled')renderPreview(results[0].value,choice);else $('status').textContent=results[0].reason.message;
     if(results[1].status==='fulfilled')renderLedger(results[1].value);else $('ledger-status').textContent=results[1].reason.message;
     loading=false;syncControls();
-    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load()]);
+    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load(),window.BuyerEngagementRetention?.load()]);
   }
   async function refreshLedger() {
     if(loading||mutationBusy)return;

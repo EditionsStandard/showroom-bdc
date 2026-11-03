@@ -1,5 +1,7 @@
 # Intérêt répété pour une marque — simulation et mesure facultative
 
+Le [lot de purge surveillée](buyer-engagement-retention.md) complète désormais la conservation décrite ici.
+
 Lot du 3 novembre 2026 sur `feat/buyer-engagement-foundations`. Aucun déploiement,
 envoi, tâche de préparation ou enregistrement Airtable. Ce lot complète la
 [simulation panier](buyer-cart-simulation.md) avec des signaux par acheteur et
@@ -122,14 +124,16 @@ acheteur. Les preuves du choix sont supprimées avec le compte.
 
 La purge retire les observations de plus de 30 jours, candidats créés depuis plus
 de 90 jours et calculs de plus de 365 jours. Les contrôles suivent leurs candidats
-et calculs par cascade. Elle s'exécute au démarrage et lors d'un nouveau calcul ;
-un verrou occupé au démarrage peut la reporter. La lecture ne purge pas. **Aucune
-purge quotidienne planifiée n'est ajoutée dans ce lot** : sans démarrage ou calcul,
-la conservation physique peut dépasser ces durées. Le texte du choix le précise.
-Les observations hors fenêtre sont exclues du calcul indépendamment de la purge.
+et calculs par cascade. Le [moteur surveillé](buyer-engagement-retention.md) ajoute
+un passage au démarrage et une vérification toutes les cinq minutes, avec objectif
+de réussite complète toutes les six heures. Les calculs gardent leurs nettoyages
+existants. Le timer respecte `BACKGROUND_JOBS_ENABLED=false` ; cette désactivation
+est visible dans le profil et l'administration. Un retard, échec ou lot incomplet
+peut prolonger le stockage physique. La lecture ne purge pas, et les observations
+hors fenêtre restent exclues du calcul indépendamment de leur suppression.
 
 Avant activation réelle, valider finalité, texte, durées, gestion des droits et
-mettre en place une purge régulière dont l'exécution est surveillée. Le lot ne
+activer et superviser la purge régulière après validation en préproduction. Le lot ne
 certifie pas la conformité globale des autres suivis déjà présents sur le site.
 
 ## Validation et mise en service

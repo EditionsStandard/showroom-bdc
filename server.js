@@ -9261,7 +9261,8 @@ process.on('uncaughtException', (err) => {
 
 // Start
 init().then(() => {
-  if (process.env.BACKGROUND_JOBS_ENABLED !== 'false') {
+  require('./lib/buyer-engagement-retention').startRetentionScheduler(pool,{enabled:process.env.BACKGROUND_JOBS_ENABLED !== 'false'});
+  if (process.env.BACKGROUND_JOBS_ENABLED !== 'false' && process.env.LEGACY_BACKGROUND_JOBS_ENABLED !== 'false') {
   // Préchauffe le cache des liens showroom (footer email) au démarrage, puis
   // rafraîchit périodiquement en filet de sécurité (POST /api/settings le
   // fait déjà immédiatement à la sauvegarde — ceci couvre un cache resté

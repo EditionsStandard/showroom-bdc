@@ -70,12 +70,13 @@ Le candidat et ses contrôles sont supprimés en cascade avec l'acheteur ou le c
 L'export acheteur inclut les candidats et contrôles. Les calculs agrégés restent
 sans identifiant acheteur après cette suppression.
 
-La purge retire les candidats créés depuis plus de 90 jours, même s'ils ont été
-recontrôlés récemment, et les calculs de plus de 365 jours. Elle s'exécute au
-démarrage et lors d'un nouveau calcul, sous le verrou partagé du moteur de
-simulation. Un démarrage occupé peut reporter la purge. Une lecture ne la lance
-pas ; ce lot n'ajoute pas de purge quotidienne planifiée. Ces durées sont des
-choix techniques à valider avant production.
+La purge retire les candidats créés depuis plus de 90 jours et les calculs de
+plus de 365 jours. Le [lot de conservation surveillée](buyer-engagement-retention.md)
+ajoute le passage initial journalisé et l'ordonnanceur régulier, en plus des
+nettoyages des calculs. Les lots incomplets ou reports ne deviennent pas des
+réussites complètes. La planification respecte `BACKGROUND_JOBS_ENABLED=false` ;
+une désactivation ou un retard peut prolonger le stockage physique. La lecture ne
+purge pas. Ces durées sont des choix techniques à valider avant production.
 
 Chaque calcul est atomique et utilise une clé UUID unique. Après une réponse
 perdue, le navigateur conserve uniquement le type et la référence du calcul dans

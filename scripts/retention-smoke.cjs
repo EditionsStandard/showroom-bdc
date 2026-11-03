@@ -1,0 +1,44 @@
+'use strict';
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const {startServer,id}=require('../test/helpers'),{Pool}=require('pg'),{randomUUID,createHmac}=require('node:crypto');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+(async()=>{
+ let server,pool,browser;
+ try {
+  server=await startServer({dbNameSuffix:'retention_ui_'+Date.now(),port:3242});pool=new Pool({connectionString:server.dbUrl});
+  const owner=id('owner'),brand=id('brand'),current=id('current'),sid=randomUUID(),now=Date.now();
+  await pool.query('CREATE TABLE IF NOT EXISTS user_sessions(sid varchar PRIMARY KEY,sess json NOT NULL,expire timestamp NOT NULL)');
+  await pool.query("INSERT INTO admin_users(id,email,password_hash,name,role,mfa_enabled) VALUES($1,'synthetic-owner@example.test','not-a-password','Synthetic owner','owner',true)",[owner]);
+  await pool.query("INSERT INTO user_sessions(sid,sess,expire) VALUES($1,$2,NOW()+INTERVAL '1 day')",[sid,JSON.stringify({cookie:{originalMaxAge:86400000,expires:new Date(now+86400000).toISOString(),httpOnly:true,path:'/'},authAt:now,lastActive:now,staffUser:{id:owner,email:'synthetic-owner@example.test',role:'owner',mfaEnrolled:true}})]);
+  await pool.query("INSERT INTO brands(id,name) VALUES($1,'Synthetic brand')",[brand]);await pool.query("INSERT INTO buyers(id,email,password_hash) VALUES($1,$2,'not-a-password')",[current,current+'@example.test']);
+  const signed=encodeURIComponent('s:'+sid+'.'+createHmac('sha256','test-secret-not-for-production').update(sid).digest('base64').replace(/=+$/,''));
+  browser=await chromium.launch({headless:true,...(process.env.CHROME_EXECUTABLE?{executablePath:process.env.CHROME_EXECUTABLE}:{})});
+  const endpoint='/api/admin/buyer-engagement/retention';
+  for(const width of [360,1440])for(const lang of ['fr','en']) {
+   await pool.query('TRUNCATE buyer_engagement_retention_runs');await pool.query('DELETE FROM buyers WHERE id!=$1',[current]);await pool.query('DELETE FROM buyer_brand_interest_days');
+   const rows=Array.from({length:1001},(_,i)=>({id:'expired_'+i}));await pool.query("INSERT INTO buyers(id,email,password_hash) SELECT id,id||'@example.test','not-a-password' FROM jsonb_to_recordset($1::jsonb) AS x(id text)",[JSON.stringify(rows)]);
+   await pool.query("INSERT INTO buyer_brand_interest_days(buyer_id,brand_id,consent_version,observed_at) SELECT id,$2,1,NOW()-INTERVAL '31 days' FROM jsonb_to_recordset($1::jsonb) AS x(id text)",[JSON.stringify(rows),brand]);await pool.query('INSERT INTO buyer_brand_interest_days(buyer_id,brand_id,consent_version) VALUES($1,$2,1)',[current,brand]);
+   await pool.query("INSERT INTO buyer_engagement_retention_runs(id,request_key,trigger,status,started_at,finished_at) VALUES($1,$2,'startup','succeeded',NOW()-INTERVAL '9 hours',NOW()-INTERVAL '9 hours')",[randomUUID(),randomUUID()]);
+   const context=await browser.newContext({viewport:{width,height:1000},serviceWorkers:'block'});await context.addCookies([{name:'sid',value:signed,url:server.baseUrl}]);await context.route('**/*',route=>new URL(route.request().url()).origin===server.baseUrl?route.continue():route.abort());
+   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+   async function open(){await page.goto(server.baseUrl+'/admin');await page.waitForFunction(()=>typeof currentUserRole!=='undefined'&&currentUserRole==='owner');await page.evaluate(lang=>{currentLang=lang;showSection('buyer-engagement');},lang);await page.waitForFunction(()=>document.getElementById('engagement-retention-health').textContent&&!document.getElementById('engagement-retention-refresh').disabled);}
+   const ready=()=>page.waitForFunction(()=>!document.getElementById('engagement-retention-refresh').disabled);
+   const state=()=>page.evaluate(endpoint=>fetch(endpoint).then(r=>r.json()),endpoint);
+   const expiredCount=async()=> (await pool.query("SELECT COUNT(*)::int AS n FROM buyer_brand_interest_days WHERE observed_at<NOW()-INTERVAL '30 days'")).rows[0].n;
+   await open();let value=await state();assert.equal(value.late,true);assert.equal(value.runtime.enabled,false);assert.match(await page.locator('#engagement-retention-health').innerText(),lang==='fr'?/désactivée/:/disabled/);
+   let lose=true;const keys=[];await page.route('**/retention/runs',async route=>{keys.push(route.request().postDataJSON().request_key);const response=await route.fetch();assert.equal(response.status(),200);if(lose){lose=false;return route.abort();}return route.fulfill({response});});
+   await page.locator('#engagement-retention-run').click();await ready();assert.equal(await expiredCount(),1);await open();await page.locator('#engagement-retention-run').click();await ready();assert.equal(keys.length,2);assert.equal(keys[0],keys[1]);assert.equal(await expiredCount(),1);assert.equal((await state()).runs[0].status,'partial');assert.match(await page.locator('#engagement-retention-status').innerText(),lang==='fr'?/partiel|restantes/:/remains/);
+   await page.locator('#engagement-retention-run').click();await ready();assert.equal(await expiredCount(),0);value=await state();assert.equal(value.late,false);assert.equal(value.runs[0].status,'succeeded');assert.notEqual(keys[1],keys[2]);assert.match(await page.locator('#engagement-retention-runs li').first().innerText(),lang==='fr'?/Calculs panier\s*:\s*0/:/Cart calculations\s*:\s*0/);assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM buyer_brand_interest_days WHERE buyer_id=$1',[current])).rows[0].n,1);
+   const db=await pool.connect();try{await db.query('BEGIN');await db.query("SELECT pg_advisory_xact_lock(hashtext('buyer-engagement:simulation-engine:v1'))");await page.locator('#engagement-retention-run').click();await ready();assert.equal((await state()).runs[0].status,'skipped_busy');assert.match(await page.locator('#engagement-retention-status').innerText(),lang==='fr'?/Reporté/:/Deferred/);}finally{await db.query('ROLLBACK');db.release();}
+   await pool.query("INSERT INTO buyer_brand_interest_days(buyer_id,brand_id,consent_version,observed_at) VALUES('expired_0',$1,1,NOW()-INTERVAL '31 days')",[brand]);await pool.query("CREATE FUNCTION retention_ui_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic private detail'; END; $$");await pool.query('CREATE TRIGGER retention_ui_fail BEFORE DELETE ON buyer_brand_interest_days FOR EACH ROW EXECUTE FUNCTION retention_ui_fail()');
+   try{await page.locator('#engagement-retention-run').click();await ready();assert.equal((await state()).runs[0].status,'failed');assert.equal(await expiredCount(),1);assert.match(await page.locator('#engagement-retention-status').innerText(),lang==='fr'?/Échec/:/Failed/);assert.equal((await page.locator('#engagement-retention-panel').innerText()).includes('Synthetic private detail'),false);}finally{await pool.query('DROP TRIGGER retention_ui_fail ON buyer_brand_interest_days');await pool.query('DROP FUNCTION retention_ui_fail()');}
+   const invalid=route=>route.fulfill({contentType:'application/json',body:'{}'});await page.route('**/buyer-engagement/retention',invalid);await page.locator('#engagement-retention-refresh').click();await ready();assert.equal(await page.locator('#engagement-retention-health').innerText(),'');assert.equal(await page.locator('#engagement-retention-run').isDisabled(),true);await page.unroute('**/buyer-engagement/retention',invalid);await page.locator('#engagement-retention-refresh').click();await ready();
+   if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.evaluate(()=>document.getElementById('engagement-retention-panel').scrollIntoView({block:'start'}));await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`retention-${width}-${lang}.png`)});}
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   if(width===1440&&lang==='en'){
+    const before=keys.length;await page.evaluate(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='buyer_engagement_retention_pending_v1')throw new Error('Synthetic storage failure');return set.call(this,k,v);};});await page.locator('#engagement-retention-run').click();await ready();assert.equal(keys.length,before);assert.equal(await page.locator('#engagement-retention-run').isDisabled(),true);
+   }
+   assert.deepEqual(errors,[]);console.log(`PASS retention ${width}px ${lang}: disabled/stale monitoring, bounded purge, lost response and replay, backlog recovery, contention, failure rollback and invalid read`);await context.close();
+  }
+ }finally{await browser?.close();server?.stop();await pool?.end();}
+})().catch(error=>{console.error(error);process.exitCode=1;});
