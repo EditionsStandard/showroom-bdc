@@ -599,6 +599,15 @@
     .nav-group-links a { flex-direction:row; justify-content:flex-start; width:100%; padding:12px; font-size:12px; border-top:0; }
     .nav-group-links a svg { width:16px; height:16px; }
   }
+  @media (max-width: 768px) {
+    #engagement-cart-panel .table-wrap::after { display: none; }
+    #engagement-cart-panel table { min-width: 0; width: 100%; }
+    #engagement-cart-panel thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    #engagement-cart-panel tbody, #engagement-cart-panel tr, #engagement-cart-panel td { display: block; width: 100%; }
+    #engagement-cart-panel tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    #engagement-cart-panel td { padding: 4px 0; border: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    #engagement-cart-panel td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 600; opacity: .7; }
+  }
 </style>
 <script>
 (function() {
@@ -1330,6 +1339,15 @@
       <p id="engagement-actions-note"></p><p id="engagement-control-state" role="status" aria-live="polite"></p>
       <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
       <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
+    </div>
+    <div id="engagement-cart-panel" class="card">
+      <h3 id="engagement-cart-title">Paniers inactifs — simulation</h3><p id="engagement-cart-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-cart-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-cart-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-cart-recheck">Recontrôler</button></div>
+      <p id="engagement-cart-status" role="status" aria-live="polite"></p><p id="engagement-cart-asof"></p><p id="engagement-cart-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-cart-head"></thead><tbody id="engagement-cart-rows"></tbody></table></div>
+      <h4 id="engagement-cart-candidate-title">Candidats panier</h4><div class="table-wrap"><table><thead id="engagement-cart-candidate-head"></thead><tbody id="engagement-cart-candidates"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-cart-prev" aria-label="Previous cart page">←</button> <button type="button" class="btn btn-secondary" id="engagement-cart-next" aria-label="Next cart page">→</button>
+      <h4 id="engagement-cart-runs-title">Journal panier</h4><ul id="engagement-cart-runs" style="overflow-wrap:anywhere"></ul>
     </div>
     <div id="engagement-preparation-panel" class="card">
       <h3 id="engagement-preparation-title">File de préparation — test uniquement</h3>
@@ -8955,8 +8973,9 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261101-preparation"></script>
+<script src="/buyer-engagement-admin.js?v=20261102-cart-simulation"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
+<script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 </body>
 </html>

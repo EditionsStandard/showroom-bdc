@@ -569,6 +569,8 @@ async function init() {
   await require('./lib/buyer-engagement-ledger-migration').migrateBuyerEngagementLedger(pool);
   await require('./lib/buyer-engagement-preparation-migration').migrateBuyerEngagementPreparation(pool);
   await require('./lib/buyer-cart-migration').migrateBuyerCart(pool);
+  await require('./lib/buyer-cart-engagement-migration').migrateCartEngagement(pool);
+  await require('./lib/buyer-cart-engagement').pruneCartSimulation(pool);
   await require('./lib/buyer-cart').createBuyerCartService(pool).expireCarts();
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
   // Backfill + dédoublonnage des abonnements push existants avant de poser la
