@@ -65,6 +65,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    assert.equal(value.candidates.rows[0].recorded_status,'eligible');assert.equal(value.candidates.rows[0].reason,'marketing_permission_missing');
    assert.match(await page.locator('#engagement-cart-candidates tr').first().innerText(),lang==='fr'?/retiré/:/withdrawn/);
    await page.locator('#engagement-cart-recheck').click();await ready();value=await view();assert.equal(value.candidates.rows[0].recorded_status,'excluded');
+   await require('./engagement-navigation.cjs').revealEngagementPanel(page,'diagnostics');
    await page.locator('#engagement-pause').click();await page.waitForFunction(()=>document.getElementById('engagement-cart-generate').disabled&&!document.getElementById('engagement-pause').disabled);
    assert.equal(await page.locator('#engagement-cart-recheck').isEnabled(),true);
    await page.locator('#engagement-cart-recheck').click();await ready();assert.equal((await view()).candidates.rows[0].recorded_reason,'simulation_paused');
