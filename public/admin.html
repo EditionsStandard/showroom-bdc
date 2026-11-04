@@ -1361,6 +1361,29 @@
       <button type="button" class="btn btn-secondary" id="engagement-brand-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-brand-next">→</button>
       <h4 id="engagement-brand-runs-title">Journal des signaux</h4><ul id="engagement-brand-runs" style="overflow-wrap:anywhere"></ul>
     </div>
+    <div id="engagement-review-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-review-title">Qualification locale des signaux</h3><p id="engagement-review-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-review-refresh">Actualiser</button>
+      <p id="engagement-review-status" role="status" aria-live="polite"></p><p id="engagement-review-count"></p>
+      <ul id="engagement-review-rows" style="list-style:none;padding:0"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-review-prev" aria-label="Previous reviews">←</button> <button type="button" class="btn btn-secondary" id="engagement-review-next" aria-label="Next reviews">→</button>
+      <div id="engagement-review-detail" hidden>
+        <h4 id="engagement-review-source-title"></h4><p id="engagement-review-evidence"></p><p id="engagement-review-saved-state"></p>
+        <form id="engagement-review-form">
+          <div class="form-group"><label id="engagement-review-decision-label" for="engagement-review-decision">Décision locale</label><select id="engagement-review-decision"><option value="review">À examiner</option><option value="qualified">Qualifié localement</option><option value="dismissed">Écarté</option></select></div>
+          <div class="form-group"><label id="engagement-review-note-label" for="engagement-review-reason">Motif</label><textarea id="engagement-review-reason" maxlength="2000" rows="3"></textarea></div>
+          <p id="engagement-review-links-note"></p>
+          <div class="form-row"><div class="form-group"><label for="engagement-review-store">STORES · ID</label><input id="engagement-review-store" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div><div class="form-group"><label for="engagement-review-buyer">BUYERS · ID</label><input id="engagement-review-buyer" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div></div>
+          <div class="form-row"><div class="form-group"><label for="engagement-review-brand">BRANDS · ID</label><input id="engagement-review-brand" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div><div class="form-group"><label for="engagement-review-season">SEASONS · ID</label><input id="engagement-review-season" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div></div>
+          <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="engagement-review-ack" style="width:auto"><span id="engagement-review-ack-label" style="font-size:14px;line-height:1.5;text-transform:none;letter-spacing:normal;color:inherit"></span></label>
+          <button class="btn btn-secondary" id="engagement-review-save">Enregistrer la revue locale</button>
+        </form>
+        <button type="button" class="btn btn-secondary" id="engagement-review-discard">Recharger et abandonner la saisie</button>
+        <h4 id="engagement-review-history-title"></h4><ul id="engagement-review-history"></ul>
+        <h4 id="engagement-review-previews-title"></h4><p id="engagement-review-preview-note"></p><div id="engagement-review-previews"></div>
+      </div>
+      <div id="engagement-review-recovery" hidden><p id="engagement-review-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-verify">Vérifier l’enregistrement</button> <button type="button" class="btn btn-secondary" id="engagement-review-cancel">Clore la tentative non confirmée</button></div>
+    </div>
     <div id="engagement-cart-panel" class="card">
       <h3 id="engagement-cart-title">Paniers inactifs — simulation</h3><p id="engagement-cart-note"></p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-cart-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-cart-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-cart-recheck">Recontrôler</button></div>
@@ -8994,11 +9017,12 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261103-retention"></script>
+<script src="/buyer-engagement-admin.js?v=20261104-reviews"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 <script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
 <script src="/buyer-engagement-retention.js?v=20261103-1"></script>
+<script src="/buyer-engagement-reviews.js?v=20261104-1"></script>
 </body>
 </html>

@@ -123,3 +123,12 @@ changements futurs devront être contrôlés avant une écriture. Aucun webhook 
 
 La [purge surveillée](buyer-engagement-retention.md) est développée séparément et
 n'autorise aucun transfert CRM ni envoi commercial.
+
+## Lot suivant : revue humaine locale
+
+Le [parcours de qualification locale](buyer-engagement-local-reviews.md), préparé
+le 4 novembre 2026, permet de conserver un motif humain et des références CRM
+**proposées et non vérifiées**, puis de consulter les deux aperçus hypothétiques.
+Il ne lève aucun blocage distant décrit ici : destination inconnue, déduplication,
+identités, saison et effets externes restent à vérifier. Le contrat demeure sans
+cible et sans écriture autorisée.
