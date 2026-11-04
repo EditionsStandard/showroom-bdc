@@ -13,6 +13,7 @@
     en: {activate:'Activate your access',unsubscribe:'Manage your emails',activation:'Choose a password for your already approved buyer account. This link is valid for one hour.',description:'Confirm to stop receiving commercial emails from the showroom. Your buyer access remains available.',password:'New password',confirmation:'Confirm password',help:'Between 12 and 128 characters.',activateButton:'Save my password',unsubscribeButton:'Unsubscribe',portal:'Go to the showroom',invalid:'Invalid or expired link. Use a recent link or contact the showroom.',mismatch:'Passwords must match and contain between 12 and 128 characters.',network:'The confirmation could not be verified. Please try again.',activated:'Your password has been saved. Sign in to the showroom.',unsubscribed:'Your unsubscribe request has been saved.',working:'Saving…'}
   };
   function render() {
+    $('load-help').hidden=true;
     const c = copy[lang];document.documentElement.lang=lang;document.title=(activation?c.activate:c.unsubscribe)+' — Éditions Standard';
     $('language').textContent=lang==='fr'?'EN':'FR';$('language').setAttribute('aria-label',lang==='fr'?'Read in English':'Lire en français');
     $('title').textContent=activation?c.activate:c.unsubscribe;$('description').textContent=activation?c.activation:c.description;

@@ -5,15 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>Éditions Standard</title>
-  <link rel="stylesheet" href="/buyer-email-action.css?v=20261104">
-  <script src="/buyer-email-action.js?v=20261104" defer></script>
+  <link rel="icon" href="/favicon-editions-standard.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/fonts/brand.css">
+  <link rel="stylesheet" href="/buyer-email-action.css?v=20261104-brand">
+  <script src="/buyer-email-action.js?v=20261104-brand" defer></script>
 </head>
 <body>
   <main>
-    <header><span>ÉDITIONS STANDARD</span><button id="language" type="button" aria-label="Change language">EN</button></header>
+    <header><div class="brand"><img src="/editions-standard-icon-192.png" width="48" height="48" alt=""><span>ÉDITIONS<br>STANDARD</span></div><button id="language" type="button" aria-label="Change language">EN</button></header>
     <p class="eyebrow">SHOWROOM B2B</p>
     <h1 id="title">Votre espace acheteur</h1>
-    <p id="description">JavaScript est nécessaire pour utiliser ce lien.</p>
+    <p id="description">Ouverture de votre espace acheteur…</p>
+    <p id="load-help">Le formulaire ne s’affiche pas ? Rechargez cette page depuis votre lien d’accès.</p>
+    <noscript><p role="alert">JavaScript est désactivé dans ce navigateur. Activez-le pour utiliser votre lien sécurisé.</p></noscript>
     <form id="action" hidden>
       <div id="password-fields" hidden>
         <label id="password-label" for="password">Nouveau mot de passe</label>
