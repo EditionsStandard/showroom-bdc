@@ -43,3 +43,48 @@ jobs:
         run: npm test
         env:
           TEST_PG_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Installer le navigateur de test
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Parcours acheteur et Buyer Engagement sur données fictives
+        env:
+          TEST_PG_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          SCREENSHOT_DIR: browser-artifacts
+        run: |
+          for suite in buyer-engagement cart-portal cart-engagement brand-interest engagement-reviews crm-checks template-signoffs outbox provider-events retention commercial-kpi email-actions buyer-feedback; do
+            node "scripts/${suite}-smoke.cjs"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-browser-checks
+          path: browser-artifacts
+          if-no-files-found: ignore
