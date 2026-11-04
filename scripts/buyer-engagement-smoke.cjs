@@ -37,11 +37,13 @@ const fs=require('node:fs'),path=require('node:path');
       await page.goto(server.baseUrl+'/admin');
       await page.waitForFunction(()=>typeof currentUserRole!=='undefined' && currentUserRole==='owner');
       await page.evaluate(lang=>{currentLang=lang;showSection('buyer-engagement');},lang);
+      await require('./engagement-navigation.cjs').revealEngagementPanel(page,'contacts');
       await page.waitForFunction(()=>document.querySelector('#engagement-rules form'));
       assert.equal(await page.locator('#engagement-rules form').count(),4);
       assert.equal(await page.locator('#engagement-buyers tr').count(),100);
       await page.locator('#engagement-next').click();await page.waitForFunction(()=>document.querySelectorAll('#engagement-buyers tr').length===2);
       await page.locator('#engagement-prev').click();await page.waitForFunction(()=>document.querySelectorAll('#engagement-buyers tr').length===100);
+      await page.locator('#engagement-tab-automations').click();
       const rule=page.locator('[data-rule=welcome]');
       await rule.locator('[name=mode]').selectOption('simulation');await rule.locator('[name=delay]').fill('36');await rule.locator('button').click();
       await page.waitForFunction(()=>document.querySelector('[data-rule=welcome] small')?.textContent!=='v1');
@@ -52,6 +54,7 @@ const fs=require('node:fs'),path=require('node:path');
       assert.equal(await page.locator('#engagement-subject').inputValue(),'Synthetic <img src=x onerror=alert(1)>');
       // Lose the first successful response, then retry the identical operation.
       // The server has committed; the UI must reuse its request key.
+      await require('./engagement-navigation.cjs').revealEngagementPanel(page,'diagnostics');
       let loseResponse=true;const requestKeys=[];
       await page.route('**/api/admin/buyer-engagement/simulation-runs',async route=>{
         requestKeys.push(route.request().postDataJSON().request_key);

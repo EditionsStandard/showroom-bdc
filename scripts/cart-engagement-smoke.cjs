@@ -36,7 +36,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
    const open=async()=>{
     await page.goto(server.baseUrl+'/admin');await page.waitForFunction(()=>typeof currentUserRole!=='undefined'&&currentUserRole==='owner');
-    await page.evaluate(lang=>{currentLang=lang;showSection('buyer-engagement');},lang);
+    await page.evaluate(lang=>{currentLang=lang;showSection('buyer-engagement');},lang);await require('./engagement-navigation.cjs').revealEngagementPanel(page,'cart');
     await page.waitForFunction(()=>document.querySelectorAll('#engagement-cart-rows tr').length===50&&!document.getElementById('engagement-cart-refresh').disabled);
    };
    const view=()=>page.evaluate(endpoint=>fetch(endpoint).then(r=>r.json()),endpoint);

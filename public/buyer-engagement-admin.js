@@ -43,7 +43,7 @@ window.BuyerEngagement = (() => {
   const request=(method,body)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   function syncControls() {
     const busy=loading||mutationBusy;
-    document.querySelectorAll('#buyer-engagement button,#buyer-engagement input,#buyer-engagement select,#buyer-engagement textarea').forEach(el=>{if(!el.closest('#engagement-preparation-panel,#engagement-cart-panel,#engagement-brand-panel,#engagement-retention-panel,#engagement-review-panel,#engagement-template-review-panel,#engagement-outbox-panel'))el.disabled=busy;});
+    document.querySelectorAll('#buyer-engagement button,#buyer-engagement input,#buyer-engagement select,#buyer-engagement textarea').forEach(el=>{if(!el.closest('#engagement-preparation-panel,#engagement-cart-panel,#engagement-brand-panel,#engagement-retention-panel,#engagement-review-panel,#engagement-template-review-panel,#engagement-outbox-panel,#engagement-provider-panel,#engagement-workspace-header,#engagement-workspace-actions,#engagement-workspace-results,#engagement-workspace-pause'))el.disabled=busy;});
     $('prev').disabled=busy||!state||offset===0;
     $('next').disabled=busy||!state||offset+state.limit>=state.total;
     $('template-choice').disabled=busy||!state;
@@ -56,6 +56,7 @@ window.BuyerEngagement = (() => {
       $(prefix+'-prev').disabled=busy||!data||data.offset===0;
       $(prefix+'-next').disabled=busy||!data||data.offset+data.limit>=data.total;
     }
+    window.BuyerEngagementWorkspace?.syncControls({paused:ledgerState?.control.paused,ready:!!ledgerState,busy});
   }
   function preview() {
     const sample=$('body').value.replaceAll('{{buyer_name}}',text('Acheteur exemple','Example buyer')).replaceAll('{{portal_url}}','[URL du portail — exemple]');
@@ -77,8 +78,7 @@ window.BuyerEngagement = (() => {
   }
   function renderPreview(data,choice) {
     state=data;
-    $('intro').textContent=text('Simulation uniquement. Les calculs enregistrés conservent des candidats et un journal ; aucun email ni aucune opportunité CRM n’est créé. Les dates couvrent les connexions, modifications de panier et commandes, sans prouver toutes les visites. Les comptes historiques incomplets sont exclus. Les performances d’envoi et de conversion ne sont pas encore disponibles.',
-      'Simulation only. Recorded calculations keep candidates and a journal; no email or CRM opportunity is created. Dates cover logins, cart changes and orders, without proving every visit. Incomplete historic accounts are excluded. Delivery and conversion metrics are not available yet.');
+    $('intro').textContent=text('Préparez les actions et les textes ici. Les envois restent désactivés ; un contrôle est nécessaire avant tout contact.','Prepare actions and wording here. Sending remains disabled; review is required before contacting a buyer.');
     $('refresh').textContent=text('Actualiser les données','Refresh data');
     $('status').textContent=text('Aperçu calculé le ','Preview calculated at ')+date(state.now);
     $('rules').innerHTML=state.rules.map(r=>`<form class="card" data-rule="${esc(r.id)}"><h3>${esc(label(r.id))}</h3><p>${esc(['cart','brand_interest'].includes(r.id)?reason(r.id==='cart'?'cart_conversion_not_reliable':'brand_events_not_collected'):text('Candidats indicatifs, à contrôler avant toute relance.','Indicative candidates; review before any follow-up.'))}</p><div class="form-row"><div class="form-group"><label for="engagement-mode-${r.id}">${text('Mode','Mode')}</label><select id="engagement-mode-${r.id}" name="mode"><option value="disabled" ${r.mode==='disabled'?'selected':''}>${text('Désactivée','Disabled')}</option><option value="simulation" ${r.mode==='simulation'?'selected':''}>Simulation</option></select></div><div class="form-group"><label for="engagement-delay-${r.id}">${r.id==='brand_interest'?text('Fenêtre en heures (jours entiers)','Window in hours (whole days)'):text('Délai en heures','Delay in hours')}</label><input id="engagement-delay-${r.id}" name="delay" type="number" min="${r.id==='cart'?48:r.id==='brand_interest'?72:1}" max="${r.id==='brand_interest'?720:8760}" step="${r.id==='brand_interest'?24:1}" value="${r.delay_hours}" required></div>${r.id==='brand_interest'?`<div class="form-group"><label for="engagement-min-days">${text('Jours UTC distincts minimum','Minimum distinct UTC days')}</label><input id="engagement-min-days" name="min_days" type="number" min="2" max="30" step="1" value="${r.min_distinct_days}" required></div>`:''}</div><button class="btn btn-secondary">${text('Enregistrer','Save')}</button> <small>v${r.version}</small></form>`).join('');
@@ -121,6 +121,18 @@ window.BuyerEngagement = (() => {
   async function readLedger() {
     const data=await api('/ledger?offset='+candidateOffset+'&run_offset='+runOffset);renderLedger(data);
   }
+  function translate() {
+    // A language change must not reload data or discard unsaved wording/rules.
+    if(state){
+      const choice=$('template-choice').value,draft={subject:$('subject').value,body:$('body').value,version:$('template-form').dataset.version};
+      const rules=[...$('rules').querySelectorAll('form[data-rule]')].map(form=>({id:form.dataset.rule,mode:form.elements.mode.value,delay:form.elements.delay.value,minDays:form.elements.min_days?.value}));
+      renderPreview(state,choice);
+      for(const saved of rules){const form=$('rules').querySelector('[data-rule="'+saved.id+'"]');if(!form)continue;form.elements.mode.value=saved.mode;form.elements.delay.value=saved.delay;if(form.elements.min_days)form.elements.min_days.value=saved.minDays;}
+      $('subject').value=draft.subject;$('body').value=draft.body;$('template-form').dataset.version=draft.version;preview();
+    }
+    if(ledgerState)renderLedger(ledgerState);
+    window.BuyerEngagementWorkspace?.translate();syncControls();
+  }
   async function load(internal=false) {
     if(loading||(mutationBusy&&!internal))return;
     const choice=$('template-choice').value;
@@ -130,7 +142,7 @@ window.BuyerEngagement = (() => {
     if(results[0].status==='fulfilled')renderPreview(results[0].value,choice);else $('status').textContent=results[0].reason.message;
     if(results[1].status==='fulfilled')renderLedger(results[1].value);else $('ledger-status').textContent=results[1].reason.message;
     loading=false;syncControls();
-    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load(),window.BuyerEngagementRetention?.load(),window.BuyerEngagementReviews?.load(),window.BuyerTemplateSignoffs?.load(),window.BuyerOutbox?.load(),window.BuyerEngagementProvider?.load()]);
+    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load(),window.BuyerEngagementRetention?.load(),window.BuyerEngagementReviews?.load(),window.BuyerTemplateSignoffs?.load(),window.BuyerOutbox?.load(),window.BuyerEngagementProvider?.load(),window.BuyerEngagementWorkspace?.load()]);
   }
   async function refreshLedger() {
     if(loading||mutationBusy)return;
@@ -182,5 +194,5 @@ window.BuyerEngagement = (() => {
     event.preventDefault();const [id,lang]=$('template-choice').value.split(':');
     mutate(()=>api('/templates/'+id+'/'+lang,request('PUT',{version:Number($('template-form').dataset.version),subject:$('subject').value,body:$('body').value})).then(()=>null));
   };
-  syncControls();return {load};
+  syncControls();return {load,translate};
 })();

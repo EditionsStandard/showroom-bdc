@@ -7,6 +7,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="/fonts/brand.css">
+<link rel="stylesheet" href="/buyer-engagement-workspace.css?v=20261104-4">
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1339,33 +1340,40 @@
   </div>
 
   <div id="buyer-engagement" class="section">
-    <h1>BUYER ENGAGEMENT</h1>
-    <div class="card"><p id="engagement-intro"></p><button type="button" class="btn btn-secondary" id="engagement-refresh">Actualiser la simulation</button><p id="engagement-status" role="status" aria-live="polite"></p></div>
-    <div class="card">
-      <h3 id="engagement-actions-title">Calculs enregistrés</h3>
-      <p id="engagement-actions-note"></p><p id="engagement-control-state" role="status" aria-live="polite"></p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
-      <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
+    <div id="engagement-workspace-header">
+      <h1>BUYER ENGAGEMENT</h1>
+      <p id="engagement-workspace-intro">Vos priorités acheteurs, vos règles et l’activité observée du showroom.</p>
+      <p id="engagement-workspace-safety" class="engagement-safety">Préparation uniquement · Envois automatiques désactivés</p>
+      <div class="engagement-tabs" role="tablist" aria-label="BUYER ENGAGEMENT">
+        <button type="button" role="tab" class="btn btn-secondary engagement-tab" id="engagement-tab-actions" data-engagement-view="actions" aria-controls="engagement-page-actions" aria-selected="true">À traiter</button>
+        <button type="button" role="tab" class="btn btn-secondary engagement-tab" id="engagement-tab-automations" data-engagement-view="automations" aria-controls="engagement-page-automations" aria-selected="false" tabindex="-1">Automatisations</button>
+        <button type="button" role="tab" class="btn btn-secondary engagement-tab" id="engagement-tab-results" data-engagement-view="results" aria-controls="engagement-page-results" aria-selected="false" tabindex="-1">Résultats</button>
+      </div>
+<div id="engagement-main-status" class="card"><p id="engagement-intro" hidden></p><button type="button" class="btn btn-secondary" id="engagement-refresh">Actualiser la simulation</button><p id="engagement-status" role="status" aria-live="polite"></p></div>
     </div>
-    <div id="engagement-template-review-panel" class="card" style="overflow-wrap:anywhere">
-      <h3 id="engagement-signoff-title">Validation éditoriale des modèles</h3><p id="engagement-signoff-note"></p>
-      <button type="button" class="btn btn-secondary" id="engagement-signoff-refresh">Relire les versions</button>
-      <p id="engagement-signoff-status" role="status" aria-live="polite"></p>
-      <label id="engagement-signoff-choice-label" for="engagement-signoff-choice">Version</label><select id="engagement-signoff-choice"></select><p id="engagement-signoff-state"></p>
-      <pre id="engagement-signoff-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
-      <label id="engagement-signoff-reason-label" for="engagement-signoff-reason">Motif</label><textarea id="engagement-signoff-reason" rows="3" maxlength="1000"></textarea>
-      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="engagement-signoff-ack" style="width:auto"><span id="engagement-signoff-ack-label" style="font-size:14px;line-height:1.5;text-transform:none;letter-spacing:normal;color:inherit"></span></label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-signoff-approve">Valider le texte</button><button type="button" class="btn btn-secondary" id="engagement-signoff-revoke">Retirer la validation</button></div>
-      <ul id="engagement-signoff-history"></ul>
-      <div id="engagement-signoff-recovery" hidden><p id="engagement-signoff-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-signoff-verify">Vérifier le reçu</button> <button type="button" class="btn btn-secondary" id="engagement-signoff-cancel">Clore la tentative</button></div>
+    <div class="engagement-page" role="tabpanel" id="engagement-page-actions" aria-labelledby="engagement-tab-actions">
+      <div id="engagement-workspace-actions">
+        <h2 id="engagement-workspace-actions-title">Vos priorités</h2><p id="engagement-workspace-actions-note"></p>
+        <p id="engagement-workspace-status" role="status" aria-live="polite"></p>
+        <div id="engagement-workspace-tiles" class="engagement-tile-grid"></div>
+        <div class="card"><h3 id="engagement-workspace-list-title" aria-live="polite"></h3><p id="engagement-workspace-list-note"></p><ul id="engagement-workspace-list" class="engagement-priority-list"></ul><button type="button" class="btn btn-secondary" id="engagement-workspace-details">Voir les détails</button></div>
+      </div>
+      <details id="engagement-contacts-detail" class="engagement-disclosure"><summary id="engagement-contacts-summary">Historique et critères des acheteurs</summary>
+<div id="engagement-buyer-history-panel" class="card"><h3 id="engagement-buyers-title">Acheteurs — simulation</h3><p id="engagement-count"></p><div class="table-wrap"><table><thead id="engagement-head"></thead><tbody id="engagement-buyers"></tbody></table></div><button type="button" class="btn btn-secondary" id="engagement-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-next">→</button></div>
+      </details>
+      <details id="engagement-carts-detail" class="engagement-disclosure"><summary id="engagement-carts-summary">Examiner les paniers</summary>
+<div id="engagement-cart-panel" class="card">
+      <h3 id="engagement-cart-title">Paniers inactifs — simulation</h3><p id="engagement-cart-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-cart-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-cart-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-cart-recheck">Recontrôler</button></div>
+      <p id="engagement-cart-status" role="status" aria-live="polite"></p><p id="engagement-cart-asof"></p><p id="engagement-cart-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-cart-head"></thead><tbody id="engagement-cart-rows"></tbody></table></div>
+      <h4 id="engagement-cart-candidate-title">Candidats panier</h4><div class="table-wrap"><table><thead id="engagement-cart-candidate-head"></thead><tbody id="engagement-cart-candidates"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-cart-prev" aria-label="Previous cart page">←</button> <button type="button" class="btn btn-secondary" id="engagement-cart-next" aria-label="Next cart page">→</button>
+      <h4 id="engagement-cart-runs-title">Journal panier</h4><ul id="engagement-cart-runs" style="overflow-wrap:anywhere"></ul>
     </div>
-    <div id="engagement-retention-panel" class="card">
-      <h3 id="engagement-retention-title">Conservation des données — surveillance</h3><p id="engagement-retention-note"></p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-retention-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-retention-run">Exécuter un lot</button></div>
-      <p id="engagement-retention-status" role="status" aria-live="polite"></p><p id="engagement-retention-health"></p><p id="engagement-retention-policy"></p>
-      <h4 id="engagement-retention-runs-title">Dix derniers passages</h4><ul id="engagement-retention-runs" style="overflow-wrap:anywhere"></ul>
-    </div>
-    <div id="engagement-brand-panel" class="card">
+      </details>
+      <details id="engagement-brands-detail" class="engagement-disclosure"><summary id="engagement-brands-summary">Qualifier les intérêts marque</summary>
+<div id="engagement-brand-panel" class="card">
       <h3 id="engagement-brand-title">Intérêt marque — simulation</h3><p id="engagement-brand-note"></p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-brand-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-brand-generate">Enregistrer les signaux</button><button type="button" class="btn btn-secondary" id="engagement-brand-recheck">Recontrôler</button></div>
       <p id="engagement-brand-status" role="status" aria-live="polite"></p><p id="engagement-brand-count"></p>
@@ -1373,7 +1381,7 @@
       <button type="button" class="btn btn-secondary" id="engagement-brand-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-brand-next">→</button>
       <h4 id="engagement-brand-runs-title">Journal des signaux</h4><ul id="engagement-brand-runs" style="overflow-wrap:anywhere"></ul>
     </div>
-    <div id="engagement-review-panel" class="card" style="overflow-wrap:anywhere">
+<div id="engagement-review-panel" class="card" style="overflow-wrap:anywhere">
       <h3 id="engagement-review-title">Qualification locale des signaux</h3><p id="engagement-review-note"></p>
       <button type="button" class="btn btn-secondary" id="engagement-review-refresh">Actualiser</button>
       <p id="engagement-review-status" role="status" aria-live="polite"></p><p id="engagement-review-count"></p>
@@ -1403,32 +1411,55 @@
       <div id="engagement-review-crm-recovery" hidden><p id="engagement-review-crm-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-crm-verify">Vérifier le résultat du contrôle</button> <button type="button" class="btn btn-secondary" id="engagement-review-crm-cancel">Clore le contrôle non confirmé</button></div>
       <div id="engagement-review-recovery" hidden><p id="engagement-review-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-verify">Vérifier l’enregistrement</button> <button type="button" class="btn btn-secondary" id="engagement-review-cancel">Clore la tentative non confirmée</button></div>
     </div>
-    <div id="engagement-cart-panel" class="card">
-      <h3 id="engagement-cart-title">Paniers inactifs — simulation</h3><p id="engagement-cart-note"></p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-cart-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-cart-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-cart-recheck">Recontrôler</button></div>
-      <p id="engagement-cart-status" role="status" aria-live="polite"></p><p id="engagement-cart-asof"></p><p id="engagement-cart-count"></p>
-      <div class="table-wrap"><table><thead id="engagement-cart-head"></thead><tbody id="engagement-cart-rows"></tbody></table></div>
-      <h4 id="engagement-cart-candidate-title">Candidats panier</h4><div class="table-wrap"><table><thead id="engagement-cart-candidate-head"></thead><tbody id="engagement-cart-candidates"></tbody></table></div>
-      <button type="button" class="btn btn-secondary" id="engagement-cart-prev" aria-label="Previous cart page">←</button> <button type="button" class="btn btn-secondary" id="engagement-cart-next" aria-label="Next cart page">→</button>
-      <h4 id="engagement-cart-runs-title">Journal panier</h4><ul id="engagement-cart-runs" style="overflow-wrap:anywhere"></ul>
+      </details>
     </div>
-    <div id="engagement-outbox-panel" class="card" style="overflow-wrap:anywhere">
-      <h3 id="engagement-outbox-title">File de transport — envois verrouillés</h3><p id="engagement-outbox-note"></p>
-      <button type="button" class="btn btn-secondary" id="engagement-outbox-refresh">Actualiser la file</button><p id="engagement-outbox-status" role="status" aria-live="polite"></p>
-      <label for="engagement-outbox-source" id="engagement-outbox-source-label">Préparation terminée</label><select id="engagement-outbox-source"></select>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-outbox-stage">Conserver une intention verrouillée</button><button type="button" class="btn btn-secondary" id="engagement-outbox-recover">Réconcilier les réservations expirées</button></div>
-      <p id="engagement-outbox-count"></p><ul id="engagement-outbox-rows" style="list-style:none;padding:0"></ul>
-      <button type="button" class="btn btn-secondary" id="engagement-outbox-prev" aria-label="Previous queue page">←</button> <button type="button" class="btn btn-secondary" id="engagement-outbox-next" aria-label="Next queue page">→</button>
+    <div class="engagement-page" role="tabpanel" id="engagement-page-automations" aria-labelledby="engagement-tab-automations" hidden>
+      <h2 id="engagement-workspace-automations-title">Règles et emails</h2><p id="engagement-workspace-automations-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-workspace-pause" disabled>Suspendre les analyses</button>
+<div id="engagement-rules"></div>
+<div id="engagement-template-editor-panel" class="card"><h3 id="engagement-template-title">Brouillons de modèles</h3><p id="engagement-template-note"></p><label for="engagement-template-choice">FR / EN</label><select id="engagement-template-choice"></select><form id="engagement-template-form"><div class="form-group"><label for="engagement-subject" id="engagement-subject-label">Objet</label><input id="engagement-subject" maxlength="200" required></div><div class="form-group"><label for="engagement-body" id="engagement-body-label">Texte</label><textarea id="engagement-body" rows="7" maxlength="10000" required></textarea></div><button class="btn btn-primary" id="engagement-template-save">Enregistrer le brouillon</button></form><pre id="engagement-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>
+      <details id="engagement-approval-detail" class="engagement-disclosure"><summary id="engagement-approval-summary">Valider une version d’email</summary>
+<div id="engagement-template-review-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-signoff-title">Validation éditoriale des modèles</h3><p id="engagement-signoff-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-signoff-refresh">Relire les versions</button>
+      <p id="engagement-signoff-status" role="status" aria-live="polite"></p>
+      <label id="engagement-signoff-choice-label" for="engagement-signoff-choice">Version</label><select id="engagement-signoff-choice"></select><p id="engagement-signoff-state"></p>
+      <pre id="engagement-signoff-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+      <label id="engagement-signoff-reason-label" for="engagement-signoff-reason">Motif</label><textarea id="engagement-signoff-reason" rows="3" maxlength="1000"></textarea>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="engagement-signoff-ack" style="width:auto"><span id="engagement-signoff-ack-label" style="font-size:14px;line-height:1.5;text-transform:none;letter-spacing:normal;color:inherit"></span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-signoff-approve">Valider le texte</button><button type="button" class="btn btn-secondary" id="engagement-signoff-revoke">Retirer la validation</button></div>
+      <ul id="engagement-signoff-history"></ul>
+      <div id="engagement-signoff-recovery" hidden><p id="engagement-signoff-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-signoff-verify">Vérifier le reçu</button> <button type="button" class="btn btn-secondary" id="engagement-signoff-cancel">Clore la tentative</button></div>
     </div>
-    <div id="engagement-provider-panel" class="card" style="overflow-wrap:anywhere">
-      <h3 id="engagement-provider-title">Retours fournisseur et blocages</h3><p id="engagement-provider-note"></p>
-      <button type="button" class="btn btn-secondary" id="engagement-provider-refresh">Actualiser les retours</button>
-      <p id="engagement-provider-status" role="status" aria-live="polite"></p><p id="engagement-provider-health"></p><p id="engagement-provider-summary"></p><p id="engagement-provider-receipts"></p><p id="engagement-provider-count"></p>
-      <h4 id="engagement-provider-messages-title">Messages suivis</h4><ul id="engagement-provider-messages"></ul>
-      <button type="button" class="btn btn-secondary" id="engagement-provider-prev" aria-label="Previous message page">←</button> <button type="button" class="btn btn-secondary" id="engagement-provider-next" aria-label="Next message page">→</button>
-      <h4 id="engagement-provider-blocks-title">Blocages conservés</h4><ul id="engagement-provider-blocks"></ul>
+      </details>
     </div>
-    <div id="engagement-preparation-panel" class="card">
+    <div class="engagement-page" role="tabpanel" id="engagement-page-results" aria-labelledby="engagement-tab-results" hidden>
+      <div id="engagement-workspace-results">
+        <h2 id="engagement-workspace-results-title">Activité observée</h2>
+        <label id="engagement-workspace-period-label" for="engagement-workspace-period">Période</label><select id="engagement-workspace-period"><option value="7">7 derniers jours</option><option value="30" selected>30 derniers jours</option><option value="90">90 derniers jours</option></select>
+        <p id="engagement-workspace-period-note"></p><p id="engagement-workspace-results-status" role="status" aria-live="polite"></p>
+        <div id="engagement-workspace-metrics" class="engagement-tile-grid"></div>
+        <div class="card"><h3 id="engagement-workspace-impact-title">Effet des relances</h3><p id="engagement-workspace-impact"></p></div>
+      </div>
+    </div>
+    <details id="engagement-diagnostics" class="engagement-disclosure"><summary id="engagement-diagnostics-summary">Diagnostic avancé</summary><p id="engagement-diagnostics-note"></p>
+<div id="engagement-engine-panel" class="card">
+      <h3 id="engagement-actions-title">Calculs enregistrés</h3>
+      <p id="engagement-actions-note"></p><p id="engagement-control-state" role="status" aria-live="polite"></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
+      <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
+    </div>
+<div id="engagement-candidate-history-panel" class="card">
+      <h3 id="engagement-candidates-title">Candidats enregistrés</h3><p id="engagement-candidates-note"></p><p id="engagement-candidate-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-candidate-head"></thead><tbody id="engagement-candidates"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-candidate-prev" aria-label="Page précédente des candidats">←</button> <button type="button" class="btn btn-secondary" id="engagement-candidate-next" aria-label="Page suivante des candidats">→</button>
+    </div>
+<div id="engagement-run-history-panel" class="card">
+      <h3 id="engagement-runs-title">Journal des calculs</h3><p id="engagement-run-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-run-head"></thead><tbody id="engagement-runs"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-run-prev" aria-label="Page précédente du journal">←</button> <button type="button" class="btn btn-secondary" id="engagement-run-next" aria-label="Page suivante du journal">→</button>
+    </div>
+<div id="engagement-preparation-panel" class="card">
       <h3 id="engagement-preparation-title">File de préparation — test uniquement</h3>
       <p id="engagement-preparation-note"></p><p id="engagement-preparation-control" role="status" aria-live="polite"></p>
       <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-preparation-refresh">Actualiser la file</button><button type="button" class="btn btn-secondary" id="engagement-preparation-enqueue">Préparer les candidats</button><button type="button" class="btn btn-secondary" id="engagement-preparation-process">Tester un lot de 10</button><button type="button" class="btn btn-secondary" id="engagement-preparation-pause">Reprendre les tests de préparation</button></div>
@@ -1436,19 +1467,29 @@
       <div class="table-wrap"><table><thead id="engagement-preparation-head"></thead><tbody id="engagement-preparation-rows"></tbody></table></div>
       <button type="button" class="btn btn-secondary" id="engagement-preparation-prev" aria-label="Page précédente de la file de préparation">←</button> <button type="button" class="btn btn-secondary" id="engagement-preparation-next" aria-label="Page suivante de la file de préparation">→</button>
     </div>
-    <div id="engagement-rules"></div>
-    <div class="card"><h3 id="engagement-buyers-title">Acheteurs — simulation</h3><p id="engagement-count"></p><div class="table-wrap"><table><thead id="engagement-head"></thead><tbody id="engagement-buyers"></tbody></table></div><button type="button" class="btn btn-secondary" id="engagement-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-next">→</button></div>
-    <div class="card">
-      <h3 id="engagement-candidates-title">Candidats enregistrés</h3><p id="engagement-candidates-note"></p><p id="engagement-candidate-count"></p>
-      <div class="table-wrap"><table><thead id="engagement-candidate-head"></thead><tbody id="engagement-candidates"></tbody></table></div>
-      <button type="button" class="btn btn-secondary" id="engagement-candidate-prev" aria-label="Page précédente des candidats">←</button> <button type="button" class="btn btn-secondary" id="engagement-candidate-next" aria-label="Page suivante des candidats">→</button>
+<div id="engagement-outbox-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-outbox-title">File de transport — envois verrouillés</h3><p id="engagement-outbox-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-outbox-refresh">Actualiser la file</button><p id="engagement-outbox-status" role="status" aria-live="polite"></p>
+      <label for="engagement-outbox-source" id="engagement-outbox-source-label">Préparation terminée</label><select id="engagement-outbox-source"></select>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-outbox-stage">Conserver une intention verrouillée</button><button type="button" class="btn btn-secondary" id="engagement-outbox-recover">Réconcilier les réservations expirées</button></div>
+      <p id="engagement-outbox-count"></p><ul id="engagement-outbox-rows" style="list-style:none;padding:0"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-outbox-prev" aria-label="Previous queue page">←</button> <button type="button" class="btn btn-secondary" id="engagement-outbox-next" aria-label="Next queue page">→</button>
     </div>
-    <div class="card">
-      <h3 id="engagement-runs-title">Journal des calculs</h3><p id="engagement-run-count"></p>
-      <div class="table-wrap"><table><thead id="engagement-run-head"></thead><tbody id="engagement-runs"></tbody></table></div>
-      <button type="button" class="btn btn-secondary" id="engagement-run-prev" aria-label="Page précédente du journal">←</button> <button type="button" class="btn btn-secondary" id="engagement-run-next" aria-label="Page suivante du journal">→</button>
+<div id="engagement-provider-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-provider-title">Retours fournisseur et blocages</h3><p id="engagement-provider-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-provider-refresh">Actualiser les retours</button>
+      <p id="engagement-provider-status" role="status" aria-live="polite"></p><p id="engagement-provider-health"></p><p id="engagement-provider-summary"></p><p id="engagement-provider-receipts"></p><p id="engagement-provider-count"></p>
+      <h4 id="engagement-provider-messages-title">Messages suivis</h4><ul id="engagement-provider-messages"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-provider-prev" aria-label="Previous message page">←</button> <button type="button" class="btn btn-secondary" id="engagement-provider-next" aria-label="Next message page">→</button>
+      <h4 id="engagement-provider-blocks-title">Blocages conservés</h4><ul id="engagement-provider-blocks"></ul>
     </div>
-    <div class="card"><h3 id="engagement-template-title">Brouillons de modèles</h3><p id="engagement-template-note"></p><label for="engagement-template-choice">FR / EN</label><select id="engagement-template-choice"></select><form id="engagement-template-form"><div class="form-group"><label for="engagement-subject" id="engagement-subject-label">Objet</label><input id="engagement-subject" maxlength="200" required></div><div class="form-group"><label for="engagement-body" id="engagement-body-label">Texte</label><textarea id="engagement-body" rows="7" maxlength="10000" required></textarea></div><button class="btn btn-primary" id="engagement-template-save">Enregistrer le brouillon</button></form><pre id="engagement-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>
+<div id="engagement-retention-panel" class="card">
+      <h3 id="engagement-retention-title">Conservation des données — surveillance</h3><p id="engagement-retention-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-retention-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-retention-run">Exécuter un lot</button></div>
+      <p id="engagement-retention-status" role="status" aria-live="polite"></p><p id="engagement-retention-health"></p><p id="engagement-retention-policy"></p>
+      <h4 id="engagement-retention-runs-title">Dix derniers passages</h4><ul id="engagement-retention-runs" style="overflow-wrap:anywhere"></ul>
+    </div>
+    </details>
   </div>
 
   <div id="buyers" class="section">
@@ -3086,6 +3127,7 @@ function setLang(lang) {
     else if (id === 'buyers') loadBuyers();
     else if (id === 'access-requests') loadAccessRequests();
     else if (id === 'settings') updateSettingsLangButtons();
+    else if (id === 'buyer-engagement') window.BuyerEngagement?.translate();
   }
   // Re-render products table if open
   if (document.getElementById('modal-products').classList.contains('open')) filterProducts();
@@ -9052,7 +9094,7 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261104-provider"></script>
+<script src="/buyer-engagement-admin.js?v=20261104-workspace-2"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
@@ -9062,5 +9104,6 @@ document.addEventListener('click',async event=>{
 <script src="/buyer-engagement-template-signoffs.js?v=20261104-1"></script>
 <script src="/buyer-engagement-outbox.js?v=20261104-provider"></script>
 <script src="/buyer-engagement-provider.js?v=20261104-1"></script>
+<script src="/buyer-engagement-workspace.js?v=20261104-4"></script>
 </body>
 </html>
