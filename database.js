@@ -568,6 +568,7 @@ async function init() {
   await require('./lib/buyer-engagement-migration').migrateBuyerEngagement(pool);
   await require('./lib/buyer-engagement-ledger-migration').migrateBuyerEngagementLedger(pool);
   await require('./lib/buyer-engagement-preparation-migration').migrateBuyerEngagementPreparation(pool);
+  await require('./lib/buyer-engagement-template-signoffs-migration').migrateTemplateSignoffs(pool);
   await require('./lib/buyer-cart-migration').migrateBuyerCart(pool);
   await require('./lib/buyer-cart-engagement-migration').migrateCartEngagement(pool);
   await require('./lib/buyer-brand-interest-migration').migrateBrandInterest(pool);

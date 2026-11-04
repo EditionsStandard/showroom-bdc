@@ -1347,6 +1347,18 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
       <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
     </div>
+    <div id="engagement-template-review-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-signoff-title">Validation éditoriale des modèles</h3><p id="engagement-signoff-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-signoff-refresh">Relire les versions</button>
+      <p id="engagement-signoff-status" role="status" aria-live="polite"></p>
+      <label id="engagement-signoff-choice-label" for="engagement-signoff-choice">Version</label><select id="engagement-signoff-choice"></select><p id="engagement-signoff-state"></p>
+      <pre id="engagement-signoff-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+      <label id="engagement-signoff-reason-label" for="engagement-signoff-reason">Motif</label><textarea id="engagement-signoff-reason" rows="3" maxlength="1000"></textarea>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="engagement-signoff-ack" style="width:auto"><span id="engagement-signoff-ack-label" style="font-size:14px;line-height:1.5;text-transform:none;letter-spacing:normal;color:inherit"></span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-signoff-approve">Valider le texte</button><button type="button" class="btn btn-secondary" id="engagement-signoff-revoke">Retirer la validation</button></div>
+      <ul id="engagement-signoff-history"></ul>
+      <div id="engagement-signoff-recovery" hidden><p id="engagement-signoff-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-signoff-verify">Vérifier le reçu</button> <button type="button" class="btn btn-secondary" id="engagement-signoff-cancel">Clore la tentative</button></div>
+    </div>
     <div id="engagement-retention-panel" class="card">
       <h3 id="engagement-retention-title">Conservation des données — surveillance</h3><p id="engagement-retention-note"></p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-retention-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-retention-run">Exécuter un lot</button></div>
@@ -9024,12 +9036,13 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261104-reviews"></script>
+<script src="/buyer-engagement-admin.js?v=20261104-signoffs"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 <script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
 <script src="/buyer-engagement-retention.js?v=20261103-1"></script>
 <script src="/buyer-engagement-reviews.js?v=20261104-crm"></script>
+<script src="/buyer-engagement-template-signoffs.js?v=20261104-1"></script>
 </body>
 </html>
