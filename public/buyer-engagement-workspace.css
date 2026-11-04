@@ -1,0 +1,56 @@
+#buyer-engagement .engagement-page[hidden],
+#buyer-engagement #engagement-intro[hidden],
+#buyer-engagement #engagement-workspace-status:empty { display: none !important; }
+#buyer-engagement .engagement-tabs {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 24px 0 20px;
+}
+#buyer-engagement .engagement-tab { min-height: 44px; padding: 12px 8px; white-space: normal; font-size: 11px; }
+#buyer-engagement .btn-secondary:not(:disabled) { color: var(--white); border: 1px solid var(--border); }
+#buyer-engagement .btn-secondary:not(:disabled):hover { border-color: var(--accent); }
+#buyer-engagement .engagement-tab[aria-selected=true] {
+  background: var(--white, #111); color: var(--black, #fff); border-color: var(--white, #111);
+}
+#buyer-engagement .engagement-safety {
+  display: inline-block; font-size: 11px; padding: 9px 12px; border: 1px solid var(--border, #ccc); margin: 12px 0;
+}
+#buyer-engagement #engagement-main-status {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 0 0 18px; padding: 10px 14px;
+}
+#buyer-engagement #engagement-main-status #engagement-status { font-size: 10px; line-height: 1.5; margin: 0; }
+#buyer-engagement .engagement-page > h2,
+#buyer-engagement #engagement-workspace-actions-title,
+#buyer-engagement #engagement-workspace-results-title { font-size: 18px; margin: 8px 0 14px; }
+#buyer-engagement #engagement-workspace-actions-note { font-size: 12px; line-height: 1.6; }
+#buyer-engagement .engagement-tile-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0;
+}
+#buyer-engagement .engagement-tile { border: 1px solid var(--border, #ccc); padding: 20px; overflow-wrap: anywhere; }
+#buyer-engagement .engagement-tile h3 { font-size: 13px; line-height: 1.5; margin: 0 0 8px; }
+#buyer-engagement .engagement-number { display: block; font-size: 34px; line-height: 1.2; margin: 12px 0; }
+#buyer-engagement .engagement-tile p { font-size: 11px; line-height: 1.6; margin: 8px 0 16px; }
+#buyer-engagement .engagement-tile[aria-current=true] { border-color: var(--accent, #6b8500); }
+#buyer-engagement .engagement-tile .btn { min-height: 44px; }
+#buyer-engagement .engagement-priority-list { list-style: none; padding: 0; }
+#buyer-engagement .engagement-priority-list li {
+  padding: 14px 0; border-bottom: 1px solid var(--border, #ddd); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere;
+}
+#buyer-engagement .engagement-disclosure { border-top: 1px solid var(--border, #ddd); padding: 18px 0; margin: 16px 0; }
+#buyer-engagement .engagement-disclosure > summary {
+  cursor: pointer; font-size: 12px; line-height: 1.6; min-height: 44px; padding: 8px 0; letter-spacing: .03em;
+}
+#buyer-engagement .engagement-disclosure[open] > summary { margin-bottom: 18px; }
+#buyer-engagement #engagement-rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+#buyer-engagement #engagement-rules .card { min-width: 0; margin: 0 0 16px; }
+#buyer-engagement #engagement-workspace-period { max-width: 260px; margin: 8px 0 12px; }
+#buyer-engagement button:focus-visible,
+#buyer-engagement summary:focus-visible { outline: 2px solid var(--accent, #6b8500); outline-offset: 3px; }
+@media (max-width: 640px) {
+  #buyer-engagement .engagement-tile-grid { gap: 10px; }
+  #buyer-engagement .engagement-tab { font-size: 9px; letter-spacing: 0; padding: 12px 4px; }
+  #buyer-engagement .engagement-tile { padding: 14px; }
+  #buyer-engagement .engagement-tile h3 { font-size: 11px; min-height: 3em; }
+  #buyer-engagement .engagement-tile p { font-size: 10px; line-height: 1.5; margin: 6px 0 10px; }
+  #buyer-engagement .engagement-number { font-size: 30px; }
+  #buyer-engagement .engagement-tile .btn { width: 100%; font-size: 9px; padding: 10px 6px; letter-spacing: .06em; }
+  #buyer-engagement #engagement-rules { grid-template-columns: 1fr; }
+}

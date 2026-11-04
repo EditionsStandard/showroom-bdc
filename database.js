@@ -565,6 +565,21 @@ async function init() {
   // Required ordering invariant: never silently ignore a failed migration.
   await require('./lib/min-reference-migration').migrateMinReference(pool);
   await require('./lib/buyer-account-migration').migrateBuyerAccounts(pool);
+  await require('./lib/buyer-engagement-migration').migrateBuyerEngagement(pool);
+  await require('./lib/buyer-engagement-ledger-migration').migrateBuyerEngagementLedger(pool);
+  await require('./lib/buyer-engagement-preparation-migration').migrateBuyerEngagementPreparation(pool);
+  await require('./lib/buyer-engagement-template-signoffs-migration').migrateTemplateSignoffs(pool);
+  await require('./lib/buyer-engagement-outbox-migration').migrateOutbox(pool);
+  await require('./lib/buyer-engagement-email-links-migration').migrateEmailLinks(pool);
+  await require('./lib/buyer-engagement-provider-migration').migrateProviderEvents(pool);
+  await require('./lib/buyer-cart-migration').migrateBuyerCart(pool);
+  await require('./lib/buyer-cart-engagement-migration').migrateCartEngagement(pool);
+  await require('./lib/buyer-brand-interest-migration').migrateBrandInterest(pool);
+  await require('./lib/buyer-engagement-reviews-migration').migrateReviews(pool);
+  await require('./lib/buyer-engagement-crm-checks-migration').migrateCRMChecks(pool);
+  await require('./lib/buyer-engagement-retention-migration').migrateRetention(pool);
+  await require('./lib/buyer-engagement-retention').runRetention(pool,{trigger:'startup'});
+  await require('./lib/buyer-cart').createBuyerCartService(pool).expireCarts();
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS brand_invite_links_slug_idx ON brand_invite_links(slug)').catch(e => console.error('Index slug ignoré:', e.message.split('\n')[0]));
   // Backfill + dédoublonnage des abonnements push existants avant de poser la
   // contrainte d'unicité (des doublons ont pu s'accumuler tant que le bug était
@@ -736,7 +751,7 @@ async function init() {
     DELETE FROM selection_shares WHERE expires_at < NOW() - INTERVAL '7 days';
     DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
     DELETE FROM buyer_carts WHERE updated_at < NOW() - INTERVAL '90 days';
-    DELETE FROM access_requests WHERE status='pending' AND created_at < NOW() - INTERVAL '30 days';
+    DELETE FROM access_requests WHERE status IN ('pending','rejected') AND created_at < NOW() - INTERVAL '30 days';
     DELETE FROM commande_links WHERE expires_at < NOW() - INTERVAL '30 days';
   `).catch(() => {});
 

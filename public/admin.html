@@ -7,6 +7,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="/fonts/brand.css">
+<link rel="stylesheet" href="/buyer-engagement-workspace.css?v=20261104-4">
 <title>Editions Standard B2B Showroom — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -599,6 +600,22 @@
     .nav-group-links a { flex-direction:row; justify-content:flex-start; width:100%; padding:12px; font-size:12px; border-top:0; }
     .nav-group-links a svg { width:16px; height:16px; }
   }
+  @media (max-width: 768px) {
+    #engagement-brand-panel .table-wrap::after { display: none; }
+    #engagement-brand-panel table { min-width: 0; width: 100%; }
+    #engagement-brand-panel thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    #engagement-brand-panel tbody, #engagement-brand-panel tr, #engagement-brand-panel td { display: block; width: 100%; }
+    #engagement-brand-panel tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    #engagement-brand-panel td { padding: 4px 0; border: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    #engagement-brand-panel td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 600; opacity: .7; }
+    #engagement-cart-panel .table-wrap::after { display: none; }
+    #engagement-cart-panel table { min-width: 0; width: 100%; }
+    #engagement-cart-panel thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    #engagement-cart-panel tbody, #engagement-cart-panel tr, #engagement-cart-panel td { display: block; width: 100%; }
+    #engagement-cart-panel tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    #engagement-cart-panel td { padding: 4px 0; border: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    #engagement-cart-panel td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 600; opacity: .7; }
+  }
 </style>
 <script>
 (function() {
@@ -661,6 +678,7 @@
     <a data-section="brands"><span class="icon">🏷️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg> <span data-t="nav_brands">Marques</span></a>
     <a data-section="orders"><span class="icon">📋</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg> <span data-t="nav_orders">Commandes</span></a>
     <a data-section="settings" id="nav-settings"><span class="icon">⚙️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> <span data-t="nav_settings">Paramètres</span></a>
+    <a data-section="buyer-engagement" id="nav-buyer-engagement" style="display:none"><span class="icon">◷</span><span>BUYER ENGAGEMENT</span></a>
     <a data-section="email-templates" id="nav-email-templates" style="display:none"><span class="icon">✉️</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6z"/><path d="M22 6l-10 7L2 6"/></svg> <span>Modèles email</span></a>
     <a data-section="security" id="nav-security" style="display:none"><span class="icon">🔒</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> <span>Sécurité &amp; audit</span></a>
     <a data-section="staff" id="nav-staff" style="display:none"><span class="icon">👥</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> <span data-t="nav_staff">Comptes</span></a>
@@ -721,6 +739,7 @@
       <div id="online-buyers-list"><p style="font-size:12px;color:#555" data-t="loading_label">Chargement…</p></div>
     </div>
 
+    <div id="dashboard-stats-status" role="status" aria-live="polite" style="font-size:12px;margin-bottom:8px"></div>
     <div class="stats">
       <div class="stat" style="--stat-color:#CCEB3C;--stat-bg:#1e2a0a">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/></svg></div>
@@ -750,11 +769,12 @@
         <div class="label" data-t="stat_online">En ligne maintenant</div>
       </div>
     </div>
-    <!-- Conversion sélections → commandes -->
+    <!-- Acceptation des sélections proposées -->
     <div class="card" id="conversion-card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">
       <div>
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em" data-t="stat_conversion">Conversion sélections → commandes</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em" data-t="stat_conversion">Acceptation des sélections proposées</div>
         <div style="font-size:12px;color:#888;margin-top:6px"><span id="stat-conv-sub">—</span></div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px" data-t="stat_selection_meaning">Hors brouillons et modèles. Ne mesure pas la réception des emails ni une vente définitive.</p>
       </div>
       <div style="font-size:34px;font-weight:700;color:var(--accent);line-height:1" id="stat-conversion">—</div>
     </div>
@@ -766,6 +786,7 @@
           <span id="chart-total" style="font-size:11px;color:#888"></span>
         </div>
         <canvas id="revenue-chart" height="120" style="width:100%;display:block"></canvas>
+        <div id="revenue-chart-status" role="status" aria-live="polite" style="font-size:12px;margin-top:8px"></div>
       </div>
       <div class="card" style="margin-bottom:0">
         <h3 style="margin:0 0 14px;font-size:14px" data-t="dash_ca_brand_title">CA par marque</h3>
@@ -858,7 +879,7 @@
         <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_top_buyers_title">Top Acheteurs</h3>
         <div class="table-wrap" id="top-buyers-wrap">
           <table style="min-width:300px">
-            <thead><tr><th data-t="th_name">Nom</th><th data-t="th_company">Société</th><th data-t="th_cmds">Cmds</th><th data-t="th_ca">CA</th></tr></thead>
+            <thead><tr><th data-t="th_name">Nom</th><th data-t="th_company">Société</th><th data-t="th_cmds">Cmds</th><th data-t="th_active_order_amount">Commandes actives HT</th></tr></thead>
             <tbody id="top-buyers-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
@@ -875,7 +896,7 @@
         <h3 style="font-size:13px;margin-bottom:14px" data-t="dash_top_brands_title">Perf. Marques</h3>
         <div class="table-wrap" id="top-brands-wrap">
           <table style="min-width:280px">
-            <thead><tr><th data-t="th_brand">Marque</th><th data-t="th_cmds">Cmds</th><th data-t="th_ca">CA</th><th data-t="stat_buyers">Acheteurs</th></tr></thead>
+            <thead><tr><th data-t="th_brand">Marque</th><th data-t="th_cmds">Cmds</th><th data-t="th_active_order_amount">Commandes actives HT</th><th data-t="stat_buyers">Acheteurs</th></tr></thead>
             <tbody id="top-brands-body"><tr><td colspan="4" style="color:#555;font-size:12px;text-align:center" data-t="loading_label">Chargement…</td></tr></tbody>
           </table>
         </div>
@@ -1318,6 +1339,159 @@
     </div>
   </div>
 
+  <div id="buyer-engagement" class="section">
+    <div id="engagement-workspace-header">
+      <h1>BUYER ENGAGEMENT</h1>
+      <p id="engagement-workspace-intro">Vos priorités acheteurs, vos règles et l’activité observée du showroom.</p>
+      <p id="engagement-workspace-safety" class="engagement-safety">Préparation uniquement · Envois automatiques désactivés</p>
+      <div class="engagement-tabs" role="tablist" aria-label="BUYER ENGAGEMENT">
+        <button type="button" role="tab" class="btn btn-secondary engagement-tab" id="engagement-tab-actions" data-engagement-view="actions" aria-controls="engagement-page-actions" aria-selected="true">À traiter</button>
+        <button type="button" role="tab" class="btn btn-secondary engagement-tab" id="engagement-tab-automations" data-engagement-view="automations" aria-controls="engagement-page-automations" aria-selected="false" tabindex="-1">Automatisations</button>
+        <button type="button" role="tab" class="btn btn-secondary engagement-tab" id="engagement-tab-results" data-engagement-view="results" aria-controls="engagement-page-results" aria-selected="false" tabindex="-1">Résultats</button>
+      </div>
+<div id="engagement-main-status" class="card"><p id="engagement-intro" hidden></p><button type="button" class="btn btn-secondary" id="engagement-refresh">Actualiser la simulation</button><p id="engagement-status" role="status" aria-live="polite"></p></div>
+    </div>
+    <div class="engagement-page" role="tabpanel" id="engagement-page-actions" aria-labelledby="engagement-tab-actions">
+      <div id="engagement-workspace-actions">
+        <h2 id="engagement-workspace-actions-title">Vos priorités</h2><p id="engagement-workspace-actions-note"></p>
+        <p id="engagement-workspace-status" role="status" aria-live="polite"></p>
+        <div id="engagement-workspace-tiles" class="engagement-tile-grid"></div>
+        <div class="card"><h3 id="engagement-workspace-list-title" aria-live="polite"></h3><p id="engagement-workspace-list-note"></p><ul id="engagement-workspace-list" class="engagement-priority-list"></ul><button type="button" class="btn btn-secondary" id="engagement-workspace-details">Voir les détails</button></div>
+      </div>
+      <details id="engagement-contacts-detail" class="engagement-disclosure"><summary id="engagement-contacts-summary">Historique et critères des acheteurs</summary>
+<div id="engagement-buyer-history-panel" class="card"><h3 id="engagement-buyers-title">Acheteurs — simulation</h3><p id="engagement-count"></p><div class="table-wrap"><table><thead id="engagement-head"></thead><tbody id="engagement-buyers"></tbody></table></div><button type="button" class="btn btn-secondary" id="engagement-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-next">→</button></div>
+      </details>
+      <details id="engagement-carts-detail" class="engagement-disclosure"><summary id="engagement-carts-summary">Examiner les paniers</summary>
+<div id="engagement-cart-panel" class="card">
+      <h3 id="engagement-cart-title">Paniers inactifs — simulation</h3><p id="engagement-cart-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-cart-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-cart-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-cart-recheck">Recontrôler</button></div>
+      <p id="engagement-cart-status" role="status" aria-live="polite"></p><p id="engagement-cart-asof"></p><p id="engagement-cart-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-cart-head"></thead><tbody id="engagement-cart-rows"></tbody></table></div>
+      <h4 id="engagement-cart-candidate-title">Candidats panier</h4><div class="table-wrap"><table><thead id="engagement-cart-candidate-head"></thead><tbody id="engagement-cart-candidates"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-cart-prev" aria-label="Previous cart page">←</button> <button type="button" class="btn btn-secondary" id="engagement-cart-next" aria-label="Next cart page">→</button>
+      <h4 id="engagement-cart-runs-title">Journal panier</h4><ul id="engagement-cart-runs" style="overflow-wrap:anywhere"></ul>
+    </div>
+      </details>
+      <details id="engagement-brands-detail" class="engagement-disclosure"><summary id="engagement-brands-summary">Qualifier les intérêts marque</summary>
+<div id="engagement-brand-panel" class="card">
+      <h3 id="engagement-brand-title">Intérêt marque — simulation</h3><p id="engagement-brand-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-brand-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-brand-generate">Enregistrer les signaux</button><button type="button" class="btn btn-secondary" id="engagement-brand-recheck">Recontrôler</button></div>
+      <p id="engagement-brand-status" role="status" aria-live="polite"></p><p id="engagement-brand-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-brand-head"></thead><tbody id="engagement-brand-rows"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-brand-prev">←</button> <button type="button" class="btn btn-secondary" id="engagement-brand-next">→</button>
+      <h4 id="engagement-brand-runs-title">Journal des signaux</h4><ul id="engagement-brand-runs" style="overflow-wrap:anywhere"></ul>
+    </div>
+<div id="engagement-review-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-review-title">Qualification locale des signaux</h3><p id="engagement-review-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-review-refresh">Actualiser</button>
+      <p id="engagement-review-status" role="status" aria-live="polite"></p><p id="engagement-review-count"></p>
+      <ul id="engagement-review-rows" style="list-style:none;padding:0"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-review-prev" aria-label="Previous reviews">←</button> <button type="button" class="btn btn-secondary" id="engagement-review-next" aria-label="Next reviews">→</button>
+      <div id="engagement-review-detail" hidden>
+        <h4 id="engagement-review-source-title"></h4><p id="engagement-review-evidence"></p><p id="engagement-review-saved-state"></p>
+        <form id="engagement-review-form">
+          <div class="form-group"><label id="engagement-review-decision-label" for="engagement-review-decision">Décision locale</label><select id="engagement-review-decision"><option value="review">À examiner</option><option value="qualified">Qualifié localement</option><option value="dismissed">Écarté</option></select></div>
+          <div class="form-group"><label id="engagement-review-note-label" for="engagement-review-reason">Motif</label><textarea id="engagement-review-reason" maxlength="2000" rows="3"></textarea></div>
+          <p id="engagement-review-links-note"></p>
+          <div class="form-row"><div class="form-group"><label for="engagement-review-store">STORES · ID</label><input id="engagement-review-store" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div><div class="form-group"><label for="engagement-review-buyer">BUYERS · ID</label><input id="engagement-review-buyer" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div></div>
+          <div class="form-row"><div class="form-group"><label for="engagement-review-brand">BRANDS · ID</label><input id="engagement-review-brand" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div><div class="form-group"><label for="engagement-review-season">SEASONS · ID</label><input id="engagement-review-season" pattern="rec[A-Za-z0-9]{14}" maxlength="17" autocomplete="off"></div></div>
+          <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="engagement-review-ack" style="width:auto"><span id="engagement-review-ack-label" style="font-size:14px;line-height:1.5;text-transform:none;letter-spacing:normal;color:inherit"></span></label>
+          <button class="btn btn-secondary" id="engagement-review-save">Enregistrer la revue locale</button>
+        </form>
+        <button type="button" class="btn btn-secondary" id="engagement-review-discard">Recharger et abandonner la saisie</button>
+        <h4 id="engagement-review-history-title"></h4><ul id="engagement-review-history"></ul>
+        <h4 id="engagement-review-previews-title"></h4><p id="engagement-review-preview-note"></p><div id="engagement-review-previews"></div>
+      </div>
+      <div id="engagement-review-crm-panel" hidden>
+        <h4 id="engagement-review-crm-title"></h4><p id="engagement-review-crm-note"></p>
+        <button type="button" class="btn btn-secondary" id="engagement-review-crm-run">Contrôler les références CRM</button>
+        <button type="button" class="btn btn-secondary" id="engagement-review-crm-refresh">Actualiser les contrôles</button>
+        <p id="engagement-review-crm-status" role="status" aria-live="polite"></p><ul id="engagement-review-crm-rows"></ul>
+      </div>
+      <div id="engagement-review-crm-recovery" hidden><p id="engagement-review-crm-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-crm-verify">Vérifier le résultat du contrôle</button> <button type="button" class="btn btn-secondary" id="engagement-review-crm-cancel">Clore le contrôle non confirmé</button></div>
+      <div id="engagement-review-recovery" hidden><p id="engagement-review-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-verify">Vérifier l’enregistrement</button> <button type="button" class="btn btn-secondary" id="engagement-review-cancel">Clore la tentative non confirmée</button></div>
+    </div>
+      </details>
+    </div>
+    <div class="engagement-page" role="tabpanel" id="engagement-page-automations" aria-labelledby="engagement-tab-automations" hidden>
+      <h2 id="engagement-workspace-automations-title">Règles et emails</h2><p id="engagement-workspace-automations-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-workspace-pause" disabled>Suspendre les analyses</button>
+<div id="engagement-rules"></div>
+<div id="engagement-template-editor-panel" class="card"><h3 id="engagement-template-title">Brouillons de modèles</h3><p id="engagement-template-note"></p><label for="engagement-template-choice">FR / EN</label><select id="engagement-template-choice"></select><form id="engagement-template-form"><div class="form-group"><label for="engagement-subject" id="engagement-subject-label">Objet</label><input id="engagement-subject" maxlength="200" required></div><div class="form-group"><label for="engagement-body" id="engagement-body-label">Texte</label><textarea id="engagement-body" rows="7" maxlength="10000" required></textarea></div><button class="btn btn-primary" id="engagement-template-save">Enregistrer le brouillon</button></form><pre id="engagement-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>
+      <details id="engagement-approval-detail" class="engagement-disclosure"><summary id="engagement-approval-summary">Valider une version d’email</summary>
+<div id="engagement-template-review-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-signoff-title">Validation éditoriale des modèles</h3><p id="engagement-signoff-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-signoff-refresh">Relire les versions</button>
+      <p id="engagement-signoff-status" role="status" aria-live="polite"></p>
+      <label id="engagement-signoff-choice-label" for="engagement-signoff-choice">Version</label><select id="engagement-signoff-choice"></select><p id="engagement-signoff-state"></p>
+      <pre id="engagement-signoff-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+      <label id="engagement-signoff-reason-label" for="engagement-signoff-reason">Motif</label><textarea id="engagement-signoff-reason" rows="3" maxlength="1000"></textarea>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="engagement-signoff-ack" style="width:auto"><span id="engagement-signoff-ack-label" style="font-size:14px;line-height:1.5;text-transform:none;letter-spacing:normal;color:inherit"></span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-signoff-approve">Valider le texte</button><button type="button" class="btn btn-secondary" id="engagement-signoff-revoke">Retirer la validation</button></div>
+      <ul id="engagement-signoff-history"></ul>
+      <div id="engagement-signoff-recovery" hidden><p id="engagement-signoff-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-signoff-verify">Vérifier le reçu</button> <button type="button" class="btn btn-secondary" id="engagement-signoff-cancel">Clore la tentative</button></div>
+    </div>
+      </details>
+    </div>
+    <div class="engagement-page" role="tabpanel" id="engagement-page-results" aria-labelledby="engagement-tab-results" hidden>
+      <div id="engagement-workspace-results">
+        <h2 id="engagement-workspace-results-title">Activité observée</h2>
+        <label id="engagement-workspace-period-label" for="engagement-workspace-period">Période</label><select id="engagement-workspace-period"><option value="7">7 derniers jours</option><option value="30" selected>30 derniers jours</option><option value="90">90 derniers jours</option></select>
+        <p id="engagement-workspace-period-note"></p><p id="engagement-workspace-results-status" role="status" aria-live="polite"></p>
+        <div id="engagement-workspace-metrics" class="engagement-tile-grid"></div>
+        <div class="card"><h3 id="engagement-workspace-impact-title">Effet des relances</h3><p id="engagement-workspace-impact"></p></div>
+      </div>
+    </div>
+    <details id="engagement-diagnostics" class="engagement-disclosure"><summary id="engagement-diagnostics-summary">Diagnostic avancé</summary><p id="engagement-diagnostics-note"></p>
+<div id="engagement-engine-panel" class="card">
+      <h3 id="engagement-actions-title">Calculs enregistrés</h3>
+      <p id="engagement-actions-note"></p><p id="engagement-control-state" role="status" aria-live="polite"></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-generate">Enregistrer un calcul</button><button type="button" class="btn btn-secondary" id="engagement-recheck">Recontrôler les candidats</button><button type="button" class="btn btn-secondary" id="engagement-pause">Suspendre les simulations</button></div>
+      <p id="engagement-ledger-status" role="status" aria-live="polite"></p>
+    </div>
+<div id="engagement-candidate-history-panel" class="card">
+      <h3 id="engagement-candidates-title">Candidats enregistrés</h3><p id="engagement-candidates-note"></p><p id="engagement-candidate-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-candidate-head"></thead><tbody id="engagement-candidates"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-candidate-prev" aria-label="Page précédente des candidats">←</button> <button type="button" class="btn btn-secondary" id="engagement-candidate-next" aria-label="Page suivante des candidats">→</button>
+    </div>
+<div id="engagement-run-history-panel" class="card">
+      <h3 id="engagement-runs-title">Journal des calculs</h3><p id="engagement-run-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-run-head"></thead><tbody id="engagement-runs"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-run-prev" aria-label="Page précédente du journal">←</button> <button type="button" class="btn btn-secondary" id="engagement-run-next" aria-label="Page suivante du journal">→</button>
+    </div>
+<div id="engagement-preparation-panel" class="card">
+      <h3 id="engagement-preparation-title">File de préparation — test uniquement</h3>
+      <p id="engagement-preparation-note"></p><p id="engagement-preparation-control" role="status" aria-live="polite"></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn btn-secondary" id="engagement-preparation-refresh">Actualiser la file</button><button type="button" class="btn btn-secondary" id="engagement-preparation-enqueue">Préparer les candidats</button><button type="button" class="btn btn-secondary" id="engagement-preparation-process">Tester un lot de 10</button><button type="button" class="btn btn-secondary" id="engagement-preparation-pause">Reprendre les tests de préparation</button></div>
+      <p id="engagement-preparation-status" role="status" aria-live="polite"></p><p id="engagement-preparation-asof"></p><p id="engagement-preparation-counts"></p><p id="engagement-preparation-count"></p>
+      <div class="table-wrap"><table><thead id="engagement-preparation-head"></thead><tbody id="engagement-preparation-rows"></tbody></table></div>
+      <button type="button" class="btn btn-secondary" id="engagement-preparation-prev" aria-label="Page précédente de la file de préparation">←</button> <button type="button" class="btn btn-secondary" id="engagement-preparation-next" aria-label="Page suivante de la file de préparation">→</button>
+    </div>
+<div id="engagement-outbox-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-outbox-title">File de transport — envois verrouillés</h3><p id="engagement-outbox-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-outbox-refresh">Actualiser la file</button><p id="engagement-outbox-status" role="status" aria-live="polite"></p>
+      <label for="engagement-outbox-source" id="engagement-outbox-source-label">Préparation terminée</label><select id="engagement-outbox-source"></select>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-outbox-stage">Conserver une intention verrouillée</button><button type="button" class="btn btn-secondary" id="engagement-outbox-recover">Réconcilier les réservations expirées</button></div>
+      <p id="engagement-outbox-count"></p><ul id="engagement-outbox-rows" style="list-style:none;padding:0"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-outbox-prev" aria-label="Previous queue page">←</button> <button type="button" class="btn btn-secondary" id="engagement-outbox-next" aria-label="Next queue page">→</button>
+    </div>
+<div id="engagement-provider-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-provider-title">Retours fournisseur et blocages</h3><p id="engagement-provider-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-provider-refresh">Actualiser les retours</button>
+      <p id="engagement-provider-status" role="status" aria-live="polite"></p><p id="engagement-provider-health"></p><p id="engagement-provider-summary"></p><p id="engagement-provider-receipts"></p><p id="engagement-provider-count"></p>
+      <h4 id="engagement-provider-messages-title">Messages suivis</h4><ul id="engagement-provider-messages"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-provider-prev" aria-label="Previous message page">←</button> <button type="button" class="btn btn-secondary" id="engagement-provider-next" aria-label="Next message page">→</button>
+      <h4 id="engagement-provider-blocks-title">Blocages conservés</h4><ul id="engagement-provider-blocks"></ul>
+    </div>
+<div id="engagement-retention-panel" class="card">
+      <h3 id="engagement-retention-title">Conservation des données — surveillance</h3><p id="engagement-retention-note"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-retention-refresh">Actualiser</button><button type="button" class="btn btn-secondary" id="engagement-retention-run">Exécuter un lot</button></div>
+      <p id="engagement-retention-status" role="status" aria-live="polite"></p><p id="engagement-retention-health"></p><p id="engagement-retention-policy"></p>
+      <h4 id="engagement-retention-runs-title">Dix derniers passages</h4><ul id="engagement-retention-runs" style="overflow-wrap:anywhere"></ul>
+    </div>
+    </details>
+  </div>
+
   <div id="buyers" class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
       <h1 style="margin:0" data-t="h1_buyers">Acheteurs</h1>
@@ -1332,7 +1506,7 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label data-t="lbl_email_req">Email *</label><input id="buyer-email" type="email" data-tp="ph_buyer_email"></div>
-        <div class="form-group"><label data-t="lbl_password_req">Mot de passe *</label><input id="buyer-password" type="password"></div>
+        <p>Un lien à usage unique permet à l’acheteur de choisir son mot de passe.</p><div id="buyer-activation-status" role="status" style="overflow-wrap:anywhere"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label data-t="lbl_phone">Téléphone</label><input id="buyer-phone" type="tel"></div>
@@ -2475,7 +2649,10 @@ const TRANSLATIONS = {
     // Stats
     stat_brands: 'Marques', stat_orders: 'Commandes', stat_revenue: 'Commandes actives HT',
     stat_buyers: 'Acheteurs', stat_online: 'En ligne maintenant', btn_confirm_regen: '✓ Confirmer',
-    stat_conversion: 'Conversion sélections → commandes',
+    stat_conversion: 'Acceptation des sélections proposées',
+    dash_stats_error: 'Statistiques indisponibles.', dash_stats_loading: 'Chargement des statistiques…',
+    dash_chart_error: 'Impossible de charger les montants mensuels.', dash_chart_loading: 'Chargement des montants mensuels…', dash_data_retry: 'Réessayer',
+    stat_selection_meaning: 'Hors brouillons et modèles. Ne mesure pas la réception des emails ni une vente définitive.',
     recent_orders: 'Dernières commandes',
     // Table headers
     th_date: 'Date', th_client: 'Client', th_brand: 'Marque', th_total: 'Total',
@@ -2637,6 +2814,7 @@ const TRANSLATIONS = {
     dash_analytics_title: 'Analytiques',
     dash_top_buyers_title: 'Top Acheteurs', dash_inactive_buyers_title: 'Acheteurs inactifs', dash_top_brands_title: 'Perf. Marques',
     dash_world_map_title: 'Clients dans le monde', dash_all_brands: '🏢 Toutes les marques',
+    th_active_order_amount: 'Commandes actives HT',
     th_country: 'Pays', th_clients: 'Clients', th_ca: 'CA', th_cmds: 'Cmds',
     loading_label: 'Chargement…', loading_map_label: 'Chargement de la carte…',
     js_resend: 'Renvoyer',
@@ -2691,7 +2869,10 @@ const TRANSLATIONS = {
     // Stats
     stat_brands: 'Brands', stat_orders: 'Orders', stat_revenue: 'Active orders (excl. VAT)',
     stat_buyers: 'Buyers', stat_online: 'Online now', btn_confirm_regen: '✓ Confirm',
-    stat_conversion: 'Selection → order conversion',
+    stat_conversion: 'Proposed selection acceptance',
+    dash_stats_error: 'Statistics unavailable.', dash_stats_loading: 'Loading statistics…',
+    dash_chart_error: 'Unable to load monthly order values.', dash_chart_loading: 'Loading monthly order values…', dash_data_retry: 'Retry',
+    stat_selection_meaning: 'Excludes drafts and templates. Does not measure email receipt or a final sale.',
     recent_orders: 'Recent orders',
     // Table headers
     th_date: 'Date', th_client: 'Client', th_brand: 'Brand', th_total: 'Total',
@@ -2853,6 +3034,7 @@ const TRANSLATIONS = {
     dash_analytics_title: 'Analytics',
     dash_top_buyers_title: 'Top Buyers', dash_inactive_buyers_title: 'Inactive buyers', dash_top_brands_title: 'Brand Performance',
     dash_world_map_title: 'Clients around the world', dash_all_brands: '🏢 All brands',
+    th_active_order_amount: 'Active orders (excl. VAT)',
     th_country: 'Country', th_clients: 'Clients', th_ca: 'Revenue', th_cmds: 'Orders',
     loading_label: 'Loading…', loading_map_label: 'Loading map…',
     js_resend: 'Resend',
@@ -2945,6 +3127,7 @@ function setLang(lang) {
     else if (id === 'buyers') loadBuyers();
     else if (id === 'access-requests') loadAccessRequests();
     else if (id === 'settings') updateSettingsLangButtons();
+    else if (id === 'buyer-engagement') window.BuyerEngagement?.translate();
   }
   // Re-render products table if open
   if (document.getElementById('modal-products').classList.contains('open')) filterProducts();
@@ -3026,6 +3209,7 @@ function activateSection(name, fromPop) {
   if (name === 'brands') loadBrands();
   if (name === 'orders') loadOrders();
   if (name === 'commissions') loadCommissions();
+  if (name === 'buyer-engagement') window.BuyerEngagement.load();
   if (name === 'settings') loadSettings();
   if (name === 'staff') loadStaff();
   if (name === 'buyers') loadBuyers();
@@ -3075,6 +3259,7 @@ async function initUserRole() {
     document.getElementById('nav-staff').style.display = '';
     document.getElementById('nav-security').style.display = '';
     document.getElementById('nav-email-templates').style.display = '';
+    document.getElementById('nav-buyer-engagement').style.display = '';
     const ownerOpts = document.querySelectorAll('#role-owner-option, #edit-role-owner-option');
     ownerOpts.forEach(el => el.style.display = '');
   } else {
@@ -3267,7 +3452,7 @@ async function createStaff() {
   const role = document.getElementById('staff-role').value;
   const brand_id = document.getElementById('staff-brand-id').value;
   const avatar_url = document.getElementById('staff-avatar-url').value;
-  if (!email || !password) { toast('Email et mot de passe requis', true); return; }
+  if (!email) { toast('Email requis', true); return; }
 
   const r = await fetch('/api/staff', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3893,19 +4078,21 @@ async function createBuyer() {
   const name = document.getElementById('buyer-name').value.trim();
   const company = document.getElementById('buyer-company').value.trim();
   const email = document.getElementById('buyer-email').value.trim();
-  const password = document.getElementById('buyer-password').value;
   const phone = document.getElementById('buyer-phone').value.trim();
   const country = document.getElementById('buyer-country').value.trim();
-  if (!email || !password) { toast('Email et mot de passe requis', true); return; }
+  if (!email) { toast('Email requis', true); return; }
 
   const r = await fetch('/api/buyers', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, company, email, password, phone, country })
+    body: JSON.stringify({ name, company, email, phone, country })
   }).then(r => r.json());
   if (r.error) { toast(r.error, true); return; }
 
-  ['buyer-name','buyer-company','buyer-email','buyer-password','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
+  ['buyer-name','buyer-company','buyer-email','buyer-phone','buyer-country'].forEach(id => document.getElementById(id).value = '');
   loadBuyers();
+  const status=document.getElementById('buyer-activation-status');
+  status.textContent=r.emailed?'Compte créé — lien d’activation envoyé.':'Compte créé. Aucun email envoyé. Lien à transmettre (60 min) : ';
+  if(r.activation_url){const link=document.createElement('a');link.href=r.activation_url;link.textContent=r.activation_url;status.append(link);}
   toast(t('js_buyer_created'));
 }
 
@@ -3954,6 +4141,27 @@ function toast(msg, err) {
 
 // ── Recherche globale ────────────────────────────────────────────────
 let _lastChartData = [];
+let _revenueChartVersion=0;
+async function loadRevenueChart() {
+  const version=++_revenueChartVersion,canvas=document.getElementById('revenue-chart');
+  const status=document.getElementById('revenue-chart-status'),total=document.getElementById('chart-total');
+  _lastChartData=[];canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  canvas.setAttribute('aria-hidden','true');status.textContent=t('dash_chart_loading');total.textContent='—';
+  try {
+    const response=await fetch('/api/dashboard/revenue-chart?months=6&lang='+currentLang);
+    if(!response.ok)throw new Error('chart_unavailable');
+    const rows=await response.json();
+    if(!Array.isArray(rows)||rows.length!==6||rows.some(r=>!r||typeof r.month!=='string'||r.total===null||!Number.isFinite(Number(r.total))))throw new Error('chart_invalid');
+    if(version!==_revenueChartVersion)return;
+    const chart=rows.map(r=>({...r,total:Number(r.total)}));drawRevenueChart(chart);canvas.removeAttribute('aria-hidden');status.textContent='';
+    const amount=chart.reduce((sum,r)=>sum+r.total,0).toFixed(0);
+    total.textContent=currentLang==='en'?`6 months · ${amount} € active orders`:`6 mois · ${amount} € commandes actives`;
+  } catch(error) {
+    if(version!==_revenueChartVersion)return;
+    _lastChartData=[];canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);total.textContent='—';
+    status.innerHTML=`${esc(t('dash_chart_error'))} <button type="button" class="btn btn-secondary btn-sm" data-revenue-chart-retry onclick="loadRevenueChart()">${esc(t('dash_data_retry'))}</button>`;
+  }
+}
 function drawRevenueChart(monthlyData) {
   _lastChartData = monthlyData;
   const canvas = document.getElementById('revenue-chart');
@@ -4205,6 +4413,62 @@ document.addEventListener('click', e => {
   }
 });
 
+// A failed statistics request is unknown data, never an empty proposal cohort.
+let _dashboardStatsVersion=0;
+async function loadDashboardStats() {
+  const version=++_dashboardStatsVersion;
+  const status=document.getElementById('dashboard-stats-status');
+  const statEls=['stat-brands','stat-orders','stat-total','stat-buyers'].map(id=>document.getElementById(id));
+  statEls.forEach(el=>{el.textContent='—';el.classList.add('skeleton');el.setAttribute('aria-busy','true');});
+  document.getElementById('stat-orders-breakdown').textContent='—';
+  document.getElementById('stat-orders-meaning').textContent=currentLang==='en'
+    ? 'Order value, not invoiced or collected revenue.'
+    : 'Montant des commandes enregistrées, pas le chiffre d’affaires facturé ou encaissé.';
+  document.getElementById('stat-conversion').textContent='—';
+  document.getElementById('stat-conv-sub').textContent=t('dash_stats_loading');
+  status.dataset.state='loading';status.textContent=t('dash_stats_loading');
+  try {
+    const response=await fetch('/api/stats');
+    if(!response.ok)throw new Error('statistics_unavailable');
+    const payload=await response.json();
+    if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('statistics_invalid');
+    const number=(value,count=false)=>{
+      if(!['number','string'].includes(typeof value)||String(value).trim()==='')throw new Error('statistics_invalid');
+      const parsed=Number(value);
+      if(!Number.isFinite(parsed)||(count&&(!Number.isInteger(parsed)||parsed<0)))throw new Error('statistics_invalid');
+      return parsed;
+    };
+    const stats={};
+    for(const key of ['brands_count','orders_count','buyers_count'])stats[key]=number(payload[key],true);
+    for(const key of ['revenue_total','pending_validation_total','validated_orders_total'])stats[key]=number(payload[key]);
+    const proposed=number(payload.selections_proposed??payload.selections_total,true);
+    const accepted=number(payload.selections_accepted??payload.selections_confirmed,true);
+    const rate=number(payload.selection_acceptance_rate??payload.conversion_rate);
+    if(accepted>proposed||rate<0||rate>100)throw new Error('statistics_invalid');
+    if(version!==_dashboardStatsVersion)return;
+    document.getElementById('stat-brands').textContent=stats.brands_count;
+    document.getElementById('stat-orders').textContent=stats.orders_count;
+    document.getElementById('stat-total').textContent=stats.revenue_total.toFixed(2)+' €';
+    document.getElementById('stat-buyers').textContent=stats.buyers_count;
+    const euros=value=>value.toFixed(2)+' €';
+    document.getElementById('stat-orders-breakdown').textContent=currentLang==='en'
+      ? 'Orders pending validation: '+euros(stats.pending_validation_total)+' · Validated / shipped orders: '+euros(stats.validated_orders_total)
+      : 'Commandes à valider HT : '+euros(stats.pending_validation_total)+' · Commandes validées / expédiées HT : '+euros(stats.validated_orders_total);
+    document.getElementById('stat-conversion').textContent=proposed?rate+'%':'—';
+    document.getElementById('stat-conv-sub').textContent=proposed
+      ? `${accepted}/${proposed} `+(currentLang==='en'?'recorded proposals accepted by buyers':'propositions enregistrées acceptées par les acheteurs')
+      : (currentLang==='en'?'No recorded proposal':'Aucune proposition enregistrée');
+    status.dataset.state='ready';status.textContent='';
+  } catch(error) {
+    if(version!==_dashboardStatsVersion)return;
+    document.getElementById('stat-conv-sub').textContent=t('dash_stats_error');
+    status.dataset.state='error';
+    status.innerHTML=`${esc(t('dash_stats_error'))} <button type="button" class="btn btn-secondary btn-sm" data-dashboard-stats-retry onclick="loadDashboardStats()">${esc(t('dash_data_retry'))}</button>`;
+  } finally {
+    if(version===_dashboardStatsVersion)statEls.forEach(el=>{el.classList.remove('skeleton');el.setAttribute('aria-busy','false');});
+  }
+}
+
 // Dashboard
 async function loadDashboard() {
   if (currentUserRole === 'designer') return loadDesignerDashboard();
@@ -4213,51 +4477,16 @@ async function loadDashboard() {
   const arr = p => p.then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []);
   const arrOrders = p => p.then(r => r.json()).then(d => parseOrdersResponse(d).rows).catch(() => []);
 
-  // Skeleton pendant le chargement
-  const statEls = ['stat-brands','stat-orders','stat-total','stat-buyers','stat-online-num'];
-  statEls.forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = '███'; el.classList.add('skeleton'); } });
-
-  // Charger les stats légères + marques + présence en parallèle
-  const [stats, brands, recentOrders, onlineIds] = await Promise.all([
-    fetch('/api/stats').then(r => r.json()).catch(() => ({})),
+  // Les statistiques ont leur propre état et leur propre bouton de nouvel essai.
+  loadDashboardStats();
+  const onlineStat=document.getElementById('stat-online-num');
+  onlineStat.textContent='███';onlineStat.classList.add('skeleton');
+  const [brands,recentOrders,onlineIds]=await Promise.all([
     arr(fetch('/api/brands')),
     arrOrders(fetch('/api/orders?limit=10&sort=date_desc')),
     arr(fetch('/api/buyers/presence'))
   ]);
-
-  // Retirer le skeleton
-  statEls.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('skeleton'); });
-
-  // Stats cards via /api/stats
-  document.getElementById('stat-brands').textContent = stats.brands_count ?? brands.length;
-  document.getElementById('stat-orders').textContent = stats.orders_count ?? '—';
-  document.getElementById('stat-total').textContent =
-    stats.revenue_total != null ? Number(stats.revenue_total).toFixed(2) + ' €' : '—';
-  const breakdown = document.getElementById('stat-orders-breakdown');
-  if (breakdown) {
-    const euros = n => n == null ? '—' : Number(n).toFixed(2) + ' €';
-    breakdown.textContent = currentLang === 'en'
-      ? 'Orders pending validation: ' + euros(stats.pending_validation_total) + ' · Validated / shipped orders: ' + euros(stats.validated_orders_total)
-      : 'Commandes à valider HT : ' + euros(stats.pending_validation_total) + ' · Commandes validées / expédiées HT : ' + euros(stats.validated_orders_total);
-    document.getElementById('stat-orders-meaning').textContent = currentLang === 'en'
-      ? 'Order value, not invoiced or collected revenue.'
-      : 'Montant des commandes enregistrées, pas le chiffre d’affaires facturé ou encaissé.';
-  }
-  document.getElementById('stat-buyers').textContent = stats.buyers_count ?? '—';
-  document.getElementById('stat-online-num').textContent = onlineIds.length;
-
-  // Taux de conversion sélections → commandes
-  const convEl = document.getElementById('stat-conversion');
-  if (convEl) {
-    if (stats.selections_total) {
-      convEl.textContent = (stats.conversion_rate ?? 0) + '%';
-      document.getElementById('stat-conv-sub').textContent =
-        `${stats.selections_confirmed}/${stats.selections_total} ` + (currentLang === 'en' ? 'selections confirmed' : 'sélections confirmées');
-    } else {
-      convEl.textContent = '—';
-      document.getElementById('stat-conv-sub').textContent = (currentLang === 'en' ? 'No selection sent yet' : 'Aucune sélection envoyée');
-    }
-  }
+  onlineStat.classList.remove('skeleton');onlineStat.textContent=onlineIds.length;
 
   // Peupler le sélecteur de marque de la carte Partage
   const shareSel = document.getElementById('share-brand-select');
@@ -4267,31 +4496,8 @@ async function loadDashboard() {
     updateShareLinks();
   }
 
-  // Graphique CA mensuel (6 derniers mois) — via endpoint serveur
-  fetch('/api/dashboard/revenue-chart?months=6&lang=' + currentLang).then(r => r.json()).then(chartData => {
-    if (Array.isArray(chartData)) {
-      drawRevenueChart(chartData);
-      const totalChart = chartData.reduce((s, d) => s + (d.total || 0), 0);
-      document.getElementById('chart-total').textContent = (currentLang === 'en' ? `6 months · ${totalChart.toFixed(0)} € revenue` : `6 mois · ${totalChart.toFixed(0)} € CA`);
-    }
-  }).catch(() => {
-    // Fallback client-side avec les commandes récentes
-    const months = {};
-    const now2 = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d2 = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
-      const key = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`;
-      months[key] = 0;
-    }
-    recentOrders.forEach(o => {
-      const key = o.created_at ? o.created_at.slice(0,7) : null;
-      if (key && months[key] !== undefined) months[key] += parseFloat(o.total)||0;
-    });
-    const fallbackData = Object.entries(months).map(([k, v]) => ({ month: k.slice(5), total: v }));
-    drawRevenueChart(fallbackData);
-    const fallbackTotal = fallbackData.reduce((s,d)=>s+d.total,0).toFixed(0);
-    document.getElementById('chart-total').textContent = (currentLang === 'en' ? `6 months · ${fallbackTotal} € revenue` : `6 mois · ${fallbackTotal} € CA`);
-  });
+  // Montants mensuels : une panne ne doit pas produire une estimation sur dix commandes.
+  loadRevenueChart();
 
   // Tableau des dernières commandes
   const tbody = document.getElementById('recent-orders-body');
@@ -4388,8 +4594,12 @@ async function loadTopProducts() {
   const box = document.getElementById('top-products-list');
   if (!box) return;
   try {
-    const rows = await fetch('/api/dashboard/top-products').then(r => r.json());
-    if (!Array.isArray(rows) || !rows.length) {
+    const response=await fetch('/api/dashboard/top-products');
+    if(!response.ok)throw new Error('products_unavailable');
+    const payload=await response.json();
+    if(!Array.isArray(payload)||payload.some(r=>!r||r.qty===null||r.revenue===null||!Number.isFinite(Number(r.qty))||!Number.isFinite(Number(r.revenue))))throw new Error('products_invalid');
+    const rows=payload.map(r=>({...r,qty:Number(r.qty),revenue:Number(r.revenue)}));
+    if (!rows.length) {
       box.innerHTML = `<p style="font-size:13px;color:#666">${t('js_no_orders_6mo')}</p>`;
       return;
     }
@@ -4404,7 +4614,7 @@ async function loadTopProducts() {
         </div>
         <div class="dash-row-value" style="font-size:11px;color:#7a7a7a;min-width:120px;text-align:right">${t('js_qty_unit_label')(r.qty)} · ${r.revenue.toFixed(0)} €</div>
       </div>`).join('');
-  } catch(e) { box.innerHTML = `<p style="font-size:12px;color:#e07a7a">${t('js_load_error')}</p>`; }
+  } catch(e) { box.innerHTML = `<p role="status" style="font-size:12px;color:#e07a7a">${esc(t('js_load_error'))} <button type="button" class="btn btn-secondary btn-sm" data-top-products-retry onclick="loadTopProducts()">${esc(t('dash_data_retry'))}</button></p>`; }
 }
 
 // ── Priorités du jour — agrège ce qui attend une action ───────────────
@@ -8883,7 +9093,17 @@ document.addEventListener('click',async event=>{
   <div id="scope-rows"></div><button class="btn btn-secondary" onclick="addScopeRow()">Ajouter une affectation</button>
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
-<script src="/admin-commercial.js"></script>
+<script src="/admin-commercial.js?v=engagement-20261101"></script>
+<script src="/buyer-engagement-admin.js?v=20261104-workspace-2"></script>
+<script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
+<script src="/buyer-cart-engagement.js?v=20261102-1"></script>
+<script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
+<script src="/buyer-engagement-retention.js?v=20261104-provider"></script>
+<script src="/buyer-engagement-reviews.js?v=20261104-crm"></script>
+<script src="/buyer-engagement-template-signoffs.js?v=20261104-1"></script>
+<script src="/buyer-engagement-outbox.js?v=20261104-provider"></script>
+<script src="/buyer-engagement-provider.js?v=20261104-1"></script>
+<script src="/buyer-engagement-workspace.js?v=20261104-4"></script>
 </body>
 </html>

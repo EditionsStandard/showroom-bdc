@@ -1,0 +1,26 @@
+'use strict';
+const {randomUUID,randomBytes,createHash}=require('node:crypto');
+const {id}=require('./helpers');
+module.exports=async function emailFixture(pool,{lang='fr',origin='https://example.test',legacyToken=null}={}){
+  await pool.query('TRUNCATE buyer_engagement_simulation_runs CASCADE');
+  await pool.query('DELETE FROM buyers');
+  await pool.query('TRUNCATE buyer_engagement_template_signoffs,buyer_engagement_template_signoff_operations');
+  await pool.query('DELETE FROM buyer_engagement_templates WHERE version>1');
+  await pool.query("UPDATE buyer_engagement_rules SET mode='disabled',version=version+1");
+  await pool.query("UPDATE buyer_engagement_rules SET mode='simulation' WHERE id='welcome'");
+  for(const table of ['buyer_engagement_simulation_control','buyer_engagement_preparation_control','buyer_engagement_outbox_control'])await pool.query(`UPDATE ${table} SET paused=false`);
+  const buyer=id('email_buyer');
+  await pool.query("INSERT INTO buyers(id,email,password_hash,name,lang,login_history_known,activation_pending,approved_at) VALUES($1,$2,'not-a-password','Synthetic buyer',$3,true,true,NOW()-INTERVAL '80 days')",[buyer,buyer+'@example.test',lang]);
+  await pool.query("INSERT INTO buyer_email_preferences(buyer_id,status,source,notice_version) VALUES($1,'granted','synthetic','v1')",[buyer]);
+  await require('../lib/buyer-engagement-ledger').runSimulation(pool,{kind:'generate',request_key:randomUUID()});
+  const prep=require('../lib/buyer-engagement-preparation');await prep.enqueuePreparations(pool,{request_key:randomUUID()});await prep.processPreparations(pool,{batch_size:10});
+  const signoff=require('../lib/buyer-engagement-template-signoffs'),t=(await signoff.listSignoffs(pool)).templates.find(t=>t.rule_id==='welcome'&&t.lang===lang);
+  await signoff.saveSignoff(pool,{request_key:randomUUID(),rule_id:t.rule_id,lang:t.lang,template_version:t.version,expected_revision:0,content_hash:t.content_hash,decision:'approved',reason:'Synthetic email action fixture',ack_editorial_only:true});
+  const outbox=require('../lib/buyer-engagement-outbox'),job=(await pool.query('SELECT id FROM buyer_engagement_preparation_jobs WHERE buyer_id=$1',[buyer])).rows[0].id;
+  const intent=(await outbox.stageIntent(pool,{request_key:randomUUID(),preparation_job_id:job})).operation.outbox_id;
+  if(legacyToken)await pool.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '1 hour')",[createHash('sha256').update(legacyToken).digest('hex'),buyer]);
+  const key=randomBytes(32),envelope=await outbox.authorizeRehearsal(pool,await outbox.claimNext(pool),key,{origin});
+  const unsubscribe=new URL(envelope.payload.headers['List-Unsubscribe'].slice(1,-1));
+  const activation=new URL(envelope.payload.text.match(/https?:\/\/[^\s]+\/buyer-engagement\/activate#[^\s]+/)[0]);
+  return {buyer,intent,key,envelope,unsubscribe,activation,unsubscribeToken:unsubscribe.pathname.split('/').pop(),activationToken:new URLSearchParams(activation.hash.slice(1)).get('token')};
+};

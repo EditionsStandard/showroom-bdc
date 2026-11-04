@@ -4,7 +4,7 @@
 // dans les variables d'environnement Railway pour l'activer.
 const Sentry = require('@sentry/node');
 if (process.env.SENTRY_DSN) {
-  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1, environment: process.env.NODE_ENV || 'development' });
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1, environment: process.env.NODE_ENV || 'development', beforeSend:event=>require('./lib/buyer-email-telemetry').scrubEmailTelemetry(event), beforeSendTransaction:event=>require('./lib/buyer-email-telemetry').scrubEmailTelemetry(event), beforeBreadcrumb:entry=>require('./lib/buyer-email-telemetry').scrubEmailTelemetry(entry) });
 }
 const express = require('express');
 const compression = require('compression');
@@ -47,6 +47,20 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 const { pool, init } = require('./database');
+const engagement = require('./lib/buyer-engagement');
+const commercialMetrics = require('./lib/commercial-metrics');
+const buyerCart = require('./lib/buyer-cart').createBuyerCartService(pool);
+
+// Persist the authenticated session before recording a successful login. A
+// telemetry failure must not lock a buyer out of an otherwise valid session.
+function saveBuyerLogin(req, buyerId, done) {
+  req.session.save(async error => {
+    if (error) return done(error);
+    try { await engagement.recordLogin(pool, buyerId); }
+    catch (e) { console.error('[engagement-login]', e.message); }
+    done(null);
+  });
+}
 
 // Une variable Railway copiée-collée embarque facilement un caractère parasite
 // (saut de ligne, espace, guillemets/backticks restés collés au copier-coller
@@ -264,6 +278,13 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
   res.json({ received: true });
 });
+
+// Public bearer actions deliberately run before sessions and broad body parsers.
+// Provider signatures must be verified against the original bounded raw body.
+require('./lib/buyer-engagement-provider').registerProviderReceiver({app,pool,
+  enabled:process.env.ENGAGEMENT_RESEND_WEBHOOKS_ENABLED==='true',
+  secrets:[process.env.ENGAGEMENT_RESEND_WEBHOOK_SECRET,process.env.ENGAGEMENT_RESEND_WEBHOOK_PREVIOUS_SECRET].filter(Boolean)});
+require('./lib/buyer-engagement-email-links').registerPublicEmailLinks({app,pool});
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -989,6 +1010,14 @@ const cartLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+const cartCheckoutLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: authedUserRateLimitKey,
+  message: {error:'Trop de tentatives de commande. Réessayez dans une minute.'},
+  standardHeaders: true, legacyHeaders: false
 });
 
 // Emails sortants déclenchés par du staff (invitation prospect, renvoi d'accès/
@@ -4108,8 +4137,9 @@ app.get('/portal/access', async (req, res) => {
     const r = await pool.query('SELECT * FROM buyer_access_tokens WHERE token=$1 AND used=false AND expires_at > NOW()', [token]);
     if (!r.rows[0]) return res.redirect('/portal?error=link_expired');
     const buyer = (await pool.query('SELECT * FROM buyers WHERE id=$1', [r.rows[0].buyer_id])).rows[0];
-    if (!buyer) return res.redirect('/portal');
-    await pool.query('UPDATE buyer_access_tokens SET used=true WHERE token=$1', [token]);
+    if (!buyer || buyer.activation_pending) return res.redirect('/editions-showroom-b2b-portail?activation_required=1');
+    const claimed = await pool.query('UPDATE buyer_access_tokens SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING token', [token]);
+    if (!claimed.rowCount) return res.redirect('/portal?error=link_expired');
     // Un lien magique authentifie au même niveau qu'un mot de passe — s'il
     // contournait le MFA de l'acheteur quand celui-ci est activé, n'importe quel
     // staff pouvant déclencher /api/admin/buyers/:id/send-access (agent inclus,
@@ -4127,7 +4157,7 @@ app.get('/portal/access', async (req, res) => {
       if (err) return res.redirect('/portal');
       req.session.buyerPortal = { id: buyer.id, email: buyer.email, name: buyer.name, company: buyer.company, phone: buyer.phone, country: buyer.country };
       logAuditRaw(buyer.email, 'login_success', 'buyer', buyer.id, req.ip);
-      req.session.save(() => res.redirect('/portal'));
+      saveBuyerLogin(req, buyer.id, error => res.redirect(error ? '/editions-showroom-b2b-portail?error=1' : '/portal'));
     });
   } catch(e) { res.redirect('/portal'); }
 });
@@ -4386,7 +4416,13 @@ app.post('/api/public/selection-pdf', publicLimiter, requireCommandeAccessBody, 
 
 const MAX_LINE_QTY = 100000; // garde-fou contre les quantités absurdes
 const MAX_LINE_PRICE = 100000; // garde-fou contre les prix absurdes (édition P.U. d'une ligne de commande)
-async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id, buyer_po_number = '', selection_token, buyer_comment = '' }) {
+async function createOrder({ brand_id, client_name, client_email, client_company, client_phone, client_country, notes, lines, buyer_signature, cgv_accepted, buyer_id, buyer_po_number = '', selection_token, buyer_comment = '', cart_context = null }) {
+  // A durable receipt must be read before catalogue, stock or commercial checks:
+  // those may have changed since a committed order whose response was lost.
+  if (cart_context) {
+    const replay = await cart_context.replay();
+    if (replay) return replay;
+  }
   if (typeof buyer_po_number !== 'string' || buyer_po_number.length > 120 || /[\r\n]/.test(buyer_po_number)) return { error:'Buyer PO number: maximum 120 characters' };
   // Quantité : entier strictement positif et borné (évite floats, négatifs, valeurs démesurées).
   // Filtre d'abord les lignes non-objet (null, tableau, primitive) — sinon le spread/accès
@@ -4467,8 +4503,17 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   const pdfToken = crypto.randomBytes(24).toString('base64url');
   const dedupKey = `order-dedup:${brand_id}:${buyer_id || (client_email || '').toLowerCase().trim()}`;
   const dbClient = await pool.connect();
+  let committedCartResult;
   try {
     await dbClient.query('BEGIN');
+    if (cart_context) {
+      const replay = await cart_context.beforeCreate(dbClient);
+      if (replay) { await dbClient.query('COMMIT'); return replay; }
+    } else if (buyer_id) {
+      // Legacy orders provide no cart revision. Preserve their workflow, but
+      // never treat their remaining cart as a proven, unconverted episode.
+      await buyerCart.invalidateLegacyOrder(dbClient, buyer_id, brand_id);
+    }
     // Anti-double-soumission : un double-clic sur "Commander" ou une requête
     // rejouée après un timeout apparent côté client (ni /api/public/orders ni
     // /api/portal/checkout ne portent de clé d'idempotence) ne doit pas créer
@@ -4482,7 +4527,9 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     // sur coup par le même acheteur.
     await dbClient.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [dedupKey]);
     const linesSignature = resolvedLines.map(l => JSON.stringify([l.product_id, l.quantity, l.size || '', l.variant_color || ''])).sort().join('|');
-    const dupCandidates = await dbClient.query(
+    // Explicit v2 cycles can intentionally order identical lines again. Only
+    // the old paths use the twenty-second content heuristic.
+    const dupCandidates = cart_context ? { rows: [] } : await dbClient.query(
       `SELECT id, pdf_token, order_number FROM orders
        WHERE brand_id=$1 AND created_at > NOW() - INTERVAL '20 seconds'
          AND (($2::text IS NOT NULL AND buyer_id=$2) OR ($2::text IS NULL AND buyer_id IS NULL AND lower(client_email)=$3))
@@ -4527,9 +4574,12 @@ async function createOrder({ brand_id, client_name, client_email, client_company
         [uuidv4(), orderId, line.product_id, line.size||'', line.quantity, line.product.price, line.product.price_retail||0, line.note||'', line.variant_color||'']
       );
     }
+    if (buyer_id) await dbClient.query('UPDATE buyers SET last_meaningful_activity_at=NOW() WHERE id=$1',[buyer_id]);
+    if (cart_context) committedCartResult = await cart_context.complete(dbClient, orderId, await getOrderConfirmation(orderId, dbClient));
     await dbClient.query('COMMIT');
   } catch(e) {
     await dbClient.query('ROLLBACK');
+    if (e.cartError) return e.result;
     if (e && e.message === 'stock_insuffisant') {
       return { error: `Stock insuffisant pour la référence ${e.stockRef}. Rafraîchissez votre sélection.` };
     }
@@ -4556,11 +4606,11 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   sendPushToAdmins('Nouvelle commande', `${client_name} — ${brandNameForPush}`, brand_id).catch(e => console.error('[push-order-error]', e.message));
   notifyOwnerOrder(orderId, 'Nouvelle commande').catch(() => {}); // copie email au propriétaire
 
-  return getOrderConfirmation(orderId);
+  return committedCartResult || getOrderConfirmation(orderId);
 }
 
-async function getOrderConfirmation(orderId) {
-  const row=(await pool.query(`SELECT o.id AS order_id,o.order_number,o.pdf_token,o.buyer_po_number,o.delivery_window,o.commercial_snapshot,
+async function getOrderConfirmation(orderId, db = pool) {
+  const row=(await db.query(`SELECT o.id AS order_id,o.order_number,o.pdf_token,o.buyer_po_number,o.delivery_window,o.commercial_snapshot,
     b.name AS brand_name,b.payment_terms,b.delivery_terms,COUNT(DISTINCT p.reference)::int AS reference_count,
     COALESCE(SUM(l.quantity),0)::int AS pieces,COALESCE(SUM(l.quantity*l.unit_price),0) AS total
     FROM orders o JOIN brands b ON b.id=o.brand_id LEFT JOIN order_lines l ON l.order_id=o.id
@@ -4907,7 +4957,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       if (!password || password.length < 12) return res.status(400).json({ error: 'Choisissez un mot de passe (12 caractères minimum)' });
       const hash = await bcrypt.hash(password, 10);
       const id = uuidv4();
-      await pool.query('INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
+      await pool.query(`INSERT INTO buyers (id,email,password_hash,name,company,access_source,activated_at,login_history_known) VALUES ($1,$2,$3,$4,$5,'agent_selection',NOW(),true)`,
         [id, email, hash, sel.client_name || '', sel.client_company || '']);
       buyer = { id, email, name: sel.client_name || '', company: sel.client_company || '', phone: '', country: '' };
     }
@@ -4973,7 +5023,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       // Sauvegarde explicite avant de répondre : le JS client enchaîne
       // généralement sur un appel authentifié juste après ce {ok:true}, qui
       // échouerait si la nouvelle session n'est pas encore garantie persistée.
-      req.session.save(() => res.json({ ok: true, ...result }));
+      saveBuyerLogin(req, buyer.id, error => res.json({ ok:true, ...result, ...(error?{session_saved:false}:{}) }));
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -5085,7 +5135,7 @@ app.post('/editions-showroom-b2b-portail', loginLimiter, async (req, res) => {
       // Sauvegarde explicite avant redirection — voir commentaire équivalent
       // sur /admin/login/mfa (évite un rebond côté navigateur si le 302 est
       // suivi avant la persistance garantie de la nouvelle session).
-      req.session.save(err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(safeNext || '/portal'));
+      saveBuyerLogin(req, buyer.id, err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(safeNext || '/portal'));
     });
     return;
   }
@@ -5136,7 +5186,7 @@ app.post('/editions-showroom-b2b-portail/mfa', loginLimiter, async (req, res) =>
     if (err) return res.redirect('/editions-showroom-b2b-portail?error=1');
     req.session.buyerPortal = { id: pending.id, email: pending.email, name: pending.name, company: pending.company, phone: pending.phone, country: pending.country };
     logAuditRaw(pending.email, usedBackup ? 'login_success_mfa_backup' : 'login_success_mfa', 'buyer', pending.id, req.ip);
-    req.session.save(err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(pending.next || '/portal'));
+    saveBuyerLogin(req, pending.id, err2 => err2 ? res.redirect('/editions-showroom-b2b-portail?error=1') : res.redirect(pending.next || '/portal'));
   });
 });
 
@@ -5264,6 +5314,8 @@ app.get('/api/portal/gdpr/export', requireBuyerAuth, async (req, res) => {
       messages: messages.rows,
       notifications: notifications.rows,
       followed_brands: follows.rows,
+      engagement: await engagement.exportEngagement(pool,buyerId),
+      cart_protocol: await buyerCart.exportData(buyerId),
       company_memberships:(await pool.query('SELECT cu.company_id,cu.role,c.name,c.billing FROM company_users cu JOIN companies c ON c.id=cu.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
       company_locations:(await pool.query('SELECT cl.* FROM company_locations cl JOIN company_users cu ON cu.company_id=cl.company_id WHERE cu.buyer_id=$1',[buyerId])).rows,
       buying_shortlists:(await pool.query('SELECT * FROM buying_shortlists WHERE owner_id=$1',[buyerId])).rows
@@ -5736,6 +5788,86 @@ async function checkMoq(brand_id, lines) {
   return null;
 }
 
+function cartApiError(res, error) {
+  if (error.cartError) return res.status(error.status || 409).json(error.result);
+  console.error('[buyer-cart]', error.code || error.name);
+  return res.status(503).json({error:'Panier temporairement indisponible / Cart temporarily unavailable',code:'cart_unavailable'});
+}
+
+// New protocol is opt-in. The existing portal keeps its current endpoints until
+// its reconciliation and uncertain-checkout UI have been reviewed separately.
+app.post('/api/portal/checkout-v2', requireBuyerAuth, cartCheckoutLimiter, async (req, res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  const buyer=req.session.buyerPortal, body=req.body;
+  try {
+    const effectiveContext={client_email:buyer.email,client_company:body?.client_company||buyer.company||'',client_phone:body?.client_phone||buyer.phone||''};
+    const reservation=await buyerCart.reserveCheckout(buyer.id,body,effectiveContext);
+    const pending=[];
+    for (const brandId of reservation.brands) {
+      if (!(await reservation.context(brandId).replay())) pending.push(brandId);
+    }
+    if (!pending.length) return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+
+    const countryCode=require('./lib/territories').getCountryCode(body.client_country);
+    const inputError=!countryCode ? {error:'Choisissez un pays dans la liste / Choose a country from the list',code:'invalid_country'}
+      : typeof body.client_name!=='string'||!body.client_name.trim()||body.client_name.length>200 ? {error:'Nom requis / Name required',code:'invalid_name'}
+      : typeof body.buyer_signature!=='string'||!body.buyer_signature||body.buyer_signature.length>1500000 ? {error:'Signature requise / Signature required',code:'invalid_signature'}
+      : ![true,1].includes(body.cgv_accepted) ? {error:'Acceptation des CGV requise / Terms acceptance required',code:'invalid_terms'} : null;
+    if (inputError) {
+      for (const brandId of pending) await buyerCart.recordResult(reservation,brandId,inputError);
+      return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+    }
+
+    // Preserve the preflight rule of the original checkout: an early-access or
+    // brand MOQ refusal stops every still-pending brand before order creation.
+    const brands=(await pool.query('SELECT id,name,early_access_until FROM brands WHERE id=ANY($1)',[reservation.brands])).rows;
+    const nameOf=id=>brands.find(b=>b.id===id)?.name||id;
+    const preflight=new Map();
+    for (const brandId of pending) {
+      const brand=brands.find(b=>b.id===brandId);
+      if (brand?.early_access_until&&new Date(brand.early_access_until)>new Date()) {
+        const privileged=await pool.query('SELECT is_privileged FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2',[buyer.id,brandId]);
+        if (!privileged.rows[0]?.is_privileged) preflight.set(brandId,{error:`${nameOf(brandId)} : collection encore en accès anticipé.`,code:'early_access'});
+      }
+      const moq=await checkMoq(brandId,body.lines.filter(line=>line.brand_id===brandId));
+      if (moq&&!preflight.has(brandId)) preflight.set(brandId,{error:`${nameOf(brandId)} : ${moq}`,code:'moq'});
+    }
+    if (preflight.size) {
+      for (const brandId of pending) await buyerCart.recordResult(reservation,brandId,{brand_name:nameOf(brandId),...(preflight.get(brandId)||{error:'Commande non engagée : une marque ne satisfait pas les conditions de validation.',code:'preflight_aborted'})});
+      return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+    }
+
+    for (const brandId of pending) {
+      const context=reservation.context(brandId);
+      let result;
+      try {
+        result=await createOrder({brand_id:brandId,client_name:body.client_name,...effectiveContext,
+          client_country:countryCode,notes:body.notes,lines:body.lines.filter(line=>line.brand_id===brandId),
+          buyer_signature:body.buyer_signature,cgv_accepted:body.cgv_accepted,buyer_id:buyer.id,
+          buyer_po_number:body.buyer_po_number,cart_context:context});
+      } catch (error) {
+        // A post-commit notification failure must not overwrite an atomic receipt.
+        result=await context.replay();
+        if (!result) throw error;
+      }
+      if (result.error) await buyerCart.recordResult(reservation,brandId,{brand_name:nameOf(brandId),...result});
+    }
+    return res.json(await buyerCart.result(buyer.id,reservation.request_key));
+  } catch (error) { return cartApiError(res,error); }
+});
+
+app.post('/api/portal/checkout-v2/:request_key/cancel', requireBuyerAuth, cartCheckoutLimiter, async(req,res)=>{
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.cancel(req.session.buyerPortal.id,req.params.request_key,req.body.brands)); }
+  catch(error){ return cartApiError(res,error); }
+});
+
+app.get('/api/portal/checkout-v2/:request_key', requireBuyerAuth, async (req,res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.result(req.session.buyerPortal.id,req.params.request_key)); }
+  catch (error) { return cartApiError(res,error); }
+});
+
 app.post('/api/portal/checkout', requireBuyerAuth, async (req, res) => {
   const buyer = req.session.buyerPortal;
   const { lines, client_name, client_company, client_phone, client_country, buyer_signature, cgv_accepted, notes, buyer_po_number } = req.body;
@@ -6056,6 +6188,18 @@ app.get('/share/:token', async (req, res) => {
   res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sélection — ${showroomName}</title><style>body{font-family:'Helvetica Neue',sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#111}.header{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}.tag{display:inline-block;background:rgba(224,176,58,.1);border:1px solid #d4a017;color:#8a6500;font-size:11px;padding:3px 10px;border-radius:12px;margin-bottom:16px}.total{background:#111;color:#fff;padding:14px 18px;margin-top:24px;font-weight:700;display:flex;justify-content:space-between;font-size:15px}</style></head><body><div class="header"><h1 style="font-size:22px;margin:0 0 4px">${showroomName}</h1><p style="color:#888;font-size:12px;margin:0">Sélection partagée — lecture seule</p></div><span class="tag">NON CONTRACTUEL</span>${rows}<div class="total"><span>TOTAL HT</span><span>${grandTotal.toFixed(2)} €</span></div><p style="color:#aaa;font-size:11px;margin-top:24px;text-align:center">Ce document est non contractuel. La commande doit être validée sur le portail.</p></body></html>`);
 });
 
+app.get('/api/portal/cart-state', requireBuyerAuth, async (req,res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.snapshot(req.session.buyerPortal.id)); }
+  catch (error) { return cartApiError(res,error); }
+});
+
+app.put('/api/portal/cart-state', requireBuyerAuth, cartLimiter, async (req,res) => {
+  res.setHeader('Cache-Control','no-store, private');
+  try { res.json(await buyerCart.save(req.session.buyerPortal.id,req.body)); }
+  catch (error) { return cartApiError(res,error); }
+});
+
 app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
   const r = await pool.query('SELECT cart_json FROM buyer_carts WHERE buyer_id=$1', [req.session.buyerPortal.id]);
   res.json(r.rows[0] ? JSON.parse(r.rows[0].cart_json || '{}') : {});
@@ -6064,12 +6208,10 @@ app.get('/api/portal/cart', requireBuyerAuth, async (req, res) => {
 app.post('/api/portal/cart', requireBuyerAuth, cartLimiter, async (req, res) => {
   const cartJson = JSON.stringify(req.body.cart || {});
   if (cartJson.length > 100_000) return res.status(400).json({ error: 'Panier trop volumineux' });
-  await pool.query(
-    `INSERT INTO buyer_carts (buyer_id, cart_json, updated_at) VALUES ($1,$2,NOW())
-     ON CONFLICT (buyer_id) DO UPDATE SET cart_json=$2, updated_at=NOW()`,
-    [req.session.buyerPortal.id, cartJson]
-  );
-  res.json({ ok: true });
+  try {
+    await buyerCart.saveLegacy(req.session.buyerPortal.id,req.body.cart || {});
+    res.json({ ok: true });
+  } catch (error) { return cartApiError(res,error); }
 });
 
 app.post('/api/portal/stats/view/:productId', requireBuyerAuth, async (req, res) => {
@@ -6160,13 +6302,13 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
       // Top 10 acheteurs par montant commandé
       pool.query(`
         SELECT b.name, b.company, b.email, b.last_seen_at,
-               COUNT(o.id) as order_count,
+               COUNT(DISTINCT o.id)::int as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount
         FROM buyers b
-        ${scoped ? 'JOIN' : 'LEFT JOIN'} orders o ON o.buyer_id = b.id ${scoped ? 'AND o.brand_id = $1' : ''}
+        JOIN orders o ON o.buyer_id = b.id AND ${commercialMetrics.activeOrdersSql('o')} ${scoped ? 'AND o.brand_id = $1' : ''}
         LEFT JOIN order_lines ol ON ol.order_id = o.id
         GROUP BY b.id, b.name, b.company, b.email, b.last_seen_at
-        ORDER BY total_amount DESC LIMIT 10
+        ORDER BY total_amount DESC, b.id LIMIT 10
       `, p),
       // Acheteurs inactifs > 30 jours
       pool.query(`
@@ -6178,23 +6320,23 @@ app.get('/api/admin/buyer-stats', requireRole('owner', 'agent'), async (req, res
       `, p),
       // Top marques par CA (limité à sa marque pour un agent scopé)
       pool.query(`
-        SELECT br.name, COUNT(DISTINCT o.id) as order_count,
+        SELECT br.name, COUNT(DISTINCT o.id)::int as order_count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total_amount,
-               COUNT(DISTINCT o.buyer_id) as buyer_count
+               COUNT(DISTINCT o.buyer_id)::int as buyer_count
         FROM brands br
-        LEFT JOIN orders o ON o.brand_id = br.id
+        JOIN orders o ON o.brand_id = br.id AND ${commercialMetrics.activeOrdersSql('o')}
         LEFT JOIN order_lines ol ON ol.order_id = o.id
         ${scoped ? 'WHERE br.id = $1' : ''}
         GROUP BY br.id, br.name
-        ORDER BY total_amount DESC
+        ORDER BY total_amount DESC, br.id
       `, p),
       // Activité 30 derniers jours (commandes par jour)
       pool.query(`
-        SELECT DATE(o.created_at) as day, COUNT(DISTINCT o.id) as count,
+        SELECT DATE(o.created_at) as day, COUNT(DISTINCT o.id)::int as count,
                COALESCE(SUM(ol.quantity * ol.unit_price), 0) as amount
         FROM orders o
         LEFT JOIN order_lines ol ON ol.order_id = o.id
-        WHERE o.created_at >= NOW() - INTERVAL '30 days'
+        WHERE ${commercialMetrics.activeOrdersSql('o')} AND o.created_at >= NOW() - INTERVAL '30 days' AND o.created_at <= NOW()
         ${scoped ? 'AND o.brand_id = $1' : ''}
         GROUP BY DATE(o.created_at)
         ORDER BY day ASC
@@ -6976,9 +7118,10 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await require('./lib/buyer-engagement-email-links').lockManagedActivation(client,tokenHash,r.rows[0].buyer_id);
       const claimed = await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING buyer_id', [tokenHash]);
       if (!claimed.rows.length) throw new Error('Lien invalide ou expiré.');
-      await client.query('UPDATE buyers SET password_hash=$1, activation_pending=false WHERE id=$2', [hash, claimed.rows[0].buyer_id]);
+      await client.query('UPDATE buyers SET password_hash=$1, activated_at=CASE WHEN activation_pending THEN COALESCE(activated_at,NOW()) ELSE activated_at END, activation_pending=false WHERE id=$2', [hash, claimed.rows[0].buyer_id]);
       await client.query('COMMIT');
     } catch(txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
@@ -7204,6 +7347,7 @@ app.post('/api/admin/buyers/:id/relance', requireRole('owner','agent'), prospect
     const b = await pool.query('SELECT * FROM buyers WHERE id=$1', [req.params.id]);
     if (!b.rows[0]) return res.status(404).json({ error: 'Acheteur introuvable' });
     const buyer = b.rows[0];
+    if (!await hasBuyerMarketingPermission(buyer.id)) return res.status(409).json({error:'Accord marketing non confirmé ou retiré'});
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(503).json({ error: 'Email non configuré' });
     const [showroomName, agentName, fromAddress, showroomEmail] = await Promise.all([
@@ -7272,22 +7416,20 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
       scoped
         ? pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE id = $1`, p)
         : pool.query(`SELECT COUNT(*) as brands_count FROM brands WHERE subscription_status != 'inactive' OR subscription_status IS NULL`),
-      pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+      pool.query(`SELECT COUNT(*) as orders_count FROM orders o WHERE ${commercialMetrics.activeOrdersSql('o')} ${oFilter}`, p),
       pool.query(`SELECT COALESCE(SUM(ol.quantity * ol.unit_price), 0) AS revenue_total,
         COALESCE(SUM(CASE WHEN o.status = 'confirmed' THEN ol.quantity * ol.unit_price ELSE 0 END), 0) AS pending_validation_total,
         COALESCE(SUM(CASE WHEN o.status IN ('validated','in_production','shipped') THEN ol.quantity * ol.unit_price ELSE 0 END), 0) AS validated_orders_total
-        FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE o.status NOT IN ('draft','cancelled','archived') ${oFilter}`, p),
+        FROM orders o LEFT JOIN order_lines ol ON ol.order_id = o.id WHERE ${commercialMetrics.activeOrdersSql('o')} ${oFilter}`, p),
       scoped
         ? pool.query(`SELECT COUNT(DISTINCT o.buyer_id) as buyers_count FROM orders o WHERE o.buyer_id IS NOT NULL AND o.brand_id = $1`, p)
         : pool.query(`SELECT COUNT(*) as buyers_count FROM buyers`),
-      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE o.status NOT IN ('draft','cancelled') AND o.created_at >= NOW() - INTERVAL '30 days' ${oFilter}`, p),
-      // Conversion sélections → commandes (sélections confirmées / envoyées, hors templates)
+      pool.query(`SELECT COUNT(*) as orders_last30 FROM orders o WHERE ${commercialMetrics.activeOrdersSql('o')} AND o.created_at >= NOW() - INTERVAL '30 days' AND o.created_at <= NOW() ${oFilter}`, p),
+      // Acceptation des propositions enregistrées, hors brouillons/modèles. Aucun indicateur de livraison email.
       pool.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE used = true)::int AS confirmed
                   FROM agent_selections a
-                  WHERE (a.is_template IS NULL OR a.is_template = false) ${scoped ? 'AND a.brand_id = $1' : ''}`, p)
+                  WHERE ${commercialMetrics.proposedSelectionsSql('a')} ${scoped ? 'AND a.brand_id = $1' : ''}`, p)
     ]);
-    const selTotal = parseInt(selConvR.rows[0]?.total) || 0;
-    const selConfirmed = parseInt(selConvR.rows[0]?.confirmed) || 0;
     res.json({
       brands_count: parseInt(brandsR.rows[0].brands_count) || 0,
       orders_count: parseInt(ordersR.rows[0].orders_count) || 0,
@@ -7296,9 +7438,8 @@ app.get('/api/stats', requireRole('owner','agent'), async (req, res) => {
       validated_orders_total: parseFloat(revenueR.rows[0].validated_orders_total) || 0,
       buyers_count: parseInt(buyersR.rows[0].buyers_count) || 0,
       orders_last30: parseInt(orders30R.rows[0].orders_last30) || 0,
-      selections_total: selTotal,
-      selections_confirmed: selConfirmed,
-      conversion_rate: selTotal ? Math.round((selConfirmed / selTotal) * 100) : 0
+      ...commercialMetrics.selectionMetrics(selConvR.rows[0]),
+      active_order_statuses: commercialMetrics.ACTIVE_ORDER_STATUSES
     });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -7413,56 +7554,17 @@ app.get('/api/search', requireRole('owner','agent'), async (req, res) => {
 
 app.get('/api/dashboard/revenue-chart', requireRole('owner','agent'), async (req, res) => {
   try {
-    const lang = req.query.lang === 'en' ? 'en-GB' : 'fr-FR';
-    const scoped = isBrandScoped(req);
-    const r = await pool.query(`
-      SELECT DATE_TRUNC('month', o.created_at) as month_date,
-             COALESCE(SUM(ol.quantity * ol.unit_price), 0) as total
-      FROM orders o
-      LEFT JOIN order_lines ol ON ol.order_id = o.id
-      WHERE o.created_at >= NOW() - INTERVAL '6 months'
-        AND o.status NOT IN ('draft', 'cancelled')
-        ${scoped ? 'AND o.brand_id = $1' : ''}
-      GROUP BY DATE_TRUNC('month', o.created_at)
-      ORDER BY month_date ASC
-    `, scoped ? [req.userBrandId] : []);
-    // Build a map of existing data
-    const byMonth = {};
-    r.rows.forEach(row => {
-      const key = new Date(row.month_date).toISOString().slice(0, 7);
-      byMonth[key] = { total: parseFloat(row.total) || 0 };
-    });
-    // Fill in all 6 months including those with 0
-    const result = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = d.toLocaleDateString(lang, { month: 'short' });
-      result.push({ month: monthName, total: (byMonth[key] || { total: 0 }).total });
-    }
-    res.json(result);
+    const scoped=isBrandScoped(req);
+    const result=await pool.query(commercialMetrics.revenueChartSql(scoped?'brand':'all'),scoped?[req.userBrandId]:[]);
+    res.json(commercialMetrics.formatRevenueChart(result.rows,req.query.lang));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/api/dashboard/top-products', requireRole('owner', 'agent'), async (req, res) => {
   try {
-    const scoped = isBrandScoped(req);
-    const r = await pool.query(`
-      SELECT p.id, p.reference, p.description, p.color, b.name as brand_name,
-             SUM(ol.quantity) as qty, COALESCE(SUM(ol.quantity * ol.unit_price), 0) as revenue
-      FROM order_lines ol
-      JOIN orders o ON o.id = ol.order_id
-      JOIN products p ON p.id = ol.product_id
-      JOIN brands b ON b.id = p.brand_id
-      WHERE o.created_at >= NOW() - INTERVAL '6 months'
-        AND o.status NOT IN ('draft', 'cancelled')
-        ${scoped ? 'AND o.brand_id = $1' : ''}
-      GROUP BY p.id, p.reference, p.description, p.color, b.name
-      ORDER BY qty DESC
-      LIMIT 8
-    `, scoped ? [req.userBrandId] : []);
-    res.json(r.rows.map(row => ({ ...row, qty: parseInt(row.qty, 10) || 0, revenue: parseFloat(row.revenue) || 0 })));
+    const scoped=isBrandScoped(req);
+    const result=await pool.query(commercialMetrics.topProductsSql(scoped?'brand':'all'),scoped?[req.userBrandId]:[]);
+    res.json(commercialMetrics.formatTopProducts(result.rows));
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
@@ -7543,71 +7645,48 @@ app.delete('/api/portal/appointments/:id', requireBuyerAuth, async (req, res) =>
 });
 
 app.post('/api/buyers', requireRole('owner','agent'), async (req, res) => {
-  const { email, password, name, company, phone, country } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  for (const [k, v] of Object.entries({ email, name, company, phone, country })) {
-    if (v !== undefined && v !== null && typeof v !== 'string') return res.status(400).json({ error: `Champ "${k}" invalide` });
+  const { email, name, company, phone, country } = req.body;
+  if (typeof email !== 'string' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return res.status(400).json({error:'Email invalide'});
+  for (const [key,value] of Object.entries({name,company,phone,country})) {
+    if(value != null && typeof value !== 'string') return res.status(400).json({error:`Champ "${key}" invalide`});
   }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Email invalide' });
-  if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (12 caractères minimum)' });
-  const hash = await bcrypt.hash(password, 10);
-  const id = uuidv4();
-  const cleanEmail = email.toLowerCase().trim();
+  const id=uuidv4(), cleanEmail=email.toLowerCase().trim();
+  const token=crypto.randomBytes(32).toString('hex');
+  const tokenHash=crypto.createHash('sha256').update(token).digest('hex');
+  const hash=await bcrypt.hash(crypto.randomBytes(32).toString('hex'),10);
+  const db=await pool.connect();
   try {
-    await pool.query(
-      'INSERT INTO buyers (id, email, password_hash, name, company, phone, country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [id, cleanEmail, hash, name||'', company||'', phone||'', country||'']
-    );
-    res.json({ id });
-    sendBuyerWelcomeEmail({ email: cleanEmail, password, name, req }).catch(e => console.error('Buyer welcome email error:', e.message));
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé' });
-    console.error(err); res.status(500).json({ error: "Erreur serveur" });
-  }
+    await db.query('BEGIN');
+    await db.query(`INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending,access_source,approved_at,login_history_known)
+      VALUES($1,$2,$3,$4,$5,$6,$7,true,'admin_created',NOW(),true)`,[id,cleanEmail,hash,name||'',company||'',phone||'',country||'']);
+    await db.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '60 minutes')",[tokenHash,id]);
+    await db.query('COMMIT');
+  } catch(error) {
+    await db.query('ROLLBACK');
+    return res.status(error.code==='23505'?400:500).json({error:error.code==='23505'?'Cet email est déjà utilisé':'Erreur serveur'});
+  } finally {db.release();}
+  logAudit(req,'create_buyer','buyer',id);
+  const url=`${getBaseUrl(req)}/editions-showroom-b2b-portail?activation=1&token=${token}`;
+  const emailed=await sendApprovedBuyerEmail({buyerId:id,name:name||'',email:cleanEmail,url,needsActivation:true});
+  res.set('Cache-Control','no-store');
+  res.json({id,emailed,...(!emailed?{activation_url:url}:{})});
 });
 
-async function sendBuyerWelcomeEmail({ email, password, name, req, lang }) {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) { console.log('RESEND_API_KEY non configurée — email de bienvenue acheteur non envoyé'); return; }
-  const resend = newResendClient(resendKey);
-  const showroomName = await getSetting('showroom_name');
-  const fromAddress = await getSetting('smtp_from');
-  const fromField = fromAddress || 'showroom@editionsstandard.com';
-  const portalUrl = `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
-  const isEn = lang === 'en';
-
-  const { error } = await resend.emails.send({
-    from: `${showroomName} <${fromField}>`,
-    to: [email],
-    subject: isEn ? `Your showroom access — ${showroomName}` : `Votre accès au showroom — ${showroomName}`,
-    html: emailLayout({
-      showroomName,
-      content: isEn ? `
-        <p>Hello${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
-        <p>Your B2B showroom access for <strong>${showroomName}</strong> has been created. You can now browse our brands, view collections, and place orders online.</p>
-        ${emailInfoBox([
-          ['Email', email],
-          ['Password', password],
-        ])}
-        <p style="font-size:13px;color:#888">You can change this password at any time from your account, under <strong>My profile</strong>.</p>
-        ${emailBtn(portalUrl, 'Access showroom →')}
-        <p style="font-size:13px;color:#888;margin-top:28px">Feel free to contact us if you have any questions.</p>
-        <p>Best regards,<br><strong>${showroomName}</strong></p>
-      ` : `
-        <p>Bonjour${name ? ' <strong>' + escHtml(name) + '</strong>' : ''},</p>
-        <p>Votre accès au showroom B2B <strong>${showroomName}</strong> a été créé. Vous pouvez dès à présent parcourir nos marques, consulter les collections et passer vos commandes en ligne.</p>
-        ${emailInfoBox([
-          ['Email', email],
-          ['Mot de passe', password],
-        ])}
-        <p style="font-size:13px;color:#888">Vous pouvez modifier ce mot de passe à tout moment depuis votre espace, rubrique <strong>Mon profil</strong>.</p>
-        ${emailBtn(portalUrl, 'Accéder au showroom →')}
-        <p style="font-size:13px;color:#888;margin-top:28px">En cas de question, n'hésitez pas à nous contacter.</p>
-        <p>Cordialement,<br><strong>${showroomName}</strong></p>
-      `
-    })
-  });
-  if (error) console.error('[resend] buyer-welcome-email:', error.message || error);
+async function sendApprovedBuyerEmail({buyerId,name,email,url,needsActivation}) {
+  let emailed=false;
+  try {
+    if(process.env.RESEND_API_KEY) {
+      const [showroomName,fromAddress,buyerLang]=await Promise.all([getSetting('showroom_name'),getSetting('smtp_from'),pool.query('SELECT lang FROM buyers WHERE id=$1',[buyerId])]);
+      const isEn=buyerLang.rows[0]?.lang==='en';
+      const content=isEn
+        ? `<p>Hello <strong>${escHtml(name)}</strong>,</p><p>Your access has been approved.</p>${needsActivation ? '<p>Choose your own password using this single-use link, valid for 60 minutes.</p>':'<p>Your existing account is ready to use.</p>'}${emailBtn(url,needsActivation ? 'ACTIVATE MY ACCOUNT →':'ACCESS SHOWROOM →')}`
+        : `<p>Bonjour <strong>${escHtml(name)}</strong>,</p><p>Votre accès a été approuvé.</p>${needsActivation ? '<p>Choisissez votre mot de passe avec ce lien à usage unique, valable 60 minutes.</p>':'<p>Votre compte existant est prêt à être utilisé.</p>'}${emailBtn(url,needsActivation ? 'ACTIVER MON COMPTE →':'ACCÉDER AU SHOWROOM →')}`;
+      const result=await newResendClient(process.env.RESEND_API_KEY).emails.send({from:`${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,to:[email],subject:isEn ? 'Your showroom access is approved':'Votre accès au showroom est approuvé',html:emailLayout({showroomName,content})});
+      emailed=!result.error;
+      if(result.error)console.error('[resend] activation:',result.error.message || 'send failed');
+    }
+  } catch(e) { console.error('[resend] activation:',e.message); }
+  return emailed;
 }
 
 app.put('/api/buyers/:id', requireRole('owner','agent'), async (req, res) => {
@@ -7738,7 +7817,7 @@ app.post('/api/share-requests/:id/handle', requireRole('owner','agent'), async (
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
-app.get('/rejoindre/:token', (req, res) => sendPage(res, 'invite.html'));
+app.get('/rejoindre/:token', (req, res) => res.redirect('/demande-acces'));
 app.get('/demande-acces', (req, res) => sendPage(res, 'demande-acces.html'));
 app.get('/confidentialite', (req, res) => sendPage(res, 'confidentialite.html'));
 app.get('/cgu', (req, res) => sendPage(res, 'cgu.html'));
@@ -7830,7 +7909,7 @@ app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, r
     } else {
       buyerId=uuidv4(); needsActivation=true;
       const unreachablePasswordHash=await bcrypt.hash(crypto.randomBytes(32).toString('hex'),10);
-      await client.query('INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending) VALUES($1,$2,$3,$4,$5,$6,$7,true)',[buyerId,email,unreachablePasswordHash,request.name,request.company,request.phone,request.country]);
+      await client.query(`INSERT INTO buyers(id,email,password_hash,name,company,phone,country,activation_pending,access_source,approved_at,login_history_known) VALUES($1,$2,$3,$4,$5,$6,$7,true,'access_request',NOW(),true)`,[buyerId,email,unreachablePasswordHash,request.name,request.company,request.phone,request.country]);
     }
     if (needsActivation) {
       token=crypto.randomBytes(32).toString('hex');
@@ -7838,6 +7917,8 @@ app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, r
       await client.query('DELETE FROM buyer_password_resets WHERE buyer_id=$1',[buyerId]);
       await client.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '60 minutes')",[tokenHash,buyerId]);
     }
+    await client.query('UPDATE buyers SET approved_at=COALESCE(approved_at,NOW()) WHERE id=$1',[buyerId]);
+    await engagement.captureRequestPreference(client,buyerId,request);
     await client.query("UPDATE access_requests SET status='approved' WHERE id=$1",[request.id]);
     await client.query('COMMIT');
   } catch(e) {
@@ -7847,19 +7928,8 @@ app.post('/api/access-requests/:id/approve', requireRole('owner'), async (req, r
   } finally { client.release(); }
   logAudit(req,'approve_access_request','access_request',request.id,request.email);
   const url=needsActivation ? `${getBaseUrl(req)}/editions-showroom-b2b-portail?activation=1&token=${token}` : `${getBaseUrl(req)}/editions-showroom-b2b-portail`;
-  let emailed=false;
-  try {
-    if(process.env.RESEND_API_KEY) {
-      const [showroomName,fromAddress,buyerLang]=await Promise.all([getSetting('showroom_name'),getSetting('smtp_from'),pool.query('SELECT lang FROM buyers WHERE id=$1',[buyerId])]);
-      const isEn=buyerLang.rows[0]?.lang==='en';
-      const content=isEn
-        ? `<p>Hello <strong>${escHtml(request.name)}</strong>,</p><p>Your access has been approved.</p>${needsActivation ? '<p>Choose your own password using this single-use link, valid for 60 minutes.</p>':'<p>Your existing account is ready to use.</p>'}${emailBtn(url,needsActivation ? 'ACTIVATE MY ACCOUNT →':'ACCESS SHOWROOM →')}`
-        : `<p>Bonjour <strong>${escHtml(request.name)}</strong>,</p><p>Votre accès a été approuvé.</p>${needsActivation ? '<p>Choisissez votre mot de passe avec ce lien à usage unique, valable 60 minutes.</p>':'<p>Votre compte existant est prêt à être utilisé.</p>'}${emailBtn(url,needsActivation ? 'ACTIVER MON COMPTE →':'ACCÉDER AU SHOWROOM →')}`;
-      const result=await newResendClient(process.env.RESEND_API_KEY).emails.send({from:`${showroomName} <${fromAddress || 'showroom@editionsstandard.com'}>`,to:[request.email],subject:isEn ? 'Your showroom access is approved':'Votre accès au showroom est approuvé',html:emailLayout({showroomName,content})});
-      emailed=!result.error;
-      if(result.error)console.error('[resend] activation:',result.error.message || 'send failed');
-    }
-  } catch(e) { console.error('[resend] activation:',e.message); }
+  const emailed=await sendApprovedBuyerEmail({buyerId,name:request.name,email:request.email,url,needsActivation});
+  res.set('Cache-Control','no-store');
   res.json({ok:true,reused,emailed,...(!emailed ? {activation_url:url}: {})});
 });
 
@@ -7981,37 +8051,8 @@ app.get('/api/invite/:token', publicLimiter, async (req, res) => {
 // emailLimiter (IP, 5/h) plutôt que buyerAuthLimiter : ce dernier est keyé par
 // email quand fourni, donc inefficace ici — la création de compte spammée
 // utilise justement un email différent à chaque appel.
-app.post('/api/invite/:token', emailLimiter, async (req, res) => {
-  const r = await pool.query(`
-    SELECT bil.brand_id, b.name as brand_name
-    FROM brand_invite_links bil
-    JOIN brands b ON b.id = bil.brand_id
-    WHERE (bil.token=$1 OR bil.slug=$1) AND bil.active != 0
-  `, [req.params.token]);
-  if (!r.rows[0]) return res.status(400).json({ error: 'Lien invalide ou désactivé.' });
-
-  const { name, company, email, password } = req.body;
-  if (!email || !password || password.length < 12) return res.status(400).json({ error: 'Email et mot de passe requis (12 caractères min).' });
-  if (!name) return res.status(400).json({ error: 'Nom requis.' });
-
-  const cleanEmail = email.toLowerCase().trim();
-  const hash = await bcrypt.hash(password, 10);
-  const id = uuidv4();
-  try {
-    await pool.query(
-      'INSERT INTO buyers (id, email, password_hash, name, company) VALUES ($1,$2,$3,$4,$5)',
-      [id, cleanEmail, hash, name.trim(), (company||'').trim()]
-    );
-    // Régénération de session — anti session fixation (cohérent avec les autres logins)
-    req.session.regenerate(() => {
-      req.session.buyerPortal = { id, email: cleanEmail, name: name.trim(), company: (company||'').trim(), phone: '', country: '' };
-      req.session.save(() => res.json({ ok: true }));
-      sendBuyerWelcomeEmail({ email: cleanEmail, password, name: name.trim(), req }).catch(() => {});
-    });
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Cet email est déjà utilisé. Connectez-vous directement sur le portail.' });
-    res.status(500).json({ error: 'Erreur serveur.' });
-  }
+app.post('/api/invite/:token', emailLimiter, (req,res) => {
+  res.status(409).json({error:'Une demande d’accès et une approbation manuelle sont nécessaires.',redirect:'/demande-acces'});
 });
 
 // ==================== BUYER ACCESS (magic link) ====================
@@ -8070,23 +8111,25 @@ app.get('/api/buyer/verify', async (req, res) => {
   if (!link || link.used || new Date(link.expires_at) < new Date()) {
     return res.status(401).json({ error: 'Lien invalide ou expiré' });
   }
-  await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1', [token]);
+
   // Ce lien magique n'exige qu'un accès à la boîte mail — s'il correspond à un
   // compte du portail acheteur protégé par MFA, l'accepter reviendrait à
   // contourner ce MFA (accès en lecture à l'historique de commandes + PDF de
   // facture). On bloque plutôt cette voie légère et on renvoie vers le
   // portail complet, qui applique le MFA normalement.
-  const acct = await pool.query('SELECT mfa_enabled FROM buyers WHERE email=$1', [link.email]);
-  if (acct.rows[0]?.mfa_enabled) {
+  const acct = await pool.query('SELECT id,mfa_enabled,activation_pending FROM buyers WHERE LOWER(email)=LOWER($1)', [link.email]);
+  if (acct.rows[0]?.mfa_enabled || acct.rows[0]?.activation_pending) {
     return res.status(403).json({ error: 'Un compte sécurisé existe pour cet email. Veuillez vous connecter via <a href="/editions-showroom-b2b-portail">le portail acheteur</a>.' });
   }
+  const claim=await pool.query('UPDATE buyer_magic_links SET used=1 WHERE token=$1 AND used=0 AND expires_at>NOW() RETURNING token',[token]);
+  if(!claim.rowCount) return res.status(401).json({error:'Lien invalide ou expiré'});
   // Régénération de session — anti fixation, même principe que les autres points
   // de connexion (cette route héritée était la seule à en manquer).
   req.session.regenerate(err => {
     if (err) return res.status(500).json({ error: 'Erreur serveur' });
     req.session.buyerEmail = link.email;
     req.session.buyerBrandId = brand_id;
-    req.session.save(() => res.json({ ok: true, email: link.email }));
+    saveBuyerLogin(req, acct.rows[0]?.id, error => error ? res.status(503).json({error:'Session indisponible'}) : res.json({ ok: true, email: link.email }));
   });
 });
 
@@ -9038,6 +9081,7 @@ app.get('/api/portal/my-data-export', requireBuyerAuth, async (req, res) => {
       profile: profile.rows[0] || null,
       orders: orders.rows,
       favorites,
+      engagement: await engagement.exportEngagement(pool,buyerId),
     });
   } catch(e) { res.status(500).json({ error: 'Erreur export' }); }
 });
@@ -9065,12 +9109,22 @@ app.post('/api/portal/delete-account', requireBuyerAuth, async (req, res) => {
 // une fois la base prête — mais l'ENVOI reste soumis à validation manuelle
 // ici : ces deux relances partaient jusqu'ici sans regard humain malgré leur
 // caractère commercial sensible.
+async function hasBuyerMarketingPermission(buyerId) {
+  const result=await pool.query("SELECT 1 FROM buyer_email_preferences WHERE buyer_id=$1 AND status='granted'",[buyerId]);
+  return result.rowCount>0;
+}
+
 async function sendInactiveReminderNow(buyerId) {
+  if (!await hasBuyerMarketingPermission(buyerId)) throw new Error('Accord marketing non confirmé ou retiré');
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) throw new Error('RESEND_API_KEY non configurée');
-  const r = await pool.query('SELECT id, email, name, company, lang FROM buyers WHERE id=$1', [buyerId]);
+  const r = await pool.query('SELECT * FROM buyers WHERE id=$1', [buyerId]);
   const buyer = r.rows[0];
   if (!buyer) throw new Error('Acheteur introuvable');
+  if (!engagement.evaluateBuyer({...buyer,email_status:'granted'},{id:'inactive',mode:'simulation',delay_hours:45*24}).eligible ||
+      (buyer.last_engagement_email_at && Date.now()-new Date(buyer.last_engagement_email_at).getTime()<45*86400000)) {
+    throw new Error('Acheteur non éligible : activité récente, historique inconnu ou relance récente');
+  }
   const showroomName = await getSetting('showroom_name');
   const showroomEmail = await getSetting('showroom_email');
   const baseUrl = process.env.BASE_URL || 'https://showroom.editionsstandard.com';
@@ -9085,7 +9139,7 @@ async function sendInactiveReminderNow(buyerId) {
   // marqué "envoyé" à tort dans la file de validation.
   const { error } = await resend.emails.send({ from: `${showroomName} <noreply@editionsstandard.com>`, to: [buyer.email], ...(showroomEmail && showroomEmail.toLowerCase() !== buyer.email.toLowerCase() ? { bcc: [showroomEmail] } : {}), subject, html: emailLayout({ showroomName, content }) });
   if (error) throw new Error(`Resend: ${error.message || error.name || 'échec envoi'}`);
-  await pool.query('UPDATE buyers SET last_seen_at=NOW() WHERE id=$1', [buyer.id]);
+  await pool.query('UPDATE buyers SET last_engagement_email_at=NOW() WHERE id=$1', [buyer.id]);
 }
 
 async function sendSelectionReminderNow(token) {
@@ -9174,6 +9228,7 @@ app.post('/api/admin/pending-reminders/:id/reject', requireRole('owner','agent')
 // Catch-all 404
 require('./lib/buyer-company').registerBuyerCompany({app,pool,auth:requireBuyerAuth,getLockedBrandIds,audit:logAudit});
 require('./lib/quick-order').registerQuickOrder({app,pool,auth:requireBuyerAuth,getLockedBrandIds});
+engagement.registerBuyerEngagement({app,pool,ownerAuth:requireRole('owner'),buyerAuth:requireBuyerAuth,audit:logAudit});
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
@@ -9214,6 +9269,8 @@ process.on('uncaughtException', (err) => {
 
 // Start
 init().then(() => {
+  require('./lib/buyer-engagement-retention').startRetentionScheduler(pool,{enabled:process.env.BACKGROUND_JOBS_ENABLED !== 'false'});
+  if (process.env.BACKGROUND_JOBS_ENABLED !== 'false' && process.env.LEGACY_BACKGROUND_JOBS_ENABLED !== 'false') {
   // Préchauffe le cache des liens showroom (footer email) au démarrage, puis
   // rafraîchit périodiquement en filet de sécurité (POST /api/settings le
   // fait déjà immédiatement à la sauvegarde — ceci couvre un cache resté
@@ -9229,9 +9286,12 @@ init().then(() => {
         DELETE FROM buyer_password_resets WHERE expires_at < NOW();
         DELETE FROM buyer_access_tokens WHERE expires_at < NOW();
         DELETE FROM selection_shares WHERE expires_at < NOW();
+        DELETE FROM access_requests WHERE status IN ('pending','rejected') AND created_at < NOW() - INTERVAL '30 days';
         DELETE FROM agent_selections WHERE expires_at < NOW() - INTERVAL '30 days';
       `);
       await pool.query("DELETE FROM user_sessions WHERE expire < NOW()");
+      await require('./lib/buyer-engagement-ledger').pruneLedger(pool);
+      await require('./lib/buyer-engagement-preparation').prunePreparationQueue(pool);
       // Rétention du journal d'audit : 12 mois — suffisant pour investiguer un
       // incident détecté tardivement, sans accumuler indéfiniment des emails/IPs.
       await pool.query("DELETE FROM admin_audit_log WHERE created_at < NOW() - INTERVAL '12 months'");
@@ -9362,6 +9422,11 @@ init().then(() => {
           FROM buyers b
           WHERE (b.last_seen_at < NOW() - INTERVAL '45 days' OR b.last_seen_at IS NULL)
             AND b.created_at < NOW() - INTERVAL '45 days'
+            AND b.login_history_known=true AND b.activation_pending=false
+            AND b.last_login_at IS NOT NULL
+            AND b.last_meaningful_activity_at <= NOW() - INTERVAL '45 days'
+            AND (b.last_engagement_email_at IS NULL OR b.last_engagement_email_at < NOW() - INTERVAL '45 days')
+            AND EXISTS (SELECT 1 FROM buyer_email_preferences ep WHERE ep.buyer_id=b.id AND ep.status='granted')
             AND NOT EXISTS (
               SELECT 1 FROM pending_reminders p
               WHERE p.type='buyer_inactive' AND p.target_id=b.id AND p.status='pending'
@@ -9431,6 +9496,7 @@ init().then(() => {
   }
   scheduleSelectionReminders();
 
+  } // Existing jobs can be disabled in isolated validation environments.
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✅ Showroom BDC démarré sur http://localhost:${PORT}`);
     console.log(`   Admin : http://localhost:${PORT}/admin\n`);

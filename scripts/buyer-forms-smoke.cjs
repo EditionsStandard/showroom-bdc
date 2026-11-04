@@ -8,17 +8,18 @@ const root=path.resolve(__dirname,'..');
   try {
     for(const width of [360,1440])for(const lang of ['fr','en']) {
       const page=await browser.newPage({viewport:{width,height:900}}),errors=[],nativeDialogs=[];
-      page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>{nativeDialogs.push(d.type());d.dismiss();});
+      page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR',e.message);});page.on('dialog',d=>{nativeDialogs.push(d.type());d.dismiss();});
       await page.addInitScript(lang=>localStorage.setItem('portal_lang',lang),lang);
       let billing={address:'Legacy street',reference:'KEEP'},billingWrites=0,failBilling=true,checkoutBody,checkoutCalls=0;
       let lists=[{id:'list1',owner_id:'buyer',name:'Existing list',notes:'Existing notes',product_ids:[],shared:false}];
       const brand={id:'b',name:'Test brand',min_per_reference:1,cgv_text:'Test terms',payment_terms:'Test payment terms',delivery_terms:'Test delivery terms'};
-      await page.route('**/*',async route=>{
+      await page.route('**/*',require('./cart-protocol-fixture.cjs')(async route=>{
         const request=route.request(),u=new URL(request.url());if(u.hostname!=='showroom.test')return route.abort();
         const send=(body,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
         if(u.pathname==='/logo.svg')return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(root+'/public/logo.svg','utf8')});
         if(u.pathname==='/portal')return route.fulfill({contentType:'text/html',body:fs.readFileSync(root+'/public/portal.html','utf8')});
-        if(['/countries.js','/buyer-tools.js','/ordering-rules.js'].includes(u.pathname))return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public'+u.pathname,'utf8')});
+        if(['/countries.js','/buyer-tools.js','/ordering-rules.js','/buyer-email-preferences.js','/buyer-cart-client.js','/buyer-cart-portal.js'].includes(u.pathname))return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public'+u.pathname,'utf8')});
+        if(u.pathname==='/api/portal/email-preferences')return send({status:'unknown'});
         if(u.pathname==='/api/portal/me')return send({id:'buyer',email:'synthetic@example.test',name:'Test buyer',company:'Test shop',country:'Other'});
         if(u.pathname==='/api/portal/brands')return send([brand]);
         if(u.pathname==='/api/portal/cart')return send({});
@@ -35,7 +36,7 @@ const root=path.resolve(__dirname,'..');
         if(u.pathname==='/api/portal/checkout'){checkoutBody=request.postDataJSON();checkoutCalls++;const recorded={brand_id:checkoutCalls===1?'b':'c',brand_name:'Test brand',order_id:'o',order_number:'TEST-ONLY',reference_count:1,pieces:1,total:100,payment_terms:'Test payment terms'};return send(checkoutCalls===1?{ok:false,orders:[recorded,{brand_id:'c',brand_name:'Second brand',error:'Temporarily unavailable'}]}:{ok:true,orders:[recorded]});}
         if(u.pathname.startsWith('/api/'))return send([]);
         return route.fulfill({status:404,body:''});
-      });
+      }));
       await page.goto('http://showroom.test/portal');
       await page.waitForFunction(()=>typeof allBrands!=='undefined' && allBrands.length===1);
       await page.evaluate(async()=>{showView('account');await BuyerTools.loadCompany();});

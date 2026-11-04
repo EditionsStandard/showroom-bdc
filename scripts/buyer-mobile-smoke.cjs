@@ -7,23 +7,24 @@ const root=require('node:path').resolve(__dirname,'..');
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const brand={id:'b',name:'WODD',min_per_reference:3,moq_amount:3500,moq_qty:3,moq_strict:false,payment_terms:'100% upon confirmation',cgv_text:'Terms'};
  const product={id:'p',brand_id:'b',reference:'REF\"quoted',description:'Test',color:'Gold',sizes:'7",16-18"',price:248,active:1,variants:JSON.stringify([{color:'Silver'}])};
- await page.route('**/*',async route=>{
+ await page.route('**/*',require('./cart-protocol-fixture.cjs')(async route=>{
   const u=new URL(route.request().url());
   if(u.hostname!=='showroom.test') return route.abort();
   if(u.pathname==='/portal')return route.fulfill({contentType:'text/html',body:fs.readFileSync(root+'/public/portal.html','utf8')});
   if(u.pathname==='/countries.js')return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public/countries.js','utf8')});
   if(u.pathname==='/buyer-tools.js')return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public/buyer-tools.js','utf8')});
+  if(['/buyer-cart-client.js','/buyer-cart-portal.js'].includes(u.pathname))return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public'+u.pathname,'utf8')});
   if(u.pathname==='/ordering-rules.js')return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(root+'/public/ordering-rules.js','utf8')});
   if(u.pathname.startsWith('/api/')){
    let body=[];
-   if(u.pathname==='/api/portal/me')body={email:'buyer@test',name:'Buyer',company:'Retailer'};
+   if(u.pathname==='/api/portal/me')body={id:'buyer',email:'buyer@test',name:'Buyer',company:'Retailer'};
    if(u.pathname==='/api/portal/brands')body=[brand];
    if(u.pathname==='/api/portal/brands/b/products')body={brand,products:[product]};
    if(u.pathname==='/api/portal/cart')body={};
    return route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
   }
   return route.fulfill({status:404,body:''});
- });
+ }));
  await page.goto('http://showroom.test/portal');
  await page.waitForFunction(()=>typeof allBrands!=='undefined'&&allBrands.length===1);
  await page.evaluate(()=>openBrand('b'));

@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-11-03",
+  "base_id": "appquOEohNkpH6sbB",
+  "source_url": "https://airtable.com/appquOEohNkpH6sbB",
+  "mode": "proposal_only",
+  "writes_enabled": false,
+  "target": null,
+  "blocking_reasons": [
+    "destination_not_confirmed",
+    "buyer_store_brand_links_not_verified",
+    "season_not_verified",
+    "integration_key_not_present",
+    "external_side_effects_not_fully_audited"
+  ],
+  "entities": {
+    "stores": {
+      "table_id": "tblQCsZU8DeokGygm",
+      "name": {
+        "id": "fldiiGOlzIQNvdGTh",
+        "type": "singleLineText"
+      },
+      "email": {
+        "id": "fldbGIrhVTpvBBnZk",
+        "type": "email"
+      }
+    },
+    "buyers": {
+      "table_id": "tblTlluS8iIOPpGKG",
+      "name": {
+        "id": "fldnwoMdkIjxowdSc",
+        "type": "singleLineText"
+      },
+      "email": {
+        "id": "fldSyLLXo4LcrLTNI",
+        "type": "email"
+      },
+      "store": {
+        "id": "fldrjxIVyP0nmUAMF",
+        "type": "multipleRecordLinks",
+        "linked_table_id": "tblQCsZU8DeokGygm"
+      }
+    },
+    "brands": {
+      "table_id": "tblOD4jzbfiBtfZNG",
+      "name": {
+        "id": "fldbh3fo1OQqgsrrE",
+        "type": "singleLineText"
+      }
+    },
+    "seasons": {
+      "table_id": "tblbThkyyXvCoafxS",
+      "name": {
+        "id": "fldqe9PHp7GZcpCFV",
+        "type": "singleLineText"
+      }
+    }
+  },
+  "destinations": {
+    "opportunities": {
+      "table_id": "tblYjgiiFnoJUJEXs",
+      "fields": {
+        "Opportunity Name": {
+          "id": "fldEijqArbvbxun0S",
+          "type": "singleLineText"
+        },
+        "Store name": {
+          "id": "fldhIjOGZZfTlKIh6",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblQCsZU8DeokGygm"
+        },
+        "Buyer Name": {
+          "id": "fldOOyCpNAkO0Suep",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblTlluS8iIOPpGKG"
+        },
+        "Brand": {
+          "id": "fldTdAfsMxpOtxe0h",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblOD4jzbfiBtfZNG"
+        },
+        "Season": {
+          "id": "fldX0YBzC0wS7KXLV",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblbThkyyXvCoafxS"
+        },
+        "Status": {
+          "id": "fld0Hw5abyJuuSxHo",
+          "type": "singleSelect",
+          "choices": [
+            "Prospect",
+            "Contacted",
+            "Lookbook Sent",
+            "Appointment",
+            "Negociation",
+            "Order Confirmed",
+            "Lost"
+          ]
+        },
+        "Notes": {
+          "id": "fldFC6zwwJm2k1fQ8",
+          "type": "multilineText"
+        }
+      },
+      "integration_key_field": null
+    },
+    "ss27_pipeline": {
+      "table_id": "tblqshM9RQ08paOhb",
+      "fields": {
+        "Opportunity Name": {
+          "id": "fldZdxdX71QTg6Oba",
+          "type": "singleLineText"
+        },
+        "Store": {
+          "id": "fldoctcLIsBhb1NEX",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblQCsZU8DeokGygm"
+        },
+        "Buyer": {
+          "id": "fldYOkLbrldMIMn0j",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblTlluS8iIOPpGKG"
+        },
+        "Brand": {
+          "id": "fldXKBsHUvNZqmurB",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblOD4jzbfiBtfZNG"
+        },
+        "Season": {
+          "id": "fldLyuIiSF5h8oggh",
+          "type": "multipleRecordLinks",
+          "linked_table_id": "tblbThkyyXvCoafxS"
+        },
+        "Pipeline Status": {
+          "id": "fld5vsiDjsbO7WCR0",
+          "type": "singleSelect",
+          "choices": [
+            "To qualify",
+            "Visited showroom",
+            "Portal sent",
+            "Selection pending",
+            "Selection received",
+            "Negotiation / Terms",
+            "Proforma sent",
+            "Order confirmed",
+            "Payment pending",
+            "Closed won",
+            "Closed lost",
+            "No response"
+          ]
+        },
+        "Source": {
+          "id": "fldcPX0vtvmH16ueb",
+          "type": "singleSelect",
+          "choices": [
+            "Paris showroom",
+            "Online showroom",
+            "Brevo campaign",
+            "Instagram",
+            "LinkedIn",
+            "Referral",
+            "Existing client",
+            "Manual prospecting"
+          ]
+        },
+        "Internal Notes": {
+          "id": "fldUPBIjaRQlMlbhQ",
+          "type": "multilineText"
+        },
+        "Next Action": {
+          "id": "flddA1RsH4IP1qUsj",
+          "type": "multilineText"
+        }
+      },
+      "integration_key_field": null
+    }
+  },
+  "must_remain_unset": [
+    "estimated_value",
+    "probability",
+    "ml_probability",
+    "expected_commission",
+    "last_contact",
+    "next_follow_up",
+    "buyer_feedback",
+    "order_or_selection_made",
+    "outcome",
+    "actual_order_value"
+  ],
+  "prohibited_automatic_actions": [
+    "create_store",
+    "create_buyer",
+    "create_brand",
+    "merge_records",
+    "change_commercial_status",
+    "send_email",
+    "publish_automation"
+  ],
+  "automation_check": {
+    "listed": 6,
+    "deployed": 3,
+    "direct_opportunity_table_triggers_observed": 0,
+    "scope": "Only automation metadata returned by Airtable; external consumers and future changes remain unverified."
+  }
+}

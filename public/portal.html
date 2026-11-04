@@ -874,6 +874,19 @@ const TRANSLATIONS = {
     orders_see_detail: 'Voir le détail', orders_hide: 'Masquer', orders_pdf: '📄 PDF', orders_no_items: 'Aucun article.',
     status_confirmed: 'Reçue', status_validated: 'Validée', status_cancelled: 'Annulée',
     status_draft: 'Brouillon', status_in_production: 'En production', status_shipped: 'Expédiée', status_archived: 'Archivée',
+    dash_loading: 'Chargement…', dash_retry: 'Réessayer', dash_pending_none: 'Aucune sélection en attente.',
+    dash_pending_error: 'Impossible de charger vos sélections en attente.', dash_orders_error: 'Impossible de charger vos commandes récentes.',
+    dash_action_loading: 'Vérification de vos sélections en cours…', dash_action_unknown: 'Vos sélections n’ont pas pu être vérifiées. Réessayez dans la section ci-dessous.',
+    msg_sending: 'Enregistrement du message…', msg_recorded: 'Message enregistré dans la conversation.',
+    msg_rejected: 'L’envoi a été refusé. Votre texte, le sujet et la pièce jointe sont conservés. Vous pouvez corriger le brouillon ou réessayer.',
+    msg_session_error: 'Votre session doit être renouvelée. Votre brouillon est conservé ; reconnectez-vous avant de réessayer.',
+    msg_rate_error: 'Trop de tentatives rapprochées. Votre brouillon est conservé ; attendez avant de réessayer.',
+    msg_uncertain: 'Envoi non confirmé. Le message peut déjà figurer dans la conversation. Votre brouillon est conservé : vérifiez le fil avant de le renvoyer.',
+    msg_reviewing: 'Chargement de la conversation pour vérification…',
+    msg_reviewed: 'Vérifiez le fil ci-dessus. Si le message y figure, ne le renvoyez pas. S’il manque, vous pouvez renvoyer le brouillon manuellement.',
+    msg_review_error: 'Impossible de vérifier la conversation. Votre brouillon est conservé. Réessayez la vérification avant de le renvoyer.',
+    msg_review: 'Vérifier la conversation', msg_retry: 'Réessayer', msg_resend: 'Renvoyer ce brouillon',
+    msg_thread_empty: 'Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez un fichier.', msg_thread_error: 'Impossible de charger la conversation.',
     dash_hello: 'Bonjour', dash_next_action: 'Prochaine action', dash_next_action_none: 'Aucune action requise — tout est à jour.',
     dash_next_action_selection: 'Valider votre sélection', dash_next_action_deadline: 'Commande à passer avant le',
     dash_pending: 'Sélections en attente', dash_orders_recent: 'Commandes récentes', dash_orders_none: 'Aucune commande pour le moment.',
@@ -1052,6 +1065,19 @@ const TRANSLATIONS = {
     orders_see_detail: 'View details', orders_hide: 'Hide', orders_pdf: '📄 PDF', orders_no_items: 'No items.',
     status_confirmed: 'Received', status_validated: 'Validated', status_cancelled: 'Cancelled',
     status_draft: 'Draft', status_in_production: 'In production', status_shipped: 'Shipped', status_archived: 'Archived',
+    dash_loading: 'Loading…', dash_retry: 'Retry', dash_pending_none: 'No pending selections.',
+    dash_pending_error: 'Unable to load your pending selections.', dash_orders_error: 'Unable to load your recent orders.',
+    dash_action_loading: 'Checking your pending selections…', dash_action_unknown: 'Your pending selections could not be checked. Retry in the section below.',
+    msg_sending: 'Saving your message…', msg_recorded: 'Message recorded in the conversation.',
+    msg_rejected: 'The request was rejected. Your text, subject and attachment are preserved. You can edit the draft or retry.',
+    msg_session_error: 'Your session needs to be renewed. Your draft is preserved; sign in again before retrying.',
+    msg_rate_error: 'Too many attempts in a short time. Your draft is preserved; wait before retrying.',
+    msg_uncertain: 'Sending is unconfirmed. The message may already appear in the conversation. Your draft is preserved: check the thread before resending it.',
+    msg_reviewing: 'Loading the conversation for review…',
+    msg_reviewed: 'Check the thread above. If the message appears there, do not resend it. If it is missing, you can resend the draft manually.',
+    msg_review_error: 'Unable to check the conversation. Your draft is preserved. Retry the review before resending it.',
+    msg_review: 'Check conversation', msg_retry: 'Retry', msg_resend: 'Resend this draft',
+    msg_thread_empty: 'No messages yet. Write below or attach a file.', msg_thread_error: 'Unable to load the conversation.',
     dash_hello: 'Hello', dash_next_action: 'Next action', dash_next_action_none: 'Nothing needs your attention right now.',
     dash_next_action_selection: 'Confirm your selection', dash_next_action_deadline: 'Order deadline on',
     dash_pending: 'Pending selections', dash_orders_recent: 'Recent orders', dash_orders_none: 'No orders yet.',
@@ -1435,6 +1461,9 @@ function applyLang() {
       el.textContent = T[key];
     }
   });
+  if (typeof PortalCart !== 'undefined') PortalCart.render();
+  if (typeof renderDashboardResources === 'function') renderDashboardResources();
+  if (typeof renderPortalMessageFeedback === 'function') renderPortalMessageFeedback();
   // Re-render dynamic parts if visible
   if (currentBrand) applyProductFilters();
   if (document.getElementById('brand-picker').style.display !== 'none' && allBrands.length) renderBrandPicker();
@@ -1515,16 +1544,16 @@ function applyLang() {
     <div class="wrap">
   <div id="view-dashboard" class="view-section" style="opacity:1">
     <h2 class="section-title" id="dash-hello">Bonjour</h2>
-    <div id="dash-next-action" class="panel" style="background:rgba(204,235,60,.06);padding:16px 20px;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
+    <div id="dash-next-action" role="status" aria-live="polite" class="panel" style="background:rgba(204,235,60,.06);padding:16px 20px;margin-bottom:26px;font-family:'Plex Mono','Space Mono',monospace;font-size:13px;letter-spacing:.02em"></div>
     <div id="dash-pending-wrap" style="margin-bottom:26px;display:none">
       <div class="dash-block-title" data-t="dash_pending">Sélections en attente</div>
-      <div id="dash-pending"></div>
+      <div id="dash-pending" aria-live="polite"></div>
     </div>
     <div class="panel dash-info-grid" style="margin-bottom:26px">
       <div class="c2"></div>
       <div class="dash-info-col">
         <div class="dash-block-title" data-t="dash_orders_recent">Commandes récentes</div>
-        <div id="dash-orders"></div>
+        <div id="dash-orders" aria-live="polite"></div>
         <a href="javascript:void(0)" onclick="showView('orders')" style="display:inline-block;margin-top:10px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;color:var(--soft);text-decoration:underline" data-t="dash_view_all_orders">Voir toutes mes commandes →</a>
       </div>
       <div class="dash-info-col">
@@ -1566,6 +1595,7 @@ function applyLang() {
         <button onclick="clearCart()" style="background:none;border:none;color:var(--muted);border-radius:0;padding:9px 6px;font-size:12px;font-family:'Plex Mono','Space Mono',monospace;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;gap:6px">✕ Tout effacer</button>
       </div>
     </div>
+    <div id="cart-sync-panel" class="panel" role="status" aria-live="polite" hidden style="padding:16px;margin-bottom:20px;overflow-wrap:anywhere"></div>
     <div class="checkout-layout">
       <div id="cart-lines"></div>
       <div id="checkout-form">
@@ -1633,6 +1663,8 @@ function applyLang() {
   <div id="view-account" class="view-section" style="display:none;opacity:1;max-width:680px">
     <div id="company-tools" style="border:1px solid var(--border);padding:18px;margin-bottom:24px"></div>
     <h2 class="section-title">Mon profil</h2>
+    <div id="buyer-email-preferences" class="card" style="padding:24px;margin-bottom:24px;border:1px solid var(--border)"></div>
+    <div id="buyer-interest-preferences" class="card" style="padding:24px;margin-bottom:24px;border:1px solid var(--border)"></div>
 
     <div class="card" style="background:var(--dark);border:1px solid var(--border);border-radius: 0;padding:24px;margin-bottom:24px">
       <h3 id="account-info-title" style="font-family:'Plex Mono','Space Mono',monospace;font-size:14px;font-weight:600;color:var(--white);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase">Informations personnelles</h3>
@@ -1898,6 +1930,8 @@ function applyLang() {
 
 <script src="/countries.js?v=buyer-forms-20261031"></script>
 <script src="/ordering-rules.js"></script>
+<script src="/buyer-cart-client.js?v=20261102-1"></script>
+<script src="/buyer-cart-portal.js?v=20261102-1"></script>
 <script>
 let me = null;
 let allBrands = [];
@@ -2287,45 +2321,14 @@ function setSaveStatus(state, label) {
 }
 
 let cartSyncTimer;
-function saveCart() {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-  setSaveStatus(navigator.onLine === false ? 'offline' : 'saving');
-  clearTimeout(cartSyncTimer);
-  cartSyncTimer = setTimeout(syncCartNow, 1200);
+function saveCart(){ PortalCart.save(); }
+async function syncCartNow(){ return PortalCart.sync(); }
+function restoreCart(){
+  try { cart=OrderingRules.normalize(JSON.parse(localStorage.getItem(CART_KEY)||'{}'),allBrands); }
+  catch { setSaveStatus('error'); }
 }
-
-async function syncCartNow() {
-  if (navigator.onLine === false) { setSaveStatus('offline'); return; }
-  try {
-    const r = await fetch('/api/portal/cart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) });
-    if (!r.ok) throw new Error('bad status');
-    const now = new Date();
-    setSaveStatus('saved', String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'));
-  } catch(e) {
-    setSaveStatus(navigator.onLine === false ? 'offline' : 'error');
-  }
-}
-
-window.addEventListener('offline', () => setSaveStatus('offline'));
-window.addEventListener('online', () => { if (Object.keys(cart).length) syncCartNow(); });
-
-function restoreCart() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
-    cart = OrderingRules.normalize(saved, allBrands);
-  } catch(e) {}
-}
-
-async function syncCartFromServer() {
-  try {
-    const serverCart = await fetch('/api/portal/cart').then(r => r.json());
-    // Merge: server wins for items not in local, local wins for items already present
-    Object.entries(OrderingRules.normalize(serverCart, allBrands)).forEach(([k, v]) => { if (!cart[k]) cart[k] = v; });
-    cart = OrderingRules.normalize(cart, allBrands);
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
-    updateCartBar();
-  } catch(e) {}
-}
+async function syncCartFromServer(){ return PortalCart.initialize(); }
+window.addEventListener('offline',()=>setSaveStatus('offline'));
 
 function stockTier(p) {
   if (!p.stock_enabled) return null;
@@ -2407,7 +2410,6 @@ async function init() {
   CART_KEY = 'portal_cart_' + (me.email || 'default');
   autoSetCurrency(COUNTRY_CURRENCY[me.country] || '');
   restoreCart();
-  syncCartFromServer();
   syncFavoritesFromServer();
   syncShortlistFromServer();
   // Populate user menu (topbar dropdown — mobile) + sidebar switcher (desktop)
@@ -2426,7 +2428,6 @@ async function init() {
     // Si l'API retourne une erreur JSON ou pas un tableau → on sécurise
     allBrands = Array.isArray(brandsData) ? brandsData : [];
     cart = OrderingRules.normalize(cart, allBrands);
-    saveCart();
     if (!Array.isArray(brandsData)) {
       const _errMsg = esc(brandsData.error || t('load_err_brands'));
       document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${_errMsg}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
@@ -2436,6 +2437,7 @@ async function init() {
     document.getElementById('brand-picker').innerHTML = `<div style="text-align:center;padding:48px 20px"><p style="font-family:'Plex Mono','Space Mono',monospace;color:var(--soft);margin-bottom:16px">${t('load_err_network')}</p><button onclick="location.reload()" class="btn-secondary" style="font-size:13px;padding:10px 22px">${t('btn_reload')}</button></div>`;
     return;
   }
+  await syncCartFromServer();
   try { applyLang(); } catch(e) { console.error('applyLang:', e); }
   renderBrandPicker();
   // Langue non native mémorisée : charge son dictionnaire d'UI puis ré-applique.
@@ -2496,7 +2498,7 @@ function showView(view, _fromPop) {
   if (view === 'cart') renderCart();
   if (view === 'orders') loadOrders();
   if (view === 'catalog') updateCartBar();
-  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); window.BuyerTools?.loadCompany(); }
+  if (view === 'account') { fillProfileForm(); loadBuyerMfaStatus(); window.BuyerTools?.loadCompany(); window.BuyerEmailPreferences?.load(); window.BuyerBrandInterest?.load(); }
   if (view === 'favs') renderFavs();
   if (view === 'shortlist') renderShortlist();
   if (!_fromPop) pushNav({ v: view, brand: null });
@@ -2518,14 +2520,20 @@ function msgAttachmentHtml(m, mine) {
   if (isImg) return `<img class="msg-attach-img" src="${esc(m.attachment_url)}" alt="${esc(m.attachment_name||'')}" onclick="openCarousel(['${esc(m.attachment_url)}'],0)">`;
   return `<a class="msg-attach-file" href="${esc(m.attachment_url)}" target="_blank" rel="noopener" style="${mine?'':''}">📄 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.attachment_name || 'Fichier')}</span></a>`;
 }
+let _pmsgLoadVersion = 0;
 async function loadPortalMessages() {
+  const version = ++_pmsgLoadVersion;
   const box = document.getElementById('pmsg-thread');
   const wasEmpty = !box.dataset.loaded;
   if (wasEmpty) box.innerHTML = '<div style="color:var(--muted);font-size:13px">…</div>';
   try {
-    const d = await fetch('/api/portal/messages').then(r => r.json());
-    const msgs = (d && d.messages) || [];
-    if (!msgs.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'Plex Mono\',\'Space Mono\',monospace">Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez une photo.</div>'; }
+    const response = await fetch('/api/portal/messages');
+    if (!response.ok) throw new Error('conversation_unavailable');
+    const d = await response.json();
+    if (!d || !Array.isArray(d.messages)) throw new Error('conversation_invalid');
+    if (version !== _pmsgLoadVersion) return false;
+    const msgs = d.messages;
+    if (!msgs.length) { box.innerHTML = `<div style="color:var(--muted);font-size:13px">${esc(t('msg_thread_empty'))}</div>`; }
     else {
       const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
       let lastDay = null, html = '';
@@ -2548,7 +2556,11 @@ async function loadPortalMessages() {
     }
     box.dataset.loaded = '1';
     setMsgBadge(0); // ouverture = marqués lus côté serveur
-  } catch(e) { box.innerHTML = '<div style="color:#e07a7a;font-size:13px">Erreur de chargement.</div>'; }
+    return true;
+  } catch(e) {
+    if (version === _pmsgLoadVersion) box.innerHTML = `<div role="status" style="color:#e07a7a;font-size:13px">${esc(t('msg_thread_error'))}</div>`;
+    return false;
+  }
 }
 
 // Fil rafraîchi toutes les 5s pendant que la fenêtre est ouverte (effet "live"
@@ -2593,26 +2605,83 @@ function renderPmsgAttachPreview() {
   preview.style.display = 'flex';
   preview.innerHTML = `${isImg ? `<img src="${esc(a.url)}" alt="">` : '<span style="font-size:18px">📄</span>'}<span class="name">${esc(a.name)}</span><span class="remove" onclick="clearPmsgAttachment()">✕</span>`;
 }
-function clearPmsgAttachment() { _pmsgPendingAttachment = null; renderPmsgAttachPreview(); }
+function clearPmsgAttachment(force = false) {
+  if (_pmsgSendBusy && !force) return;
+  _pmsgPendingAttachment = null; renderPmsgAttachPreview();
+}
 
+let _pmsgSendBusy = false, _pmsgReviewBusy = false;
+let _pmsgSendFeedback = { kind: 'idle', reviewed: false, status: 0 };
+function renderPortalMessageFeedback() {
+  const feedback = _pmsgSendFeedback;
+  const box = document.getElementById('pmsg-send-feedback');
+  if (!box) return;
+  box.hidden = feedback.kind === 'idle';
+  const messages = { sending:'msg_sending', recorded:'msg_recorded', uncertain:feedback.reviewed?'msg_reviewed':'msg_uncertain', reviewing:'msg_reviewing', review_error:'msg_review_error' };
+  const rejected = feedback.status === 401 || feedback.status === 403 ? 'msg_session_error' : feedback.status === 429 ? 'msg_rate_error' : 'msg_rejected';
+  document.getElementById('pmsg-send-status').textContent = t(feedback.kind === 'rejected' ? rejected : messages[feedback.kind] || 'msg_uncertain');
+  const needsReview = ['uncertain','reviewing','review_error'].includes(feedback.kind) && !feedback.reviewed;
+  const review = document.getElementById('pmsg-send-review');
+  review.hidden = !['uncertain','reviewing','review_error'].includes(feedback.kind);
+  review.textContent = t('msg_review');
+  review.disabled = _pmsgSendBusy || _pmsgReviewBusy;
+  const retry = document.getElementById('pmsg-send-retry');
+  retry.hidden = !(feedback.kind === 'rejected' || feedback.kind === 'uncertain' && feedback.reviewed);
+  retry.textContent = t(feedback.kind === 'uncertain' ? 'msg_resend' : 'msg_retry');
+  retry.disabled = _pmsgSendBusy || _pmsgReviewBusy;
+  document.getElementById('pmsg-send').disabled = _pmsgSendBusy || _pmsgReviewBusy || needsReview;
+  ['pmsg-input','pmsg-subject','pmsg-attach-btn'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=_pmsgSendBusy; });
+}
+async function reviewPortalMessageFailure() {
+  if (_pmsgSendBusy || _pmsgReviewBusy) return;
+  _pmsgReviewBusy = true;
+  _pmsgSendFeedback = { kind:'reviewing', reviewed:false, status:0 };
+  renderPortalMessageFeedback();
+  const loaded = await loadPortalMessages();
+  _pmsgReviewBusy = false;
+  _pmsgSendFeedback = { kind:loaded?'uncertain':'review_error', reviewed:loaded, status:0 };
+  renderPortalMessageFeedback();
+}
 async function sendPortalMessage() {
+  if (_pmsgSendBusy || _pmsgReviewBusy) return;
+  if (['uncertain','reviewing','review_error'].includes(_pmsgSendFeedback.kind) && !_pmsgSendFeedback.reviewed) { renderPortalMessageFeedback(); return; }
   const input = document.getElementById('pmsg-input');
   const subjectInput = document.getElementById('pmsg-subject');
-  const body = input.value.trim();
-  if (!body && !_pmsgPendingAttachment) return;
-  const btn = document.getElementById('pmsg-send');
-  btn.disabled = true;
+  const originalText = input.value;
+  const originalSubject = subjectInput ? subjectInput.value : '';
+  const attachment = _pmsgPendingAttachment;
+  const body = originalText.trim();
+  if (!body && !attachment) return;
+  _pmsgSendBusy = true;
+  _pmsgSendFeedback = { kind:'sending', reviewed:false, status:0 };
+  renderPortalMessageFeedback();
   try {
-    const payload = { body, subject: subjectInput ? subjectInput.value.trim() : '' };
-    if (_pmsgPendingAttachment) {
-      payload.attachment_url = _pmsgPendingAttachment.url;
-      payload.attachment_name = _pmsgPendingAttachment.name;
-      payload.attachment_type = _pmsgPendingAttachment.type;
+    const payload = { body, subject:originalSubject.trim() };
+    if (attachment) {
+      payload.attachment_url = attachment.url;
+      payload.attachment_name = attachment.name;
+      payload.attachment_type = attachment.type;
     }
-    const r = await fetch('/api/portal/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    if (r.ok) { input.value = ''; if (subjectInput) subjectInput.value = ''; clearPmsgAttachment(); loadPortalMessages(); }
-  } catch(e) {}
-  finally { btn.disabled = false; }
+    const response = await fetch('/api/portal/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    if (!response.ok) {
+      // A server failure may follow a committed insert. Only an explicit 4xx
+      // rejection is treated as rejected; every ambiguous outcome needs review.
+      _pmsgSendFeedback = { kind:response.status >= 400 && response.status < 500 && response.status !== 408?'rejected':'uncertain', reviewed:false, status:response.status };
+      return;
+    }
+    const result = await response.json();
+    if (result?.ok !== true) throw new Error('message_unconfirmed');
+    if (input.value === originalText) input.value = '';
+    if (subjectInput && subjectInput.value === originalSubject) subjectInput.value = '';
+    if (_pmsgPendingAttachment === attachment) clearPmsgAttachment(true);
+    _pmsgSendFeedback = { kind:'recorded', reviewed:false, status:0 };
+    loadPortalMessages();
+  } catch(e) {
+    _pmsgSendFeedback = { kind:'uncertain', reviewed:false, status:0 };
+  } finally {
+    _pmsgSendBusy = false;
+    renderPortalMessageFeedback();
+  }
 }
 function setMsgBadge(n) {
   [document.getElementById('dd-msg-badge'), document.getElementById('mn-msg-badge'), document.getElementById('chat-fab-badge')].forEach(badge => {
@@ -2717,6 +2786,7 @@ async function confirmDeleteAccount() {
       body: JSON.stringify({ password })
     }).then(r => r.json());
     if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; return; }
+    portalLogout();
     window.location.href = '/editions-showroom-b2b-portail?deleted=1';
   } catch(e) { msg.className = 'msg error'; msg.textContent = t('delete_network_err'); }
 }
@@ -2886,6 +2956,7 @@ function toggleBrandHeroSound() {
 }
 
 async function openBrand(brandId, _fromPop) {
+  const interestToken=window.BuyerBrandInterest?.begin();
   if (!_fromPop) pushNav({ v: 'catalog', brand: brandId });
   // openBrand() peut être appelé depuis n'importe quelle vue (tableau de bord,
   // recherche globale, historique de commandes…) — s'assure que #view-catalog
@@ -3106,6 +3177,7 @@ async function openBrand(brandId, _fromPop) {
   renderRecentlyViewed();
   applyProductFilters();
   translateVisibleContent(container); // traduit la bio de la marque si langue ≠ FR
+  window.BuyerBrandInterest?.record(data.brand.id,interestToken);
 }
 
 let activeCollections = new Set(['__all__']);
@@ -3612,6 +3684,8 @@ async function exportSelectionPdf() {
 }
 
 async function submitCheckout() {
+  if(PortalCart.busy)return;
+  try{if(PortalCart.hasPending()){try{await PortalCart.recover();}catch{}return;}}catch{PortalCart.render();return;}
   const msg = document.getElementById('checkout-msg');
   const client_name = document.getElementById('ck-name').value.trim();
   if (!client_name) { msg.innerHTML = `<div class="msg error">${t('err_name')}</div>`; return; }
@@ -3658,33 +3732,30 @@ async function submitCheckout() {
   }
 
   try {
-    const r = await fetch('/api/portal/checkout', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const r = await PortalCart.checkout({
         lines, client_name, buyer_po_number:document.getElementById('ck-po').value.trim(),
         client_company: document.getElementById('ck-company').value.trim(),
         client_phone: document.getElementById('ck-phone').value.trim(),
         client_country: document.getElementById('ck-country').value.trim(),
         buyer_signature, cgv_accepted: 1
-      })
-    }).then(r => r.json());
+    });
 
     if (r.error) { msg.className = 'msg error'; msg.textContent = r.error; btnConfirm.disabled = false; btnConfirm.textContent = origBtnText; return; }
 
+    applyCheckoutResult(r);
+  } catch(e) {
+    msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
+    btnConfirm.disabled = false;
     btnConfirm.textContent = origBtnText;
-    // Un produit devenu indisponible entre l'ajout au panier et la validation
-    // (rupture de stock, désactivation, marque désactivée) peut faire échouer
-    // la commande d'UNE marque tout en réussissant pour les autres — on ne vide
-    // du panier que les marques réellement commandées, et on garde l'utilisateur
-    // sur le panier (avec un message clair) si au moins une marque a échoué,
-    // au lieu d'afficher un écran de succès pour tout et de tout vider à tort.
+  }
+}
+
+function applyCheckoutResult(r){
+  const msg=document.getElementById('checkout-msg'),btnConfirm=document.getElementById('btn-confirm-order');
+  btnConfirm.textContent=t('btn_confirm');btnConfirm.disabled=false;
     const orders = r.orders || [];
     const succeeded = orders.filter(o => !o.error);
     const failed = orders.filter(o => o.error);
-    succeeded.forEach(o => {
-      Object.keys(cart).forEach(k => { if (cart[k].brand_id === o.brand_id) delete cart[k]; });
-    });
-    saveCart();
 
     if (failed.length) {
       // #checkout-msg vit dans #view-cart : si on bascule sur #view-success,
@@ -3712,11 +3783,6 @@ async function submitCheckout() {
     document.querySelector('#view-success h2').setAttribute('tabindex','-1');
     document.querySelector('#view-success h2').focus({preventScroll:true});
     document.getElementById('success-detail').innerHTML = succeeded.map(o => `<div style="text-align:left;border:1px solid var(--border);padding:18px;margin-top:18px"><strong>${esc(o.order_number)} · ${esc(o.brand_name)}</strong><p>${o.reference_count} ${esc(t('references_label'))} · ${o.pieces} ${esc(t('pieces_label'))} · ${fmtPrice(o.total)} ${esc(t('excl_vat_label'))}</p>${o.buyer_po_number ? '<p>PO: '+esc(o.buyer_po_number)+'</p>' : ''}<p>${esc(t('payment_terms_label'))} : ${esc(o.payment_terms || t('terms_to_confirm'))}</p><p>${esc(t('delivery_terms_label'))} : ${esc(o.delivery_window || o.delivery_terms || t('terms_to_confirm'))}</p><p>${esc(t('confirmation_next'))}</p><a class="btn-secondary" href="/api/portal/orders/${encodeURIComponent(o.order_id)}/pdf" target="_blank" rel="noopener">PDF</a> <button class="btn-secondary" type="button" data-confirm-contact="${esc(o.brand_id)}">${esc(t('dash_contact_message'))}</button></div>`).join('');
-  } catch(e) {
-    msg.innerHTML = `<div class="msg error">${t('err_retry')}</div>`;
-    btnConfirm.disabled = false;
-    btnConfirm.textContent = origBtnText;
-  }
 }
 
 // ── Tableau de bord (accueil du portail) ──────────────────────────────
@@ -3725,45 +3791,94 @@ function brandLogoImg(b, size) {
   return src ? `<img src="${esc(src)}" alt="" style="width:${size}px;height:${size}px;object-fit:contain">` : '';
 }
 
-async function loadDashboard() {
-  document.getElementById('dash-hello').textContent = `${t('dash_hello')}${me?.name ? ', ' + me.name : ''}`;
-
-  const [pending, orders] = await Promise.all([
-    fetch('/api/portal/pending-selections').then(r => r.json()).catch(() => []),
-    fetch('/api/portal/orders').then(r => r.json()).catch(() => [])
-  ]);
-  const pendingList = Array.isArray(pending) ? pending : [];
-  const ordersList = Array.isArray(orders) ? orders.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : [];
-
-  // Sélections en attente
-  const pendWrap = document.getElementById('dash-pending-wrap');
-  if (pendingList.length) {
-    pendWrap.style.display = 'block';
-    document.getElementById('dash-pending').innerHTML = pendingList.map(s => `
-      <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-color:rgba(204,235,60,.35)">
-        <div><strong>${esc(s.brand_name)}</strong> — ${t('pending_sel_pieces', s.piece_count)}</div>
-        <a href="/selection/${s.token}" class="btn-confirm" style="margin:0;width:auto;padding:8px 16px;font-size:12px">${t('pending_sel_cta')} →</a>
-      </div>`).join('');
+const _dashboardResources = {
+  pending:{ phase:'idle', rows:[], version:0 },
+  orders:{ phase:'idle', rows:[], version:0 }
+};
+let _dashboardDeadlines = [], _dashboardInitialized = false;
+function dashboardResourceFeedback(kind,phase) {
+  const message = t(phase === 'loading' ? 'dash_loading' : kind === 'pending' ? 'dash_pending_error' : 'dash_orders_error');
+  return `<div class="dash-card-empty" role="status">${esc(message)}${phase === 'error' ? `<br><button type="button" class="btn-secondary" data-dashboard-retry="${kind}" onclick="retryDashboardSection('${kind}')" style="margin-top:10px">${esc(t('dash_retry'))}</button>` : ''}</div>`;
+}
+function renderDashboardNextAction() {
+  const actionEl = document.getElementById('dash-next-action');
+  const labelPrefix = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:6px">${esc(t('dash_next_action'))}</div>`;
+  const pending = _dashboardResources.pending;
+  if (pending.phase !== 'ready') {
+    actionEl.innerHTML = `${labelPrefix}<div>${esc(t(pending.phase === 'error' ? 'dash_action_unknown' : 'dash_action_loading'))}</div>`;
+  } else if (pending.rows.length) {
+    const names = pending.rows.map(s => s.brand_name).join(', ');
+    actionEl.innerHTML = `${labelPrefix}<div>${esc(t('dash_next_action_selection'))} — <strong>${esc(names)}</strong></div>`;
+  } else if (_dashboardDeadlines.length) {
+    const soon = _dashboardDeadlines[0];
+    const fmt = new Date(soon.order_deadline + 'T12:00:00').toLocaleDateString(currentLang === 'en' ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long' });
+    actionEl.innerHTML = `${labelPrefix}<div>${esc(t('dash_next_action_deadline'))} <strong>${esc(fmt)}</strong> — ${esc(soon.name)}</div>`;
   } else {
-    pendWrap.style.display = 'none';
+    actionEl.innerHTML = `${labelPrefix}<div style="color:var(--muted)">${esc(t('dash_next_action_none'))}</div>`;
   }
-
-  // Commandes récentes (3 dernières)
-  const statusLabel = STATUS_LABELS();
-  const dashOrders = document.getElementById('dash-orders');
-  if (ordersList.length) {
-    dashOrders.innerHTML = ordersList.slice(0, 3).map(o => `
+}
+function renderDashboardResource(kind) {
+  const resource = _dashboardResources[kind];
+  const box = document.getElementById(kind === 'pending' ? 'dash-pending' : 'dash-orders');
+  box.dataset.state = resource.phase;
+  box.setAttribute('aria-busy',resource.phase === 'loading' ? 'true' : 'false');
+  if (kind === 'pending') document.getElementById('dash-pending-wrap').style.display = 'block';
+  if (resource.phase !== 'ready') box.innerHTML = dashboardResourceFeedback(kind,resource.phase === 'error'?'error':'loading');
+  else if (kind === 'pending') {
+    box.innerHTML = resource.rows.length ? resource.rows.map(s => `
+      <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-color:rgba(204,235,60,.35)">
+        <div><strong>${esc(s.brand_name)}</strong> — ${esc(t('pending_sel_pieces', s.piece_count))}</div>
+        <a href="/selection/${encodeURIComponent(s.token)}" class="btn-confirm" style="margin:0;width:auto;padding:8px 16px;font-size:12px">${esc(t('pending_sel_cta'))} →</a>
+      </div>`).join('') : `<div class="dash-card-empty">${esc(t('dash_pending_none'))}</div>`;
+  } else {
+    const statusLabel = STATUS_LABELS();
+    box.innerHTML = resource.rows.length ? resource.rows.slice(0,3).map(o => `
       <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dash-card" style="cursor:pointer" onclick="showView('orders')">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
           <strong>${esc(o.brand_name)}</strong>
-          <span class="order-status ${o.status}" style="font-size:10px">${statusLabel[o.status] || o.status}</span>
+          <span class="order-status ${esc(o.status)}" style="font-size:10px">${esc(statusLabel[o.status] || o.status)}</span>
         </div>
-        <div style="color:var(--muted);font-size:12px;margin-top:2px">${o.order_number || '#' + o.id.slice(0,8).toUpperCase()} — ${fmtPrice(o.total || 0)}</div>
-      </div>`).join('');
-  } else {
-    dashOrders.innerHTML = `<div class="dash-card-empty">${t('dash_orders_none')}</div>`;
+        <div style="color:var(--muted);font-size:12px;margin-top:2px">${esc(o.order_number || '#' + String(o.id).slice(0,8).toUpperCase())} — ${fmtPrice(o.total || 0)}</div>
+      </div>`).join('') : `<div class="dash-card-empty">${esc(t('dash_orders_none'))}</div>`;
   }
-
+  if (kind === 'pending') renderDashboardNextAction();
+}
+function renderDashboardResources() {
+  if (!_dashboardInitialized) return;
+  renderDashboardResource('pending');renderDashboardResource('orders');
+}
+function validDashboardRow(kind,row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return false;
+  const text = value => typeof value === 'string' && value.trim().length > 0;
+  const numeric = value => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value));
+  if (typeof row.brand_name !== 'string') return false;
+  if (kind === 'pending') return text(row.token) && numeric(row.piece_count) && Number(row.piece_count) >= 0;
+  // SUM over an order without lines legitimately returns NULL in this API.
+  return text(row.id) && typeof row.status === 'string' && typeof row.created_at === 'string' && Number.isFinite(Date.parse(row.created_at)) && (row.total === null || numeric(row.total));
+}
+async function loadDashboardResource(kind) {
+  if (!Object.hasOwn(_dashboardResources,kind)) return;
+  const resource = _dashboardResources[kind], version = ++resource.version;
+  resource.phase = 'loading';resource.rows = [];
+  renderDashboardResource(kind);
+  try {
+    const response = await fetch(kind === 'pending' ? '/api/portal/pending-selections' : '/api/portal/orders');
+    if (!response.ok) throw new Error('dashboard_unavailable');
+    const rows = await response.json();
+    if (!Array.isArray(rows) || !rows.every(row => validDashboardRow(kind,row))) throw new Error('dashboard_invalid');
+    if (version !== resource.version) return;
+    resource.rows = kind === 'orders' ? rows.slice().sort((a,b) => new Date(b.created_at)-new Date(a.created_at)) : rows;
+    resource.phase = 'ready';
+  } catch(e) {
+    if (version !== resource.version) return;
+    resource.phase = 'error';resource.rows = [];
+  }
+  renderDashboardResource(kind);
+}
+function retryDashboardSection(kind) { return loadDashboardResource(kind); }
+async function loadDashboard() {
+  _dashboardInitialized = true;
+  document.getElementById('dash-hello').textContent = `${t('dash_hello')}${me?.name ? ', ' + me.name : ''}`;
   // Marques récemment consultées (suivi local, indépendant du serveur)
   const recentBrandsEl = document.getElementById('dash-recent-brands');
   if (recentlyViewedBrands.length) {
@@ -3774,7 +3889,7 @@ async function loadDashboard() {
   }
 
   // Collections ouvertes + dates limites (à partir des marques déjà chargées par init())
-  const brandsWithDeadline = (allBrands || [])
+  const brandsWithDeadline = _dashboardDeadlines = (allBrands || [])
     .filter(b => /^\d{4}-\d{2}-\d{2}$/.test(b.order_deadline || '') && new Date(b.order_deadline + 'T23:59:59') >= new Date())
     .sort((a, b) => new Date(a.order_deadline) - new Date(b.order_deadline));
   const locale = currentLang === 'en' ? 'en-GB' : 'fr-FR';
@@ -3809,19 +3924,7 @@ async function loadDashboard() {
   dashBrandsEl.innerHTML = (allBrands || []).map(brandCardHtml).join('');
   translateVisibleContent(dashBrandsEl); // bios traduites si langue ≠ FR
 
-  // Prochaine action attendue — règle déterministe simple, priorité décroissante
-  const actionEl = document.getElementById('dash-next-action');
-  const labelPrefix = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:6px">${t('dash_next_action')}</div>`;
-  if (pendingList.length) {
-    const names = pendingList.map(s => s.brand_name).join(', ');
-    actionEl.innerHTML = `${labelPrefix}<div>${t('dash_next_action_selection')} — <strong>${esc(names)}</strong></div>`;
-  } else if (brandsWithDeadline.length) {
-    const soon = brandsWithDeadline[0];
-    const fmt = new Date(soon.order_deadline + 'T12:00:00').toLocaleDateString(locale, { day:'2-digit', month:'long' });
-    actionEl.innerHTML = `${labelPrefix}<div>${t('dash_next_action_deadline')} <strong>${fmt}</strong> — ${esc(soon.name)}</div>`;
-  } else {
-    actionEl.innerHTML = `${labelPrefix}<div style="color:var(--muted)">${t('dash_next_action_none')}</div>`;
-  }
+  return Promise.allSettled([loadDashboardResource('pending'),loadDashboardResource('orders')]);
 }
 
 async function loadPendingSelections() {
@@ -5034,7 +5137,7 @@ function portalLogout() {
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('es-') || key.startsWith('cart-') || key.startsWith('fav-') || key.startsWith('portal_') || key === CART_KEY)) {
+    if (key && (key.startsWith('es-') || key.startsWith('cart-') || key.startsWith('fav-') || key.startsWith('portal_') || key.startsWith('buyer_cart_attempt_v2:') || key === CART_KEY)) {
       keysToRemove.push(key);
     }
   }
@@ -5111,6 +5214,13 @@ function syncChatCartOffset() {
   <div id="pmsg-attach-preview" class="msg-attach-preview" style="display:none"></div>
   <div class="chat-panel-subject">
     <input id="pmsg-subject" type="text" placeholder="Sujet (optionnel)" maxlength="150">
+  </div>
+  <div id="pmsg-send-feedback" hidden style="padding:8px 12px;font-size:12px;line-height:1.45;overflow-wrap:anywhere;max-height:150px;overflow:auto">
+    <p id="pmsg-send-status" role="status" aria-live="polite" style="margin:0 0 8px"></p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <button type="button" id="pmsg-send-review" class="btn-secondary" onclick="reviewPortalMessageFailure()" hidden>Vérifier la conversation</button>
+      <button type="button" id="pmsg-send-retry" class="btn-secondary" onclick="sendPortalMessage()" hidden>Réessayer</button>
+    </div>
   </div>
   <div class="chat-panel-input">
     <button type="button" id="pmsg-attach-btn" class="msg-attach-btn" onclick="document.getElementById('pmsg-file').click()" title="Joindre une photo ou un PDF">📎</button>
@@ -5243,5 +5353,7 @@ document.getElementById('modal-compare').addEventListener('click', e => {
 });
 </script>
 <script src="/buyer-tools.js?v=buyer-forms-20261031"></script>
+<script src="/buyer-email-preferences.js?v=20261101"></script>
+<script src="/buyer-brand-interest.js?v=20261103-retention"></script>
 </body>
 </html>

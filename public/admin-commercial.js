@@ -6,7 +6,7 @@
   const groups=[
     ['overview','Pilotage','Overview',['dashboard','stats','sales-report']],
     ['business','Ventes','Sales',['orders','commissions','agenda']],
-    ['customers','Clients','Customers',['buyers','access-requests','pending-reminders']],
+    ['customers','Clients','Customers',['buyers','access-requests','buyer-engagement','pending-reminders']],
     ['catalogue','Catalogue','Catalogue',['brands']],
     ['administration','Administration','Administration',['staff','settings','email-templates','security','mfa']]
   ];
