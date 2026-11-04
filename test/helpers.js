@@ -39,9 +39,10 @@ async function waitForServer(baseUrl, timeoutMs = 20000) {
   throw new Error('Le serveur de test n\'a pas démarré à temps: ' + baseUrl);
 }
 
-async function startServer({ dbNameSuffix, port, retentionOnly = false }) {
+async function startServer({ dbNameSuffix, port, retentionOnly = false, crmReadTestUrl = null }) {
   if (!['localhost','127.0.0.1','[::1]'].includes(new URL(PG_ADMIN_URL).hostname)) throw new Error('Tests require a local PostgreSQL server');
   if (!/^[a-z0-9_]+$/.test(dbNameSuffix)) throw new Error('Invalid test database suffix');
+  if(crmReadTestUrl){const u=new URL(crmReadTestUrl);if(u.protocol!=='http:'||u.hostname!=='127.0.0.1'||u.username||u.password||u.pathname!=='/'||u.search||u.hash)throw new Error('CRM fixture must be local');}
   const dbName = 'showroom_test_' + dbNameSuffix;
   await ensureDb(dbName);
   const databaseUrl = dbUrlFor(dbName);
@@ -49,6 +50,7 @@ async function startServer({ dbNameSuffix, port, retentionOnly = false }) {
   const proc = spawn(process.execPath, ['--require', path.join(__dirname,'no-outbound.js'), path.join(__dirname, '..', 'server.js')], {
     env: {
       PATH: process.env.PATH,
+      ...(crmReadTestUrl?{ENGAGEMENT_CRM_TEST_URL:crmReadTestUrl,AIRTABLE_ENGAGEMENT_READS_ENABLED:'true',AIRTABLE_ENGAGEMENT_READ_TOKEN:'synthetic-read-only-token'}:{}),
       NODE_ENV: 'test',
       BACKGROUND_JOBS_ENABLED: retentionOnly ? 'true' : 'false',
       LEGACY_BACKGROUND_JOBS_ENABLED: 'false',

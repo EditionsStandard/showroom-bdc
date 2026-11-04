@@ -19,9 +19,10 @@ humaine de ces observations, sans preuve d’intention d’achat.
 
 Les références STORES, BUYERS, BRANDS et SEASONS sont facultatives à ce stade.
 Leur format `rec…` est contrôlé, mais leur existence, leur identité, leurs liens
-et leur saison restent **non vérifiés**. Aucun rapprochement par nom/email,
-aucune lecture de contacts et aucune création distante ne sont effectués par
-ce module. Ne pas y consigner de données sensibles ou étrangères à la revue.
+et leur saison restent **non vérifiés**. Aucun rapprochement automatique ni création distante n’est effectué. Un
+[contrôle technique distinct en lecture seule](buyer-engagement-crm-checks.md)
+peut comparer quatre références sauvegardées, via une connexion dédiée désactivée
+par défaut. Ce contrôle ne certifie pas les identités. Ne pas y consigner de données sensibles ou étrangères à la revue.
 
 Deux aperçus hypothétiques montrent les données de la **dernière revue
 sauvegardée**, pour OPPORTUNITIES et SS27 Pipeline. La note humaine reste locale
@@ -70,7 +71,7 @@ sauvegardées ne réécrivent pas une version ultérieure lors d’une reprise.
 
 ## Données personnelles et conservation
 
-Les trois tables locales sont `buyer_brand_reviews`,
+Les tables de revue sont `buyer_brand_reviews`,
 `buyer_brand_review_events` et `buyer_brand_review_operations`. Les notes libres
 peuvent contenir des données personnelles : elles figurent dans l’export acheteur
 avec l’historique et les reçus. Les listes n’exposent pas les notes. L’acteur est
@@ -104,8 +105,9 @@ complète.
 5. Concevoir le transfert comme un lot distinct, avec recontrôle immédiat des
    preuves/accords, tests isolés et validation avant toute activation.
 
-Le module ne contient ni client Airtable, ni service d’envoi, ni bouton de
-transfert. Les anciennes fonctions de l’application restent indépendantes de ce
+Le parcours ne contient ni client d’écriture Airtable, ni service d’envoi, ni
+bouton de transfert. Le lecteur facultatif et ses reçus sont décrits dans le
+[lot de contrôles CRM](buyer-engagement-crm-checks.md). Les anciennes fonctions de l’application restent indépendantes de ce
 volet ; ce lot ne prouve pas que leurs effets existants sont désactivés.
 
 ## Vérification reproductible

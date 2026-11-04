@@ -132,3 +132,11 @@ le 4 novembre 2026, permet de conserver un motif humain et des références CRM
 Il ne lève aucun blocage distant décrit ici : destination inconnue, déduplication,
 identités, saison et effets externes restent à vérifier. Le contrat demeure sans
 cible et sans écriture autorisée.
+
+## Contrôle technique des références proposé au lot suivant
+
+Le [lecteur CRM dédié](buyer-engagement-crm-checks.md) peut contrôler les quatre
+références sauvegardées et le lien acheteur/boutique, avec une connexion facultative
+désactivée par défaut. Il conserve des constats distincts des confirmations
+d’identité et de saison, qui restent absentes. Les essais utilisent une imitation
+locale ; aucun jeton réel n’est configuré et aucun contact réel n’est validé.

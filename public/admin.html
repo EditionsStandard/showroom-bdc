@@ -1382,6 +1382,13 @@
         <h4 id="engagement-review-history-title"></h4><ul id="engagement-review-history"></ul>
         <h4 id="engagement-review-previews-title"></h4><p id="engagement-review-preview-note"></p><div id="engagement-review-previews"></div>
       </div>
+      <div id="engagement-review-crm-panel" hidden>
+        <h4 id="engagement-review-crm-title"></h4><p id="engagement-review-crm-note"></p>
+        <button type="button" class="btn btn-secondary" id="engagement-review-crm-run">Contrôler les références CRM</button>
+        <button type="button" class="btn btn-secondary" id="engagement-review-crm-refresh">Actualiser les contrôles</button>
+        <p id="engagement-review-crm-status" role="status" aria-live="polite"></p><ul id="engagement-review-crm-rows"></ul>
+      </div>
+      <div id="engagement-review-crm-recovery" hidden><p id="engagement-review-crm-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-crm-verify">Vérifier le résultat du contrôle</button> <button type="button" class="btn btn-secondary" id="engagement-review-crm-cancel">Clore le contrôle non confirmé</button></div>
       <div id="engagement-review-recovery" hidden><p id="engagement-review-recovery-note"></p><button type="button" class="btn btn-secondary" id="engagement-review-verify">Vérifier l’enregistrement</button> <button type="button" class="btn btn-secondary" id="engagement-review-cancel">Clore la tentative non confirmée</button></div>
     </div>
     <div id="engagement-cart-panel" class="card">
@@ -9023,6 +9030,6 @@ document.addEventListener('click',async event=>{
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 <script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
 <script src="/buyer-engagement-retention.js?v=20261103-1"></script>
-<script src="/buyer-engagement-reviews.js?v=20261104-1"></script>
+<script src="/buyer-engagement-reviews.js?v=20261104-crm"></script>
 </body>
 </html>

@@ -572,6 +572,7 @@ async function init() {
   await require('./lib/buyer-cart-engagement-migration').migrateCartEngagement(pool);
   await require('./lib/buyer-brand-interest-migration').migrateBrandInterest(pool);
   await require('./lib/buyer-engagement-reviews-migration').migrateReviews(pool);
+  await require('./lib/buyer-engagement-crm-checks-migration').migrateCRMChecks(pool);
   await require('./lib/buyer-engagement-retention-migration').migrateRetention(pool);
   await require('./lib/buyer-engagement-retention').runRetention(pool,{trigger:'startup'});
   await require('./lib/buyer-cart').createBuyerCartService(pool).expireCarts();
