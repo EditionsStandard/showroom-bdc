@@ -53,8 +53,9 @@ Le pilote de validation n’accepte qu’un objet injecté `kind='local_fixture'
 clé de chiffrement de 32 octets fournie explicitement et des destinataires
 `.test` ou `.invalid`. Il n’existe aucun accès HTTP à ce pilote. Les intentions
 associées à d’autres domaines sont bloquées avant tout appel, même avec cet objet
-fictif. Le message d’essai porte une mention explicite et des liens de domaine
-fictif ; il ne génère ni activation ni désabonnement réels.
+fictif. Le message d’essai porte une mention explicite. Le lot suivant ajoute des liens
+fonctionnels, limités aux acheteurs fictifs du protocole isolé ; voir
+[liens et adaptateur préparé](buyer-engagement-email-links.md).
 
 ## Réponses perdues et reprise
 
@@ -138,7 +139,7 @@ toutes les origines extérieures. Ces preuves ne certifient ni la délivrabilit�
 réelle ni l’absence de doublons chez Resend en production.
 
 Avant toute expédition réelle : connecter un transport fournisseur approuvé,
-générer correctement les liens d’activation et de désabonnement, vérifier les
+valider en préproduction les liens d’activation et de désabonnement, vérifier les
 webhooks et suppressions fournisseur, définir le pilote et les plafonds validés,
 gérer la clé de chiffrement, étendre les paniers par marque, remplacer l’ancienne
 relance sans double ordonnanceur, prouver la restauration de production et obtenir

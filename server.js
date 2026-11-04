@@ -4,7 +4,7 @@
 // dans les variables d'environnement Railway pour l'activer.
 const Sentry = require('@sentry/node');
 if (process.env.SENTRY_DSN) {
-  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1, environment: process.env.NODE_ENV || 'development' });
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1, environment: process.env.NODE_ENV || 'development', beforeSend:event=>require('./lib/buyer-email-telemetry').scrubEmailTelemetry(event), beforeSendTransaction:event=>require('./lib/buyer-email-telemetry').scrubEmailTelemetry(event), beforeBreadcrumb:entry=>require('./lib/buyer-email-telemetry').scrubEmailTelemetry(entry) });
 }
 const express = require('express');
 const compression = require('compression');
@@ -278,6 +278,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
   res.json({ received: true });
 });
+
+// Public bearer actions deliberately run before sessions and broad body parsers.
+require('./lib/buyer-engagement-email-links').registerPublicEmailLinks({app,pool});
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -7111,6 +7114,7 @@ app.post('/api/portal/reset-password', buyerAuthLimiter, async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await require('./lib/buyer-engagement-email-links').lockManagedActivation(client,tokenHash,r.rows[0].buyer_id);
       const claimed = await client.query('UPDATE buyer_password_resets SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING buyer_id', [tokenHash]);
       if (!claimed.rows.length) throw new Error('Lien invalide ou expiré.');
       await client.query('UPDATE buyers SET password_hash=$1, activated_at=CASE WHEN activation_pending THEN COALESCE(activated_at,NOW()) ELSE activated_at END, activation_pending=false WHERE id=$2', [hash, claimed.rows[0].buyer_id]);

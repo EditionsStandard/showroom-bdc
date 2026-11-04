@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Éditions Standard</title>
+  <link rel="stylesheet" href="/buyer-email-action.css?v=20261104">
+  <script src="/buyer-email-action.js?v=20261104" defer></script>
+</head>
+<body>
+  <main>
+    <header><span>ÉDITIONS STANDARD</span><button id="language" type="button" aria-label="Change language">EN</button></header>
+    <p class="eyebrow">SHOWROOM B2B</p>
+    <h1 id="title">Votre espace acheteur</h1>
+    <p id="description">JavaScript est nécessaire pour utiliser ce lien.</p>
+    <form id="action" hidden>
+      <div id="password-fields" hidden>
+        <label id="password-label" for="password">Nouveau mot de passe</label>
+        <input id="password" type="password" autocomplete="new-password" minlength="12" maxlength="128">
+        <label id="confirmation-label" for="confirmation">Confirmer le mot de passe</label>
+        <input id="confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128">
+        <p id="password-help">12 caractères minimum.</p>
+      </div>
+      <button id="submit" type="submit">Confirmer</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <a id="portal" href="/portal">Accéder au showroom</a>
+  </main>
+</body>
+</html>
