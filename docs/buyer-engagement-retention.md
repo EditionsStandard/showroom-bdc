@@ -146,3 +146,15 @@ Avant activation : sauvegarde et restauration isolée prouvée, durée des migra
 mesurée, ordonnanceur effectivement activé, supervision du retard organisée et
 autorisation explicite de déploiement. Le [raccordement Airtable](buyer-engagement-airtable-mapping.md)
 reste une proposition séparée, sans écriture ni envoi.
+
+
+## Extension du 4 novembre : file de transport verrouillée
+
+Le passage surveillé couvre aussi les intentions de transport à 90 jours, avec
+leurs tentatives, événements et reçus de création par cascade ; les opérations
+agrégées de récupération à 365 jours ; et l’effacement du contenu chiffré après
+24 heures depuis la première autorisation. Ce dernier traitement efface un contenu
+sans prétendre que sa tentative n’a pas été acceptée. Un résultat ambigu reste
+ambigu. Les compteurs distinguent suppression de lignes et effacement du contenu.
+Le périmètre reste local, sans expéditeur ni écriture CRM. Voir le
+[protocole de transport](buyer-engagement-outbox.md).

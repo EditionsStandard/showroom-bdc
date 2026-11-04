@@ -60,3 +60,13 @@ Les anciens envois et la règle d’inactivité à 45 jours restent des mécanis
 Quatre scénarios Chromium réussis (360/1440 px × FR/EN) : file de 51 tâches paginée 50+1, préparation dont la réponse est perdue après commit puis reprise avec la même clé, traitement manuel de dix tâches, deuxième lot dont la réponse est perdue sans nouvel essai automatique, état rechargé affichant vingt tests réussis, pause finale. Le registre de simulation et les préférences acheteur restent couverts par ces scénarios.
 
 Le relevé READ ONLY sur la base synthétique finale montre 31 tâches en attente, 20 simulées, traitement en pause et `delivery_enabled=false`. Aucun fournisseur ou compte réel n’est utilisé. La version de production, les sauvegardes, Safari/iOS/PWA et la charge réelle ne sont pas validés par ces tests locaux.
+
+
+## Protocole de transport distinct
+
+Le [lot de file verrouillée](buyer-engagement-outbox.md) peut prendre une
+préparation à blanc terminée et un texte validé pour conserver une intention.
+Il ne remplace pas ce contrôle local par un appel réseau sous verrou : sa
+frontière de soumission, ses réservations, contenus immuables et réponses
+incertaines sont distincts. Ses essais utilisent uniquement un fournisseur fictif
+et des destinataires réservés à la validation. Aucun envoi réel n’est raccordé.

@@ -84,3 +84,12 @@ Avant toute publication :
 7. Obtenir l’accord de publication. Aucun merge/déploiement ni envoi réel n’est inclus dans ce lot.
 
 Retour arrière : les colonnes et tables nouvelles peuvent rester en place. Éviter de revenir aveuglément à l’ancien serveur : il ignorera les retraits de consentement et rétablira les anciens parcours d’accès. Préférer un correctif qui masque uniquement l’interface et conserve les protections, ou un retour préparé avec les relances bloquées et les clés email retirées. Ne pas supprimer les données de préférences pour annuler une version.
+
+
+## Évolution : file de transport et reprises
+
+Le [lot de transport du 4 novembre](buyer-engagement-outbox.md) prépare une
+file distincte et teste la reprise après résultat incertain, avec une clé stable
+et un contenu chiffré immuable. Il reste verrouillé en base et sans expéditeur
+réel. Les exigences d’activation, désabonnement, webhooks, pilote, migration des
+anciens jobs et publication mentionnées ci-dessus restent applicables.

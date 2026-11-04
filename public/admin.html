@@ -1412,6 +1412,14 @@
       <button type="button" class="btn btn-secondary" id="engagement-cart-prev" aria-label="Previous cart page">←</button> <button type="button" class="btn btn-secondary" id="engagement-cart-next" aria-label="Next cart page">→</button>
       <h4 id="engagement-cart-runs-title">Journal panier</h4><ul id="engagement-cart-runs" style="overflow-wrap:anywhere"></ul>
     </div>
+    <div id="engagement-outbox-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-outbox-title">File de transport — envois verrouillés</h3><p id="engagement-outbox-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-outbox-refresh">Actualiser la file</button><p id="engagement-outbox-status" role="status" aria-live="polite"></p>
+      <label for="engagement-outbox-source" id="engagement-outbox-source-label">Préparation terminée</label><select id="engagement-outbox-source"></select>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" id="engagement-outbox-stage">Conserver une intention verrouillée</button><button type="button" class="btn btn-secondary" id="engagement-outbox-recover">Réconcilier les réservations expirées</button></div>
+      <p id="engagement-outbox-count"></p><ul id="engagement-outbox-rows" style="list-style:none;padding:0"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-outbox-prev" aria-label="Previous queue page">←</button> <button type="button" class="btn btn-secondary" id="engagement-outbox-next" aria-label="Next queue page">→</button>
+    </div>
     <div id="engagement-preparation-panel" class="card">
       <h3 id="engagement-preparation-title">File de préparation — test uniquement</h3>
       <p id="engagement-preparation-note"></p><p id="engagement-preparation-control" role="status" aria-live="polite"></p>
@@ -9036,13 +9044,14 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261104-signoffs"></script>
+<script src="/buyer-engagement-admin.js?v=20261104-outbox"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 <script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
-<script src="/buyer-engagement-retention.js?v=20261103-1"></script>
+<script src="/buyer-engagement-retention.js?v=20261104-outbox"></script>
 <script src="/buyer-engagement-reviews.js?v=20261104-crm"></script>
 <script src="/buyer-engagement-template-signoffs.js?v=20261104-1"></script>
+<script src="/buyer-engagement-outbox.js?v=20261104-1"></script>
 </body>
 </html>
