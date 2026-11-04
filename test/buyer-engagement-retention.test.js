@@ -58,7 +58,7 @@ test('an isolated server can schedule retention while legacy background jobs rem
 });
 test('expired simulations are deleted with their checks; current data, accounts, preferences, cart cycles and orders survive',async()=>{
  await expired();await pool.query("INSERT INTO orders(id,brand_id,buyer_id,client_name,client_email,status) VALUES($1,$2,$3,'Synthetic','synthetic@example.test','confirmed')",[id('order'),brand,currentBuyer]);
- const result=await run();assert.equal(result.run.status,'succeeded');assert.deepEqual(result.run.counts,{brand_candidates:1,brand_observations:3,brand_runs:1,cart_candidates:1,cart_runs:1,outbox:0,outbox_operations:0,outbox_payloads:0,unsubscribe_links:0,activation_links:0});
+ const result=await run();assert.equal(result.run.status,'succeeded');assert.deepEqual(result.run.counts,{brand_candidates:1,brand_observations:3,brand_runs:1,cart_candidates:1,cart_runs:1,outbox:0,outbox_operations:0,outbox_payloads:0,unsubscribe_links:0,activation_links:0,provider_receipts:0});
  for(const table of ['buyer_brand_interest_candidates','buyer_cart_simulation_candidates']){assert.equal(await count(table,'WHERE buyer_id=$1',[oldBuyer]),0);assert.equal(await count(table,'WHERE buyer_id=$1',[currentBuyer]),1);}
  assert.equal(await count('buyer_brand_interest_checks'),1);assert.equal(await count('buyer_cart_simulation_checks'),1);assert.equal(await count('buyers'),2);assert.equal(await count('buyer_interest_preferences'),2);assert.equal(await count('buyer_interest_preference_events'),2);assert.equal(await count('buyer_cart_cycles'),2);assert.equal(await count('orders'),1);
 });

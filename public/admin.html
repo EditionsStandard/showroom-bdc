@@ -1420,6 +1420,14 @@
       <p id="engagement-outbox-count"></p><ul id="engagement-outbox-rows" style="list-style:none;padding:0"></ul>
       <button type="button" class="btn btn-secondary" id="engagement-outbox-prev" aria-label="Previous queue page">←</button> <button type="button" class="btn btn-secondary" id="engagement-outbox-next" aria-label="Next queue page">→</button>
     </div>
+    <div id="engagement-provider-panel" class="card" style="overflow-wrap:anywhere">
+      <h3 id="engagement-provider-title">Retours fournisseur et blocages</h3><p id="engagement-provider-note"></p>
+      <button type="button" class="btn btn-secondary" id="engagement-provider-refresh">Actualiser les retours</button>
+      <p id="engagement-provider-status" role="status" aria-live="polite"></p><p id="engagement-provider-health"></p><p id="engagement-provider-summary"></p><p id="engagement-provider-receipts"></p><p id="engagement-provider-count"></p>
+      <h4 id="engagement-provider-messages-title">Messages suivis</h4><ul id="engagement-provider-messages"></ul>
+      <button type="button" class="btn btn-secondary" id="engagement-provider-prev" aria-label="Previous message page">←</button> <button type="button" class="btn btn-secondary" id="engagement-provider-next" aria-label="Next message page">→</button>
+      <h4 id="engagement-provider-blocks-title">Blocages conservés</h4><ul id="engagement-provider-blocks"></ul>
+    </div>
     <div id="engagement-preparation-panel" class="card">
       <h3 id="engagement-preparation-title">File de préparation — test uniquement</h3>
       <p id="engagement-preparation-note"></p><p id="engagement-preparation-control" role="status" aria-live="polite"></p>
@@ -9044,14 +9052,15 @@ document.addEventListener('click',async event=>{
   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveAgentScopes()">Enregistrer</button><button class="btn btn-secondary" onclick="closeModal('modal-agent-scopes')">Fermer</button></div>
 </div></div>
 <script src="/admin-commercial.js?v=engagement-20261101"></script>
-<script src="/buyer-engagement-admin.js?v=20261104-outbox"></script>
+<script src="/buyer-engagement-admin.js?v=20261104-provider"></script>
 <script src="/buyer-engagement-preparation.js?v=20261101-preparation"></script>
 
 <script src="/buyer-cart-engagement.js?v=20261102-1"></script>
 <script src="/buyer-brand-interest-admin.js?v=20261103-1"></script>
-<script src="/buyer-engagement-retention.js?v=20261104-email-links"></script>
+<script src="/buyer-engagement-retention.js?v=20261104-provider"></script>
 <script src="/buyer-engagement-reviews.js?v=20261104-crm"></script>
 <script src="/buyer-engagement-template-signoffs.js?v=20261104-1"></script>
-<script src="/buyer-engagement-outbox.js?v=20261104-email-links"></script>
+<script src="/buyer-engagement-outbox.js?v=20261104-provider"></script>
+<script src="/buyer-engagement-provider.js?v=20261104-1"></script>
 </body>
 </html>

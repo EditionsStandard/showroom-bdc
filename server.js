@@ -280,6 +280,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 
 // Public bearer actions deliberately run before sessions and broad body parsers.
+// Provider signatures must be verified against the original bounded raw body.
+require('./lib/buyer-engagement-provider').registerProviderReceiver({app,pool,
+  enabled:process.env.ENGAGEMENT_RESEND_WEBHOOKS_ENABLED==='true',
+  secrets:[process.env.ENGAGEMENT_RESEND_WEBHOOK_SECRET,process.env.ENGAGEMENT_RESEND_WEBHOOK_PREVIOUS_SECRET].filter(Boolean)});
 require('./lib/buyer-engagement-email-links').registerPublicEmailLinks({app,pool});
 
 app.use(express.json({ limit: '20mb' }));

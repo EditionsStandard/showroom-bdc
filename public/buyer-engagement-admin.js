@@ -130,7 +130,7 @@ window.BuyerEngagement = (() => {
     if(results[0].status==='fulfilled')renderPreview(results[0].value,choice);else $('status').textContent=results[0].reason.message;
     if(results[1].status==='fulfilled')renderLedger(results[1].value);else $('ledger-status').textContent=results[1].reason.message;
     loading=false;syncControls();
-    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load(),window.BuyerEngagementRetention?.load(),window.BuyerEngagementReviews?.load(),window.BuyerTemplateSignoffs?.load(),window.BuyerOutbox?.load()]);
+    await Promise.all([window.BuyerEngagementPreparation?.load(),window.BuyerCartEngagement?.load(),window.BuyerBrandInterestAdmin?.load(),window.BuyerEngagementRetention?.load(),window.BuyerEngagementReviews?.load(),window.BuyerTemplateSignoffs?.load(),window.BuyerOutbox?.load(),window.BuyerEngagementProvider?.load()]);
   }
   async function refreshLedger() {
     if(loading||mutationBusy)return;

@@ -39,7 +39,7 @@ async function waitForServer(baseUrl, timeoutMs = 20000) {
   throw new Error('Le serveur de test n\'a pas démarré à temps: ' + baseUrl);
 }
 
-async function startServer({ dbNameSuffix, port, retentionOnly = false, crmReadTestUrl = null }) {
+async function startServer({ dbNameSuffix, port, retentionOnly = false, crmReadTestUrl = null, resendWebhookTestSecrets = [] }) {
   if (!['localhost','127.0.0.1','[::1]'].includes(new URL(PG_ADMIN_URL).hostname)) throw new Error('Tests require a local PostgreSQL server');
   if (!/^[a-z0-9_]+$/.test(dbNameSuffix)) throw new Error('Invalid test database suffix');
   if(crmReadTestUrl){const u=new URL(crmReadTestUrl);if(u.protocol!=='http:'||u.hostname!=='127.0.0.1'||u.username||u.password||u.pathname!=='/'||u.search||u.hash)throw new Error('CRM fixture must be local');}
@@ -52,6 +52,7 @@ async function startServer({ dbNameSuffix, port, retentionOnly = false, crmReadT
       PATH: process.env.PATH,
       ...(crmReadTestUrl?{ENGAGEMENT_CRM_TEST_URL:crmReadTestUrl,AIRTABLE_ENGAGEMENT_READS_ENABLED:'true',AIRTABLE_ENGAGEMENT_READ_TOKEN:'synthetic-read-only-token'}:{}),
       NODE_ENV: 'test',
+      ...(resendWebhookTestSecrets.length?{ENGAGEMENT_RESEND_WEBHOOKS_ENABLED:'true',ENGAGEMENT_RESEND_WEBHOOK_SECRET:resendWebhookTestSecrets[0],...(resendWebhookTestSecrets[1]?{ENGAGEMENT_RESEND_WEBHOOK_PREVIOUS_SECRET:resendWebhookTestSecrets[1]}:{})}:{}),
       BACKGROUND_JOBS_ENABLED: retentionOnly ? 'true' : 'false',
       LEGACY_BACKGROUND_JOBS_ENABLED: 'false',
       DATABASE_URL: databaseUrl,

@@ -5,3 +5,9 @@ test('telemetry removes action tokens and password form values from URLs, object
   const result=scrubEmailTelemetry(data),encoded=JSON.stringify(result);assert.equal(encoded.includes(token),false);assert.equal(encoded.includes(secret),false);assert.equal(encoded.includes(encodeURIComponent(secret)),false);assert.equal(result.safe,'unchanged');assert.equal(data.request.data.token,token);
 });
 test('telemetry handles cycles without throwing',()=>{const data={};data.self=data;assert.deepEqual(scrubEmailTelemetry(data),{self:'[Filtered]'});});
+test('provider request telemetry removes the entire body, headers, cookies and query while preserving route and method',()=>{
+  for(const route of ['/api/webhooks/buyer-engagement/resend','/API/WEBHOOKS/BUYER-ENGAGEMENT/RESEND/']){
+    const data={request:{url:'https://example.test'+route+'?secret=private',method:'POST',data:{subject:'PRIVATE',to:['private@example.test']},headers:{'svix-signature':'PRIVATE'},cookies:'PRIVATE'}};
+    assert.deepEqual(scrubEmailTelemetry(data),{request:{url:'https://example.test'+route,method:'POST',data:'[Filtered]'}});
+  }
+});

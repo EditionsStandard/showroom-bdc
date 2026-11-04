@@ -112,3 +112,7 @@ suppressions fournisseur ; raccorder un worker borné avec une clé de chiffreme
 persistante ; tester en préproduction ; obtenir l’accord sur un pilote limité.
 Les relances panier par marque, l’articulation avec l’ancien ordonnanceur et
 l’écriture d’opportunités CRM demandent encore leur propre raccordement contrôlé.
+
+Le lot suivant prépare la réception signée, les faits de livraison et les
+blocages : [retours fournisseur](buyer-engagement-provider-events.md). La
+configuration distante, la couverture réelle et le pilote restent à valider.
