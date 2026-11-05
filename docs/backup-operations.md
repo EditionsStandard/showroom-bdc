@@ -8,7 +8,11 @@ Une archive de production chiffrée du 4 novembre a été restaurée et contrôl
 
 ## Plan conservant l’offre actuelle
 
-Ce plan conserve l’abonnement Railway existant. Les sauvegardes natives planifiées n’étant pas disponibles dans cette offre, l’alternative est une archive logique chiffrée vers un stockage privé existant, choisi par le propriétaire. Aucune destination, autorisation permanente ou planification n’est encore créée.
+Ce plan conserve l’abonnement Railway existant. Le propriétaire a choisi **iCloud Drive privé** le 5 novembre. Un dossier dédié a été créé vide à la racine : `Éditions Standard - Sauvegardes B2B`. macOS le reconnaît comme un élément iCloud, mais renvoie une valeur indéterminée pour le partage. La confidentialité des accès reste donc à confirmer par le propriétaire avant tout transfert. Aucune archive, clé ou donnée acheteur n’y a été copiée ; aucune autorisation permanente ni planification n’a été créée.
+
+La première étape préparée est une copie contrôlée de l’archive chiffrée du **4 novembre**, déjà restaurée en isolation. Son empreinte actuelle correspond à celle du contrôle initial. Un outil local, hors du dépôt et sans identifiants PostgreSQL, a été testé sur données fictives : il exige une validation spécifique du dossier et de l’archive, copie uniquement le fichier chiffré et son empreinte, refuse les clés, les liens symboliques et les écrasements. Il ne produit aucune nouvelle sauvegarde et ne transforme pas la simple copie locale dans iCloud en preuve d’envoi ou de restauration distante.
+
+La clé reste hors d’iCloud. Sa conservation séparée et une copie de secours doivent être organisées avant de considérer la récupération après perte de ce Mac comme assurée. Le choix du stockage ne suffit pas à rendre les sauvegardes quotidiennes opérationnelles.
 
 1. Confirmer le stockage, le compte destinataire, le dossier et les personnes pouvant y accéder **avant tout transfert** : l’archive contient notamment des données acheteurs, commandes et éléments d’authentification. Google Drive ou iCloud synchronisés sur un poste et un stockage objet utilisé par un serveur n’offrent pas les mêmes possibilités d’exécution sans intervention.
 2. Préparer un accès PostgreSQL dédié à la sauvegarde et limité à la lecture. Faire approuver la portée des droits, l’endroit où son secret sera conservé et sa durée avant toute création d’accès. Ne pas réutiliser durablement le compte administrateur dans une tâche automatique.
