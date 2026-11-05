@@ -41,4 +41,8 @@ En cas de refus, corriger l’autorité, son encodage ou l’identité attendue.
 
 ## Validation du lot
 
-Treize tests spécifiques couvrent la configuration et de vraies négociations TLS via node-postgres sur un transport PostgreSQL synthétique local : autorité correcte ou incorrecte, nom attendu correct ou incorrect, connexion par IP, refus TLS sans repli et tentatives de contournement par l’URL. La suite complète locale passe 385 tests. Cela ne constitue pas encore une preuve de connexion authentifiée à la production : la vérification indépendante de l’autorité, le contrôle réel et la CI du commit publié doivent être enregistrés séparément.
+Treize tests spécifiques couvrent la configuration et de vraies négociations TLS via node-postgres sur un transport PostgreSQL synthétique local : autorité correcte ou incorrecte, nom attendu correct ou incorrect, connexion par IP, refus TLS sans repli et tentatives de contournement par l’URL. La suite complète locale passe 385 tests.
+
+Une répétition supplémentaire a exécuté `check-postgres-tls.cjs` sur un véritable PostgreSQL local isolé, avec une autorité et des certificats fictifs : connexion authentifiée en TLS 1.3, requête en lecture seule, rejet d’un nom incorrect et d’une autorité inconnue. Cette instance et ses certificats ont été retirés après le contrôle.
+
+Ces résultats ne constituent pas encore une preuve de connexion authentifiée à la production : la vérification indépendante de l’autorité, le contrôle réel et la CI du commit publié doivent être enregistrés séparément.
