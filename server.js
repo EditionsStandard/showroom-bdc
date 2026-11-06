@@ -2855,7 +2855,9 @@ app.delete('/api/brands/:brandId/products-photos', requireBrandScope('owner','ag
 
 // ==================== LINESHEET PDF ====================
 
-app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent','designer'), async (req, res) => {
+app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent','designer'), sendLinesheetPDF);
+
+async function sendLinesheetPDF(req, res) {
   try {
     const pdf = await generateLinesheetPDF(req.params.brandId, req.query.season_id || null);
     res.setHeader('Content-Type', 'application/pdf');
@@ -2863,7 +2865,7 @@ app.get('/api/brands/:brandId/linesheet-pdf', requireBrandScope('owner','agent',
     res.setHeader('Content-Disposition', 'attachment; filename="linesheet.pdf"');
     res.send(pdf);
   } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
-});
+}
 
 // ==================== APPOINTMENTS ====================
 
@@ -5605,6 +5607,23 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
     }));
     res.json(brands);
   } catch(e) { console.error('portal brands:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+app.get('/api/portal/brands/:brandId/linesheet-pdf', requireBuyerAuth, publicLimiter, async (req, res) => {
+  const { brandId } = req.params;
+  const buyerId = req.session.buyerPortal.id;
+  try {
+    const brand = await pool.query("SELECT id FROM brands WHERE id=$1 AND subscription_status IS DISTINCT FROM 'inactive'", [brandId]);
+    if (!brand.rows.length) return res.status(404).json({ error: 'Marque indisponible' });
+
+    const lockedBrands = await getLockedBrandIds(buyerId, [brandId]);
+    if (lockedBrands.has(brandId)) return res.status(403).json({ error: 'Collection en accès anticipé' });
+
+    return sendLinesheetPDF(req, res);
+  } catch (error) {
+    console.error('portal linesheet:', error.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
 });
 
 app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, res) => {

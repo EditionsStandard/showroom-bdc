@@ -477,6 +477,20 @@
     pointer-events: none; font-weight: 700; text-transform: uppercase;
   }
   body.presentation-mode .pres-indicator { display: block; }
+  .brand-document-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 14px; }
+  .brand-document-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font: 600 11px 'Plex Mono', 'Space Mono', monospace;
+    letter-spacing: .04em;
+    text-decoration: none;
+  }
+  .brand-document-link:hover, .brand-document-link:focus-visible { background: var(--accent); color: var(--black); }
+
   /* Interrupteur lookbook ↔ prise de commande (dans la présentation) */
   .pres-toggle {
     display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
@@ -936,7 +950,7 @@ const TRANSLATIONS = {
     modal_share_desc: 'Ce lien permet de consulter votre sélection en lecture seule, sans se connecter.',
     modal_share_copy: 'Copier', modal_share_generating: 'Génération…', modal_share_err: 'Erreur — réessayez.',
     modal_share_copied: '✓ Lien copié !', modal_share_empty: 'Panier vide — rien à partager.',
-    export_generating: '⏳ Génération…', export_btn: '📄 Exporter', export_err: 'Erreur lors de la génération du PDF.',
+    export_generating: '⏳ Génération…', export_btn: '📄 Exporter ma sélection', export_err: 'Erreur lors de la génération du PDF.',
     sending: '⏳ Envoi en cours…',
     orders_loading_msg: 'Chargement…', orders_load_err: 'Erreur de chargement.',
     msg_empty_state: 'Aucun message pour le moment. Écrivez-nous ci-dessous, ou joignez une photo.',
@@ -1127,7 +1141,7 @@ const TRANSLATIONS = {
     modal_share_desc: 'This link allows viewing your selection in read-only mode, without logging in.',
     modal_share_copy: 'Copy', modal_share_generating: 'Generating…', modal_share_err: 'Error — please try again.',
     modal_share_copied: '✓ Link copied!', modal_share_empty: 'Cart is empty — nothing to share.',
-    export_generating: '⏳ Generating…', export_btn: '📄 Export', export_err: 'Error generating PDF.',
+    export_generating: '⏳ Generating…', export_btn: '📄 Export my selection', export_err: 'Error generating PDF.',
     sending: '⏳ Sending…',
     orders_loading_msg: 'Loading…', orders_load_err: 'Loading error.',
     orders_retry: 'Retry', orders_browse: 'Browse catalogue',
@@ -3053,7 +3067,10 @@ async function openBrand(brandId, _fromPop) {
   // N'affiche le lien que si l'URL est http(s) (neutralise un éventuel javascript: hérité)
   const lookbookUrlSafe = /^https?:\/\//i.test(String(currentBrand.lookbook_url || '').trim()) ? currentBrand.lookbook_url.trim() : '';
   const lookbookHtml = lookbookUrlSafe
-    ? `<a href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-family:'Plex Mono','Space Mono',monospace;font-size:12px;font-weight:600;color:var(--black);background:var(--accent);border-radius: 0;padding:9px 16px;text-decoration:none;letter-spacing:.04em">📄 Lookbook</a>`
+    ? `<a class="brand-document-link" href="${esc(lookbookUrlSafe)}" target="_blank" rel="noopener">Lookbook</a>`
+    : '';
+  const linesheetHtml = !earlyAccessLocked && currentProducts.length
+    ? `<a class="brand-document-link" href="/api/portal/brands/${encodeURIComponent(currentBrand.id)}/linesheet-pdf" target="_blank" rel="noopener">Line Sheet</a>`
     : '';
   const cgvHtml = currentBrand.cgv_text ? `<div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="brand-banner-cgv-section"><div class="brand-banner-cgv-title cgv-accordion-trigger" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">${t('cgv_section_title')} <span class="cgv-accordion-arrow">▾</span></div><div class="cgv-accordion-body cgv-formatted cgv-brand-page">${formatCgv(currentBrand.cgv_text)}</div></div>` : '';
   const videoUrlRaw = (currentBrand.video_url || '').trim();
@@ -3131,11 +3148,11 @@ async function openBrand(brandId, _fromPop) {
         ${returnHtml}
         ${earlyAccessHtml}
         ${deadlineHtml}
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${lookbookHtml||cgvHtml?'14px':'0'}">
-          ${lookbookHtml}
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${cgvHtml?'14px':'0'}">
           <button onclick="openApptModal('${currentBrand.id}')" style="display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-size:11px;font-weight:600;color:var(--accent);background:none;border:none;border-radius:0;padding:9px 2px;cursor:pointer;letter-spacing:.14em;text-transform:uppercase">📅 ${t('book_appointment')}</button>
           <button id="follow-brand-btn" onclick="toggleBrandFollow('${currentBrand.id}')" class="follow-brand-btn${currentBrand.following ? ' active' : ''}">${currentBrand.following ? '★' : '☆'} <span>${currentBrand.following ? t('following_brand') : t('follow_brand')}</span></button>
         </div>
+        ${linesheetHtml || lookbookHtml ? `<div class="brand-document-links">${linesheetHtml}${lookbookHtml}</div>` : ''}
         ${cgvHtml}
       </div>
     </div>
