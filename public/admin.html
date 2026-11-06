@@ -5037,7 +5037,7 @@ async function uploadLookbook(input) {
   const data = await r.json();
   if (data.url) {
     document.getElementById('brand-lookbook').value = data.url;
-    status.textContent = '✓ ' + file.name;
+    status.textContent = file.name + ' · ' + (document.documentElement.lang === 'fr' ? 'À enregistrer' : 'Ready to save');
     status.style.color = 'var(--accent)';
     document.getElementById('brand-lookbook-clear').style.display = '';
   } else {
@@ -5155,7 +5155,7 @@ function editBrand(b) {
   document.getElementById('brand-moq-qty').value = b.moq_qty || '';
   document.getElementById('brand-moq-amount').value = b.moq_amount || '';
   document.getElementById('brand-moq-strict').checked = b.moq_strict === true || b.moq_strict === 'true';
-  document.getElementById('brand-retail-margin').value = b.retail_margin || '';
+  document.getElementById('brand-retail-margin').value = Number(b.retail_margin) === 0 ? '' : b.retail_margin;
   document.getElementById('brand-delivery-terms').value = b.delivery_terms || '';
   document.getElementById('brand-payment-terms').value = b.payment_terms || '';
   document.getElementById('brand-return-terms').value = b.return_terms || '';
@@ -5177,6 +5177,9 @@ async function saveBrand() {
   const id = document.getElementById('brand-id').value;
   const name = document.getElementById('brand-name').value.trim();
   if (!name) return toast(t('js_name_required'), true);
+  const minimum = document.getElementById('brand-min-reference');
+  if (!minimum.reportValidity()) return;
+  const retailMargin = document.getElementById('brand-retail-margin').value;
   const body = {
     name,
     logo_url: '',
@@ -5185,11 +5188,11 @@ async function saveBrand() {
     cover_image: document.getElementById('brand-cover').value,
     cgv_text: document.getElementById('brand-cgv').value.trim(),
     about_text: document.getElementById('brand-about').value.trim(),
-    min_per_reference: Number(document.getElementById('brand-min-reference').value),
+    min_per_reference: minimum.value === '' ? undefined : Number(minimum.value),
     moq_qty: parseInt(document.getElementById('brand-moq-qty').value) || 0,
     moq_amount: parseFloat(document.getElementById('brand-moq-amount').value) || 0,
     moq_strict: document.getElementById('brand-moq-strict').checked,
-    retail_margin: document.getElementById('brand-retail-margin').value,
+    retail_margin: Number(retailMargin) === 0 ? '' : retailMargin,
     delivery_terms: document.getElementById('brand-delivery-terms').value.trim(),
     payment_terms: document.getElementById('brand-payment-terms').value.trim(),
     return_terms: document.getElementById('brand-return-terms').value.trim(),
@@ -5210,7 +5213,10 @@ async function saveBrand() {
   const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).catch(e => { toast(e.message || 'Erreur réseau', true); return null; });
   if (!r) return;
   if (r.ok) { closeModal('modal-brand'); loadBrands(); loadDashboard(); toast(t('js_brand_saved')); }
-  else toast(t('js_error'), true);
+  else {
+    const { error } = await r.json().catch(() => ({}));
+    toast(error || t('js_error'), true);
+  }
 }
 
 async function deleteBrand(id, label) {
@@ -5721,7 +5727,12 @@ async function uploadCollectionLookbook(input) {
     const up = await fetch('/api/upload-pdf', { method: 'POST', body: fd }).then(r => r.json());
     if (!up.url) { status.textContent = up.error || 'Échec'; status.style.color = '#e07a7a'; return; }
     const r = await fetch(`/api/brands/${currentBrandId}/lookbook`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ lookbook_url: up.url }) });
-    if (!r.ok) { status.textContent = 'Échec sauvegarde'; status.style.color = '#e07a7a'; return; }
+    if (!r.ok) {
+      const { error } = await r.json().catch(() => ({}));
+      status.textContent = error || 'Échec sauvegarde';
+      status.style.color = '#e07a7a';
+      return;
+    }
     renderCollectionLookbook(up.url);
     toast('Lookbook mis à jour');
   } catch(e) { status.textContent = 'Erreur réseau'; status.style.color = '#e07a7a'; }
