@@ -62,6 +62,8 @@
   document.documentElement.setAttribute('data-theme', getTheme());
 })();
 </script>
+<!-- V6 UI simulation is opt-in (?es_v6=1), never active by default. -->
+<script src="/es-v6-preview.js" defer></script>
 </head>
 <body>
 <select id="lang-btn" onchange="setLang(this.value)" aria-label="Langue / Language">
