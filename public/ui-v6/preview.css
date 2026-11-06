@@ -1,0 +1,324 @@
+/*
+ * ÉDITIONS STANDARD — B2B UI V6
+ * Opt-in visual skin for the real, authenticated application.
+ * Preview ONLY: enabled by ?ui=v6, disabled by ?ui=classic.
+ * The existing HTML, APIs, permission checks, ordering rules and data are unchanged.
+ * Keep the public login page unchanged.
+ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+/* Colour tokens: same 07:00–20:00 auto schedule as the existing portal. */
+html.es-v6-preview {
+  --black:#e6f0f7; --dark:#fff; --mid:#f2f7fa;
+  --border:#d2dee7; --white:#33251f; --muted:#827970;
+  --soft:#63584f; --accent:#b8d3e7; --input-bg:#fff; --text:#33251f;
+  --es-v6-surface:#fff; --es-v6-surface-soft:#f3f7fa;
+  --es-v6-ink:#33251f; --es-v6-shadow:0 14px 42px rgba(51,37,31,.055);
+  --es-v6-radius:16px; --es-v6-blue:#b8d3e7; --es-v6-brown:#33251f;
+  color-scheme:light;
+}
+html.es-v6-preview[data-theme="dark"]{
+  --black:#241c18; --dark:#392c26; --mid:#42332d;
+  --border:#5a493f; --white:#f5f0eb; --muted:#b19f94;
+  --soft:#ddd0c6; --accent:#b8d3e7; --input-bg:#392c26; --text:#f5f0eb;
+  --es-v6-surface:#392c26; --es-v6-surface-soft:#43352f;
+  --es-v6-ink:#f5f0eb; --es-v6-shadow:0 14px 44px rgba(0,0,0,.18);
+  color-scheme:dark;
+}
+html.es-v6-preview,html.es-v6-preview body{
+  background:var(--black); color:var(--white);
+}
+html.es-v6-preview body,
+html.es-v6-preview button,
+html.es-v6-preview input,
+html.es-v6-preview select,
+html.es-v6-preview textarea{
+  font-family:'IBM Plex Sans',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+html.es-v6-preview .dash-block-title,
+html.es-v6-preview .dash-card-empty,
+html.es-v6-preview .brand-idx,
+html.es-v6-preview .brand-cta,
+html.es-v6-preview .product-ref,
+html.es-v6-preview .product-meta,
+html.es-v6-preview label{
+  font-family:'Plex Mono','Space Mono',ui-monospace,monospace;
+}
+html.es-v6-preview button,
+html.es-v6-preview a,
+html.es-v6-preview input,
+html.es-v6-preview select {
+  -webkit-tap-highlight-color:transparent;
+}
+html.es-v6-preview :is(button,a,input,select,textarea,[role="button"]):focus-visible{
+  outline:2px solid #6093b6;outline-offset:3px;
+}
+
+/* Same real buyer application, softer Zaptix-style layout. */
+html.es-v6-preview[data-es-ui-surface="buyer"] .shell{
+  grid-template-columns:224px minmax(0,1fr);gap:14px;padding:14px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar{
+  border:1px solid var(--border);border-radius:18px;
+  background:var(--dark);min-width:0;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar-inner{
+  padding:22px 15px;height:calc(100vh - 28px);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar-nav{
+  gap:5px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar-nav a{
+  margin:0;padding:12px 13px;border:0;border-radius:11px;
+  letter-spacing:.025em;font-size:12px;text-transform:none;
+  transition:background .18s,color .18s;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar-nav a.active{
+  background:var(--es-v6-brown);color:#fff;border:0;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"][data-theme="dark"] .sidebar-nav a.active{
+  background:var(--es-v6-blue);color:#33251f;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar-nav a:hover:not(.active){
+  background:var(--mid);color:var(--white);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .acct-switcher,
+html.es-v6-preview[data-es-ui-surface="buyer"] .acct-panel{
+  border-radius:12px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .main-col{min-width:0}
+html.es-v6-preview[data-es-ui-surface="buyer"] .topbar{
+  background:var(--dark);border:1px solid var(--border);
+  border-radius:15px;box-shadow:var(--es-v6-shadow);
+  margin-bottom:12px;padding:12px clamp(14px,2vw,28px);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .wrap{
+  padding:22px clamp(15px,2.3vw,36px) 95px;max-width:1660px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] h2.section-title{
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:22px;letter-spacing:-.045em;text-transform:none;font-weight:650;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] h2.section-title::before{
+  background:var(--es-v6-blue);border-radius:3px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] :is(
+  .brand-card,.product-card,.brand-banner,.panel,.msg-thread,.profile-card,
+  .dropdown-menu,.user-dropdown,.notif-dropdown,.sort-bar select,
+  .price-range input,.qty-btn,.brand-document-link,.col-filter
+){
+  border-radius:var(--es-v6-radius);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] :is(.brand-card,.product-card,.brand-banner){
+  background:var(--dark);border:1px solid var(--border);
+  box-shadow:var(--es-v6-shadow);overflow:hidden;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-card{
+  transition:transform .19s ease,box-shadow .19s ease;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-card:hover{
+  transform:translateY(-3px);box-shadow:0 18px 45px rgba(51,37,31,.12);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-hero{
+  height:clamp(245px,31vw,420px);
+  border-radius:16px 16px 0 0;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-banner-info{
+  padding:clamp(18px,2.6vw,35px);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-hero-name{
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-weight:700;letter-spacing:-.055em;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-banner-moq,
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-document-links{
+  border-radius:12px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-document-link,
+html.es-v6-preview[data-es-ui-surface="buyer"] .follow-brand-btn,
+html.es-v6-preview[data-es-ui-surface="buyer"] .btn-secondary,
+html.es-v6-preview[data-es-ui-surface="buyer"] .btn,
+html.es-v6-preview[data-es-ui-surface="buyer"] .col-filter,
+html.es-v6-preview[data-es-ui-surface="buyer"] .qty-btn{
+  border-radius:10px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .brand-document-link,
+html.es-v6-preview[data-es-ui-surface="buyer"] .col-filter.active{
+  background:var(--accent);color:#33251f;border-color:var(--accent);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .products-grid{
+  gap:clamp(12px,1.8vw,24px);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .product-img-wrap{
+  overflow:hidden;border-radius:15px 15px 0 0;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .product-card:hover{
+  box-shadow:0 18px 40px rgba(51,37,31,.1);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .product-info{
+  padding:17px clamp(13px,1.5vw,20px);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .sort-bar{
+  padding:10px 12px;background:var(--dark);
+  border:1px solid var(--border);border-radius:14px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] :is(.search-bar input,.price-range input,.sort-bar select){
+  border-radius:10px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .product-drawer{
+  border-radius:22px 0 0 22px;box-shadow:-20px 0 60px rgba(0,0,0,.18);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .drawer-thumb{
+  border-radius:9px;
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .cart-bar{
+  left:240px;right:14px;bottom:14px;border:1px solid var(--border);
+  border-radius:15px;box-shadow:var(--es-v6-shadow);
+  background:var(--dark);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] :is(.msg-bubble,.msg-attach-file,.msg-thread){
+  border-radius:12px;
+}
+
+/* Admin: preserve its REAL sections, forms, role rules and workflows. */
+html.es-v6-preview[data-es-ui-surface="admin"] body{
+  background:var(--black)!important;color:var(--white)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] .sidebar{
+  top:14px;bottom:14px;left:14px;width:225px;
+  border:1px solid var(--border);border-radius:17px;
+  background:var(--dark)!important;overflow:hidden;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] .sidebar-logo{
+  border-color:var(--border)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] nav a{
+  margin:2px 9px;padding:11px 13px;
+  border-left:0!important;border-radius:10px;
+  color:var(--muted)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] nav a.active{
+  background:var(--es-v6-brown)!important;color:#fff!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"][data-theme="dark"] nav a.active{
+  background:var(--es-v6-blue)!important;color:#33251f!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] nav a:hover:not(.active){
+  background:var(--mid)!important;color:var(--white)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] .main{
+  margin-left:254px;padding:25px clamp(16px,2.5vw,42px);
+  background:var(--black);color:var(--white);
+}
+html.es-v6-preview[data-es-ui-surface="admin"] :is(h1,h2,h3,h4){
+  color:var(--white)!important;
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  letter-spacing:-.035em;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] h1{
+  font-size:26px;line-height:1.2;font-weight:700;text-transform:none;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] :is(.card,.brand-card,.modal){
+  border:1px solid var(--border)!important;
+  background:var(--dark)!important;color:var(--white)!important;
+  border-radius:16px!important;box-shadow:var(--es-v6-shadow);
+}
+html.es-v6-preview[data-es-ui-surface="admin"] :is(.btn,button,select,input,textarea){
+  border-radius:9px!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] :is(input,select,textarea){
+  background:var(--input-bg)!important;
+  color:var(--white)!important;border-color:var(--border)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] :is(th,td){
+  border-color:var(--border)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] th{
+  color:var(--muted)!important;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] .topbar{
+  padding:10px 0;
+}
+html.es-v6-preview[data-es-ui-surface="admin"] .sidebar-footer{
+  border-color:var(--border)!important;
+}
+
+/* Agent PWA is intentionally a separate narrow/mobile-first app. */
+html.es-v6-preview[data-es-ui-surface="agent"] body{
+  background:var(--black);color:var(--white);
+}
+html.es-v6-preview[data-es-ui-surface="agent"] :is(.btn,.btn-ghost,button){
+  border-radius:10px;
+}
+html.es-v6-preview[data-es-ui-surface="agent"] :is(input,select,textarea){
+  border-radius:7px 7px 0 0;
+}
+
+/* Reuse the existing mobile navigation, avoid inventing actions. */
+@media(max-width:900px){
+  html.es-v6-preview[data-es-ui-surface="buyer"] .shell{
+    display:block;padding:0;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .sidebar{
+    display:none;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .topbar{
+    margin:8px;border-radius:12px;padding:10px 12px;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .wrap{
+    padding:18px 14px calc(118px + env(safe-area-inset-bottom));
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .brand-hero{
+    height:clamp(205px,52vw,330px);
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .cart-bar{
+    left:8px;right:8px;bottom:calc(62px + env(safe-area-inset-bottom));
+    padding:10px 13px;border-radius:12px;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .mobile-nav{
+    left:8px;right:8px;bottom:calc(6px + env(safe-area-inset-bottom));
+    border:1px solid var(--border);border-radius:14px;
+    background:var(--dark);overflow:hidden;
+  }
+  html.es-v6-preview[data-es-ui-surface="admin"] .sidebar{
+    left:0;top:0;bottom:0;border-radius:0;
+  }
+  html.es-v6-preview[data-es-ui-surface="admin"] .main{
+    margin-left:0;padding:18px 14px;
+  }
+}
+@media(max-width:640px){
+  html.es-v6-preview[data-es-ui-surface="buyer"] .brand-banner-info{padding:17px;}
+  html.es-v6-preview[data-es-ui-surface="buyer"] .products-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .product-info{padding:12px 10px;}
+  html.es-v6-preview[data-es-ui-surface="buyer"] .product-drawer{
+    width:100%;border-radius:16px 16px 0 0;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .sort-bar{
+    gap:8px;padding:10px;overflow-x:auto;
+  }
+  html.es-v6-preview[data-es-ui-surface="buyer"] .brand-hero-name{font-size:clamp(26px,7vw,44px);}
+  html.es-v6-preview[data-es-ui-surface="buyer"] .brand-card{min-height:0;}
+}
+@media(max-width:350px){
+  html.es-v6-preview[data-es-ui-surface="buyer"] .products-grid{grid-template-columns:minmax(0,1fr);}
+}
+@media(prefers-reduced-motion:reduce){
+  html.es-v6-preview *,html.es-v6-preview *::before,html.es-v6-preview *::after{
+    scroll-behavior:auto!important;transition-duration:.01ms!important;
+    animation-duration:.01ms!important;
+  }
+}
+/* Exit preview without removing browser session or changing any account data. */
+html.es-v6-preview .es-v6-preview-exit{
+  position:fixed;z-index:10000;right:12px;bottom:12px;
+  background:#33251f;color:#b8d3e7;border:1px solid #b8d3e7;
+  border-radius:999px;padding:8px 12px;text-decoration:none;
+  font:10px 'Plex Mono',ui-monospace,monospace;
+  box-shadow:0 4px 24px rgba(0,0,0,.2);
+}
+html.es-v6-preview[data-es-ui-surface="buyer"] .es-v6-preview-exit{
+  bottom:calc(138px + env(safe-area-inset-bottom));
+}
