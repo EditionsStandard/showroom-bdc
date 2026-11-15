@@ -177,3 +177,14 @@ test('admin, agent and designer sessions do not confer a buyer identity', async 
     assert.equal((await request(endpoint, agent)).status, 403, endpoint);
   }
 });
+
+test('mobile sample-product rejects data URL with a spoofed image MIME', async () => {
+  const Jimp = require('jimp');
+  const png = await (new Jimp(2, 2, 0xff8844ff)).getBufferAsync(Jimp.MIME_PNG);
+  const response = await request('/api/brands/' + ids.brandA + '/sample-product', owner, 'POST', {
+    reference: 'SAMPLE-DATA-MIME-TEST',
+    price: 50,
+    image: 'data:image/jpeg;base64,' + png.toString('base64')
+  });
+  assert.equal(response.status, 400);
+});
