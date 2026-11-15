@@ -33,6 +33,7 @@ const {
   createPdfGenerators,
 } = require('./lib/pdf');
 const multer = require('multer');
+const { BULK_MAX_BYTES, BULK_MAX_FILES, IMAGE_MAX_BYTES, IMAGE_MIMES, sniffImageMime, validImage, validPdf, createCappedDiskStorage, cleanupBulkFiles } = require('./lib/upload-security');
 const { Resend } = require('resend');
 const sanitizeHtml = require('sanitize-html');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
@@ -184,7 +185,34 @@ const log = {
   error: (msg, data={}) => console.error(JSON.stringify({ level:'error', msg, ...data, ts: new Date().toISOString() })),
 };
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: IMAGE_MAX_BYTES } });
+
+// Catalog imports are streamed to private disk files, with a per-request
+// combined cap applied as the bytes arrive (including chunked requests).
+const bulkPhotoParser = multer({
+  storage: createCappedDiskStorage(),
+  limits: { fileSize: IMAGE_MAX_BYTES, files: BULK_MAX_FILES, fields: 20, fieldSize: 8192, parts: BULK_MAX_FILES + 20 }
+});
+let bulkUploadsActive = 0;
+function bulkPhotoConcurrencyGuard(req, res, next) {
+  if (bulkUploadsActive >= 2) return res.status(429).json({ error: 'Deux imports sont déjà en cours. Réessayez après leur fin.' });
+  const length = Number(req.headers['content-length']);
+  if (Number.isFinite(length) && length > BULK_MAX_BYTES + 3 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Import trop volumineux : 128 Mo maximum par lot.' });
+  }
+  bulkUploadsActive++;
+  let released = false;
+  function release() { if (!released) { released = true; bulkUploadsActive--; } }
+  res.once('finish', release);
+  res.once('close', release);
+  next();
+}
+function parseBulkPhotos(req, res, next) {
+  bulkPhotoParser.array('photos', BULK_MAX_FILES)(req, res, error => {
+    if (error) return cleanupBulkFiles(req).then(() => next(error), () => next(error));
+    next();
+  });
+}
 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
 
@@ -2143,6 +2171,13 @@ app.post('/api/brands/:brandId/sample-product', requireBrandScope('owner','agent
     // SVG peut embarquer du <script>/<foreignObject> exécuté si le champ est un
     // jour affiché autrement qu'en <img src>.
     const img = (typeof image === 'string' && /^(https?:|data:image\/)/i.test(image.trim()) && !/^data:image\/svg/i.test(image.trim())) ? image.trim() : '';
+    if (img.startsWith('data:')) {
+      const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(img);
+      if (!match || match[2].length > Math.ceil(IMAGE_MAX_BYTES * 4 / 3) + 4 ||
+          !validImage(Buffer.from(match[2], 'base64'), match[1])) {
+        return res.status(400).json({ error: 'Photo invalide : JPEG, PNG, WebP ou GIF uniquement.' });
+      }
+    }
     // Grille de tailles optionnelle (ex. "S,M,L,XL") — même format libre que
     // les produits catalogue (products.sizes), rend la sélection acheteur
     // capable d'afficher une ligne de quantité par taille pour cette
@@ -2661,22 +2696,17 @@ app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, r
 // Formats raster uniquement — exclut délibérément image/svg+xml : un SVG peut
 // embarquer du <script>/<foreignObject> exécuté si le fichier est ouvert
 // directement dans un onglet (le champ mimetype matcherait `startsWith('image/')`).
-const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_IMAGE_MIMES = IMAGE_MIMES;
 // req.file.mimetype vient du Content-Type déclaré par le CLIENT sur la partie
 // multipart — falsifiable (ex. `curl -F "image=@payload.html;type=image/jpeg"`),
 // contrairement à /api/upload-pdf qui vérifie déjà la signature binaire réelle
 // (%PDF). Même contrôle ici sur les octets magiques des 4 formats autorisés,
 // pour ne jamais faire confiance qu'à une étiquette déclarative.
-function looksLikeImage(buf) {
-  if (!buf || buf.length < 12) return false;
-  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true; // PNG
-  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true; // JPEG
-  if (buf.slice(0,4).toString('latin1') === 'GIF8') return true; // GIF
-  if (buf.slice(0,4).toString('latin1') === 'RIFF' && buf.slice(8,12).toString('latin1') === 'WEBP') return true; // WebP
-  return false;
+function looksLikeImage(buf, declaredMime) {
+  return declaredMime ? validImage(buf, declaredMime) : !!sniffImageMime(buf);
 }
 app.post('/api/upload-image', requireRole('owner','agent','designer'), imageUploadLimiter, upload.single('image'), async (req, res) => {
-  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !looksLikeImage(req.file.buffer)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
+  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !looksLikeImage(req.file.buffer, req.file.mimetype)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     // Aléatoire (pas Date.now()) : les URLs Cloudinary sont servies publiquement
@@ -2834,7 +2864,7 @@ app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadLimit
     if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Fichier PDF requis' });
     // resource_type:'raw' ne transcode pas le contenu côté Cloudinary (contrairement aux
     // images) : le Content-Type déclaré ne suffit pas, on vérifie la signature réelle du fichier.
-    if (req.file.buffer.slice(0, 4).toString('latin1') !== '%PDF') return res.status(400).json({ error: 'Fichier PDF invalide' });
+    if (!validPdf(req.file.buffer)) return res.status(400).json({ error: 'Fichier PDF invalide' });
     const base64 = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
     const slug = `lookbook-${crypto.randomBytes(16).toString('hex')}`;
     const result = await cloudinary.uploader.upload(base64, {
@@ -3060,7 +3090,9 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
 // jamais bloqué par cette limite pensée pour la fréquence. Réduire le plafond
 // par appel borne le pire cas (compte compromis) sans gêner un import légitime
 // (une séance photo complète dépasse rarement 80 références à la fois).
-app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, upload.array('photos', 80), async (req, res) => {
+app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, bulkPhotoConcurrencyGuard, parseBulkPhotos, async (req, res) => {
+  try {
+  if (!req.files?.length) return res.status(400).json({ error: 'Aucune photo reçue' });
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, description, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
@@ -3131,18 +3163,19 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
       continue;
     }
     const ref = product.reference;
-
+    // Only one image is loaded in memory at a time, after disk streaming.
+    const fileBuffer = await fs.promises.readFile(file.path);
+    if (!validImage(fileBuffer, file.mimetype)) {
+      results.push({ file: file.originalname, status: 'rejected', reason: 'format réel différent ou fichier invalide' });
+      continue;
+    }
     if (!pending.has(product.id)) {
       let existing = [];
       try { existing = JSON.parse(product.images || '[]'); } catch(e) {}
       pending.set(product.id, { images: existing.slice(), ranks: existing.map(() => -1) });
     }
-    if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype) || !looksLikeImage(file.buffer)) {
-      results.push({ file: file.originalname, status: 'rejected', reason: 'type de fichier non autorisé' });
-      continue;
-    }
     const entry = pending.get(product.id);
-    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    const base64 = `data:${file.mimetype};base64,${fileBuffer.toString('base64')}`;
     // Ne jamais stocker le base64 brut en base en cas d'échec Cloudinary : ça
     // gonflerait la ligne produit sans limite (jusqu'à 200 fichiers/appel) tout
     // en répondant "ok" côté client alors que l'upload a en réalité échoué.
@@ -3177,6 +3210,9 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
   }
 
   res.json({ ok: true, results });
+  } finally {
+    await cleanupBulkFiles(req);
+  }
 });
 
 // Orders
@@ -6698,8 +6734,8 @@ const MSG_COLS = 'id, sender, body, subject, attachment_url, attachment_name, at
 // Même vérification par octets magiques que looksLikeImage()/upload-pdf — le
 // mimetype déclaré par le client ne suffit pas.
 function looksLikeMsgAttachment(mimetype, buf) {
-  if (mimetype === 'application/pdf') return !!buf && buf.length >= 4 && buf.slice(0,4).toString('latin1') === '%PDF';
-  return looksLikeImage(buf);
+  if (mimetype === 'application/pdf') return validPdf(buf);
+  return validImage(buf, mimetype);
 }
 
 function attachmentEmailNote(name) {
@@ -9268,8 +9304,11 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Requête invalide (JSON malformé).' });
   }
   // Upload trop volumineux / malformé (multer) : erreur d'entrée, pas une panne serveur.
+  if (err.code === 'LIMIT_BULK_TOTAL_SIZE') {
+    return res.status(413).json({ error: 'Import trop volumineux : 128 Mo maximum par lot.' });
+  }
   if (err.name === 'MulterError') {
-    const code = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    const code = ['LIMIT_FILE_SIZE', 'LIMIT_FILE_COUNT', 'LIMIT_PART_COUNT'].includes(err.code) ? 413 : 400;
     return res.status(code).json({ error: 'Fichier invalide ou trop volumineux.' });
   }
   res.status(500).json({ error: 'Erreur serveur' });
