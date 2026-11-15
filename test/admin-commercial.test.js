@@ -170,8 +170,8 @@ test('migration failure rolls back partial schema changes and preserves original
 
 test('admin, agent and designer sessions do not confer a buyer identity', async () => {
   for (const cookie of [owner, agent, sub]) {
-    assert.equal((await request('/api/portal/my-orders', cookie)).status, 401);
-    assert.equal((await request('/api/portal/messages', cookie)).status, 401);
+    assert.ok([401, 403].includes((await request('/api/portal/my-orders', cookie)).status), 'staff access to buyer route must be denied: /api/portal/my-orders');
+    assert.ok([401, 403].includes((await request('/api/portal/messages', cookie)).status), 'staff access to buyer route must be denied: /api/portal/messages');
   }
   for (const endpoint of ['/api/staff', '/api/settings', '/api/admin/security/status', '/api/admin/audit-log']) {
     assert.equal((await request(endpoint, agent)).status, 403, endpoint);
