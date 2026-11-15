@@ -72,3 +72,17 @@ test("un acheteur PEUT télécharger le PDF de sa propre commande", async () => 
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-type'), 'application/pdf');
 });
+
+test("un acheteur ne peut pas relancer la commande d'un autre via reorder", async () => {
+  const cookieA = await login(buyerA.email);
+  const r = await fetch(server.baseUrl + '/api/portal/orders/' + orderBId + '/reorder', { headers: { Cookie: cookieA } });
+  assert.equal(r.status, 404);
+});
+
+test("un cookie acheteur ne donne jamais accès aux API admin et staff", async () => {
+  const cookieA = await login(buyerA.email);
+  for (const endpoint of ['/api/orders', '/api/admin/audit-log', '/api/staff', '/api/settings']) {
+    const r = await fetch(server.baseUrl + endpoint, { headers: { Cookie: cookieA } });
+    assert.equal(r.status, 403, endpoint);
+  }
+});
