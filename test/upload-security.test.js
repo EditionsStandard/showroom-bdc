@@ -48,6 +48,7 @@ test('rejects PDFs without complete headers and end markers', () => {
   assert.equal(isVerifiedPdf(good), true);
   assert.equal(isVerifiedPdf(Buffer.from('%PDF-1.7\n1 0 obj\nendobj\n')), false);
   assert.equal(isVerifiedPdf(Buffer.from('GIF89a' + good.toString())), false);
+  assert.equal(isVerifiedPdf(Buffer.concat([good, Buffer.from('<script>injected</script>')])), false);
 });
 
 function store(storage, request, data) {
