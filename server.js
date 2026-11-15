@@ -184,7 +184,14 @@ const log = {
   error: (msg, data={}) => console.error(JSON.stringify({ level:'error', msg, ...data, ts: new Date().toISOString() })),
 };
 
+const { IMAGE_MIMES, isVerifiedImage, isVerifiedPdf, createBoundedDiskStorage, removeTemporaryFiles } = require('./lib/upload-security');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+// Photos imported in bulk are spooled to private temporary files. Each image
+// is limited to 10MB, and the entire multipart upload is limited to 80MB.
+const uploadBulkPhotos = multer({
+  storage: createBoundedDiskStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 80, fields: 10, fieldSize: 16 * 1024 }
+});
 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
 
@@ -2661,22 +2668,14 @@ app.patch('/api/products/:id/stock', requireRole('owner','agent'), async (req, r
 // Formats raster uniquement — exclut délibérément image/svg+xml : un SVG peut
 // embarquer du <script>/<foreignObject> exécuté si le fichier est ouvert
 // directement dans un onglet (le champ mimetype matcherait `startsWith('image/')`).
-const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_IMAGE_MIMES = IMAGE_MIMES;
 // req.file.mimetype vient du Content-Type déclaré par le CLIENT sur la partie
 // multipart — falsifiable (ex. `curl -F "image=@payload.html;type=image/jpeg"`),
 // contrairement à /api/upload-pdf qui vérifie déjà la signature binaire réelle
 // (%PDF). Même contrôle ici sur les octets magiques des 4 formats autorisés,
 // pour ne jamais faire confiance qu'à une étiquette déclarative.
-function looksLikeImage(buf) {
-  if (!buf || buf.length < 12) return false;
-  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true; // PNG
-  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true; // JPEG
-  if (buf.slice(0,4).toString('latin1') === 'GIF8') return true; // GIF
-  if (buf.slice(0,4).toString('latin1') === 'RIFF' && buf.slice(8,12).toString('latin1') === 'WEBP') return true; // WebP
-  return false;
-}
 app.post('/api/upload-image', requireRole('owner','agent','designer'), imageUploadLimiter, upload.single('image'), async (req, res) => {
-  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !looksLikeImage(req.file.buffer)) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
+  if (!req.file || !ALLOWED_IMAGE_MIMES.includes(req.file.mimetype) || !(await isVerifiedImage(req.file.buffer, req.file.mimetype))) return res.status(400).json({ error: 'Fichier image requis (jpg, png, webp, gif)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     // Aléatoire (pas Date.now()) : les URLs Cloudinary sont servies publiquement
@@ -2834,7 +2833,7 @@ app.post('/api/upload-pdf', requireRole('owner','agent','designer'), uploadLimit
     if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Fichier PDF requis' });
     // resource_type:'raw' ne transcode pas le contenu côté Cloudinary (contrairement aux
     // images) : le Content-Type déclaré ne suffit pas, on vérifie la signature réelle du fichier.
-    if (req.file.buffer.slice(0, 4).toString('latin1') !== '%PDF') return res.status(400).json({ error: 'Fichier PDF invalide' });
+    if (!isVerifiedPdf(req.file.buffer)) return res.status(400).json({ error: 'Fichier PDF invalide' });
     const base64 = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
     const slug = `lookbook-${crypto.randomBytes(16).toString('hex')}`;
     const result = await cloudinary.uploader.upload(base64, {
@@ -3060,7 +3059,8 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
 // jamais bloqué par cette limite pensée pour la fréquence. Réduire le plafond
 // par appel borne le pire cas (compte compromis) sans gêner un import légitime
 // (une séance photo complète dépasse rarement 80 références à la fois).
-app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, upload.array('photos', 80), async (req, res) => {
+app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, uploadBulkPhotos.array('photos', 80), async (req, res) => {
+  try {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, description, images FROM products WHERE brand_id=$1', [brandId]);
   const results = [];
@@ -3137,12 +3137,20 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
       try { existing = JSON.parse(product.images || '[]'); } catch(e) {}
       pending.set(product.id, { images: existing.slice(), ranks: existing.map(() => -1) });
     }
-    if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype) || !looksLikeImage(file.buffer)) {
-      results.push({ file: file.originalname, status: 'rejected', reason: 'type de fichier non autorisé' });
+    // Read and validate ONE photo at a time, instead of keeping the whole
+    // multipart batch in Node's heap.
+    let photoBytes;
+    try { photoBytes = await fs.promises.readFile(file.path); }
+    catch (_) {
+      results.push({ file: file.originalname, status: 'error', reason: 'lecture de la photo impossible' });
+      continue;
+    }
+    if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype) || !(await isVerifiedImage(photoBytes, file.mimetype))) {
+      results.push({ file: file.originalname, status: 'rejected', reason: 'fichier image invalide' });
       continue;
     }
     const entry = pending.get(product.id);
-    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    const base64 = 'data:' + file.mimetype + ';base64,' + photoBytes.toString('base64');
     // Ne jamais stocker le base64 brut en base en cas d'échec Cloudinary : ça
     // gonflerait la ligne produit sans limite (jusqu'à 200 fichiers/appel) tout
     // en répondant "ok" côté client alors que l'upload a en réalité échoué.
@@ -3177,6 +3185,9 @@ app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','
   }
 
   res.json({ ok: true, results });
+  } finally {
+    await removeTemporaryFiles(req.files);
+  }
 });
 
 // Orders
@@ -6697,9 +6708,9 @@ const ALLOWED_MSG_ATTACH_MIMES = [...ALLOWED_IMAGE_MIMES, 'application/pdf'];
 const MSG_COLS = 'id, sender, body, subject, attachment_url, attachment_name, attachment_type, created_at';
 // Même vérification par octets magiques que looksLikeImage()/upload-pdf — le
 // mimetype déclaré par le client ne suffit pas.
-function looksLikeMsgAttachment(mimetype, buf) {
-  if (mimetype === 'application/pdf') return !!buf && buf.length >= 4 && buf.slice(0,4).toString('latin1') === '%PDF';
-  return looksLikeImage(buf);
+async function looksLikeMsgAttachment(mimetype, buf) {
+  if (mimetype === 'application/pdf') return isVerifiedPdf(buf);
+  return isVerifiedImage(buf, mimetype);
 }
 
 function attachmentEmailNote(name) {
@@ -6708,7 +6719,7 @@ function attachmentEmailNote(name) {
 
 // Portail : upload d'une pièce jointe (image ou PDF) avant envoi du message
 app.post('/api/portal/messages/attachment', requireBuyerAuth, uploadLimiter, upload.single('file'), async (req, res) => {
-  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype) || !looksLikeMsgAttachment(req.file.mimetype, req.file.buffer)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
+  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype) || !(await looksLikeMsgAttachment(req.file.mimetype, req.file.buffer))) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(base64, {
@@ -6725,7 +6736,7 @@ app.post('/api/portal/messages/attachment', requireBuyerAuth, uploadLimiter, upl
 // Admin : même upload, côté agence
 app.post('/api/admin/buyers/:id/messages/attachment', requireRole('owner', 'agent'), uploadLimiter, upload.single('file'), async (req, res) => {
   if (!(await checkBuyerBrandScope(req, res))) return;
-  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype) || !looksLikeMsgAttachment(req.file.mimetype, req.file.buffer)) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
+  if (!req.file || !ALLOWED_MSG_ATTACH_MIMES.includes(req.file.mimetype) || !(await looksLikeMsgAttachment(req.file.mimetype, req.file.buffer))) return res.status(400).json({ error: 'Fichier image ou PDF requis (jpg, png, webp, gif, pdf)' });
   try {
     const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(base64, {
