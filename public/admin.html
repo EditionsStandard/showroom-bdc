@@ -6750,6 +6750,10 @@ async function importBulkPhotos(input) {
   const BATCH = 5; // petits lots → requêtes courtes, évite "upstream error" (timeout/taille proxy)
   let okCount = 0;
   const notFound = [];
+  const rejected = [];
+  const escapeFilename = name => String(name || '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
   let done = 0;
 
   for (let i = 0; i < files.length; i += BATCH) {
@@ -6763,8 +6767,9 @@ async function importBulkPhotos(input) {
     try {
       const res = await fetch(`/api/brands/${currentBrandId}/bulk-photos`, { method: 'POST', body: formData });
       if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        resultDiv.innerHTML = `<span style="color:#e74c3c">Erreur serveur (${res.status})${txt ? ' : ' + txt.slice(0,60) : ''}. ${okCount} photo(s) déjà assignée(s). Réessayez avec moins de photos à la fois.</span>`;
+        const errorPayload = await res.json().catch(() => ({}));
+        resultDiv.textContent = `Import refusé (${res.status}) : ${errorPayload.error || 'fichier invalide ou trop volumineux'}. ${okCount} photo(s) déjà assignée(s).`;
+        resultDiv.style.color = '#e74c3c';
         refreshProducts();
         return;
       }
@@ -6772,6 +6777,7 @@ async function importBulkPhotos(input) {
       (data.results || []).forEach(r => {
         if (r.status === 'ok') okCount++;
         else if (r.status === 'not_found') notFound.push(r.ref);
+        else if (r.status === 'rejected' || r.status === 'error') rejected.push(r.file);
       });
     } catch(e) {
       resultDiv.innerHTML = `<span style="color:#e74c3c">Erreur réseau après ${okCount} photo(s). Réessayez avec moins de photos à la fois.</span>`;
@@ -6782,7 +6788,9 @@ async function importBulkPhotos(input) {
   }
 
   let html = `<strong>${okCount} photo(s) assignée(s)</strong>`;
-  if (notFound.length) html += ` — <span style="color:#e74c3c">${notFound.length} référence(s) introuvable(s) : ${[...new Set(notFound)].join(', ')}</span>`;
+  if (notFound.length) html += ` — <span style="color:#e74c3c">${notFound.length} référence(s) introuvable(s) : ${[...new Set(notFound)].map(escapeFilename).join(', ')}</span>`;
+  if (rejected.length) html += ` — <span style="color:#e74c3c">${rejected.length} fichier(s) rejeté(s) (format invalide ou échec d'envoi) : ${[...new Set(rejected)].map(escapeFilename).join(', ')}</span>`;
+  resultDiv.style.color = '';
   resultDiv.innerHTML = html;
   input.value = '';
   refreshProducts();
