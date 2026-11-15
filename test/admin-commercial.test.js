@@ -128,6 +128,14 @@ test('designer orders retain the assigned-brand SQL parameter after PR 281',asyn
   const cookie=await cookieFor('designer',designerId);
   const result=await request('/api/orders',cookie);assert.equal(result.status,200);assert.equal(result.body.total,3);
   assert.ok(result.body.rows.every(order=>order.brand_id===ids.brandA));
+  const foreignProduct = 'foreign-product-' + key;
+  await withDb(server.dbUrl, db => db.query(
+    "INSERT INTO products(id,brand_id,reference,price) VALUES($1,$2,'FOREIGN-TEST',100)",
+    [foreignProduct, ids.brandB]
+  ));
+  assert.equal((await request('/api/brands/' + ids.brandB + '/products',cookie)).status,403);
+  assert.equal((await request('/api/products/' + foreignProduct,cookie,'PUT',{reference:'STOLEN-TEST',price:1})).status,403);
+  assert.equal((await request('/api/staff',cookie)).status,403);
 });
 test('migration is rerunnable and retains original orders and commercial records',async()=>{
   const {Pool}=require('pg');const pool=new Pool({connectionString:server.dbUrl});
@@ -157,5 +165,15 @@ test('migration failure rolls back partial schema changes and preserves original
   }finally{
     await pool.end();
     await withDb(server.dbUrl,db=>db.query(`DROP SCHEMA ${schema} CASCADE`));
+  }
+});
+
+test('admin, agent and designer sessions do not confer a buyer identity', async () => {
+  for (const cookie of [owner, agent, sub]) {
+    assert.equal((await request('/api/portal/my-orders', cookie)).status, 401);
+    assert.equal((await request('/api/portal/messages', cookie)).status, 401);
+  }
+  for (const endpoint of ['/api/staff', '/api/settings', '/api/admin/security/status', '/api/admin/audit-log']) {
+    assert.equal((await request(endpoint, agent)).status, 403, endpoint);
   }
 });
