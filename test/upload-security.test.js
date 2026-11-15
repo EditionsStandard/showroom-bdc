@@ -21,6 +21,14 @@ test('accepts decodable JPEG and PNG with their real MIME type', async () => {
   assert.equal(await isVerifiedImage(jpeg, 'image/jpeg'), true);
 });
 
+test('keeps valid WebP and GIF product images compatible', async () => {
+  // Two-pixel fixture images: no network, no buyer or production files.
+  const webp = Buffer.from('UklGRjIAAABXRUJQVlA4ICYAAABQAQCdASoCAAIAAUAmJaAABAAAAP7tTV//+7J//9sn//2yf/GAAA==', 'base64');
+  const gif = Buffer.from('R0lGODdhAgACAIEAANctZAAAAAAAAAAAACwAAAAAAgACAAAIBgABCAQQEAA7', 'base64');
+  assert.equal(await isVerifiedImage(webp, 'image/webp'), true);
+  assert.equal(await isVerifiedImage(gif, 'image/gif'), true);
+});
+
 test('rejects fake MIME and files that merely imitate a signature', async () => {
   const png = await imageFixture(Jimp.MIME_PNG);
   assert.equal(await isVerifiedImage(png, 'image/jpeg'), false);
