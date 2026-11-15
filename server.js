@@ -192,6 +192,28 @@ const uploadBulkPhotos = multer({
   storage: createBoundedDiskStorage(),
   limits: { fileSize: 10 * 1024 * 1024, files: 80, fields: 10, fieldSize: 16 * 1024 }
 });
+// Bound the number of simultaneous disk-backed uploads. This is per process;
+// keep the Railway replica count in mind when allocating temporary disk space.
+let activeBulkPhotoImports = 0;
+function limitConcurrentBulkPhotoImports(req, res, next) {
+  if (activeBulkPhotoImports >= 2) {
+    return res.status(429).json({ error: 'Deux imports de photos sont déjà en cours. Réessayez après leur fin.' });
+  }
+  // Early rejection for browsers sending Content-Length; the disk storage
+  // separately enforces its exact aggregate limit for chunked requests.
+  const length = Number(req.headers['content-length']);
+  if (Number.isFinite(length) && length > 83 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Le lot de photos dépasse 80 Mo.' });
+  }
+  activeBulkPhotoImports++;
+  let released = false;
+  const release = () => {
+    if (!released) { activeBulkPhotoImports--; released = true; }
+  };
+  res.once('finish', release);
+  res.once('close', release);
+  next();
+}
 
 const APP_VERSION = process.env.APP_VERSION || Date.now().toString();
 
@@ -2150,6 +2172,15 @@ app.post('/api/brands/:brandId/sample-product', requireBrandScope('owner','agent
     // SVG peut embarquer du <script>/<foreignObject> exécuté si le champ est un
     // jour affiché autrement qu'en <img src>.
     const img = (typeof image === 'string' && /^(https?:|data:image\/)/i.test(image.trim()) && !/^data:image\/svg/i.test(image.trim())) ? image.trim() : '';
+    // Mobile camera data: URLs bypass Multer, so apply the exact same MIME,
+    // format and dimension checks as regular image uploads.
+    if (img.startsWith('data:')) {
+      const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(img);
+      if (!match || match[2].length > Math.ceil(10 * 1024 * 1024 * 4 / 3) + 4 ||
+          !(await isVerifiedImage(Buffer.from(match[2], 'base64'), match[1]))) {
+        return res.status(400).json({ error: 'Photo invalide : JPEG, PNG, WebP ou GIF uniquement.' });
+      }
+    }
     // Grille de tailles optionnelle (ex. "S,M,L,XL") — même format libre que
     // les produits catalogue (products.sizes), rend la sélection acheteur
     // capable d'afficher une ligne de quantité par taille pour cette
@@ -3059,7 +3090,7 @@ app.post('/api/brands/:brandId/repair-fields', requireBrandScope('owner','agent'
 // jamais bloqué par cette limite pensée pour la fréquence. Réduire le plafond
 // par appel borne le pire cas (compte compromis) sans gêner un import légitime
 // (une séance photo complète dépasse rarement 80 références à la fois).
-app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, uploadBulkPhotos.array('photos', 80), async (req, res) => {
+app.post('/api/brands/:brandId/bulk-photos', requireBrandScope('owner','agent','designer'), uploadLimiter, limitConcurrentBulkPhotoImports, uploadBulkPhotos.array('photos', 80), async (req, res) => {
   try {
   const { brandId } = req.params;
   const prods = await pool.query('SELECT id, reference, color, description, images FROM products WHERE brand_id=$1', [brandId]);
