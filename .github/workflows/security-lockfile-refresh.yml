@@ -1,0 +1,49 @@
+name: Temporary security lockfile regeneration
+
+on:
+  push:
+    branches:
+      - security/2026-11-safe-package-upgrade
+    paths:
+      - package.json
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-lockfile:
+    if: github.ref == 'refs/heads/security/2026-11-safe-package-upgrade'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve explicitly pinned security updates
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-fund --no-audit
+          npm ci --ignore-scripts --no-fund --no-audit
+          node - <<'NODE'
+          const {dependencies} = require('./package.json');
+          const lock = require('./package-lock.json');
+          if (dependencies.multer !== '2.5.0' || lock.packages['node_modules/multer'].version !== '2.5.0') throw Error('Multer pin failed');
+          if (dependencies.xlsx !== 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz' ||
+              lock.packages['node_modules/xlsx'].version !== '0.20.3') throw Error('SheetJS pin failed');
+          const xlsx=require('xlsx');
+          const wb=xlsx.utils.book_new();
+          const ws=xlsx.utils.json_to_sheet([{Marque:'Demo',Prix:125}]);
+          xlsx.utils.book_append_sheet(wb,ws,'Test');
+          const buffer=xlsx.write(wb,{type:'buffer',bookType:'xlsx'});
+          if (!Buffer.isBuffer(buffer) || buffer.subarray(0,2).toString()!=='PK') throw Error('XLSX generation failed');
+          NODE
+      - name: Commit generated lockfile to security branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Lock patched Multer and SheetJS dependencies"
+          git push origin HEAD:security/2026-11-safe-package-upgrade
