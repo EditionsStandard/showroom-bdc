@@ -14,7 +14,26 @@ const ALLOWED_CATEGORIES = new Set(["Menswear","Womenswear","Jewellery","Accesso
 
 const AIRTABLE_WEBHOOK = Bun.env.FW27_AIRTABLE_WEBHOOK || "";
 
+// These guards are intentionally per-instance and bounded: this Function runs as one
+// replica. For multiple replicas replace the maps with shared, expiring storage.
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const emailBuckets = new Map<string, { count: number; resetAt: number }>();
+const recentlyAccepted = new Map<string, number>();
+const inFlight = new Map<string, Promise<boolean>>();
+
+async function fingerprint(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function sweepExpired(now: number) {
+  if (recentlyAccepted.size > 1000) {
+    for (const [key, expires] of recentlyAccepted) if (expires <= now) recentlyAccepted.delete(key);
+  }
+  if (emailBuckets.size > 1000) {
+    for (const [key, bucket] of emailBuckets) if (bucket.resetAt <= now) emailBuckets.delete(key);
+  }
+}
 
 function allowedOrigin(origin: string | null): string | null {
   if (!origin) return null;
@@ -99,6 +118,7 @@ Bun.serve({
     const now = Date.now();
     if (rateBuckets.size > 1000) {
       for (const [key, value] of rateBuckets) if (value.resetAt <= now) rateBuckets.delete(key);
+      if (rateBuckets.size > 4000) return json(429, { ok: false, error: "too_many_requests" }, origin);
     }
     const bucket = rateBuckets.get(ip);
 
@@ -177,23 +197,64 @@ Bun.serve({
       return json(503, { ok: false, error: "intake_not_configured" }, origin);
     }
 
-    try {
-      const upstream = await fetch(AIRTABLE_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000)
-      });
+    // Deduplicate successfully forwarded requests, not just browser button taps.
+    // submitted_at varies per retry and is therefore deliberately excluded.
+    const [emailKey, requestKey] = await Promise.all([
+      fingerprint(payload.business_email),
+      fingerprint(JSON.stringify({ ...payload, submitted_at: undefined }))
+    ]);
+    sweepExpired(Date.now());
+    if (recentlyAccepted.get(requestKey)! > Date.now()) {
+      return json(202, { ok: true, duplicate: true }, origin);
+    }
+    const pending = inFlight.get(requestKey);
+    if (pending) {
+      const accepted = await pending;
+      return accepted
+        ? json(202, { ok: true, duplicate: true }, origin)
+        : json(502, { ok: false, error: "airtable_unavailable" }, origin);
+    }
 
-      if (!upstream.ok) {
-        console.error("Airtable webhook error", upstream.status);
-        return json(502, { ok: false, error: "airtable_unavailable" }, origin);
+    const currentTime = Date.now();
+    let emailBucket = emailBuckets.get(emailKey);
+    if (!emailBucket || emailBucket.resetAt <= currentTime) {
+      emailBucket = { count: 0, resetAt: currentTime + 60 * 60 * 1000 };
+      emailBuckets.set(emailKey, emailBucket);
+    }
+    // Stops deliberate spamming of a single recipient even if the caller
+    // spoofs or changes the IP forwarding header.
+    if (emailBucket.count >= 6 || emailBuckets.size > 4000 || inFlight.size > 100) {
+      return json(429, { ok: false, error: "too_many_requests" }, origin);
+    }
+    emailBucket.count += 1;
+
+    const sending: Promise<boolean> = (async () => {
+      try {
+        const upstream = await fetch(AIRTABLE_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000)
+        });
+        if (!upstream.ok) {
+          console.error("Airtable webhook error", upstream.status);
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error("Airtable webhook request failed", error);
+        return false;
       }
+    })();
+    inFlight.set(requestKey, sending);
 
-      return json(202, { ok: true }, origin);
-    } catch (error) {
-      console.error("Airtable webhook request failed", error);
+    const accepted = await sending;
+    inFlight.delete(requestKey);
+    if (!accepted) {
+      emailBucket.count = Math.max(0, emailBucket.count - 1);
       return json(502, { ok: false, error: "airtable_unavailable" }, origin);
     }
+    recentlyAccepted.set(requestKey, Date.now() + 30 * 60 * 1000);
+    return json(202, { ok: true }, origin);
   }
 });
