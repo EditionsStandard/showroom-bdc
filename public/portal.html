@@ -4172,6 +4172,7 @@ async function openShareModal() {
       body: JSON.stringify({ items })
     });
     const d = await r.json();
+    if (!r.ok || !d.token) throw new Error(d.error || 'Share unavailable');
     const url = window.location.origin + '/share/' + d.token;
     input.value = url;
     if (window.QRCode) {
