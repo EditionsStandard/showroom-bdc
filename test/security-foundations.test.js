@@ -77,5 +77,11 @@ test('new share links have 128-bit random suffix and still resolve for invited b
     method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ days: 1 })
   });
-  assert.equal(create.status, 200, await create.text().then(() => 'unexpected status'));
+  const raw = await create.text();
+  assert.equal(create.status, 200, raw);
+  const link = JSON.parse(raw);
+  assert.match(link.slug, /-[a-f0-9]{32}$/i, 'bearer slug needs 128 random bits');
+  const open = await fetch(server.baseUrl + '/c/' + encodeURIComponent(link.slug), { redirect: 'manual' });
+  assert.equal(open.status, 302, 'fresh invitation link should still open');
+  assert.equal(open.headers.get('location'), '/commande/' + brandId);
 });
