@@ -6568,10 +6568,12 @@ app.get('/api/brands/:brandId/sales-report/pdf', requireBrandScope('owner','agen
 
     let logoBuf = null;
     try {
-      const svg2img = require('svg2img');
-      const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'), 'utf8');
-      logoBuf = await new Promise((resolve, reject) =>
-        svg2img(svgSrc, { width: 120, height: 120, preserveAspectRatio: true }, (err, buf) => err ? reject(err) : resolve(buf)));
+      // Reuse the maintained rasterizer for this trusted, repository-owned SVG.
+      // The retired svg2img package pulled vulnerable Jimp 0.x back into the
+      // production dependency tree, even after the upload decoder was replaced.
+      const svgSrc = fs.readFileSync(path.join(__dirname, 'public', 'logo.svg'));
+      logoBuf = await require('sharp')(svgSrc, { density: 96, limitInputPixels: 30_000_000 })
+        .resize(120, 120, { fit: 'contain' }).png().toBuffer();
     } catch(e) { /* logo optionnel */ }
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
