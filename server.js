@@ -333,8 +333,12 @@ app.use((req, res, next) => {
   // Données privées (commandes, acheteurs, staff, sécurité...) : jamais de cache
   // navigateur/proxy intermédiaire. Les routes qui servent déjà un fichier
   // (PDF) posent en plus leur propre Content-Disposition, ce header ne les gêne pas.
-  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/') || req.path.startsWith('/api/wholesale-commissions') || req.path.startsWith('/api/agent-selections')) {
+  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/') || req.path.startsWith('/api/wholesale-commissions') || req.path.startsWith('/api/agent-selections')
+      || req.path.startsWith('/api/selection/') || req.path.startsWith('/selection/') || req.path.startsWith('/api/invite/')) {
     res.setHeader('Cache-Control', 'no-store, private');
+  }
+  if (req.path.startsWith('/selection/') || req.path.startsWith('/share/') || req.path.startsWith('/c/') || req.path.startsWith('/commande/')) {
+    res.setHeader('Referrer-Policy', 'no-referrer');
   }
   next();
 });
@@ -409,7 +413,8 @@ app.get('/sw.js', (req, res) => {
 // Empêche qu'un ancien shell HTML mis en cache (navigateur ou PWA installée sur
 // l'écran d'accueil) ne masque une nouvelle version déployée du site.
 function sendPage(res, filename, cacheControl) {
-  res.setHeader('Cache-Control', cacheControl || 'no-cache, must-revalidate');
+  // Preserve the stronger no-store policy for bearer-token pages.
+  if (cacheControl || !res.hasHeader('Cache-Control')) res.setHeader('Cache-Control', cacheControl || 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', filename));
 }
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -4858,7 +4863,7 @@ app.get('/api/selection/:token', publicLimiter, async (req, res) => {
   try {
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
-    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (!sel || sel.status === 'draft') return res.status(404).json({ error: 'Sélection introuvable' });
     if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
     if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
     const b = await pool.query(`SELECT b.id, b.name, b.logo, b.logo_url, b.cgv_text, b.moq_qty, b.moq_amount, b.moq_strict,
@@ -4912,9 +4917,11 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
     if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Sélection invalide (500 lignes maximum).' });
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
-    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (!sel || sel.status === 'draft') return res.status(404).json({ error: 'Sélection introuvable' });
     if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
     if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    const buyer = (await pool.query('SELECT id FROM buyers WHERE LOWER(email)=LOWER($1)', [sel.client_email])).rows[0];
+    if ((await getLockedBrandIds(buyer?.id || null, [sel.brand_id])).size) return res.status(403).json({ error: 'Collection en accès anticipé' });
 
     const stored = JSON.parse(sel.items_json || '[]');
     const selectedIds = new Set(stored.map(i => i.product_id));
@@ -4925,7 +4932,7 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
     stored.forEach(i => { if (i.note && !notesByProduct[i.product_id]) notesByProduct[i.product_id] = i.note; });
 
     const prodRows = selectedIds.size
-      ? (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1)', [[...selectedIds]])).rows
+      ? (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1) AND brand_id=$2', [[...selectedIds], sel.brand_id])).rows
       : [];
     const sizeMap = Object.fromEntries(prodRows.map(p => [p.id, (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean)]));
 
@@ -4952,7 +4959,7 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
       const [product_id, variant_color, size] = JSON.parse(k);
       return { product_id, variant_color, size, quantity, note: notesByProduct[product_id] || '' };
     });
-    const saved = await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2 AND used=false AND expires_at>NOW() RETURNING token', [JSON.stringify(newItems), req.params.token]);
+    const saved = await pool.query("UPDATE agent_selections SET items_json=$1 WHERE token=$2 AND used=false AND expires_at>NOW() AND COALESCE(status,'sent')<>'draft' RETURNING token", [JSON.stringify(newItems), req.params.token]);
     if (!saved.rowCount) return res.status(410).json({ error: 'Sélection déjà validée ou expirée.' });
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
@@ -4968,7 +4975,7 @@ app.get('/api/selection/:token/pdf', publicLimiter, async (req, res) => {
       'SELECT a.*, b.name AS brand_name, b.logo AS brand_logo, b.logo_url AS brand_logo_url FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
       [req.params.token]);
     const s = r.rows[0];
-    if (!s) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (!s || s.status === 'draft') return res.status(404).json({ error: 'Sélection introuvable' });
     // A bearer selection PDF is not a permanent archive: the same expiry,
     // one-time-use and early-access policy as the public selection API applies.
     if (s.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
@@ -5000,7 +5007,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     if(typeof buyer_comment!=='string' || buyer_comment.length>5000)return res.status(400).json({error:'Commentaire trop long'});
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
-    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (!sel || sel.status === 'draft') return res.status(404).json({ error: 'Sélection introuvable' });
     if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
     if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
     // A bearer selection link does not prove ownership of the email address.
