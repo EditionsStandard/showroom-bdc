@@ -4952,7 +4952,8 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
       const [product_id, variant_color, size] = JSON.parse(k);
       return { product_id, variant_color, size, quantity, note: notesByProduct[product_id] || '' };
     });
-    await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2', [JSON.stringify(newItems), req.params.token]);
+    const saved = await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2 AND used=false AND expires_at>NOW() RETURNING token', [JSON.stringify(newItems), req.params.token]);
+    if (!saved.rowCount) return res.status(410).json({ error: 'Sélection déjà validée ou expirée.' });
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -5078,7 +5079,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     // créaient chacune une commande complète (double décompte de stock, double
     // email, sélection consommée deux fois). Seule cette UPDATE conditionnelle
     // fait foi : une seule requête concurrente peut gagner la ligne WHERE used=false.
-    const claim = await pool.query('UPDATE agent_selections SET used=true WHERE token=$1 AND used=false RETURNING token', [req.params.token]);
+    const claim = await pool.query('UPDATE agent_selections SET used=true WHERE token=$1 AND used=false AND expires_at>NOW() RETURNING token', [req.params.token]);
     if (!claim.rows.length) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
 
     const result = await createOrder({
@@ -5665,6 +5666,7 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
   try {
     // != 'inactive' exclut les NULL en PG — on inclut explicitement les NULL
     const r = await pool.query("SELECT id, name, about_text, logo, logo_url, cover_image, thumbnail, cgv_text, moq_qty, moq_amount, moq_strict, min_per_reference, delivery_terms, payment_terms, return_terms, TO_CHAR(order_deadline,'YYYY-MM-DD') AS order_deadline, lookbook_url, default_currency, created_at FROM brands WHERE (subscription_status IS NULL OR subscription_status != 'inactive') ORDER BY name");
+    const lockedBrands = await getLockedBrandIds(req.session.buyerPortal.id, r.rows.map(b => b.id));
     const negotiated = (await pool.query('SELECT * FROM buyer_brand_terms WHERE buyer_id=$1', [req.session.buyerPortal.id])).rows;
     for (const brand of r.rows) {
       const override = negotiated.find(o => o.brand_id === brand.id);
@@ -5679,6 +5681,8 @@ app.get('/api/portal/brands', requireBuyerAuth, async (req, res) => {
     const season = (await getSetting('current_season')) || '';
     const brands = r.rows.map(b => ({
       ...b,
+      lookbook_url: lockedBrands.has(b.id) ? null : b.lookbook_url,
+      early_access_locked: lockedBrands.has(b.id),
       season, // saison showroom globale (ex. "SS27") — affichée en pastille sur chaque carte
       logo: cloudinaryOpt(b.logo),
       logo_url: cloudinaryOpt(b.logo_url),
@@ -5801,6 +5805,9 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
       const priv = await pool.query('SELECT is_privileged FROM buyer_brand_terms WHERE buyer_id=$1 AND brand_id=$2', [req.session.buyerPortal.id, req.params.brandId]);
       brand.early_access_locked = !(priv.rows[0] && priv.rows[0].is_privileged);
     }
+    // An access-locked brand must never leak its lookbook or campaign video
+    // through the brand object while product prices are being masked.
+    if (brand.early_access_locked) { brand.lookbook_url = null; brand.video_url = null; }
     // Accès anticipé verrouillé : le client se contente d'afficher une vignette
     // "verrouillée" (référence + description) sans jamais lire photos/prix/stock
     // — mais un acheteur non privilégié qui inspecte directement cette réponse
@@ -6128,6 +6135,31 @@ app.get('/api/portal/orders/:id/pdf', requireBuyerAuth, async (req, res) => {
 });
 
 // ── Email sélection ──────────────────────────────────────────────────
+// All buyer-generated proposals (email and PDF) use the same authoritative
+// product data. Client-sent prices/brand names are never trusted.
+async function resolveBuyerProposalItems(items, buyerId) {
+  if (!Array.isArray(items) || !items.length || items.length > 500) return { status:400, error:'Sélection invalide (500 lignes maximum).' };
+  const ids = [...new Set(items.map(l => l && typeof l.product_id === 'string' ? l.product_id : ''))];
+  if (ids.includes('')) return { status:400, error:'Référence produit manquante.' };
+  const r = await pool.query(
+    "SELECT p.id,p.brand_id,p.reference,p.description,p.color,p.price,b.name AS brand_name FROM products p JOIN brands b ON b.id=p.brand_id WHERE p.id=ANY($1) AND p.active!=0 AND b.subscription_status IS DISTINCT FROM 'inactive'",
+    [ids]);
+  const byId = new Map(r.rows.map(p => [p.id,p]));
+  if (byId.size !== ids.length) return { status:400, error:'Une référence n’est plus disponible.' };
+  const locked = await getLockedBrandIds(buyerId, r.rows.map(p => p.brand_id));
+  if (locked.size) return { status:403, error:'Collection en accès anticipé.' };
+  const cleaned = [];
+  for (const l of items) {
+    if (!l || typeof l !== 'object' || Array.isArray(l)) return { status:400, error:'Ligne invalide.' };
+    const p = byId.get(l.product_id), qty = Number(l.qty);
+    if (!p || (l.brand_id && l.brand_id !== p.brand_id)) return { status:400, error:'Marque incohérente.' };
+    if (!Number.isSafeInteger(qty) || qty <= 0 || qty > MAX_LINE_QTY) return { status:400, error:'Quantité invalide.' };
+    if (typeof l.size !== 'string' || l.size.length > 80 || (l.note != null && (typeof l.note !== 'string' || l.note.length > 200))) return { status:400, error:'Taille ou note invalide.' };
+    cleaned.push({brand_id:p.brand_id,brand_name:p.brand_name,reference:p.reference,description:p.description,color:p.color,price:p.price,size:l.size,qty,note:l.note || ''});
+  }
+  return { items:cleaned };
+}
+
 app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (req, res) => {
   try {
     const { to, message, items } = req.body;
@@ -6143,34 +6175,9 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) return res.status(500).json({ error: 'Email non configuré' });
 
-    // Le PDF part par email vers un tiers depuis le domaine vérifié du showroom,
-    // sous le nom de l'acheteur authentifié — contrairement à /selection-pdf (un
-    // simple téléchargement local), on ne peut pas faire confiance au contenu
-    // (référence/description/prix/marque) fourni par le client : on ne garde de
-    // chaque ligne que product_id/qty/size/note, et on résout tout le reste
-    // (référence, désignation, couleur, prix, nom de marque) depuis la base.
-    const productIds = [...new Set(items.map(l => l?.product_id).filter(Boolean))];
-    if (!productIds.length) return res.status(400).json({ error: 'Sélection invalide' });
-    const prodRows = await pool.query(
-      `SELECT p.id, p.reference, p.description, p.color, p.price, p.brand_id, b.name AS brand_name
-       FROM products p JOIN brands b ON b.id = p.brand_id WHERE p.id = ANY($1)`,
-      [productIds]
-    );
-    const lockedBrands = await getLockedBrandIds(req.session.buyerPortal.id, prodRows.rows.map(p => p.brand_id));
-    const prodMap = Object.fromEntries(prodRows.rows.filter(p => !lockedBrands.has(p.brand_id)).map(p => [p.id, p]));
-    const trustedItems = items
-      .filter(l => l && prodMap[l.product_id])
-      .map(l => {
-        const p = prodMap[l.product_id];
-        return {
-          brand_id: p.brand_id, brand_name: p.brand_name, reference: p.reference,
-          description: p.description, color: p.color, price: p.price,
-          size: (l.size || '').toString().slice(0, 20),
-          qty: Math.max(1, parseInt(l.qty) || 0),
-          note: (l.note || '').toString().slice(0, 200),
-        };
-      });
-    if (!trustedItems.length) return res.status(400).json({ error: 'Sélection invalide' });
+    const checked = await resolveBuyerProposalItems(items, buyer.id);
+    if (checked.error) return res.status(checked.status).json({ error:checked.error });
+    const trustedItems = checked.items;
 
     const showroomName = await getSetting('showroom_name') || 'Showroom';
     const fromAddress = await getSetting('smtp_from') || 'showroom@editionsstandard.com';
@@ -7063,9 +7070,10 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
 
 app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
   try {
-    const items = req.body.items || [];
-    if (!Array.isArray(items) || !items.length || items.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
     const buyer = req.session.buyerPortal;
+    const checked = await resolveBuyerProposalItems(req.body?.items, buyer.id);
+    if (checked.error) return res.status(checked.status).json({ error:checked.error });
+    const items = checked.items;
     const showroomName = await getSetting('showroom_name') || 'Showroom';
     const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
