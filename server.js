@@ -5006,7 +5006,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     // New buyers receive a single-use, hashed activation token by email.
     // Until activation, no buyer session or order can be created.
     const email = String(sel.client_email || '').trim().toLowerCase();
-    if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse email de la sélection invalide.' });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse email de la sélection invalide.' });
     const existing = (await pool.query('SELECT id,email,name,company,phone,country,password_hash,mfa_enabled,activation_pending FROM buyers WHERE LOWER(email)=$1', [email])).rows[0];
     let buyer;
     if (!existing) {
