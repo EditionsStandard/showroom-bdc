@@ -12,7 +12,7 @@ before(async () => {
   email=id('buyer')+'@example.invalid';
   expiredToken=id('expired'); usedToken=id('used'); activeToken=id('active'); newToken=id('newbuyer');
   await withDb(server.dbUrl, async db => {
-    await db.query("INSERT INTO brands(id,name,subscription_status) VALUES($1,'Security Brand','active')",[brandId]);
+    await db.query("INSERT INTO brands(id,name,subscription_status,lookbook_url) VALUES($1,'Security Brand','active','https://example.invalid/embargoed-lookbook.pdf')",[brandId]);
     await db.query("INSERT INTO products(id,brand_id,reference,price,active,sizes) VALUES($1,$2,'SKU-SEC',120,1,'S,M')",[productId,brandId]);
     const passwordHash = await bcrypt.hash('TestBuyerPassword123!', 10);
     await db.query("INSERT INTO buyers(id,email,password_hash,name,country,activation_pending) VALUES($1,$2,$3,'Security Buyer','FR',false)",[buyerId,email,passwordHash]);
@@ -110,4 +110,39 @@ test('selection save and confirm reject oversized quantities without changing st
     assert.equal(row.used,false);
     assert.equal(JSON.parse(row.items_json)[0].quantity,1);
   });
+});
+
+test('embargoed lookbook URLs are absent from list and detail JSON, not just hidden by the browser',async()=>{
+  const cookie=await buyerCookie();
+  await withDb(server.dbUrl,db=>db.query("UPDATE brands SET early_access_until=NOW()+INTERVAL '7 days' WHERE id=$1",[brandId]));
+  try {
+    const index=await fetch(server.baseUrl+'/api/portal/brands',{headers:{Cookie:cookie}});
+    assert.equal(index.status,200);
+    const brand=(await index.json()).find(row=>row.id===brandId);
+    assert.ok(brand);
+    assert.equal(brand.early_access_locked,true);
+    assert.equal(brand.lookbook_url,null);
+    const detail=await fetch(server.baseUrl+'/api/portal/brands/'+brandId+'/products',{headers:{Cookie:cookie}});
+    assert.equal(detail.status,200);
+    const data=await detail.json();
+    assert.equal(data.brand.early_access_locked,true);
+    assert.equal(data.brand.lookbook_url,null);
+    assert.equal(data.products[0].price,undefined);
+    const pdf=await fetch(server.baseUrl+'/api/portal/selection-pdf',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({items:[{product_id:productId,brand_id:brandId,size:'S',qty:1,price:0}]})});
+    assert.equal(pdf.status,403,'embargoed price must not leak through generated PDF');
+  } finally {
+    await withDb(server.dbUrl,db=>db.query('UPDATE brands SET early_access_until=NULL WHERE id=$1',[brandId]));
+  }
+  const unlocked=await fetch(server.baseUrl+'/api/portal/brands',{headers:{Cookie:cookie}});
+  assert.equal((await unlocked.json()).find(row=>row.id===brandId).lookbook_url,'https://example.invalid/embargoed-lookbook.pdf');
+});
+
+test('buyer proposal PDF rejects forged IDs and invalid quantities, accepts canonical catalogue items',async()=>{
+  const cookie=await buyerCookie();
+  const url='/api/portal/selection-pdf';
+  assert.equal((await post(url,{items:[{product_id:id('unknown'),brand_id:brandId,qty:1,size:'S'}]},cookie)).status,400);
+  assert.equal((await post(url,{items:[{product_id:productId,brand_id:brandId,qty:100001,size:'S'}]},cookie)).status,400);
+  const ok=await fetch(server.baseUrl+url,{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({items:[{product_id:productId,brand_id:brandId,brand_name:'FAKE',reference:'FORGED',price:0,qty:2,size:'S'}]})});
+  assert.equal(ok.status,200);
+  assert.match(ok.headers.get('content-type')||'',/pdf/);
 });
