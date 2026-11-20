@@ -5,12 +5,12 @@ const { createHmac } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { startServer, withDb, id } = require('./helpers');
 
-let server, brandId, productId, buyerId, email, expiredToken, usedToken, activeToken, newToken;
+let server, brandId, productId, buyerId, email, expiredToken, usedToken, activeToken, newToken, draftToken;
 before(async () => {
   server = await startServer({ dbNameSuffix: 'secondary_security', port: 3232 });
   brandId=id('brand'); productId=id('product'); buyerId=id('buyer');
   email=id('buyer')+'@example.invalid';
-  expiredToken=id('expired'); usedToken=id('used'); activeToken=id('active'); newToken=id('newbuyer');
+  expiredToken=id('expired'); usedToken=id('used'); activeToken=id('active'); newToken=id('newbuyer'); draftToken=id('draft');
   await withDb(server.dbUrl, async db => {
     await db.query("INSERT INTO brands(id,name,subscription_status,lookbook_url) VALUES($1,'Security Brand','active','https://example.invalid/embargoed-lookbook.pdf')",[brandId]);
     await db.query("INSERT INTO products(id,brand_id,reference,price,active,sizes) VALUES($1,$2,'SKU-SEC',120,1,'S,M')",[productId,brandId]);
@@ -26,6 +26,7 @@ before(async () => {
     ]) await db.query(
       "INSERT INTO agent_selections(token,brand_id,client_email,client_name,items_json,expires_at,used) VALUES($1,$2,$3,'Security Customer',$4,"+condition+",$5)",
       [token,brandId,recipient,data,used]);
+    await db.query("INSERT INTO agent_selections(token,brand_id,client_email,client_name,items_json,expires_at,used,status) VALUES($1,$2,$3,'Internal draft',$4,NOW()+INTERVAL '1 day',false,'draft')",[draftToken,brandId,email,data]);
   });
 });
 after(() => server?.stop());
@@ -145,4 +146,43 @@ test('buyer proposal PDF rejects forged IDs and invalid quantities, accepts cano
   const ok=await fetch(server.baseUrl+url,{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({items:[{product_id:productId,brand_id:brandId,brand_name:'FAKE',reference:'FORGED',price:0,qty:2,size:'S'}]})});
   assert.equal(ok.status,200);
   assert.match(ok.headers.get('content-type')||'',/pdf/);
+});
+
+test('internal draft selections cannot be opened, exported, saved or confirmed through public bearer routes',async()=>{
+  for(const path of ['/api/selection/'+draftToken,'/api/selection/'+draftToken+'/pdf']){
+    const r=await fetch(server.baseUrl+path);
+    assert.equal(r.status,404,path);
+    assert.match(r.headers.get('cache-control')||'',/no-store/);
+  }
+  assert.equal((await post('/api/selection/'+draftToken+'/save',{lines:[{product_id:productId,size:'S',quantity:2}]})).status,404);
+  assert.equal((await post('/api/selection/'+draftToken+'/confirm',{password:'TestBuyerPassword123!',signature:'signed',cgv_accepted:true,lines:[{product_id:productId,size:'S',quantity:2}]})).status,404);
+  await withDb(server.dbUrl,async db=>{
+    const a=(await db.query('SELECT used,items_json FROM agent_selections WHERE token=$1',[draftToken])).rows[0];
+    assert.equal(a.used,false);
+    assert.equal(JSON.parse(a.items_json)[0].quantity,1);
+  });
+});
+
+test('bearer pages carry no-store and no-referrer even when HTML helper is used',async()=>{
+  const page=await fetch(server.baseUrl+'/selection/'+activeToken);
+  assert.equal(page.status,200);
+  assert.match(page.headers.get('cache-control')||'',/no-store/);
+  assert.equal(page.headers.get('referrer-policy'),'no-referrer');
+  const api=await fetch(server.baseUrl+'/api/selection/'+activeToken);
+  assert.equal(api.status,200);
+  assert.match(api.headers.get('cache-control')||'',/no-store/);
+});
+
+test('selection write enforces active collection embargo like selection reading',async()=>{
+  await withDb(server.dbUrl,db=>db.query("UPDATE brands SET early_access_until=NOW()+INTERVAL '7 days' WHERE id=$1",[brandId]));
+  try{
+    const change=await post('/api/selection/'+activeToken+'/save',{lines:[{product_id:productId,size:'S',quantity:2}]});
+    assert.equal(change.status,403);
+    await withDb(server.dbUrl,async db=>{
+      const row=(await db.query('SELECT items_json FROM agent_selections WHERE token=$1',[activeToken])).rows[0];
+      assert.equal(JSON.parse(row.items_json)[0].quantity,1);
+    });
+  }finally{
+    await withDb(server.dbUrl,db=>db.query('UPDATE brands SET early_access_until=NULL WHERE id=$1',[brandId]));
+  }
 });
