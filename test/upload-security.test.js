@@ -3,15 +3,16 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { Readable } = require('node:stream');
-const { Jimp } = require('jimp');
+const sharp = require('sharp');
 const {
   isVerifiedImage, isVerifiedPdf, createBoundedDiskStorage, removeTemporaryFiles,
   MAX_BULK_BYTES
 } = require('../lib/upload-security');
 
 async function imageFixture(mime) {
-  const image = new Jimp({ width: 3, height: 2, color: 0xff8844ff });
-  return image.getBuffer(mime);
+  const method = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpeg' : null;
+  if (!method) throw new Error('Unsupported fixture format');
+  return sharp({ create: { width: 3, height: 2, channels: 4, background: { r: 255, g: 136, b: 68, alpha: 1 } } })[method]().toBuffer();
 }
 
 test('accepts decodable JPEG and PNG with their real MIME type', async () => {
