@@ -2,6 +2,8 @@ name: Image library usage inventory
 on:
   push:
     branches: [security/2026-11-image-library-inventory]
+  pull_request:
+    branches: [main]
 jobs:
   scan:
     runs-on: ubuntu-latest
