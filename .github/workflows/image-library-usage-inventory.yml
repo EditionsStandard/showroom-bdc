@@ -1,0 +1,17 @@
+name: Image library usage inventory
+on:
+  push:
+    branches: [security/2026-11-image-library-inventory]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find direct image library imports and usage
+        run: |
+          echo "=== all files matching Jimp / file-type / phin ==="
+          git grep -n -i -E '(jimp|file-type|filetypefrom|filetype\.from|phin)' -- '*.js' '*.cjs' '*.mjs' '*.ts' ':!package-lock.json' || true
+          echo "=== all JavaScript source file paths ==="
+          git ls-files '*.js' '*.cjs' '*.mjs' '*.ts' | head -100
