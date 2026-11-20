@@ -333,8 +333,13 @@ app.use((req, res, next) => {
   // Données privées (commandes, acheteurs, staff, sécurité...) : jamais de cache
   // navigateur/proxy intermédiaire. Les routes qui servent déjà un fichier
   // (PDF) posent en plus leur propre Content-Disposition, ce header ne les gêne pas.
-  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/') || req.path.startsWith('/api/wholesale-commissions') || req.path.startsWith('/api/agent-selections')) {
+  if (req.path.startsWith('/api/portal') || req.path.startsWith('/api/admin') || req.path.startsWith('/api/staff') || req.path.startsWith('/api/buyers') || req.path.startsWith('/api/orders') || req.path.startsWith('/api/buyer/') || req.path.startsWith('/api/wholesale-commissions') || req.path.startsWith('/api/agent-selections')
+      || req.path.startsWith('/api/selection/') || req.path.startsWith('/selection/') || req.path.startsWith('/share/') || req.path.startsWith('/api/invite/')) {
     res.setHeader('Cache-Control', 'no-store, private');
+  }
+  // Links carrying a bearer secret must not be included in outbound Referer headers.
+  if (req.path.startsWith('/selection/') || req.path.startsWith('/share/') || req.path.startsWith('/c/') || req.path.startsWith('/commande/')) {
+    res.setHeader('Referrer-Policy', 'no-referrer');
   }
   next();
 });
@@ -4909,11 +4914,14 @@ app.get('/api/selection/:token', publicLimiter, async (req, res) => {
 app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
   try {
     const { lines } = req.body;
+    if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Quantités invalides' });
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
-    if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (!sel || sel.status === 'draft') return res.status(404).json({ error: 'Sélection introuvable' });
     if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
-    if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    if (new Date(sel.expires_at) <= new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    const buyer = (await pool.query('SELECT id FROM buyers WHERE LOWER(email)=LOWER($1)', [sel.client_email])).rows[0];
+    if ((await getLockedBrandIds(buyer?.id || null, [sel.brand_id])).size) return res.status(403).json({ error: 'Collection en accès anticipé' });
 
     const stored = JSON.parse(sel.items_json || '[]');
     const selectedIds = new Set(stored.map(i => i.product_id));
@@ -4924,7 +4932,7 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
     stored.forEach(i => { if (i.note && !notesByProduct[i.product_id]) notesByProduct[i.product_id] = i.note; });
 
     const prodRows = selectedIds.size
-      ? (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1)', [[...selectedIds]])).rows
+      ? (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1) AND brand_id=$2', [[...selectedIds], sel.brand_id])).rows
       : [];
     const sizeMap = Object.fromEntries(prodRows.map(p => [p.id, (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean)]));
 
@@ -4934,10 +4942,14 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
       if (!l || typeof l !== 'object') continue;
       const pid = l.product_id;
       if (!selectedIds.has(pid)) continue; // uniquement les références déjà dans la sélection
-      const sz = (l.size || '').toString();
+      const sz = String(l.size || '');
+      const color = String(l.variant_color || '');
+      if (sz.length > 60 || color.length > 60) return res.status(400).json({ error: 'Variante invalide' });
+      const qty = Number(l.quantity);
+      if (!Number.isSafeInteger(qty) || qty < 0 || qty > MAX_LINE_QTY) return res.status(400).json({ error: 'Quantité invalide' });
       const validSizes = sizeMap[pid] || [];
       if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
-      agg[JSON.stringify([pid, String(l.variant_color || ''), sz])] = Math.max(0, parseInt(l.quantity) || 0);
+      agg[JSON.stringify([pid, color, sz])] = qty;
     }
     // Conserve toute référence de la sélection absente du panier envoyé (à 0)
     // plutôt que de la faire disparaître — un envoi partiel ne doit pas
@@ -4964,10 +4976,15 @@ app.get('/api/selection/:token/pdf', publicLimiter, async (req, res) => {
       'SELECT a.*, b.name AS brand_name, b.logo AS brand_logo, b.logo_url AS brand_logo_url FROM agent_selections a JOIN brands b ON b.id=a.brand_id WHERE a.token=$1',
       [req.params.token]);
     const s = r.rows[0];
-    if (!s) return res.status(404).json({ error: 'Sélection introuvable' });
+    if (!s || s.status === 'draft') return res.status(404).json({ error: 'Sélection introuvable' });
+    // A bearer link must not survive the same expiration, approval and early-access
+    // checks enforced by GET /api/selection/:token.
+    if (s.used || new Date(s.expires_at) <= new Date()) return res.status(410).json({ error: 'Cette sélection a expiré ou a déjà été validée.' });
+    const buyer = (await pool.query('SELECT id FROM buyers WHERE LOWER(email)=LOWER($1)', [s.client_email])).rows[0];
+    if ((await getLockedBrandIds(buyer?.id || null, [s.brand_id])).size) return res.status(403).json({ error: 'Collection en accès anticipé' });
     const items = JSON.parse(s.items_json || '[]');
     const ids = [...new Set(items.map(i => i.product_id))];
-    const prods = ids.length ? await pool.query('SELECT * FROM products WHERE id = ANY($1)', [ids]) : { rows: [] };
+    const prods = ids.length ? await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id=$2 AND (active != 0 OR is_sample=true)', [ids, s.brand_id]) : { rows: [] };
     const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
     const lines = items.filter(i => pmap[i.product_id]).map(i => ({ ...i, product: pmap[i.product_id] }));
     const [showroomName, agentName] = await Promise.all([getSetting('showroom_name'), getSetting('agent_name')]);
@@ -6233,23 +6250,48 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
 // ── Partage sélection ────────────────────────────────────────────────
 app.post('/api/portal/share', requireBuyerAuth, async (req, res) => {
   try {
-    const items = req.body.items || [];
-    if (!items.length) return res.status(400).json({ error: 'Sélection vide' });
-    const token = crypto.randomBytes(12).toString('hex');
-    const expires = new Date(Date.now() + 7 * 24 * 3600 * 1000); // 7 days
-    await pool.query(
-      'INSERT INTO selection_shares (token, buyer_id, items_json, expires_at) VALUES ($1,$2,$3,$4)',
-      [token, req.session.buyerPortal.id, JSON.stringify(items), expires]
+    const submitted = req.body?.items;
+    if (!Array.isArray(submitted) || !submitted.length || submitted.length > 200) {
+      return res.status(400).json({ error: 'Sélection invalide (200 lignes maximum)' });
+    }
+    // The buyer's browser is not a trusted price source. A shared official-looking
+    // showroom document must use product/brand names and wholesale prices from DB.
+    for (const line of submitted) {
+      if (!line || typeof line !== 'object' || typeof line.product_id !== 'string' || typeof line.brand_id !== 'string'
+          || !Number.isSafeInteger(Number(line.qty)) || Number(line.qty) < 1 || Number(line.qty) > MAX_LINE_QTY
+          || typeof line.size !== 'string' || line.size.length > 60
+          || typeof line.color !== 'string' || line.color.length > 60) {
+        return res.status(400).json({ error: 'Ligne de sélection invalide' });
+      }
+    }
+    const ids = [...new Set(submitted.map(x => x.product_id))];
+    const result = await pool.query(
+      'SELECT p.id,p.brand_id,p.reference,p.description,p.color,p.price,p.active,b.name AS brand_name,b.subscription_status FROM products p JOIN brands b ON b.id=p.brand_id WHERE p.id=ANY($1)', [ids]
     );
+    const map = new Map(result.rows.map(p => [p.id, p]));
+    const locked = await getLockedBrandIds(req.session.buyerPortal.id, [...new Set(submitted.map(x => x.brand_id))]);
+    const items = submitted.map(line => {
+      const product = map.get(line.product_id);
+      if (!product || product.brand_id !== line.brand_id || product.active === 0 || product.subscription_status === 'inactive' || locked.has(line.brand_id)) return null;
+      return { brand_id: product.brand_id, brand_name: product.brand_name, product_id: product.id,
+        reference: product.reference, description: product.description, color: line.color || product.color || '',
+        size: line.size, qty: Number(line.qty), price: Number(product.price) };
+    });
+    if (items.some(x => !x)) return res.status(403).json({ error: 'Un produit n’est plus disponible pour le partage' });
+    const token = crypto.randomBytes(24).toString('hex');
+    const expires = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    await pool.query('INSERT INTO selection_shares (token, buyer_id, items_json, expires_at) VALUES ($1,$2,$3,$4)',
+      [token, req.session.buyerPortal.id, JSON.stringify(items), expires]);
+    res.setHeader('Cache-Control', 'no-store, private');
     res.json({ token });
-  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+  } catch(e) { console.error('portal share:', e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 app.get('/share/:token', async (req, res) => {
   const r = await pool.query('SELECT * FROM selection_shares WHERE token=$1 AND expires_at > NOW()', [req.params.token]);
   if (!r.rows[0]) return res.status(404).send('<h2>Lien expiré ou invalide.</h2>');
   const items = JSON.parse(r.rows[0].items_json || '[]');
-  const showroomName = await getSetting('showroom_name') || 'Showroom';
+  const showroomName = escHtml(await getSetting('showroom_name') || 'Showroom');
   const byBrand = {};
   items.forEach(l => { (byBrand[l.brand_name||'?'] = byBrand[l.brand_name||'?'] || []).push(l); });
   const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price||0), 0);
