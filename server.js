@@ -4909,6 +4909,7 @@ app.get('/api/selection/:token', publicLimiter, async (req, res) => {
 app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
   try {
     const { lines } = req.body;
+    if (!Array.isArray(lines) || lines.length > 500) return res.status(400).json({ error: 'Sélection invalide (500 lignes maximum).' });
     const r = await pool.query('SELECT * FROM agent_selections WHERE token=$1', [req.params.token]);
     const sel = r.rows[0];
     if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
@@ -4937,7 +4938,9 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
       const sz = (l.size || '').toString();
       const validSizes = sizeMap[pid] || [];
       if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
-      agg[JSON.stringify([pid, String(l.variant_color || ''), sz])] = Math.max(0, parseInt(l.quantity) || 0);
+      const qty = Number(l.quantity);
+      if (!Number.isSafeInteger(qty) || qty < 0 || qty > MAX_LINE_QTY) return res.status(400).json({ error: 'Quantité invalide ou excessive.' });
+      agg[JSON.stringify([pid, String(l.variant_color || '').slice(0, 60), sz])] = qty;
     }
     // Conserve toute référence de la sélection absente du panier envoyé (à 0)
     // plutôt que de la faire disparaître — un envoi partiel ne doit pas
@@ -4965,9 +4968,15 @@ app.get('/api/selection/:token/pdf', publicLimiter, async (req, res) => {
       [req.params.token]);
     const s = r.rows[0];
     if (!s) return res.status(404).json({ error: 'Sélection introuvable' });
+    // A bearer selection PDF is not a permanent archive: the same expiry,
+    // one-time-use and early-access policy as the public selection API applies.
+    if (s.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
+    if (!s.expires_at || new Date(s.expires_at) <= new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    const buyer = (await pool.query('SELECT id FROM buyers WHERE LOWER(email)=LOWER($1)', [s.client_email])).rows[0];
+    if ((await getLockedBrandIds(buyer?.id || null, [s.brand_id])).size) return res.status(403).json({ error: 'Collection en accès anticipé' });
     const items = JSON.parse(s.items_json || '[]');
     const ids = [...new Set(items.map(i => i.product_id))];
-    const prods = ids.length ? await pool.query('SELECT * FROM products WHERE id = ANY($1)', [ids]) : { rows: [] };
+    const prods = ids.length ? await pool.query('SELECT * FROM products WHERE id = ANY($1) AND brand_id=$2 AND (active != 0 OR is_sample=true)', [ids, s.brand_id]) : { rows: [] };
     const pmap = Object.fromEntries(prods.rows.map(p => [p.id, p]));
     const lines = items.filter(i => pmap[i.product_id]).map(i => ({ ...i, product: pmap[i.product_id] }));
     const [showroomName, agentName] = await Promise.all([getSetting('showroom_name'), getSetting('agent_name')]);
@@ -4993,29 +5002,45 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     if (!sel) return res.status(404).json({ error: 'Sélection introuvable' });
     if (sel.used) return res.status(410).json({ error: 'Cette sélection a déjà été validée.' });
     if (new Date(sel.expires_at) < new Date()) return res.status(410).json({ error: 'Cette sélection a expiré.' });
+    // A bearer selection link does not prove ownership of the email address.
+    // New buyers receive a single-use, hashed activation token by email.
+    // Until activation, no buyer session or order can be created.
+    const email = String(sel.client_email || '').trim().toLowerCase();
+    if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) return res.status(400).json({ error: 'Adresse email de la sélection invalide.' });
+    const existing = (await pool.query('SELECT id,email,name,company,phone,country,password_hash,mfa_enabled,activation_pending FROM buyers WHERE LOWER(email)=$1', [email])).rows[0];
+    let buyer;
+    if (!existing) {
+      if (!process.env.RESEND_API_KEY) return res.status(503).json({ error: 'Vérification par email temporairement indisponible.', code: 'activation_unavailable' });
+      const id = uuidv4(), token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const unreachableHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const db = await pool.connect();
+      let created = false;
+      try {
+        await db.query('BEGIN');
+        const inserted = await db.query(
+          "INSERT INTO buyers(id,email,password_hash,name,company,activation_pending,access_source,login_history_known) VALUES($1,$2,$3,$4,$5,true,'agent_selection',true) ON CONFLICT (email) DO NOTHING RETURNING id",
+          [id,email,unreachableHash,sel.client_name || '',sel.client_company || '']);
+        created = inserted.rowCount === 1;
+        if (created) await db.query("INSERT INTO buyer_password_resets(token,buyer_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '60 minutes')", [tokenHash,id]);
+        await db.query('COMMIT');
+      } catch(error) { await db.query('ROLLBACK'); throw error; }
+      finally { db.release(); }
+      if (!created) return res.status(409).json({ error: 'Un compte existe déjà pour cette adresse. Actualisez cette page ou activez votre compte par email.' });
+      const url = getBaseUrl(req) + '/editions-showroom-b2b-portail?activation=1&token=' + token;
+      const emailed = await sendApprovedBuyerEmail({buyerId:id,name:sel.client_name || '',email,url,needsActivation:true});
+      if (!emailed) return res.status(503).json({ error: 'Compte créé, mais le message de vérification n’a pas pu être envoyé. Contactez le showroom pour recevoir un nouveau lien.', code: 'activation_email_failed' });
+      res.setHeader('Cache-Control', 'no-store, private');
+      return res.status(202).json({ verification_required:true, message:'Un lien de vérification vient d’être envoyé à ' + email + '. Activez votre compte, puis revenez sur cette sélection pour confirmer votre commande.' });
+    }
+    if (existing.activation_pending) return res.status(403).json({ error: 'Activez votre compte avec le lien reçu par email, puis actualisez la sélection.' });
     if (!signature) return res.status(400).json({ error: 'Signature requise' });
     if (!cgv_accepted) return res.status(400).json({ error: 'Acceptation des CGV requise' });
-
-    // Compte acheteur : créer (nouveau) ou authentifier (existant)
-    const email = sel.client_email;
-    const existing = (await pool.query('SELECT id, email, name, company, phone, country, password_hash, mfa_enabled, activation_pending FROM buyers WHERE email=$1', [email])).rows[0];
-    let buyer;
-    if (existing) {
-      if (existing.activation_pending) return res.status(403).json({error:'Activez votre compte avec le lien reçu par email.'});
-      if (existing.mfa_enabled && (req.session.buyerPortal?.id !== existing.id || !isSessionFresh(req,BUYER_IDLE_TIMEOUT_MS,BUYER_ABSOLUTE_TIMEOUT_MS))) return res.status(403).json({error:'Connectez-vous au portail avec votre authentification à deux facteurs, puis rouvrez cette sélection.'});
-      // Compte déjà existant : on exige le mot de passe pour confirmer l'identité
-      if (!password || !await bcrypt.compare(password, existing.password_hash)) {
-        return res.status(401).json({ error: 'Mot de passe incorrect. Saisissez le mot de passe de votre compte acheteur.', account_exists: true });
-      }
-      buyer = { id: existing.id, email: existing.email, name: existing.name, company: existing.company, phone: existing.phone, country: existing.country };
-    } else {
-      if (!password || password.length < 12) return res.status(400).json({ error: 'Choisissez un mot de passe (12 caractères minimum)' });
-      const hash = await bcrypt.hash(password, 10);
-      const id = uuidv4();
-      await pool.query(`INSERT INTO buyers (id,email,password_hash,name,company,access_source,activated_at,login_history_known) VALUES ($1,$2,$3,$4,$5,'agent_selection',NOW(),true)`,
-        [id, email, hash, sel.client_name || '', sel.client_company || '']);
-      buyer = { id, email, name: sel.client_name || '', company: sel.client_company || '', phone: '', country: '' };
+    if (existing.mfa_enabled && (req.session.buyerPortal?.id !== existing.id || !isSessionFresh(req, BUYER_IDLE_TIMEOUT_MS, BUYER_ABSOLUTE_TIMEOUT_MS))) {
+      return res.status(403).json({ error: 'Connectez-vous au portail avec votre authentification à deux facteurs, puis rouvrez cette sélection.' });
     }
+    if (!password || !await bcrypt.compare(password, existing.password_hash)) return res.status(401).json({ error: 'Mot de passe incorrect. Saisissez le mot de passe de votre compte acheteur.', account_exists:true });
+    buyer = { id:existing.id, email:existing.email, name:existing.name, company:existing.company, phone:existing.phone, country:existing.country };
 
     // Lignes : le client fixe lui-même les quantités par taille. On valide chaque ligne
     // contre les références de la sélection et leurs tailles réellement disponibles.
@@ -5023,6 +5048,7 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
     const selectedIds = new Set(stored.map(i => i.product_id));
     const prodRows = (await pool.query('SELECT id, sizes FROM products WHERE id = ANY($1)', [[...selectedIds]])).rows;
     const sizeMap = Object.fromEntries(prodRows.map(p => [p.id, (p.sizes || '').split(',').map(s => s.trim()).filter(Boolean)]));
+    if (lines !== undefined && (!Array.isArray(lines) || lines.length > 500)) return res.status(400).json({ error: 'Sélection invalide (500 lignes maximum).' });
     const submitted = Array.isArray(lines) ? lines : stored; // repli : quantités stockées si rien n'est fourni
     // Agrège par product_id|size et ne garde que le valide
     const agg = {};
@@ -5033,8 +5059,9 @@ app.post('/api/selection/:token/confirm', confirmLimiter, async (req, res) => {
       const sz = (l.size || '').toString();
       const validSizes = sizeMap[pid] || [];
       if (validSizes.length && sz && !validSizes.includes(sz)) continue; // taille inexistante ignorée
-      const q = parseInt(l.quantity) || 0;
-      if (q <= 0) continue;
+      const q = Number(l.quantity);
+      if (!Number.isSafeInteger(q) || q < 0 || q > MAX_LINE_QTY) return res.status(400).json({ error: 'Quantité invalide ou excessive.' });
+      if (q === 0) continue;
       const key = JSON.stringify([pid, String(l.variant_color || ''), sz]);
       agg[key] = (agg[key] || 0) + q;
     }
@@ -6231,18 +6258,34 @@ app.post('/api/portal/selection-email', requireBuyerAuth, emailLimiter, async (r
 });
 
 // ── Partage sélection ────────────────────────────────────────────────
-app.post('/api/portal/share', requireBuyerAuth, async (req, res) => {
+app.post('/api/portal/share', requireBuyerAuth, cartLimiter, async (req, res) => {
   try {
-    const items = req.body.items || [];
-    if (!items.length) return res.status(400).json({ error: 'Sélection vide' });
-    const token = crypto.randomBytes(12).toString('hex');
-    const expires = new Date(Date.now() + 7 * 24 * 3600 * 1000); // 7 days
-    await pool.query(
-      'INSERT INTO selection_shares (token, buyer_id, items_json, expires_at) VALUES ($1,$2,$3,$4)',
-      [token, req.session.buyerPortal.id, JSON.stringify(items), expires]
-    );
+    const items = req.body?.items;
+    if (!Array.isArray(items) || !items.length || items.length > 500) return res.status(400).json({ error: 'Sélection invalide (500 articles maximum).' });
+    const ids = [...new Set(items.map(item => item && typeof item.product_id === 'string' ? item.product_id : ''))];
+    if (ids.includes('')) return res.status(400).json({ error: 'Référence produit manquante.' });
+    const result = await pool.query(
+      "SELECT p.id,p.brand_id,p.reference,p.price,b.name AS brand_name FROM products p JOIN brands b ON b.id=p.brand_id WHERE p.id=ANY($1) AND p.active != 0 AND (b.subscription_status IS NULL OR b.subscription_status != 'inactive')", [ids]);
+    const productMap = new Map(result.rows.map(row => [row.id, row]));
+    if (productMap.size !== ids.length) return res.status(400).json({ error: 'Une référence ne fait plus partie du catalogue disponible.' });
+    const locked = await getLockedBrandIds(req.session.buyerPortal.id, [...new Set(result.rows.map(row => row.brand_id))]);
+    if (locked.size) return res.status(403).json({ error: 'Collection en accès anticipé.' });
+    const cleanItems = [];
+    for (const item of items) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return res.status(400).json({ error: 'Article invalide.' });
+      const product = productMap.get(item.product_id);
+      if (!product || product.brand_id !== item.brand_id) return res.status(400).json({ error: 'Marque ou produit incohérent.' });
+      const qty = Number(item.qty);
+      if (!Number.isSafeInteger(qty) || qty <= 0 || qty > MAX_LINE_QTY) return res.status(400).json({ error: 'Quantité invalide.' });
+      if (typeof item.color !== 'string' || typeof item.size !== 'string' || item.color.length > 100 || item.size.length > 80) return res.status(400).json({ error: 'Coloris ou taille invalide.' });
+      cleanItems.push({ brand_name:product.brand_name, reference:product.reference, color:item.color, size:item.size, qty, price:Number(product.price) || 0 });
+    }
+    const token = crypto.randomBytes(24).toString('hex');
+    const expires = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    await pool.query('INSERT INTO selection_shares (token,buyer_id,items_json,expires_at) VALUES ($1,$2,$3,$4)', [token,req.session.buyerPortal.id,JSON.stringify(cleanItems),expires]);
+    res.setHeader('Cache-Control', 'no-store, private');
     res.json({ token });
-  } catch(e) { console.error(e); res.status(500).json({ error: "Erreur serveur" }); }
+  } catch(error) { console.error('share-selection:',error); res.status(500).json({ error:'Partage indisponible.' }); }
 });
 
 app.get('/share/:token', async (req, res) => {
@@ -6250,6 +6293,8 @@ app.get('/share/:token', async (req, res) => {
   if (!r.rows[0]) return res.status(404).send('<h2>Lien expiré ou invalide.</h2>');
   const items = JSON.parse(r.rows[0].items_json || '[]');
   const showroomName = await getSetting('showroom_name') || 'Showroom';
+  res.setHeader('Cache-Control','no-store, private');
+  res.setHeader('Referrer-Policy','no-referrer');
   const byBrand = {};
   items.forEach(l => { (byBrand[l.brand_name||'?'] = byBrand[l.brand_name||'?'] || []).push(l); });
   const grandTotal = items.reduce((s, l) => s + l.qty * parseFloat(l.price||0), 0);
@@ -6257,7 +6302,7 @@ app.get('/share/:token', async (req, res) => {
     `<h3 style="margin:24px 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid rgba(17,17,17,.1);padding-bottom:6px">${escHtml(brand)}</h3>` +
     lines.map(l => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px"><span><strong>${escHtml(l.reference)}</strong>${l.color?' · '+escHtml(l.color):''}${l.size?' · '+escHtml(l.size):''}</span><span>× ${escHtml(String(l.qty))} — ${(l.qty*parseFloat(l.price||0)).toFixed(2)} €</span></div>`).join('')
   ).join('');
-  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sélection — ${showroomName}</title><style>body{font-family:'Helvetica Neue',sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#111}.header{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}.tag{display:inline-block;background:rgba(224,176,58,.1);border:1px solid #d4a017;color:#8a6500;font-size:11px;padding:3px 10px;border-radius:12px;margin-bottom:16px}.total{background:#111;color:#fff;padding:14px 18px;margin-top:24px;font-weight:700;display:flex;justify-content:space-between;font-size:15px}</style></head><body><div class="header"><h1 style="font-size:22px;margin:0 0 4px">${showroomName}</h1><p style="color:#888;font-size:12px;margin:0">Sélection partagée — lecture seule</p></div><span class="tag">NON CONTRACTUEL</span>${rows}<div class="total"><span>TOTAL HT</span><span>${grandTotal.toFixed(2)} €</span></div><p style="color:#aaa;font-size:11px;margin-top:24px;text-align:center">Ce document est non contractuel. La commande doit être validée sur le portail.</p></body></html>`);
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sélection — ${escHtml(showroomName)}</title><style>body{font-family:'Helvetica Neue',sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#111}.header{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}.tag{display:inline-block;background:rgba(224,176,58,.1);border:1px solid #d4a017;color:#8a6500;font-size:11px;padding:3px 10px;border-radius:12px;margin-bottom:16px}.total{background:#111;color:#fff;padding:14px 18px;margin-top:24px;font-weight:700;display:flex;justify-content:space-between;font-size:15px}</style></head><body><div class="header"><h1 style="font-size:22px;margin:0 0 4px">${escHtml(showroomName)}</h1><p style="color:#888;font-size:12px;margin:0">Sélection partagée — lecture seule</p></div><span class="tag">NON CONTRACTUEL</span>${rows}<div class="total"><span>TOTAL HT</span><span>${grandTotal.toFixed(2)} €</span></div><p style="color:#aaa;font-size:11px;margin-top:24px;text-align:center">Ce document est non contractuel. La commande doit être validée sur le portail.</p></body></html>`);
 });
 
 app.get('/api/portal/cart-state', requireBuyerAuth, async (req,res) => {
@@ -7926,7 +7971,7 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   if (resendKey && adminEmail) {
     const resend = newResendClient(resendKey);
     const from = fromAddress || 'showroom@editionsstandard.com';
-    const adminUrl = `${req.protocol}://${req.get('host')}/admin`;
+    const adminUrl = `${getBaseUrl(req)}/admin`;
     const { error: sendErr } = await resend.emails.send({
       from: `${showroomName} <${from}>`,
       to: [adminEmail],
