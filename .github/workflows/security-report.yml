@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - security/2026-11-dependency-audit-details
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 jobs:
   advisory-inventory:
