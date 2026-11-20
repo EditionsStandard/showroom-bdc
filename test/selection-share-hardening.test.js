@@ -78,3 +78,14 @@ test('buyer cannot forge cross-brand product or arbitrary line totals',async()=>
   assert.equal((await json('/api/portal/share','POST',{items:[{...base,qty:99999999999}]},globalThis.buyerCookie)).status,400);
   assert.equal((await json('/api/portal/share','POST',{items:Array(201).fill(base)},globalThis.buyerCookie)).status,400);
 });
+
+test('buyer-generated selection PDF rejects forged product/brand and huge quantities', async () => {
+  const base={brand_id:brandId,product_id:productId,brand_name:'FAKE',reference:'FORGED',price:0.01,color:'Black',size:'M',qty:2};
+  const invalid=await fetch(server.baseUrl+'/api/portal/selection-pdf',{method:'POST',headers:{Cookie:globalThis.buyerCookie,'Content-Type':'application/json'},body:JSON.stringify({items:[{...base,brand_id:otherBrand}]})});
+  assert.equal(invalid.status,403);
+  const huge=await fetch(server.baseUrl+'/api/portal/selection-pdf',{method:'POST',headers:{Cookie:globalThis.buyerCookie,'Content-Type':'application/json'},body:JSON.stringify({items:[{...base,qty:100000000000}]})});
+  assert.equal(huge.status,400);
+  const valid=await fetch(server.baseUrl+'/api/portal/selection-pdf',{method:'POST',headers:{Cookie:globalThis.buyerCookie,'Content-Type':'application/json'},body:JSON.stringify({items:[base]})});
+  assert.equal(valid.status,200);
+  assert.match(valid.headers.get('content-type')||'',/application\/pdf/);
+});
