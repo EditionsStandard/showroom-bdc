@@ -318,10 +318,10 @@ require('./lib/buyer-engagement-email-links').registerPublicEmailLinks({app,pool
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// P0-01/02/03 — Portail B2B PRIVÉ : aucune page (commande, admin, agent, portail,
-// sélection, PDF) ne doit être indexée. On pose un noindex GLOBAL au niveau HTTP
-// (couvre HTML *et* PDF, contrairement à une simple meta) + un robots.txt qui
-// interdit tout le crawl. Protège prix wholesale, sélections et signatures.
+// Portail B2B privé : X-Robots-Tag interdit l'indexation des pages et PDF.
+// ATTENTION : ne jamais bloquer ces pages dans robots.txt : un crawler bloqué
+// ne peut pas lire noindex et une ancienne URL peut rester indexée.
+// La confidentialité dépend de l'autorisation serveur, PAS de robots.txt/noindex.
 app.use((req, res, next) => {
   res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
   // CSP frame-ancestors 'none' (ci-dessus) est déjà la protection anti-framing
@@ -339,7 +339,10 @@ app.use((req, res, next) => {
   next();
 });
 app.get('/robots.txt', (req, res) => {
-  res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+  // Laisser les robots lire les reponses noindex/403 des anciennes URLs.
+  // Disallow: / serait contradictoire et pourrait maintenir une URL indexee.
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('text/plain').send('User-agent: *\nAllow: /\n');
 });
 
 // CSRF — couche additionnelle en plus des cookies SameSite=Lax (déjà une
@@ -792,7 +795,9 @@ function slugify(str) {
 async function uniqueSlugFor(table, brandName) {
   const base = slugify(brandName) || crypto.randomBytes(3).toString('hex');
   while (true) {
-    const candidate = `${base}-${crypto.randomBytes(4).toString('hex')}`;
+    // 128 bits d'aleatoire pour un lien bearer sans connexion ; les anciens
+    // slugs deja emis restent valides jusqu'a leur expiration/revocation.
+    const candidate = `${base}-${crypto.randomBytes(16).toString('hex')}`;
     const exists = await pool.query(`SELECT 1 FROM ${table} WHERE slug=$1`, [candidate]);
     if (!exists.rows.length) return candidate;
   }
@@ -4236,7 +4241,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/public/brands', async (req, res) => {
-  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image, thumbnail, lookbook_url FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
+  // Ancien index public : ne jamais exposer des liens B2B (lookbook, etc.).
+  // Garder le minimum necessaire a public/index.html (logo + cover).
+  res.setHeader('Cache-Control', 'no-store, private');
+  const r = await pool.query("SELECT id, name, logo, logo_url, cover_image FROM brands WHERE subscription_status != 'inactive' ORDER BY name");
   res.json(r.rows);
 });
 
@@ -4250,6 +4258,9 @@ app.get('/api/public/brands', async (req, res) => {
 async function hasCommandeAccess(req, brandId) {
   const role = getRole(req);
   if (role) {
+    // Les routes /commande et /api/public/brands/:brandId ne passent pas
+    // par requireRole ; appliquer ici la meme expiration admin (30min/12h).
+    if (!isSessionFresh(req, ADMIN_IDLE_TIMEOUT_MS, ADMIN_ABSOLUTE_TIMEOUT_MS)) return false;
     const staffBrand = req.session.staffUser?.brand_id;
     if (staffBrand && staffBrand !== brandId) return false;
     return true;
