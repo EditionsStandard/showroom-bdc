@@ -414,7 +414,9 @@ app.get('/sw.js', (req, res) => {
 // Empêche qu'un ancien shell HTML mis en cache (navigateur ou PWA installée sur
 // l'écran d'accueil) ne masque une nouvelle version déployée du site.
 function sendPage(res, filename, cacheControl) {
-  res.setHeader('Cache-Control', cacheControl || 'no-cache, must-revalidate');
+  // Preserve the stronger no-store policy set by the bearer-route middleware.
+  // Previously a generic HTML response silently weakened it to no-cache.
+  if (cacheControl || !res.hasHeader('Cache-Control')) res.setHeader('Cache-Control', cacheControl || 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', filename));
 }
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -4961,7 +4963,11 @@ app.post('/api/selection/:token/save', publicLimiter, async (req, res) => {
       const [product_id, variant_color, size] = JSON.parse(k);
       return { product_id, variant_color, size, quantity, note: notesByProduct[product_id] || '' };
     });
-    await pool.query('UPDATE agent_selections SET items_json=$1 WHERE token=$2', [JSON.stringify(newItems), req.params.token]);
+    // Close the race with confirmation/expiry: do not update a selection once claimed.
+    const written = await pool.query(
+      "UPDATE agent_selections SET items_json=$1 WHERE token=$2 AND used=false AND expires_at>NOW() AND COALESCE(status,'sent')<>'draft' RETURNING token",
+      [JSON.stringify(newItems), req.params.token]);
+    if (!written.rows.length) return res.status(410).json({ error: 'Cette sélection ne peut plus être modifiée.' });
     res.json({ ok: true });
   } catch(e) { console.error(e); res.status(500).json({ error: 'Erreur serveur' }); }
 });
@@ -7060,9 +7066,29 @@ app.get('/api/portal/search', requireBuyerAuth, async (req, res) => {
 
 app.post('/api/portal/selection-pdf', requireBuyerAuth, async (req, res) => {
   try {
-    const items = req.body.items || [];
-    if (!Array.isArray(items) || !items.length || items.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
+    const submitted = req.body?.items;
+    if (!Array.isArray(submitted) || !submitted.length || submitted.length > 500) return res.status(400).json({ error: 'Sélection invalide' });
+    for (const line of submitted) {
+      if (!line || typeof line.product_id !== 'string' || typeof line.brand_id !== 'string'
+          || !Number.isSafeInteger(Number(line.qty)) || Number(line.qty) < 1 || Number(line.qty) > MAX_LINE_QTY
+          || typeof line.size !== 'string' || line.size.length > 60
+          || typeof line.color !== 'string' || line.color.length > 60) return res.status(400).json({ error: 'Ligne invalide' });
+    }
+    // The downloaded agency-branded PDF must be as authoritative as email and
+    // shared pages: never trust client-supplied wholesale prices or brand labels.
+    const products = await pool.query(
+      'SELECT p.id,p.brand_id,p.reference,p.description,p.color,p.price,p.active,b.name AS brand_name,b.subscription_status FROM products p JOIN brands b ON b.id=p.brand_id WHERE p.id=ANY($1)',
+      [[...new Set(submitted.map(line => line.product_id))]]);
+    const productMap = new Map(products.rows.map(p => [p.id,p]));
     const buyer = req.session.buyerPortal;
+    const lockedBrands = await getLockedBrandIds(buyer.id, [...new Set(submitted.map(line => line.brand_id))]);
+    const items = submitted.map(line => {
+      const p = productMap.get(line.product_id);
+      if (!p || p.brand_id !== line.brand_id || p.active === 0 || p.subscription_status === 'inactive' || lockedBrands.has(line.brand_id)) return null;
+      return {brand_id:p.brand_id,brand_name:p.brand_name,product_id:p.id,reference:p.reference,
+        description:p.description,color:line.color || p.color || '',size:line.size,qty:Number(line.qty),price:Number(p.price)};
+    });
+    if (items.some(line => !line)) return res.status(403).json({ error: 'Produit indisponible pour ce document' });
     const showroomName = await getSetting('showroom_name') || 'Showroom';
     const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
