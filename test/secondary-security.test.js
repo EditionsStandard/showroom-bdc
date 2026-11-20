@@ -2,6 +2,7 @@
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createHmac } = require('node:crypto');
+const bcrypt = require('bcryptjs');
 const { startServer, withDb, id } = require('./helpers');
 
 let server, brandId, productId, buyerId, email, expiredToken, usedToken, activeToken, newToken;
@@ -13,7 +14,8 @@ before(async () => {
   await withDb(server.dbUrl, async db => {
     await db.query("INSERT INTO brands(id,name,subscription_status) VALUES($1,'Security Brand','active')",[brandId]);
     await db.query("INSERT INTO products(id,brand_id,reference,price,active,sizes) VALUES($1,$2,'SKU-SEC',120,1,'S,M')",[productId,brandId]);
-    await db.query("INSERT INTO buyers(id,email,password_hash,name,country,activation_pending) VALUES($1,$2,'test-hash','Security Buyer','FR',false)",[buyerId,email]);
+    const passwordHash = await bcrypt.hash('TestBuyerPassword123!', 10);
+    await db.query("INSERT INTO buyers(id,email,password_hash,name,country,activation_pending) VALUES($1,$2,$3,'Security Buyer','FR',false)",[buyerId,email,passwordHash]);
     await db.query("CREATE TABLE IF NOT EXISTS user_sessions (sid varchar PRIMARY KEY,sess json NOT NULL,expire timestamp NOT NULL)");
     const data=JSON.stringify([{product_id:productId,size:'S',variant_color:'blue',quantity:1}]);
     for(const [token,condition,used,recipient] of [
@@ -83,7 +85,7 @@ test('shared proposal uses canonical server prices and escapes user-written text
   assert.match(r.headers.get('cache-control')||'',/no-store/);
   const html=await r.text();
   assert.match(html,/SKU-SEC/);
-  assert.match(html,/240\\.00/);
+  assert.match(html,/240\.00/);
   assert.ok(!html.includes('<img src=x onerror=alert(42)>'),'user HTML must be escaped');
   assert.ok(!html.includes('FORGED'),'product reference must be resolved by server');
   assert.ok(!html.includes('FAKE'),'brand name must be resolved by server');
@@ -101,7 +103,7 @@ test('selection save and confirm reject oversized quantities without changing st
   const payload={lines:[{product_id:productId,size:'S',quantity:100001}]};
   const r=await post('/api/selection/'+activeToken+'/save',payload);
   assert.equal(r.status,400);
-  const confirmation=await post('/api/selection/'+activeToken+'/confirm',{...payload,password:'whatever',signature:'signed',cgv_accepted:true});
+  const confirmation=await post('/api/selection/'+activeToken+'/confirm',{...payload,password:'TestBuyerPassword123!',signature:'signed',cgv_accepted:true});
   assert.equal(confirmation.status,400);
   await withDb(server.dbUrl,async db=>{
     const row=(await db.query('SELECT used,items_json FROM agent_selections WHERE token=$1',[activeToken])).rows[0];
