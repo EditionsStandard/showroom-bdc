@@ -2,7 +2,7 @@ name: Production dependency advisory inventory
 on:
   push:
     branches:
-      - security/2026-11-dependency-audit-details
+      - main
   pull_request:
     branches:
       - main
@@ -39,6 +39,11 @@ jobs:
             })).sort((a,b) => ({critical:0,high:1,moderate:2,low:3,info:4}[a.severity] ?? 5) - ({critical:0,high:1,moderate:2,low:3,info:4}[b.severity] ?? 5));
           console.log('PRODUCTION VULNERABILITY COUNTS', JSON.stringify(result.metadata?.vulnerabilities || {}));
           console.log('PRODUCTION PACKAGE ADVISORY DETAILS', JSON.stringify(entries, null, 2));
+          const totals = result.metadata?.vulnerabilities || {};
+          if ((totals.high || 0) + (totals.critical || 0) > 0) {
+            console.error('SECURITY GATE FAILED: unresolved high/critical production advisories');
+            process.exitCode = 1;
+          }
           NODE
       - uses: actions/upload-artifact@v4
         if: always()
