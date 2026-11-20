@@ -422,6 +422,20 @@ function refCard(r) {
   </div>`;
 }
 
+// First-time buyers must verify their inbox before a selection can be signed.
+const ACTIVATION_COPY = {
+  fr: {notice:"Pour votre première commande, nous devons vérifier cette adresse email. Un lien sécurisé vous sera envoyé avant la validation de votre sélection.",button:"Vérifier mon adresse email",sent:"Email de vérification envoyé"},
+  en: {notice:"Before your first order, we need to verify this email address. We’ll send you a secure activation link before you confirm your selection.",button:"Verify my email address",sent:"Verification email sent"},
+  it: {notice:"Prima del primo ordine dobbiamo verificare questo indirizzo email. Riceverai un link sicuro per attivare l’account.",button:"Verifica il mio indirizzo email",sent:"Email di verifica inviata"},
+  es: {notice:"Antes de tu primer pedido debemos verificar este correo electrónico. Te enviaremos un enlace seguro de activación.",button:"Verificar mi correo electrónico",sent:"Correo de verificación enviado"},
+  de: {notice:"Vor deiner ersten Bestellung müssen wir diese E-Mail-Adresse bestätigen. Wir senden dir einen sicheren Aktivierungslink.",button:"E-Mail-Adresse bestätigen",sent:"Bestätigungs-E-Mail gesendet"},
+  zh: {notice:"首次下单前，请先验证此电子邮箱。我们会向该邮箱发送安全激活链接。",button:"验证电子邮箱",sent:"验证邮件已发送"},
+  ja: {notice:"初回のご注文前にメールアドレスの確認が必要です。安全な認証リンクをお送りします。",button:"メールアドレスを認証",sent:"認証メールを送信しました"},
+  ko: {notice:"첫 주문 전에 이메일 주소 확인이 필요합니다. 안전한 계정 활성화 링크를 보내드립니다.",button:"이메일 주소 인증",sent:"인증 이메일 전송 완료"},
+  th: {notice:"ก่อนสั่งซื้อครั้งแรก กรุณายืนยันอีเมล เราจะส่งลิงก์เปิดใช้งานบัญชีที่ปลอดภัยให้คุณ",button:"ยืนยันอีเมล",sent:"ส่งอีเมลยืนยันแล้ว"}
+};
+function activationCopy() { return ACTIVATION_COPY[currentLang] || ACTIVATION_COPY.en; }
+
 function render() {
   const b = DATA.brand;
   initCart();
@@ -431,7 +445,7 @@ function render() {
   const accountField = DATA.account_exists
     ? `<p style="font-size:13px;color:var(--soft);margin-bottom:8px">${t('account_exists_msg', esc(DATA.client.email))}</p>
        <div class="field"><label>${t('lbl_pw_existing')}</label><input type="password" id="pw" placeholder="••••••••"></div>`
-    : `<div class="field"><label>${t('lbl_pw_new')}</label><input type="password" id="pw" placeholder="••••••••"></div>`;
+    : `<p style="font-size:13px;color:var(--soft);line-height:1.6">${esc(activationCopy().notice)}</p>`;
   const cgvHtml = b.cgv_text ? `<div class="cgv">${esc(b.cgv_text)}</div>` : '';
 
   document.getElementById('wrap').innerHTML = `
@@ -469,7 +483,13 @@ function render() {
 
   document.getElementById('bar').style.display = 'flex';
   document.getElementById('total-label').textContent = t('total_ht');
-  document.getElementById('confirm-btn').textContent = t('confirm_btn');
+  document.getElementById('confirm-btn').textContent = DATA.account_exists ? t('confirm_btn') : activationCopy().button;
+  if (!DATA.account_exists) {
+    document.getElementById('cgv').closest('.card').style.display = 'none';
+    document.getElementById('sig').closest('.card').style.display = 'none';
+    document.getElementById('buyer-po').closest('.field').style.display = 'none';
+    document.getElementById('buyer-comment').closest('.field').style.display = 'none';
+  }
   document.getElementById('save-progress-btn').textContent = t('save_btn');
   initSig();
   recalc();
@@ -583,23 +603,27 @@ function clearSig() { const c = document.getElementById('sig'); ctx.clearRect(0,
 async function confirmSelection() {
   const msg = document.getElementById('form-msg');
   msg.innerHTML = '';
-  if (!document.getElementById('cgv').checked) { msg.innerHTML = '<span class="err">' + t('err_cgv') + '</span>'; return; }
-  if (!drawn) { msg.innerHTML = '<span class="err">' + t('err_sig') + '</span>'; return; }
-  const lines = selectionLines().map(({product_id,size,quantity,variant_color}) => ({product_id,size,quantity,variant_color}));
-  if (!lines.length) { msg.innerHTML = '<span class="err">' + t('err_qty') + '</span>'; return; }
+  const needsActivation = !DATA.account_exists;
+  if (!needsActivation) {
+    if (!document.getElementById('cgv').checked) { msg.innerHTML = '<span class="err">' + t('err_cgv') + '</span>'; return; }
+    if (!drawn) { msg.innerHTML = '<span class="err">' + t('err_sig') + '</span>'; return; }
+  }
+  const lines = needsActivation ? [] : selectionLines().map(({product_id,size,quantity,variant_color}) => ({product_id,size,quantity,variant_color}));
+  if (!needsActivation && !lines.length) { msg.innerHTML = '<span class="err">' + t('err_qty') + '</span>'; return; }
   const body = {
     password: document.getElementById('pw') ? document.getElementById('pw').value : '',
-    signature: document.getElementById('sig').toDataURL('image/png'),
-    cgv_accepted: 1, buyer_po_number:document.getElementById('buyer-po').value, buyer_comment:document.getElementById('buyer-comment').value,
+    signature: needsActivation ? null : document.getElementById('sig').toDataURL('image/png'),
+    cgv_accepted: needsActivation ? 0 : 1, buyer_po_number:document.getElementById('buyer-po').value, buyer_comment:document.getElementById('buyer-comment').value,
     lines
   };
   const btn = document.getElementById('confirm-btn');
-  btn.disabled = true; btn.textContent = t('validating');
+  btn.disabled = true; btn.textContent = needsActivation ? activationCopy().button : t('validating');
   let r;
   try { r = await fetch('/api/selection/' + TOKEN + '/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); }
-  catch(e) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = t('err_network_confirm'); return; }
+  catch(e) { btn.disabled = false; btn.textContent = needsActivation ? activationCopy().button : t('confirm_btn'); msg.className = 'err'; msg.textContent = t('err_network_confirm'); return; }
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) { btn.disabled = false; btn.textContent = t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
+  if (d.verification_required) { btn.disabled = true; btn.textContent = activationCopy().sent; msg.className = ''; msg.textContent = d.message || activationCopy().notice; return; }
+  if (!r.ok) { btn.disabled = false; btn.textContent = needsActivation ? activationCopy().button : t('confirm_btn'); msg.className = 'err'; msg.textContent = d.error || t('err_generic'); return; }
   document.getElementById('bar').style.display = 'none';
   document.getElementById('wrap').innerHTML = `<div class="msg"><div style="font-size:48px;color:var(--accent);margin-bottom:12px">✓</div><h1>${t('success_title')}</h1><p>${esc(d.order_number || '')} · ${esc(d.brand_name || '')} · ${d.pieces || 0} pcs · ${Number(d.total || 0).toFixed(2)} € HT</p><p>${esc(d.payment_terms || '')}</p><p>${esc(d.delivery_terms || '')}</p><a href="/api/public/orders/${encodeURIComponent(d.order_id)}/pdf?token=${encodeURIComponent(d.pdf_token)}" target="_blank" rel="noopener">PDF</a><p class="sub">${t('success_msg')}</p><button class="bar-btn" onclick="location.href='/portal'" style="margin-top:16px;background:transparent;color:var(--white);border:1px solid var(--line);padding:13px 24px 12px;border-radius:0;font-weight:400;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background .25s,color .25s" onmouseover="this.style.background='var(--white)';this.style.color='var(--black)'" onmouseout="this.style.background='transparent';this.style.color='var(--white)'">${t('success_cta')}</button></div>`;
 }
