@@ -1,0 +1,29 @@
+name: One-time image decoder dependency lock refresh
+on:
+  push:
+    branches:
+      - security/2026-11-image-decoder-migration
+    paths:
+      - package.json
+permissions:
+  contents: write
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Resolve exact package lock using npm
+        run: npm install --package-lock-only --ignore-scripts --audit=false --fund=false
+      - name: Commit lock
+        run: |
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: refresh exact sharp image decoder lock'
+            git push origin HEAD:security/2026-11-image-decoder-migration
+          fi
