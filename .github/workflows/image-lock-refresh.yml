@@ -1,0 +1,25 @@
+name: One-time dependency lock refresh
+on:
+  push:
+    branches:
+      - security/2026-11-image-decoder-migration
+    paths:
+      - package.json
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm install --package-lock-only --ignore-scripts --audit=false --fund=false
+      - run: |
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: prune svg2img dependency lock'
+            git push origin HEAD:security/2026-11-image-decoder-migration
+          fi
