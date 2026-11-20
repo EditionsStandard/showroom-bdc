@@ -179,8 +179,8 @@ test('admin, agent and designer sessions do not confer a buyer identity', async 
 });
 
 test('mobile sample-product rejects data URL with a spoofed image MIME', async () => {
-  const Jimp = require('jimp');
-  const png = await (new Jimp(2, 2, 0xff8844ff)).getBufferAsync(Jimp.MIME_PNG);
+  const sharp = require('sharp');
+  const png = await sharp({create:{width:2,height:2,channels:4,background:{r:255,g:136,b:68,alpha:1}}}).png().toBuffer();
   const response = await request('/api/brands/' + ids.brandA + '/sample-product', owner, 'POST', {
     reference: 'SAMPLE-DATA-MIME-TEST',
     price: 50,

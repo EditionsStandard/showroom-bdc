@@ -3,20 +3,21 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { Readable } = require('node:stream');
-const Jimp = require('jimp');
+const sharp = require('sharp');
 const {
   isVerifiedImage, isVerifiedPdf, createBoundedDiskStorage, removeTemporaryFiles,
   MAX_BULK_BYTES
 } = require('../lib/upload-security');
 
 async function imageFixture(mime) {
-  const image = new Jimp(3, 2, 0xff8844ff);
-  return image.getBufferAsync(mime);
+  const method = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpeg' : null;
+  if (!method) throw new Error('Unsupported fixture format');
+  return sharp({ create: { width: 3, height: 2, channels: 4, background: { r: 255, g: 136, b: 68, alpha: 1 } } })[method]().toBuffer();
 }
 
 test('accepts decodable JPEG and PNG with their real MIME type', async () => {
-  const png = await imageFixture(Jimp.MIME_PNG);
-  const jpeg = await imageFixture(Jimp.MIME_JPEG);
+  const png = await imageFixture('image/png');
+  const jpeg = await imageFixture('image/jpeg');
   assert.equal(await isVerifiedImage(png, 'image/png'), true);
   assert.equal(await isVerifiedImage(jpeg, 'image/jpeg'), true);
 });
@@ -30,14 +31,14 @@ test('keeps valid WebP and GIF product images compatible', async () => {
 });
 
 test('rejects fake MIME and files that merely imitate a signature', async () => {
-  const png = await imageFixture(Jimp.MIME_PNG);
+  const png = await imageFixture('image/png');
   assert.equal(await isVerifiedImage(png, 'image/jpeg'), false);
   assert.equal(await isVerifiedImage(Buffer.from('<script>alert(1)</script>'), 'image/png'), false);
   assert.equal(await isVerifiedImage(png.subarray(0, 36), 'image/png'), false);
 });
 
 test('rejects oversized image dimensions before decoding', async () => {
-  const png = Buffer.from(await imageFixture(Jimp.MIME_PNG));
+  const png = Buffer.from(await imageFixture('image/png'));
   png.writeUInt32BE(12000, 16);
   png.writeUInt32BE(12000, 20);
   assert.equal(await isVerifiedImage(png, 'image/png'), false);

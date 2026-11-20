@@ -85,3 +85,13 @@ test('new share links have 128-bit random suffix and still resolve for invited b
   assert.equal(open.status, 302, 'fresh invitation link should still open');
   assert.equal(open.headers.get('location'), '/commande/' + brandId);
 });
+
+test('sales report PDF renders trusted agency SVG logo without retired svg2img', async () => {
+  const cookie = await staffCookie(0);
+  const r = await fetch(server.baseUrl + '/api/brands/' + brandId + '/sales-report/pdf', { headers: { Cookie: cookie } });
+  assert.equal(r.status, 200, await r.clone().text().then(x=>x.slice(0,150)).catch(()=>'?'));
+  assert.match(r.headers.get('content-type') || '', /application\/pdf/);
+  const bytes = Buffer.from(await r.arrayBuffer());
+  assert.equal(bytes.toString('ascii',0,5), '%PDF-');
+  assert.ok(bytes.length > 900, 'real PDF expected');
+});
