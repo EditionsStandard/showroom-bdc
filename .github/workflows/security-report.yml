@@ -1,0 +1,45 @@
+name: Production dependency advisory inventory
+on:
+  push:
+    branches:
+      - security/2026-11-dependency-audit-details
+  workflow_dispatch:
+jobs:
+  advisory-inventory:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install exact locked production dependencies
+        run: npm ci --ignore-scripts --audit=false
+      - name: Collect production advisory details (informational)
+        run: |
+          npm audit --omit=dev --json > audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const result = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+          const entries = Object.entries(result.vulnerabilities || {})
+            .map(([name, vuln]) => ({
+              package: name,
+              severity: vuln.severity,
+              direct: vuln.isDirect,
+              range: vuln.range,
+              fixAvailable: vuln.fixAvailable,
+              via: (vuln.via || []).map(v => typeof v === 'string' ? v : {
+                title: v.title, url: v.url, range: v.range
+              })
+            })).sort((a,b) => ({critical:0,high:1,moderate:2,low:3,info:4}[a.severity] ?? 5) - ({critical:0,high:1,moderate:2,low:3,info:4}[b.severity] ?? 5));
+          console.log('PRODUCTION VULNERABILITY COUNTS', JSON.stringify(result.metadata?.vulnerabilities || {}));
+          console.log('PRODUCTION PACKAGE ADVISORY DETAILS', JSON.stringify(entries, null, 2));
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-npm-audit-2026-11
+          path: audit.json
+          if-no-files-found: ignore
