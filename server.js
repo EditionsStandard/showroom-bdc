@@ -5734,7 +5734,8 @@ app.get('/api/portal/brands/:brandId/products', requireBuyerAuth, async (req, re
     // groupée (unnest) au lieu d'une par produit, pour ne pas envoyer 50-200
     // INSERT simultanés au pool à chaque chargement de catalogue.
     if (p.rows.length) {
-      pool.query(
+      // Wait for the write so a successful response exposes committed view counts.
+      await pool.query(
         `INSERT INTO product_stats (product_id, views)
          SELECT id, 1 FROM unnest($1::text[]) AS id
          ON CONFLICT (product_id) DO UPDATE SET views = product_stats.views + 1, updated_at = NOW()`,

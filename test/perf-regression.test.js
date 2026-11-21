@@ -58,7 +58,8 @@ test('le tracking des vues catalogue upserte tous les produits en une passe grou
   assert.equal(stats1.rows[0].total, N_PRODUCTS, 'chaque produit doit être à 1 vue après le premier chargement');
 
   // Second chargement — l'upsert groupé doit incrémenter, pas dupliquer.
-  await fetch(server.baseUrl + `/api/portal/brands/${brandId}/products`, { headers: { Cookie: cookie } });
+  const r2 = await fetch(server.baseUrl + `/api/portal/brands/${brandId}/products`, { headers: { Cookie: cookie } });
+  assert.equal(r2.status, 200);
   const stats2 = await withDb(server.dbUrl, c => c.query(
     'SELECT sum(views)::int AS total, count(*)::int AS n FROM product_stats WHERE product_id = ANY($1)',
     [body1.products.map(p => p.id)]
