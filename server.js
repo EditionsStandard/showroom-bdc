@@ -47,6 +47,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 const { pool, init } = require('./database');
+const { buildTermsEvidence, resolveOrderTerms } = require('./lib/order-terms-evidence');
 const engagement = require('./lib/buyer-engagement');
 const commercialMetrics = require('./lib/commercial-metrics');
 const buyerCart = require('./lib/buyer-cart').createBuyerCartService(pool);
@@ -4495,7 +4496,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (!buyer_signature) return { error: 'Signature requise' };
   if (!cgv_accepted) return { error: 'Acceptation des CGV requise' };
 
-  const brandCheck = await pool.query(`SELECT b.name, b.subscription_status, b.moq_qty, b.moq_amount, b.moq_strict,
+  const brandCheck = await pool.query(`SELECT b.name, b.cgv_text, b.subscription_status, b.moq_qty, b.moq_amount, b.moq_strict,
     b.min_per_reference, b.early_access_until, bt.is_privileged, bt.min_per_reference_override,
     COALESCE(NULLIF(bt.payment_terms,''),b.payment_terms) AS payment_terms,
     COALESCE(NULLIF(bt.delivery_terms,''),b.delivery_terms) AS delivery_terms,
@@ -4506,6 +4507,13 @@ async function createOrder({ brand_id, client_name, client_email, client_company
   if (brandCheck.rows[0].subscription_status === 'inactive') {
     return { error: 'subscription_inactive', message: 'Ce showroom est temporairement indisponible.' };
   }
+  // Freeze the current brand / showroom terms before order creation. New orders
+  // retain their original CGV even if the brand edits them in the dashboard.
+  const globalOrderCgv = await getSetting('cgv_text');
+  const commercialEvidence = {
+    ...brandCheck.rows[0],
+    ...buildTermsEvidence({ brandText:brandCheck.rows[0].cgv_text, globalText:globalOrderCgv }),
+  };
 
   // Resolve product prices server-side (never trust client-submitted prices).
   // brand_id=$2 est obligatoire ici : sans ce filtre, un product_id d'une autre
@@ -4611,7 +4619,7 @@ async function createOrder({ brand_id, client_name, client_email, client_company
     await dbClient.query(
       `INSERT INTO orders (id,brand_id,client_name,client_email,client_company,client_phone,client_country,notes,status,buyer_signature,cgv_accepted,buyer_id,order_number,pdf_token,buyer_po_number,commercial_snapshot)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10,$11,$12,$13,$14,$15)`,
-      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber, pdfToken, buyer_po_number.trim(), JSON.stringify(brandCheck.rows[0])]
+      [orderId, brand_id, client_name, client_email, client_company||'', client_phone||'', client_country||'', notes||'', buyer_signature||'', cgv_accepted?1:0, buyer_id||null, orderNumber, pdfToken, buyer_po_number.trim(), JSON.stringify(commercialEvidence)]
     );
     if(selection_token) await dbClient.query("UPDATE agent_selections SET linked_order_id=$1,workflow_stage='buyer_approved',buyer_approved_at=NOW(),buyer_comment=$2 WHERE token=$3 AND used=true",[orderId,buyer_comment,selection_token]);
     for (const line of resolvedLines) {
@@ -8637,7 +8645,7 @@ async function sendOrderEmails(orderId, pdfBuffer) {
   const filename = `PropositionCommande-${order.brand_name.replace(/\s/g,'-')}-${order.order_number || orderId.slice(0,8).toUpperCase()}.pdf`;
   const totalStr = Number(order.order_total||0).toFixed(2).replace('.',',') + ' €';
   const dateStr = new Date(order.created_at).toLocaleDateString(isEn ? 'en-GB' : 'fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-  const cgvText = order.brand_cgv || globalCgv;
+  const cgvText = resolveOrderTerms(order.commercial_snapshot, order.brand_cgv, globalCgv);
 
   const resend = newResendClient(resendKey);
   const fromField = fromAddress || 'showroom@editionsstandard.com';
