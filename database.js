@@ -271,6 +271,7 @@ async function init() {
     "ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS price_retail NUMERIC DEFAULT 0",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_signature TEXT DEFAULT ''",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS cgv_accepted INTEGER DEFAULT 0",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS commercial_snapshot JSONB",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS cgv_text TEXT DEFAULT ''",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_qty INTEGER DEFAULT 0",
     "ALTER TABLE brands ADD COLUMN IF NOT EXISTS moq_amount NUMERIC DEFAULT 0",
