@@ -7967,8 +7967,8 @@ app.post('/api/access-request', publicLimiter, async (req, res) => {
   // Les demandes publiques doivent identifier une boutique avant toute notification.
   const qualification = validateBuyerAccessRequest({ company, website, instagram });
   if (!qualification.ok) return res.status(400).json({ error: qualification.error });
-  // RGPD (P0-11) : acceptation de la politique de confidentialité obligatoire.
-  if (privacy_accepted !== true) return res.status(400).json({ error: 'Vous devez accepter la politique de confidentialité.' });
+  // RGPD : attestation de lecture de la notice, distincte du consentement marketing.
+  if (privacy_accepted !== true) return res.status(400).json({ error: 'Veuillez confirmer avoir pris connaissance de la politique de confidentialité.' });
   // Vérifier doublon (même email en pending)
   const dup = await pool.query("SELECT id FROM access_requests WHERE email=$1 AND status='pending'", [email.toLowerCase().trim()]);
   if (dup.rows.length) return res.status(409).json({ error: 'Une demande est déjà en cours pour cet email.' });
